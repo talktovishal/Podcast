@@ -7,6 +7,7 @@ import {
   errorCodes,
   extractHtmlFromUrl,
   extractTextFromPdf,
+  resolveEpisodeTitle,
   sanitizeLogPayload,
   sha256,
   validateFetchableUrl
@@ -152,6 +153,8 @@ export async function processJob(jobId: string): Promise<boolean> {
       sourceUrl: item.sourceUrl,
       sourceFilePath: item.sourceFilePath
     });
+    const userProvidedTitle = item.title?.trim() || "";
+    const resolvedTitle = userProvidedTitle || resolveEpisodeTitle(extraction.title, extraction.text);
 
     const chunks = chunkText(extraction.text);
     if (chunks.length === 0) {
@@ -189,7 +192,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         where: { itemId: item.id },
         update: {
           guid,
-          title: item.title || extraction.title,
+          title: resolvedTitle,
           description: extraction.text.slice(0, 400),
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
@@ -199,7 +202,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         create: {
           itemId: item.id,
           guid,
-          title: item.title || extraction.title,
+          title: resolvedTitle,
           description: extraction.text.slice(0, 400),
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
@@ -211,6 +214,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       await tx.item.update({
         where: { id: item.id },
         data: {
+          title: resolvedTitle,
           status: "READY",
           textHash: cacheKey,
           errorCode: null,

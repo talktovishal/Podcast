@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DashboardItem = {
   id: string;
@@ -26,25 +26,64 @@ type Props = {
   initialItems: DashboardItem[];
 };
 
+function isPendingStatus(status: string): boolean {
+  const normalized = status.toUpperCase();
+  return normalized === "QUEUED" || normalized === "PROCESSING";
+}
+
+function statusHelpText(status: string): string | null {
+  const normalized = status.toUpperCase();
+  if (normalized === "QUEUED") {
+    return "Queued. Waiting for worker to start processing.";
+  }
+
+  if (normalized === "PROCESSING") {
+    return "Processing in progress. Audio will appear when complete.";
+  }
+
+  if (normalized === "READY") {
+    return "Ready. Episode is available to play and export via RSS.";
+  }
+
+  return null;
+}
+
 export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialItems }: Props) {
   const [items, setItems] = useState(initialItems);
   const [urlInput, setUrlInput] = useState("");
-  const [titleInput, setTitleInput] = useState("");
+  const [pdfTitleInput, setPdfTitleInput] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   }, [items]);
+  const inProgressCount = useMemo(() => newestFirst.filter((item) => isPendingStatus(item.status)).length, [newestFirst]);
 
-  async function refreshItems() {
+  const refreshItems = useCallback(async () => {
     const response = await fetch("/api/seed-demo?refresh=items");
     if (!response.ok) {
       return;
     }
     const payload = (await response.json()) as { items: DashboardItem[] };
     setItems(payload.items);
-  }
+  }, []);
+
+  useEffect(() => {
+    if (readOnly || inProgressCount === 0) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void refreshItems();
+    }, 2500);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [inProgressCount, readOnly, refreshItems]);
 
   async function submitUrl() {
     if (!urlInput) return;
@@ -57,7 +96,7 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
         headers: {
           "content-type": "application/json"
         },
-        body: JSON.stringify({ url: urlInput, title: titleInput || undefined })
+        body: JSON.stringify({ url: urlInput })
       });
       const json = await response.json();
 
@@ -66,24 +105,27 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
         return;
       }
 
-      setStatusMessage("URL queued successfully.");
+      setStatusMessage("URL received. Processing has started and status will update automatically.");
       setUrlInput("");
-      setTitleInput("");
       await refreshItems();
     } finally {
       setIsBusy(false);
     }
   }
 
-  async function submitPdf(file: File) {
+  async function submitPdf() {
+    if (!pdfFile) {
+      return;
+    }
+
     setIsBusy(true);
     setStatusMessage(null);
 
     try {
       const formData = new FormData();
-      formData.set("file", file);
-      if (titleInput) {
-        formData.set("title", titleInput);
+      formData.set("file", pdfFile);
+      if (pdfTitleInput.trim()) {
+        formData.set("title", pdfTitleInput.trim());
       }
 
       const response = await fetch("/api/items/pdf", {
@@ -97,7 +139,12 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
         return;
       }
 
-      setStatusMessage("PDF queued successfully.");
+      setStatusMessage("PDF uploaded. Processing has started and status will update automatically.");
+      setPdfFile(null);
+      setPdfTitleInput("");
+      if (pdfInputRef.current) {
+        pdfInputRef.current.value = "";
+      }
       await refreshItems();
     } finally {
       setIsBusy(false);
@@ -171,36 +218,74 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
       </section>
 
       {!readOnly ? (
-        <section className="card grid gap-4 p-5 md:grid-cols-[1fr_auto]">
-          <div className="space-y-3">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Optional title</span>
-              <input className="w-full rounded-lg border px-3 py-2" value={titleInput} onChange={(event) => setTitleInput(event.target.value)} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Article URL</span>
-              <input className="w-full rounded-lg border px-3 py-2" placeholder="https://example.com/article" value={urlInput} onChange={(event) => setUrlInput(event.target.value)} />
-            </label>
-            <button className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" disabled={isBusy} onClick={submitUrl}>
-              Submit URL
-            </button>
-          </div>
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Upload text-based PDF</p>
-            <input
-              className="block w-full text-sm"
-              type="file"
-              accept="application/pdf"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) submitPdf(file);
-              }}
-            />
+        <section className="card p-5">
+          <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Add New Episode</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Choose one source type per episode: URL or PDF.</p>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border p-4">
+              <h3 className="font-semibold">Option 1: Submit URL</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Paste an article URL. ListenLater extracts the page title automatically, or infers one from content.
+              </p>
+
+              <label className="mt-3 block">
+                <span className="mb-1 block text-sm font-medium">Article URL</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  placeholder="https://example.com/article"
+                  value={urlInput}
+                  onChange={(event) => setUrlInput(event.target.value)}
+                />
+              </label>
+
+              <button
+                className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                disabled={isBusy || !urlInput.trim()}
+                onClick={submitUrl}
+              >
+                Submit URL
+              </button>
+            </article>
+
+            <article className="rounded-xl border p-4">
+              <h3 className="font-semibold">Option 2: Upload PDF</h3>
+              <p className="mt-1 text-sm text-[var(--muted)]">Upload one text-based PDF file. OCR for scanned PDFs is not supported yet.</p>
+
+              <label className="mt-3 block">
+                <span className="mb-1 block text-sm font-medium">Optional PDF title</span>
+                <input className="w-full rounded-lg border px-3 py-2" value={pdfTitleInput} onChange={(event) => setPdfTitleInput(event.target.value)} />
+              </label>
+
+              <input
+                ref={pdfInputRef}
+                className="mt-3 block w-full text-sm"
+                type="file"
+                accept="application/pdf"
+                onChange={(event) => {
+                  setPdfFile(event.target.files?.[0] ?? null);
+                }}
+              />
+              {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
+
+              <button
+                className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                disabled={isBusy || !pdfFile}
+                onClick={submitPdf}
+              >
+                Upload PDF
+              </button>
+            </article>
           </div>
         </section>
       ) : null}
 
       {statusMessage ? <p className="text-sm text-[var(--muted)]">{statusMessage}</p> : null}
+      {inProgressCount > 0 ? (
+        <p className="rounded-lg border border-[#fce8b2] bg-[#fff6d9] px-3 py-2 text-sm text-[#6f5200]">
+          Processing in progress for {inProgressCount} item{inProgressCount === 1 ? "" : "s"}. This list refreshes automatically.
+        </p>
+      ) : null}
 
       <section className="card p-5">
         <h2 className="mb-4 text-lg font-semibold">Recent items</h2>
@@ -212,7 +297,10 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
 
           {newestFirst.map((item) => {
             const badgeClass = item.status.toLowerCase();
+            const statusText = item.status.toUpperCase();
             const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
+            const helpText = statusHelpText(item.status);
+            const showRetry = statusText === "FAILED";
 
             return (
               <article key={item.id} className="rounded-xl border p-4">
@@ -223,6 +311,7 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
                 </div>
 
                 <h3 className="font-semibold">{item.title || "Untitled item"}</h3>
+                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
                 {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
 
                 {mediaUrl ? (
@@ -236,9 +325,11 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
 
                 {!readOnly ? (
                   <div className="mt-3 flex gap-2">
-                    <button className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => retryItem(item.id)}>
-                      Retry
-                    </button>
+                    {showRetry ? (
+                      <button className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => retryItem(item.id)}>
+                        Retry
+                      </button>
+                    ) : null}
                     <button className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => deleteItem(item.id)}>
                       Delete
                     </button>

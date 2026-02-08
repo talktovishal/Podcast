@@ -13,3 +13,4 @@ export * from "./storage/localStorage";
 export * from "./logging/jobEvent";
 export * from "./rss/buildFeed";
 export * from "./utils/hash";
+export * from "./utils/title";

@@ -170,3 +170,31 @@ This file tracks concise session summaries and the exact user prompts that guide
   - Added admin bootstrap caveat: changing `ADMIN_PASSWORD` later does not automatically reset existing DB credentials.
 - User prompts:
   - "put this in the documentation + readme please"
+
+## Entry 011
+- Date: 2026-02-08
+- Summary:
+  - Updated dashboard submission UX to remove URL/PDF confusion.
+  - URL flow changes:
+    - removed manual title input for URL submissions in UI
+    - URL submit now sends only URL payload
+    - worker now auto-resolves episode/item title from extracted page title, with content-based fallback when title is missing/generic
+  - PDF flow changes:
+    - split into a clearly separate "Option 2: Upload PDF" panel
+    - PDF retains optional title field (PDF-only)
+    - upload is now explicit via `Upload PDF` button after file selection
+  - Processing visibility improvements:
+    - added in-progress banner showing count of queued/processing items
+    - added automatic polling refresh while work is in progress
+    - added per-item status helper text for queued/processing/ready states
+    - retry button is now shown only for failed items
+  - Added shared title utility and tests:
+    - `packages/core/src/utils/title.ts`
+    - `packages/core/tests/title.test.ts`
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Okay, I'm testing it now. First thing, when you, in the upload page, right now, you know, it has this optional title and below that the title URL, and then on the right, the text file. It's confusing. You know, either somebody will put a title or will upload the file. What I want you to do is very specific. Right now it's very confusing. If somebody's uploading a title, you should extract the title from the web page. The web page probably has a title, so extract it from there or infer one from the content. And the second is, um, in terms of the PDF, make it very clear that you are either uploading the, giving the URL or doing the PDF. It's confusing. Finally, there should be some indication um on that page, which says that the processing is in progress or at least uh you know, say something that in progress because right now I just see retry and delete the moment I have submitted a URL and I have no idea whether something has already started or not. So that's very confusing. So fix those things, please."

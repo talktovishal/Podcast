@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
 
     const item = await enqueueItem({
       userId: user.id,
-      title: payload.title,
       sourceType: "URL",
       sourceUrl: payload.url
     });
