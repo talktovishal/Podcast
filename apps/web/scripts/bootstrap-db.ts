@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS "Item" (
   "sourceType" TEXT NOT NULL,
   "sourceUrl" TEXT,
   "sourceFilePath" TEXT,
+  "sourceHtml" TEXT,
+  "sourceCapturedAt" DATETIME,
   "status" TEXT NOT NULL DEFAULT 'QUEUED',
   "errorCode" TEXT,
   "errorMessage" TEXT,
@@ -138,6 +140,46 @@ CREATE TABLE IF NOT EXISTS "DemoExtractionTrace" (
   FOREIGN KEY ("itemId") REFERENCES "Item" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "DemoExtractionTrace_userId_updatedAt_idx" ON "DemoExtractionTrace" ("userId", "updatedAt");
+
+CREATE TABLE IF NOT EXISTS "OAuthIdentity" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "provider" TEXT NOT NULL,
+  "providerUserId" TEXT NOT NULL,
+  "emailAtLink" TEXT,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL,
+  FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "OAuthIdentity_provider_providerUserId_key" ON "OAuthIdentity" ("provider", "providerUserId");
+CREATE INDEX IF NOT EXISTS "OAuthIdentity_userId_provider_idx" ON "OAuthIdentity" ("userId", "provider");
+
+CREATE TABLE IF NOT EXISTS "ExtensionConnectCode" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "codeHash" TEXT NOT NULL UNIQUE,
+  "label" TEXT,
+  "expiresAt" DATETIME NOT NULL,
+  "consumedAt" DATETIME,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "ExtensionConnectCode_userId_createdAt_idx" ON "ExtensionConnectCode" ("userId", "createdAt");
+
+CREATE TABLE IF NOT EXISTS "ExtensionToken" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "tokenHash" TEXT NOT NULL UNIQUE,
+  "tokenValue" TEXT NOT NULL UNIQUE,
+  "label" TEXT,
+  "scope" TEXT NOT NULL DEFAULT 'ingest:html_snapshot',
+  "expiresAt" DATETIME,
+  "revokedAt" DATETIME,
+  "lastUsedAt" DATETIME,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "ExtensionToken_userId_createdAt_idx" ON "ExtensionToken" ("userId", "createdAt");
 `;
 
 function resolveSqliteBinary(): string {
@@ -189,6 +231,26 @@ function ensureUserColumns(sqliteBin: string): void {
   }
 }
 
+function ensureItemColumns(sqliteBin: string): void {
+  const tableInfo = runSql(sqliteBin, dbPath, `PRAGMA table_info("Item");`)
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  const existingColumns = new Set(tableInfo.map((line) => line.split("|")[1]).filter(Boolean));
+
+  const requiredColumns: Array<{ name: string; sqlType: string }> = [
+    { name: "sourceHtml", sqlType: "TEXT" },
+    { name: "sourceCapturedAt", sqlType: "DATETIME" }
+  ];
+
+  for (const column of requiredColumns) {
+    if (existingColumns.has(column.name)) {
+      continue;
+    }
+    runSql(sqliteBin, dbPath, `ALTER TABLE "Item" ADD COLUMN "${column.name}" ${column.sqlType};`);
+  }
+}
+
 async function main() {
   await mkdir(dirname(dbPath), { recursive: true });
   const sqlPath = resolve(process.cwd(), ".data/bootstrap.sql");
@@ -204,6 +266,7 @@ async function main() {
   }
 
   ensureUserColumns(sqliteBin);
+  ensureItemColumns(sqliteBin);
   await access(dbPath, constants.F_OK);
   // eslint-disable-next-line no-console
   console.log(`DB bootstrap complete: ${dbPath}`);

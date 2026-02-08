@@ -69,6 +69,10 @@ Planned source-type extension:
 5. Extension calls `POST /api/items/html-snapshot` with token.
 6. Worker extracts from provided HTML snapshot and proceeds through normal pipeline.
 
+Current implementation status:
+- Steps 1-6 above are implemented in baseline form.
+- Remaining hardening work is tracked in `M28`-`M34` (policy enforcement depth, UX, CI matrix, operations, lifecycle controls).
+
 Policy constraints:
 - Capture is limited to content already rendered to the user in browser.
 - No credential/session forwarding from extension to backend.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type Mode = "login" | "signup";
@@ -14,8 +14,43 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthProviders, setOauthProviders] = useState<{ google: boolean; apple: boolean } | null>(null);
 
   const oauthError = useMemo(() => searchParams.get("oauth_error"), [searchParams]);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/auth/providers");
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as {
+          providers?: {
+            google?: { configured?: boolean };
+            apple?: { configured?: boolean };
+          };
+        };
+        if (!active) {
+          return;
+        }
+        setOauthProviders({
+          google: Boolean(payload.providers?.google?.configured),
+          apple: Boolean(payload.providers?.apple?.configured)
+        });
+      } catch {
+        // Keep local auth usable even if provider status probe fails.
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const googleConfigured = oauthProviders?.google ?? false;
+  const appleConfigured = oauthProviders?.apple ?? false;
 
   async function submit() {
     setIsLoading(true);
@@ -102,13 +137,26 @@ export default function LoginPage() {
             <div className="pt-3">
               <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted)]">OAuth</p>
               <div className="grid grid-cols-2 gap-2">
-                <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/google/start">
-                  Continue with Google
-                </a>
-                <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/apple/start">
-                  Continue with Apple
-                </a>
+                {googleConfigured ? (
+                  <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/google/start">
+                    Continue with Google
+                  </a>
+                ) : (
+                  <button className="rounded-lg border px-3 py-2 text-center text-sm text-[var(--muted)] opacity-60" disabled>
+                    Google unavailable
+                  </button>
+                )}
+                {appleConfigured ? (
+                  <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/apple/start">
+                    Continue with Apple
+                  </a>
+                ) : (
+                  <button className="rounded-lg border px-3 py-2 text-center text-sm text-[var(--muted)] opacity-60" disabled>
+                    Apple unavailable
+                  </button>
+                )}
               </div>
+              {!oauthProviders ? <p className="mt-2 text-xs text-[var(--muted)]">Checking provider availability…</p> : null}
             </div>
           </div>
         </section>

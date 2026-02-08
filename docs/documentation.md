@@ -37,13 +37,12 @@ Currently available:
 - URL and PDF ingestion from web dashboard.
 - Private feed + share links + admin dashboard.
 - Kokoro-first voice settings and preview.
+- Chrome extension connect/capture flow:
+  - generate one-time connect code from `/app`
+  - exchange in extension popup for extension token
+  - capture current page HTML and enqueue as `HTML_SNAPSHOT`.
 
 Planned next features (see `docs/plans.md`):
-- `M23`: OAuth hardening completion (Google + Apple).
-- `M24`: extension connect-code auth model.
-- `M25`: HTML snapshot ingest API (`POST /api/items/html-snapshot`).
-- `M26`: worker extraction mode for `HTML_SNAPSHOT`.
-- `M27`: Chrome extension MV3 capture flow.
 - `M28`: extension security/compliance hardening and demo updates.
 - `M29`: OAuth + extension end-to-end regression matrix in CI.
 - `M30`: extension onboarding and reconnect UX improvements.

@@ -6,7 +6,12 @@ import { env } from "./env";
 import { prisma } from "./prisma";
 
 const SESSION_COOKIE = "listenlater_session";
-const OAUTH_STATE_COOKIE = "listenlater_oauth_state";
+const OAUTH_STATE_COOKIE_PREFIX = "listenlater_oauth_state";
+const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 10);
+const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 30);
+const OAUTH_PLACEHOLDER_DOMAIN = "oauth.listenlater.local";
+
+export type OAuthProvider = "google" | "apple";
 
 export type AuthUser = {
   id: string;
@@ -19,10 +24,33 @@ function normalizeRole(role: string): "USER" | "ADMIN" {
   return role === "ADMIN" ? "ADMIN" : "USER";
 }
 
+function authUserFromDbUser(user: { id: string; email: string; name: string | null; role: string }): AuthUser {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: normalizeRole(user.role)
+  };
+}
+
 function sessionExpiryDate(): Date {
   const expires = new Date();
   expires.setDate(expires.getDate() + env.sessionTtlDays);
   return expires;
+}
+
+function extensionConnectCodeExpiryDate(): Date {
+  return new Date(Date.now() + EXTENSION_CONNECT_CODE_TTL_MINUTES * 60_000);
+}
+
+function extensionTokenExpiryDate(): Date {
+  const expires = new Date();
+  expires.setDate(expires.getDate() + EXTENSION_TOKEN_TTL_DAYS);
+  return expires;
+}
+
+function oauthStateCookieName(provider: OAuthProvider): string {
+  return `${OAUTH_STATE_COOKIE_PREFIX}_${provider}`;
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -119,12 +147,7 @@ async function getAuthUserFromToken(token: string): Promise<AuthUser | null> {
     return null;
   }
 
-  return {
-    id: session.user.id,
-    email: session.user.email,
-    name: session.user.name,
-    role: normalizeRole(session.user.role)
-  };
+  return authUserFromDbUser(session.user);
 }
 
 export async function requireAuthUser(request: NextRequest): Promise<AuthUser> {
@@ -186,12 +209,7 @@ export async function getUserByShareToken(plain: string): Promise<AuthUser | nul
     return null;
   }
 
-  return {
-    id: share.user.id,
-    email: share.user.email,
-    name: share.user.name,
-    role: normalizeRole(share.user.role)
-  };
+  return authUserFromDbUser(share.user);
 }
 
 export async function getUserByFeedToken(plain: string): Promise<AuthUser | null> {
@@ -205,17 +223,12 @@ export async function getUserByFeedToken(plain: string): Promise<AuthUser | null
     return null;
   }
 
-  return {
-    id: feedToken.user.id,
-    email: feedToken.user.email,
-    name: feedToken.user.name,
-    role: normalizeRole(feedToken.user.role)
-  };
+  return authUserFromDbUser(feedToken.user);
 }
 
-export function setOAuthStateCookie(response: NextResponse, state: string): void {
+export function setOAuthStateCookie(response: NextResponse, provider: OAuthProvider, state: string): void {
   response.cookies.set({
-    name: OAUTH_STATE_COOKIE,
+    name: oauthStateCookieName(provider),
     value: state,
     httpOnly: true,
     sameSite: "lax",
@@ -225,17 +238,218 @@ export function setOAuthStateCookie(response: NextResponse, state: string): void
   });
 }
 
-export function getOAuthStateFromRequest(request: NextRequest): string | null {
-  return request.cookies.get(OAUTH_STATE_COOKIE)?.value ?? null;
+export function getOAuthStateFromRequest(request: NextRequest, provider: OAuthProvider): string | null {
+  return request.cookies.get(oauthStateCookieName(provider))?.value ?? null;
 }
 
-export function clearOAuthStateCookie(response: NextResponse): void {
+export function clearOAuthStateCookie(response: NextResponse, provider: OAuthProvider): void {
   response.cookies.set({
-    name: OAUTH_STATE_COOKIE,
+    name: oauthStateCookieName(provider),
     value: "",
     expires: new Date(0),
     path: "/"
   });
+}
+
+export function isOAuthProviderConfigured(provider: OAuthProvider): boolean {
+  if (provider === "google") {
+    return Boolean(env.googleClientId && env.googleClientSecret);
+  }
+
+  return Boolean(env.appleClientId && env.appleClientSecret);
+}
+
+function normalizeOAuthEmail(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || !normalized.includes("@")) {
+    return null;
+  }
+  return normalized;
+}
+
+function fallbackOAuthEmail(provider: OAuthProvider, providerUserId: string): string {
+  return `${provider}-${providerUserId}@${OAUTH_PLACEHOLDER_DOMAIN}`;
+}
+
+export async function findOrCreateOAuthUser(input: {
+  provider: OAuthProvider;
+  providerUserId: string;
+  email?: string | null;
+  name?: string | null;
+}): Promise<{ id: string; email: string; name: string | null; role: string }> {
+  const normalizedEmail = normalizeOAuthEmail(input.email);
+
+  return prisma.$transaction(async (tx) => {
+    const existingIdentity = await tx.oAuthIdentity.findUnique({
+      where: {
+        provider_providerUserId: {
+          provider: input.provider,
+          providerUserId: input.providerUserId
+        }
+      },
+      include: {
+        user: true
+      }
+    });
+
+    if (existingIdentity) {
+      const updateData: { name?: string; email?: string } = {};
+      if (input.name?.trim()) {
+        updateData.name = input.name.trim();
+      }
+      if (normalizedEmail && existingIdentity.user.email.endsWith(`@${OAUTH_PLACEHOLDER_DOMAIN}`)) {
+        updateData.email = normalizedEmail;
+      }
+
+      const user =
+        Object.keys(updateData).length > 0
+          ? await tx.user.update({
+              where: { id: existingIdentity.userId },
+              data: updateData
+            })
+          : existingIdentity.user;
+      return user;
+    }
+
+    const userByEmail = normalizedEmail ? await tx.user.findUnique({ where: { email: normalizedEmail } }) : null;
+    const user =
+      userByEmail ??
+      (await tx.user.create({
+        data: {
+          email: normalizedEmail ?? fallbackOAuthEmail(input.provider, input.providerUserId),
+          name: input.name?.trim() || null,
+          role: "USER"
+        }
+      }));
+
+    await tx.oAuthIdentity.create({
+      data: {
+        userId: user.id,
+        provider: input.provider,
+        providerUserId: input.providerUserId,
+        emailAtLink: normalizedEmail
+      }
+    });
+
+    return user;
+  });
+}
+
+function getBearerToken(request: NextRequest): string | null {
+  const authorization = request.headers.get("authorization")?.trim();
+  if (!authorization) {
+    return null;
+  }
+
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+export async function getAuthUserFromExtensionTokenRequest(request: NextRequest): Promise<AuthUser | null> {
+  const token = getBearerToken(request);
+  if (!token) {
+    return null;
+  }
+
+  const tokenHash = hashIncomingToken(token);
+  const extensionToken = await prisma.extensionToken.findUnique({
+    where: { tokenHash },
+    include: { user: true }
+  });
+
+  if (!extensionToken || extensionToken.revokedAt) {
+    return null;
+  }
+
+  if (extensionToken.expiresAt && extensionToken.expiresAt.getTime() < Date.now()) {
+    return null;
+  }
+
+  void prisma.extensionToken
+    .update({
+      where: { id: extensionToken.id },
+      data: { lastUsedAt: new Date() }
+    })
+    .catch(() => {
+      // Best-effort usage tracking.
+    });
+
+  return authUserFromDbUser(extensionToken.user);
+}
+
+export async function createExtensionConnectCodeForUser(
+  userId: string,
+  label?: string
+): Promise<{ connectCode: string; expiresAt: Date }> {
+  const code = createSecretToken();
+  const expiresAt = extensionConnectCodeExpiryDate();
+
+  await prisma.extensionConnectCode.create({
+    data: {
+      userId,
+      codeHash: code.hash,
+      label: label?.trim() || null,
+      expiresAt
+    }
+  });
+
+  return { connectCode: code.plain, expiresAt };
+}
+
+export async function exchangeExtensionConnectCode(input: {
+  connectCode: string;
+  label?: string;
+}): Promise<{ token: string; expiresAt: Date; user: AuthUser }> {
+  const codeHash = hashIncomingToken(input.connectCode);
+  const now = new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const connectCode = await tx.extensionConnectCode.findUnique({
+      where: { codeHash },
+      include: { user: true }
+    });
+
+    if (!connectCode || connectCode.consumedAt || connectCode.expiresAt.getTime() < now.getTime()) {
+      return null;
+    }
+
+    await tx.extensionConnectCode.update({
+      where: { id: connectCode.id },
+      data: {
+        consumedAt: now
+      }
+    });
+
+    const token = createSecretToken();
+    const expiresAt = extensionTokenExpiryDate();
+
+    await tx.extensionToken.create({
+      data: {
+        userId: connectCode.userId,
+        tokenHash: token.hash,
+        tokenValue: token.plain,
+        label: input.label?.trim() || connectCode.label || "chrome-extension",
+        scope: "ingest:html_snapshot",
+        expiresAt
+      }
+    });
+
+    return {
+      token: token.plain,
+      expiresAt,
+      user: authUserFromDbUser(connectCode.user)
+    };
+  });
+
+  if (!result) {
+    throw new Error("INVALID_CONNECT_CODE");
+  }
+
+  return result;
 }
 
 export async function requestIpAddress(): Promise<string> {

@@ -3,9 +3,11 @@ import { prisma } from "./prisma";
 export async function enqueueItem(input: {
   userId: string;
   title?: string;
-  sourceType: "URL" | "PDF";
+  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
   sourceUrl?: string;
   sourceFilePath?: string;
+  sourceHtml?: string;
+  sourceCapturedAt?: Date;
 }) {
   return prisma.item.create({
     data: {
@@ -14,6 +16,8 @@ export async function enqueueItem(input: {
       sourceType: input.sourceType,
       sourceUrl: input.sourceUrl,
       sourceFilePath: input.sourceFilePath,
+      sourceHtml: input.sourceHtml,
+      sourceCapturedAt: input.sourceCapturedAt,
       status: "QUEUED",
       jobs: {
         create: {

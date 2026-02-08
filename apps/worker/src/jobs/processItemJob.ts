@@ -6,6 +6,7 @@ import {
   chunkText,
   errorCodes,
   extractHtmlFromUrl,
+  extractHtmlSnapshot,
   extractTextFromPdf,
   normalizeTtsSelection,
   resolveEpisodeTitle,
@@ -154,6 +155,7 @@ async function extractItemText(item: {
   sourceType: string;
   sourceUrl: string | null;
   sourceFilePath: string | null;
+  sourceHtml: string | null;
   logs: ExtractionLogEntry[];
 }) {
   if (item.sourceType === "URL") {
@@ -179,6 +181,32 @@ async function extractItemText(item: {
   }
 
   if (!item.sourceFilePath) {
+    if (item.sourceType === "HTML_SNAPSHOT") {
+      if (!item.sourceHtml?.trim()) {
+        throw new AppError(errorCodes.INVALID_INPUT, "Missing captured HTML snapshot", 400);
+      }
+
+      appendExtractionLog(item.logs, "extract:snapshot", "Parsing captured HTML snapshot", {
+        sourceUrl: item.sourceUrl || "about:blank",
+        htmlBytes: Buffer.byteLength(item.sourceHtml, "utf8")
+      });
+      const extracted = extractHtmlSnapshot({
+        html: item.sourceHtml,
+        url: item.sourceUrl || undefined
+      });
+      const extractedTitle = extracted.title ?? "";
+      appendExtractionLog(item.logs, "extract:snapshot", "Snapshot extraction complete", {
+        extractedTitleLength: extractedTitle.length,
+        extractedTextLength: extracted.text.length
+      });
+
+      return {
+        title: extractedTitle,
+        text: extracted.text,
+        sourceLabel: item.sourceUrl || "Captured browser page"
+      };
+    }
+
     throw new AppError(errorCodes.INVALID_INPUT, "Missing source PDF path", 400);
   }
 
@@ -321,7 +349,12 @@ export async function processJob(jobId: string): Promise<boolean> {
   const item = claimResult.item;
   const extractionLogs: ExtractionLogEntry[] = [];
   const isDemoUser = (item.user?.email ?? "").toLowerCase() === workerEnv.demoEmail.toLowerCase();
-  let sourceLabelForDiagnostics = item.sourceType === "URL" ? item.sourceUrl || "URL source" : "Uploaded PDF";
+  let sourceLabelForDiagnostics =
+    item.sourceType === "URL"
+      ? item.sourceUrl || "URL source"
+      : item.sourceType === "HTML_SNAPSHOT"
+        ? item.sourceUrl || "Captured browser page"
+        : "Uploaded PDF";
   let extractedTextForDiagnostics = "";
 
   await appendJobEvent({
@@ -343,6 +376,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
       sourceFilePath: item.sourceFilePath,
+      sourceHtml: item.sourceHtml,
       logs: extractionLogs
     });
     sourceLabelForDiagnostics = extraction.sourceLabel;
@@ -443,6 +477,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           title: resolvedTitle,
           status: "READY",
           textHash: cacheKey,
+          sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
           errorCode: null,
           errorMessage: null
         }

@@ -40,18 +40,13 @@
 - Private RSS via `/rss/<feed_token>.xml`.
 
 ## Upcoming implementation sequence (next)
-1. `M23` OAuth hardening completion (Google + Apple, env-gated production-ready).
-2. `M24` extension auth model (connect-code -> extension token exchange).
-3. `M25` HTML snapshot ingest endpoint (`POST /api/items/html-snapshot`).
-4. `M26` worker extraction path for `HTML_SNAPSHOT`.
-5. `M27` Chrome extension MV3 capture + submit UX.
-6. `M28` extension security/compliance hardening + demo script updates.
-7. `M29` OAuth + extension CI integration matrix and regression gates.
-8. `M30` extension onboarding/reconnect UX hardening.
-9. `M31` extraction quality guardrails for noisy/authenticated HTML.
-10. `M32` operational observability baseline + admin surfacing.
-11. `M33` release certification matrix for Apple Podcasts + secondary app.
-12. `M34` security/data lifecycle hardening for diagnostics and extension tokens.
+1. `M28` extension security/compliance hardening + demo script updates.
+2. `M29` OAuth + extension CI integration matrix and regression gates.
+3. `M30` extension onboarding/reconnect UX hardening.
+4. `M31` extraction quality guardrails for noisy/authenticated HTML.
+5. `M32` operational observability baseline + admin surfacing.
+6. `M33` release certification matrix for Apple Podcasts + secondary app.
+7. `M34` security/data lifecycle hardening for diagnostics and extension tokens.
 
 ## Export artifacts
 - Run `npm run export`.

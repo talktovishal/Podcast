@@ -497,3 +497,49 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Yes, please go ahead and finish the implementation of all the milestones."
   - "new milestones"
+
+## Entry 022
+- Date: 2026-02-08
+- Summary:
+  - Implemented OAuth hardening + extension runtime flow across web, worker, core, and standalone extension package.
+  - OAuth improvements:
+    - provider availability gating endpoint (`GET /api/auth/providers`)
+    - provider-specific state cookie handling and clearer callback error mapping
+    - provider-subject identity linking (`OAuthIdentity`) to avoid unsafe email-only mapping
+    - login UI now reflects Google/Apple availability state
+  - Extension auth + ingest:
+    - added one-time connect code endpoint: `POST /api/auth/extension/connect-code`
+    - added exchange endpoint: `POST /api/auth/extension/exchange`
+    - token-scoped extension auth support in backend
+    - added HTML snapshot ingest endpoint: `POST /api/items/html-snapshot`
+  - Worker/pipeline updates:
+    - new source type support: `HTML_SNAPSHOT`
+    - extraction path now handles captured raw HTML without backend URL refetch
+    - snapshot HTML is cleared after successful processing to reduce retained sensitive data
+  - New standalone Chrome extension package:
+    - created `apps/extension/` with MV3 manifest, popup UI, connect/exchange flow, and capture-submit behavior
+    - extension can be loaded directly as unpacked app for packaging/publishing
+  - Data model and bootstrap updates:
+    - added Prisma models: `OAuthIdentity`, `ExtensionConnectCode`, `ExtensionToken`
+    - extended `Item` with `sourceHtml` + `sourceCapturedAt`
+    - updated SQLite bootstrap script for new tables/columns
+  - Tests added/updated:
+    - `apps/web/tests/auth-extension.integration.test.ts`
+      - verifies OAuth identity linking behavior
+      - verifies connect code exchange, replay rejection, HTML snapshot submission, worker processing, and RSS item presence
+    - `packages/core/tests/domain.test.ts`
+      - validates new schemas and `html_snapshot` source type
+    - `packages/core/tests/extract.test.ts`
+      - adds `extractHtmlSnapshot` no-network path coverage
+  - Package/runtime reliability improvements:
+    - web/worker scripts now run `prisma:generate` before lint/typecheck/test/build
+  - Validation completed:
+    - `npm run lint`
+    - `npm run test`
+    - `npm run typecheck`
+    - `npm run build`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<demo_feed_token>.xml"` (PASS)
+- User prompts:
+  - "that was a typo. what i wnated to say is it's good you have made the doc changes. now go ahead and make the runtime code changes, tests etc"
+  - "you will also build the chrome extention correct? please build it in a separate folder so that it will be easy for me to package and publish it to the chrome web store"
+  - "pls make sure that someone will be able to login to the extension so that they can connect the accounts and when they upload something it shows up in their podcast feed"

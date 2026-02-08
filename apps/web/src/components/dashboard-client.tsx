@@ -110,6 +110,8 @@ export function DashboardClient({
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
+  const [extensionConnectCode, setExtensionConnectCode] = useState<string | null>(null);
+  const [extensionCodeExpiresAt, setExtensionCodeExpiresAt] = useState<string | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const newestFirst = useMemo(() => {
@@ -262,6 +264,31 @@ export function DashboardClient({
     setStatusMessage("Read-only share URL copied to clipboard.");
   }
 
+  async function generateExtensionConnectCode() {
+    setIsBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/auth/extension/connect-code", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ label: "chrome-extension" })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not generate extension connect code.");
+        return;
+      }
+
+      setExtensionConnectCode(json.connect_code);
+      setExtensionCodeExpiresAt(json.expires_at);
+      setStatusMessage("Extension connect code generated. Paste it into the Chrome extension popup.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function retryItem(id: string) {
     await fetch(`/api/items/${id}/retry`, { method: "POST" });
     await refreshItems();
@@ -351,6 +378,37 @@ export function DashboardClient({
           ) : null}
         </div>
       </section>
+
+      {!readOnly ? (
+        <section className="card p-5">
+          <h2 className="text-base font-semibold">Chrome Extension</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Generate a one-time connect code, then paste it into the extension popup to authorize page capture.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button className="rounded-lg border px-3 py-1.5 text-sm" onClick={generateExtensionConnectCode} disabled={isBusy}>
+              Generate connect code
+            </button>
+            {extensionConnectCode ? (
+              <button
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                onClick={() => navigator.clipboard.writeText(extensionConnectCode)}
+              >
+                Copy code
+              </button>
+            ) : null}
+          </div>
+          {extensionConnectCode ? (
+            <div className="mt-3 rounded-lg border bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code</p>
+              <code className="mt-1 block overflow-x-auto text-sm">{extensionConnectCode}</code>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
+              </p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {!readOnly ? (
         <section className="card p-5">
@@ -546,7 +604,7 @@ export function DashboardClient({
 
 	                <h3 className="font-semibold">{item.title || "Untitled item"}</h3>
                   <p className="mt-1 text-xs text-[var(--muted)]">
-                    {item.sourceType === "URL" ? (
+                    {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
                       item.sourceUrl ? (
                         <>
                           Source:{" "}
@@ -555,7 +613,7 @@ export function DashboardClient({
                           </a>
                         </>
                       ) : (
-                        "Source: URL"
+                        item.sourceType === "URL" ? "Source: URL" : "Source: Captured browser page"
                       )
                     ) : (
                       "Source: Uploaded PDF"
@@ -609,7 +667,7 @@ export function DashboardClient({
 
                 <h3 className="font-semibold">{diagnostic.itemTitle || "Untitled item"}</h3>
                 <p className="mt-1 text-xs text-[var(--muted)]">
-                  {diagnostic.sourceType === "URL" && diagnostic.sourceUrl ? (
+                  {(diagnostic.sourceType === "URL" || diagnostic.sourceType === "HTML_SNAPSHOT") && diagnostic.sourceUrl ? (
                     <>
                       Source:{" "}
                       <a className="underline" href={diagnostic.sourceUrl} target="_blank" rel="noreferrer">

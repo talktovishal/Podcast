@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ListenLater Capture</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <h1>ListenLater Capture</h1>
+      <p class="muted">Connect once, then capture the current tab into your podcast queue.</p>
+
+      <label>
+        <span>Server URL</span>
+        <input id="server-url" type="url" placeholder="http://localhost:3000" />
+      </label>
+
+      <label>
+        <span>One-time connect code</span>
+        <input id="connect-code" type="text" placeholder="Paste code from /app" />
+      </label>
+
+      <div class="row">
+        <button id="connect-btn" type="button">Connect</button>
+        <button id="disconnect-btn" type="button" class="secondary">Disconnect</button>
+      </div>
+
+      <div class="row">
+        <button id="capture-btn" type="button" class="primary">Capture Current Page</button>
+      </div>
+
+      <p id="token-state" class="muted"></p>
+      <p id="status" class="status"></p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

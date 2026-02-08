@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "ListenLater Capture",
+  "version": "0.1.0",
+  "description": "Capture the current page and send it to your private ListenLater feed.",
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "ListenLater Capture",
+    "default_popup": "popup.html"
+  }
+}

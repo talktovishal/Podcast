@@ -22,6 +22,9 @@ model User {
   feedTokens   FeedToken[]
   shareTokens  ShareToken[]
   items        Item[]
+  oauthIdentities OAuthIdentity[]
+  extensionConnectCodes ExtensionConnectCode[]
+  extensionTokens ExtensionToken[]
   demoExtractionTraces DemoExtractionTrace[]
 }
 
@@ -68,6 +71,8 @@ model Item {
   sourceType    String
   sourceUrl     String?
   sourceFilePath String?
+  sourceHtml    String?
+  sourceCapturedAt DateTime?
   status        String      @default("QUEUED")
   errorCode     String?
   errorMessage  String?
@@ -83,6 +88,52 @@ model Item {
   demoExtractionTrace DemoExtractionTrace?
 
   @@index([userId, status])
+}
+
+model OAuthIdentity {
+  id            String   @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  emailAtLink    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId, provider])
+}
+
+model ExtensionConnectCode {
+  id         String   @id @default(cuid())
+  userId     String
+  codeHash   String   @unique
+  label      String?
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model ExtensionToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  tokenValue String   @unique
+  label      String?
+  scope      String   @default("ingest:html_snapshot")
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Episode {

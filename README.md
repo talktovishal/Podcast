@@ -5,6 +5,7 @@ RSS-first personal podcast feed that converts URLs/PDFs into private podcast epi
 ## Monorepo layout
 - `apps/web` - Next.js UI + API routes
 - `apps/worker` - async processing worker
+- `apps/extension` - standalone Chrome extension (MV3) for page capture
 - `packages/core` - shared extraction, RSS, chunking, security, adapter types
 - `docs` - plans, architecture, implementation docs
 - `fixtures` - deterministic HTML/PDF/demo fixtures
@@ -57,6 +58,21 @@ Login flow for demoing:
 OAuth behavior:
 - Google/Apple login buttons require `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and `APPLE_CLIENT_ID`/`APPLE_CLIENT_SECRET`.
 - If these vars are empty, OAuth is intentionally not configured for local demo.
+
+## Chrome extension (separate publishable folder)
+The extension is kept as raw MV3 files in:
+- `apps/extension`
+
+Local load:
+1. Open `chrome://extensions`.
+2. Enable Developer mode.
+3. Click **Load unpacked**.
+4. Select `apps/extension`.
+
+Connect + capture:
+1. In `/app`, generate a one-time extension connect code.
+2. Paste it into the extension popup and click **Connect**.
+3. Click **Capture Current Page** on any HTTP/HTTPS tab.
 
 Admin credential note:
 - Admin is created from `.env` defaults.

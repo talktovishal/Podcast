@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
 
 const FETCH_TIMEOUT_MS = 30_000;
+const SNAPSHOT_FALLBACK_URL = "https://snapshot.listenlater.local/";
 
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -34,6 +35,20 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): { ti
   } finally {
     dom.window.close();
   }
+}
+
+function extractFromHtml(input: { html: string; sourceUrl: string }): { title: string; byline: string | null; text: string } {
+  const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
+  const text = normalizeExtracted(extracted.text);
+  if (text.length < 160) {
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
+  }
+
+  return {
+    title: extracted.title || "Untitled",
+    byline: extracted.byline,
+    text
+  };
 }
 
 function mapFetchStatusToAppError(status: number): AppError {
@@ -129,21 +144,25 @@ export async function extractHtmlFromUrl(url: string): Promise<{ title: string; 
 
   const html = await response.text();
   try {
-    const extracted = extractReadableWithAbogenCleanup(html, url);
-    const text = normalizeExtracted(extracted.text);
-    if (text.length < 160) {
-      throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
-    }
-
-    return {
-      title: extracted.title || "Untitled",
-      byline: extracted.byline,
-      text
-    };
+    return extractFromHtml({ html, sourceUrl: url });
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
     }
     throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this URL.", 400);
+  }
+}
+
+export function extractHtmlSnapshot(input: { html: string; url?: string }): { title: string; text: string; byline?: string | null } {
+  try {
+    return extractFromHtml({
+      html: input.html,
+      sourceUrl: input.url || SNAPSHOT_FALLBACK_URL
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this page snapshot.", 400);
   }
 }

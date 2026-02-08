@@ -11,14 +11,18 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
 - Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.
+- OAuth provider gating + callback hardening with provider-subject identity linking is implemented.
+- Chrome extension baseline is implemented:
+  - one-time connect code -> extension token exchange
+  - raw HTML snapshot ingest endpoint
+  - worker extraction path for `HTML_SNAPSHOT`
+  - standalone MV3 extension package under `apps/extension`.
 
 ### Next Milestones
-- OAuth hardening completion (Google + Apple) as env-gated production-ready auth.
-- Chrome extension flow:
-  - extension login/connect
-  - raw HTML snapshot ingest API
-  - worker extraction path for snapshot mode
-  - security/compliance hardening for authenticated page capture.
+- Extension and auth hardening follow-ups:
+  - security/compliance hardening for authenticated page capture
+  - onboarding/reconnect UX polish
+  - CI regression matrix coverage for OAuth + extension flows.
 - Post-extension delivery wave (`M29`-`M34`):
   - CI-gated OAuth + extension end-to-end regression matrix
   - extension onboarding/recovery UX polish

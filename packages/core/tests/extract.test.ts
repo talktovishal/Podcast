@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { extractHtmlFromUrl } from "../src/extract/html";
+import { extractHtmlFromUrl, extractHtmlSnapshot } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
@@ -101,6 +101,28 @@ test("extractHtmlFromUrl maps network timeout to actionable extraction error", a
       error.code === errorCodes.EXTRACTION_FAILED &&
       error.userMessage.toLowerCase().includes("timed out")
   );
+
+  globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlSnapshot extracts content without network fetch", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+
+  globalThis.fetch = (async (..._args: unknown[]) => {
+    fetchCalls += 1;
+    throw new Error("unexpected network fetch");
+  }) as typeof fetch;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://example.com/private-article"
+  });
+
+  assert.ok(result.text.length > 100);
+  assert.ok(result.title.length > 0);
+  assert.equal(fetchCalls, 0);
 
   globalThis.fetch = originalFetch;
 });

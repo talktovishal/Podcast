@@ -6,7 +6,7 @@ export type ItemStatus = (typeof itemStatusValues)[number];
 export const jobStatusValues = ["queued", "processing", "succeeded", "failed"] as const;
 export type JobStatus = (typeof jobStatusValues)[number];
 
-export const sourceTypeValues = ["url", "pdf"] as const;
+export const sourceTypeValues = ["url", "pdf", "html_snapshot"] as const;
 export type SourceType = (typeof sourceTypeValues)[number];
 
 export const userRoleValues = ["user", "admin"] as const;
@@ -23,6 +23,22 @@ export const submitUrlSchema = z.object({
 
 export const submitPdfSchema = z.object({
   title: z.string().trim().min(1).max(200).optional()
+});
+
+export const submitHtmlSnapshotSchema = z.object({
+  url: z.string().url().max(2048),
+  title: z.string().trim().min(1).max(200).optional(),
+  html: z.string().trim().min(1).max(2_000_000),
+  capturedAt: z.string().datetime().optional()
+});
+
+export const extensionConnectCodeSchema = z.object({
+  label: z.string().trim().min(1).max(80).optional()
+});
+
+export const extensionTokenExchangeSchema = z.object({
+  connectCode: z.string().trim().min(10).max(256),
+  label: z.string().trim().min(1).max(80).optional()
 });
 
 export const rotateFeedTokenSchema = z.object({
@@ -42,5 +58,8 @@ export const previewTtsSchema = z.object({
 
 export type SubmitUrlInput = z.infer<typeof submitUrlSchema>;
 export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
+export type SubmitHtmlSnapshotInput = z.infer<typeof submitHtmlSnapshotSchema>;
+export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchema>;
+export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;
 export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;
 export type PreviewTtsInput = z.infer<typeof previewTtsSchema>;

@@ -67,12 +67,12 @@
 | M20 | In Progress |
 | M21 | In Progress |
 | M22 | Planned |
-| M23 | Planned |
-| M24 | Planned |
-| M25 | Planned |
-| M26 | Planned |
-| M27 | Planned |
-| M28 | Planned |
+| M23 | Done |
+| M24 | Done |
+| M25 | Done |
+| M26 | Done |
+| M27 | Done |
+| M28 | In Progress |
 | M29 | Planned |
 | M30 | Planned |
 | M31 | Planned |
