@@ -124,6 +124,20 @@ CREATE TABLE IF NOT EXISTS "ChunkCache" (
   FOREIGN KEY ("itemId") REFERENCES "Item" ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS "ChunkCache_itemId_idx" ON "ChunkCache" ("itemId");
+
+CREATE TABLE IF NOT EXISTS "DemoExtractionTrace" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "userId" TEXT NOT NULL,
+  "itemId" TEXT NOT NULL UNIQUE,
+  "sourceLabel" TEXT NOT NULL,
+  "extractedText" TEXT NOT NULL,
+  "extractionLogJson" JSON NOT NULL,
+  "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" DATETIME NOT NULL,
+  FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("itemId") REFERENCES "Item" ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS "DemoExtractionTrace_userId_updatedAt_idx" ON "DemoExtractionTrace" ("userId", "updatedAt");
 `;
 
 function resolveSqliteBinary(): string {

@@ -68,6 +68,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             id: item.id,
             title: item.title,
             sourceType: item.sourceType,
+            sourceUrl: item.sourceUrl,
             status: item.status,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,

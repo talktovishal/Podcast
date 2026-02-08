@@ -13,6 +13,7 @@ export const env = {
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
+  demoEmail: process.env.DEMO_EMAIL ?? "demo@listenlater.local",
   adminEmail: process.env.ADMIN_EMAIL ?? "admin@listenlater.local",
   adminPassword: process.env.ADMIN_PASSWORD ?? "admin-demo-password"
 };

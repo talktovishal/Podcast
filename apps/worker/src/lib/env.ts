@@ -10,5 +10,6 @@ export const workerEnv = {
   pollMs: Number(process.env.WORKER_POLL_MS ?? 2500),
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
-  pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000)
+  pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
+  demoEmail: process.env.DEMO_EMAIL ?? "demo@listenlater.local"
 };

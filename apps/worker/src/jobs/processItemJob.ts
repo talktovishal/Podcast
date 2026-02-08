@@ -19,9 +19,83 @@ import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 
 type WorkerStage = "extract" | "tts" | "persist" | "job";
+type ExtractionLogEntry = {
+  at: string;
+  stage: string;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+const DEMO_TRACE_LIMIT = 10;
 
 function now() {
   return new Date();
+}
+
+function logNow() {
+  return new Date().toISOString();
+}
+
+function appendExtractionLog(
+  entries: ExtractionLogEntry[],
+  stage: string,
+  message: string,
+  details?: Record<string, unknown>
+) {
+  entries.push({
+    at: logNow(),
+    stage,
+    message,
+    details
+  });
+}
+
+async function maybeStoreDemoExtractionTrace(input: {
+  isDemoUser: boolean;
+  userId: string;
+  itemId: string;
+  sourceLabel: string;
+  extractedText: string;
+  logs: ExtractionLogEntry[];
+}) {
+  if (!input.isDemoUser) {
+    return;
+  }
+
+  await prisma.demoExtractionTrace.upsert({
+    where: { itemId: input.itemId },
+    update: {
+      sourceLabel: input.sourceLabel,
+      extractedText: input.extractedText,
+      extractionLogJson: input.logs as Prisma.InputJsonValue
+    },
+    create: {
+      userId: input.userId,
+      itemId: input.itemId,
+      sourceLabel: input.sourceLabel,
+      extractedText: input.extractedText,
+      extractionLogJson: input.logs as Prisma.InputJsonValue
+    }
+  });
+
+  const stale = await prisma.demoExtractionTrace.findMany({
+    where: { userId: input.userId },
+    orderBy: { updatedAt: "desc" },
+    skip: DEMO_TRACE_LIMIT,
+    select: { id: true }
+  });
+
+  if (stale.length === 0) {
+    return;
+  }
+
+  await prisma.demoExtractionTrace.deleteMany({
+    where: {
+      id: {
+        in: stale.map((trace) => trace.id)
+      }
+    }
+  });
 }
 
 async function appendJobEvent(input: {
@@ -80,15 +154,28 @@ async function extractItemText(item: {
   sourceType: string;
   sourceUrl: string | null;
   sourceFilePath: string | null;
+  logs: ExtractionLogEntry[];
 }) {
   if (item.sourceType === "URL") {
     if (!item.sourceUrl) {
       throw new AppError(errorCodes.INVALID_INPUT, "Missing source URL", 400);
     }
 
+    appendExtractionLog(item.logs, "extract:url", "Validating URL source", {
+      sourceUrl: item.sourceUrl
+    });
     await validateFetchableUrl(item.sourceUrl);
+    appendExtractionLog(item.logs, "extract:url", "URL validation passed");
+
+    appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML");
     const extracted = await extractHtmlFromUrl(item.sourceUrl);
-    return { title: extracted.title, text: extracted.text };
+    const extractedTitle = extracted.title ?? "";
+    appendExtractionLog(item.logs, "extract:url", "HTML extraction complete", {
+      extractedTitleLength: extractedTitle.length,
+      extractedTextLength: extracted.text.length
+    });
+
+    return { title: extractedTitle, text: extracted.text, sourceLabel: item.sourceUrl };
   }
 
   if (!item.sourceFilePath) {
@@ -99,12 +186,24 @@ async function extractItemText(item: {
     throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
   }
 
+  appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from disk");
   const pdfData = await readFile(item.sourceFilePath);
+  appendExtractionLog(item.logs, "extract:pdf", "PDF bytes loaded", {
+    bytes: pdfData.byteLength
+  });
+
+  appendExtractionLog(item.logs, "extract:pdf", "Extracting text from PDF");
   const extracted = await extractTextFromPdf(new Uint8Array(pdfData));
+  const extractedTitle = extracted.title ?? "";
+  appendExtractionLog(item.logs, "extract:pdf", "PDF extraction complete", {
+    extractedTitleLength: extractedTitle.length,
+    extractedTextLength: extracted.text.length
+  });
 
   return {
-    title: extracted.title,
-    text: extracted.text
+    title: extractedTitle,
+    text: extracted.text,
+    sourceLabel: "Uploaded PDF"
   };
 }
 
@@ -171,6 +270,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           include: {
             user: {
               select: {
+                email: true,
                 ttsProvider: true,
                 ttsVoice: true
               }
@@ -196,6 +296,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           include: {
             user: {
               select: {
+                email: true,
                 ttsProvider: true,
                 ttsVoice: true
               }
@@ -218,6 +319,10 @@ export async function processJob(jobId: string): Promise<boolean> {
   }
 
   const item = claimResult.item;
+  const extractionLogs: ExtractionLogEntry[] = [];
+  const isDemoUser = (item.user?.email ?? "").toLowerCase() === workerEnv.demoEmail.toLowerCase();
+  let sourceLabelForDiagnostics = item.sourceType === "URL" ? item.sourceUrl || "URL source" : "Uploaded PDF";
+  let extractedTextForDiagnostics = "";
 
   await appendJobEvent({
     jobId: claimResult.id,
@@ -226,6 +331,10 @@ export async function processJob(jobId: string): Promise<boolean> {
     eventType: "start",
     message: "Processing started"
   });
+  appendExtractionLog(extractionLogs, "job", "Job processing started", {
+    itemId: item.id,
+    sourceType: item.sourceType
+  });
 
   let stage: WorkerStage = "extract";
   try {
@@ -233,25 +342,46 @@ export async function processJob(jobId: string): Promise<boolean> {
       id: item.id,
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
-      sourceFilePath: item.sourceFilePath
+      sourceFilePath: item.sourceFilePath,
+      logs: extractionLogs
     });
+    sourceLabelForDiagnostics = extraction.sourceLabel;
+    extractedTextForDiagnostics = extraction.text;
+
     const userProvidedTitle = item.title?.trim() || "";
     const resolvedTitle = userProvidedTitle || resolveEpisodeTitle(extraction.title, extraction.text);
+    appendExtractionLog(extractionLogs, "extract", "Title resolved", {
+      usedUserProvidedTitle: Boolean(userProvidedTitle),
+      resolvedTitle
+    });
 
     const chunks = chunkText(extraction.text);
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
     }
+    appendExtractionLog(extractionLogs, "extract", "Text chunking complete", {
+      chunkCount: chunks.length
+    });
 
     const ttsSelection = normalizeTtsSelection({
       providerId: item.user?.ttsProvider,
       voice: item.user?.ttsVoice
     });
+    appendExtractionLog(extractionLogs, "tts", "TTS selection resolved", {
+      providerId: ttsSelection.providerId,
+      voice: ttsSelection.voice
+    });
+
     const cacheKey = sha256([ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cacheHit = await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
     if (cacheHit) {
+      appendExtractionLog(extractionLogs, "tts", "Cache hit for synthesized audio", {
+        cacheKey,
+        filePath: cacheHit.filePath,
+        bytes: cacheHit.audioBytes
+      });
       audio = {
         relativePath: cacheHit.filePath,
         bytes: cacheHit.audioBytes,
@@ -259,6 +389,9 @@ export async function processJob(jobId: string): Promise<boolean> {
       };
     } else {
       stage = "tts";
+      appendExtractionLog(extractionLogs, "tts", "Cache miss, synthesizing narration", {
+        cacheKey
+      });
       audio = await synthesizeEpisodeAudio(item.id, extraction.text, ttsSelection);
       await prisma.chunkCache.create({
         data: {
@@ -269,6 +402,11 @@ export async function processJob(jobId: string): Promise<boolean> {
           audioBytes: audio.bytes,
           mimeType: audio.mimeType
         }
+      });
+      appendExtractionLog(extractionLogs, "tts", "Narration synthesis complete", {
+        outputPath: audio.relativePath,
+        bytes: audio.bytes,
+        mimeType: audio.mimeType
       });
     }
 
@@ -319,6 +457,10 @@ export async function processJob(jobId: string): Promise<boolean> {
         }
       });
     });
+    appendExtractionLog(extractionLogs, "persist", "Episode and item persisted", {
+      guid,
+      audioPath: audio.relativePath
+    });
 
     await appendJobEvent({
       jobId: claimResult.id,
@@ -327,6 +469,20 @@ export async function processJob(jobId: string): Promise<boolean> {
       eventType: "success",
       message: "Processing completed"
     });
+    appendExtractionLog(extractionLogs, "job", "Job completed successfully");
+
+    try {
+      await maybeStoreDemoExtractionTrace({
+        isDemoUser,
+        userId: item.userId,
+        itemId: item.id,
+        sourceLabel: sourceLabelForDiagnostics,
+        extractedText: extractedTextForDiagnostics,
+        logs: extractionLogs
+      });
+    } catch {
+      // Demo diagnostics are best-effort and should not fail the job.
+    }
 
     return true;
   } catch (error) {
@@ -365,6 +521,24 @@ export async function processJob(jobId: string): Promise<boolean> {
       diagnostic,
       retryRecommended
     });
+    appendExtractionLog(extractionLogs, stage, "Job failed", {
+      errorCode: err.code,
+      errorMessage: err.userMessage,
+      retryRecommended
+    });
+
+    try {
+      await maybeStoreDemoExtractionTrace({
+        isDemoUser,
+        userId: item.userId,
+        itemId: item.id,
+        sourceLabel: sourceLabelForDiagnostics,
+        extractedText: extractedTextForDiagnostics,
+        logs: extractionLogs
+      });
+    } catch {
+      // Demo diagnostics are best-effort and should not fail the job.
+    }
 
     return false;
   }

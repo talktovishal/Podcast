@@ -392,3 +392,45 @@ This file tracks concise session summaries and the exact user prompts that guide
   - "Okay, thank you for doing that. This is great. I will test it. I now want to move to TTS. The default TTS that is there in Apple is really bad, so I want to have a few different options. I did some research, and it looks like I have these two open source Apache slash MIT compatible models that I can use. Can you please provide integration to each one of them? Also, if we focus on English, there are probably each of them will have their own flavors of, you know, options like male, female, maybe different voices that are available. So can you please somehow add that configuration as well? There should be a place where there are some simple samples to try out, and then there is a default that somebody uses to synthesize their TTS, but they can change it based on what they want. So I'm wondering that we should start with the Kokoro model first and then we can move to Mello TTS, but I want to give you both of them so that you know that I'm interested in actually integrating them both."
   - "- Kokoro-82M"
   - "-  MeloTTS v3."
+
+## Entry 019
+- Date: 2026-02-08
+- Summary:
+  - Improved recent item source attribution:
+    - each item now shows source context under the title
+    - URL items display a clickable source URL
+    - PDF items display `Source: Uploaded PDF`
+  - Added demo-account-only extraction diagnostics retention and visibility:
+    - new persistence model `DemoExtractionTrace` (linked to `User` + `Item`)
+    - stores extracted text plus structured end-to-end extraction logs
+    - retention enforced to latest 10 runs per demo account (older records are automatically pruned)
+    - non-demo users do not store extracted text/log diagnostics
+  - Added worker-level extraction telemetry capture:
+    - URL/PDF extraction steps, validation, text length, chunking, TTS cache hit/miss, persist result, and failure context
+    - diagnostics are best-effort and do not fail jobs if persistence fails
+  - Added dashboard diagnostics UI for signed-in demo user:
+    - “Demo extraction diagnostics” section with last 10 runs
+    - per-run extraction log timeline and extracted text viewer
+  - Added shared normalization utility + tests:
+    - `apps/web/src/lib/demo-diagnostics.ts`
+    - `apps/web/tests/demo-diagnostics.test.ts`
+  - Updated API/data flow:
+    - `/api/seed-demo?refresh=items` now includes `sourceUrl` and demo diagnostics payload for demo user
+    - dashboard server props now include source URL and demo diagnostics for initial render
+  - Updated environment/config alignment:
+    - added `DEMO_EMAIL` to `.env.example`
+    - demo seeding now respects `env.demoEmail`
+  - Validation completed:
+    - `npx pnpm --filter @listenlater/web run prisma:generate`
+    - `npx pnpm --filter @listenlater/worker run prisma:generate`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `npm run test:tts:e2e`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<active_feed_token>.xml"` (PASS)
+    - runtime verification:
+      - inserted demo jobs and confirmed `DemoExtractionTrace` rows are created
+      - confirmed retention pruning keeps max 10 diagnostics rows
+- User prompts:
+  - "1. Okay, I think what will be helpful is, along with the title, I would appreciate if you also show the link to the URL from which the title was extracted. If it was an uploaded PDF, you can just say uploaded PDF. That's fine. I also want a mode for the demo URL that are you show the, if we can, what are we doing? Okay, let's first do that."
+  - "2. Now for the demo account, which I am using to test and debug things, I also want us to store the extracted text and the corresponding log as to how did we extract that text. I want, you know, ability to do it for the past, you know, for the latest last 10 runs where we store all this data. And, you know, we can periodically flush it so that I don't have to worry about it. But then, for that, what I want to do is I would like to be able to see the logs for the extraction, you know, the end-to-end logs. So I want to see what we did, how did we, what did we fetch, what did we extract, so that I know is everything working correct or not. So can you please make that happen? Just again, for the, let's only do it for the demo account. I don't want you to do it for the others. For the others, let's not save the extracted text for now. We just, only the audio is good."

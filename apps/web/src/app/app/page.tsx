@@ -5,7 +5,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";
 import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
-import { getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
+import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
@@ -15,11 +15,13 @@ export default async function AppDashboardPage() {
     redirect("/login");
   }
 
-  const [feedToken, items, ttsSettings, ttsAvailability] = await Promise.all([
+  const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
+  const [feedToken, items, ttsSettings, ttsAvailability, demoDiagnostics] = await Promise.all([
     ensureUserFeedToken(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
-    getTtsProviderAvailability()
+    getTtsProviderAvailability(),
+    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([])
   ]);
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
@@ -57,13 +59,16 @@ export default async function AppDashboardPage() {
         <DashboardClient
           feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
           feedToken={feedToken}
+          isDemoAccount={isDemoUser}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}
+          initialDemoDiagnostics={demoDiagnostics}
           initialItems={items.map((item) => ({
             id: item.id,
             title: item.title,
             sourceType: item.sourceType,
+            sourceUrl: item.sourceUrl,
             status: item.status,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,

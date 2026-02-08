@@ -8,7 +8,7 @@ import { ensureDataDirs } from "../src/lib/fs";
 import { prisma } from "../src/lib/prisma";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
 
-const DEMO_EMAIL = "demo@listenlater.local";
+const DEMO_EMAIL = env.demoEmail;
 const DEMO_PASSWORD = "demo-password";
 const DEMO_TEXT =
   "Welcome to ListenLater. This starter episode proves the feed works before any API keys are configured.";

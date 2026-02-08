@@ -1,4 +1,8 @@
 import { hashIncomingToken } from "@listenlater/core";
+import {
+  type DemoExtractionDiagnostic,
+  normalizeExtractionLogEntries
+} from "./demo-diagnostics";
 import { prisma } from "./prisma";
 
 export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
@@ -15,6 +19,42 @@ export async function getDashboardItems(userId: string) {
     orderBy: { createdAt: "desc" },
     take: 50
   });
+}
+
+export async function getDemoExtractionDiagnostics(userId: string, limit = 10): Promise<DemoExtractionDiagnostic[]> {
+  const traces = await prisma.demoExtractionTrace.findMany({
+    where: { userId },
+    include: {
+      item: {
+        select: {
+          id: true,
+          title: true,
+          sourceType: true,
+          sourceUrl: true,
+          status: true,
+          errorCode: true,
+          errorMessage: true
+        }
+      }
+    },
+    orderBy: { updatedAt: "desc" },
+    take: limit
+  });
+
+  return traces.map((trace) => ({
+    id: trace.id,
+    itemId: trace.item.id,
+    itemTitle: trace.item.title,
+    sourceType: trace.item.sourceType,
+    sourceUrl: trace.item.sourceUrl,
+    sourceLabel: trace.sourceLabel,
+    status: trace.item.status,
+    errorCode: trace.item.errorCode,
+    errorMessage: trace.item.errorMessage,
+    createdAt: trace.updatedAt.toISOString(),
+    extractedText: trace.extractedText,
+    logEntries: normalizeExtractionLogEntries(trace.extractionLogJson)
+  }));
 }
 
 export async function getUserTtsSettings(userId: string): Promise<{ providerId: string; voice: string }> {

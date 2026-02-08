@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { getDashboardItems } from "@/lib/dashboard";
+import { getDashboardItems, getDemoExtractionDiagnostics } from "@/lib/dashboard";
+import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -9,13 +10,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
   }
 
-  const items = await getDashboardItems(user.id);
+  const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
+  const [items, extractionDiagnostics] = await Promise.all([
+    getDashboardItems(user.id),
+    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([])
+  ]);
   return NextResponse.json({
     ok: true,
+    isDemoUser,
+    extractionDiagnostics,
     items: items.map((item) => ({
       id: item.id,
       title: item.title,
       sourceType: item.sourceType,
+      sourceUrl: item.sourceUrl,
       status: item.status,
       errorCode: item.errorCode,
       errorMessage: item.errorMessage,

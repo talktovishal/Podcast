@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 
 type DashboardItem = {
   id: string;
   title: string | null;
   sourceType: string;
+  sourceUrl: string | null;
   status: string;
   errorCode: string | null;
   errorMessage: string | null;
@@ -52,6 +54,7 @@ type TtsAvailability = Record<
 type Props = {
   feedUrl: string;
   feedToken: string;
+  isDemoAccount?: boolean;
   initialTtsSelection: {
     providerId: string;
     voice: string;
@@ -59,6 +62,7 @@ type Props = {
   ttsCatalog: TtsCatalog;
   ttsAvailability: TtsAvailability;
   readOnly?: boolean;
+  initialDemoDiagnostics?: DemoExtractionDiagnostic[];
   initialItems: DashboardItem[];
 };
 
@@ -87,13 +91,16 @@ function statusHelpText(status: string): string | null {
 export function DashboardClient({
   feedUrl,
   feedToken,
+  isDemoAccount = false,
   initialTtsSelection,
   ttsCatalog,
   ttsAvailability,
   readOnly = false,
+  initialDemoDiagnostics = [],
   initialItems
 }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [demoDiagnostics, setDemoDiagnostics] = useState(initialDemoDiagnostics);
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
@@ -130,9 +137,15 @@ export function DashboardClient({
     if (!response.ok) {
       return;
     }
-    const payload = (await response.json()) as { items: DashboardItem[] };
+    const payload = (await response.json()) as {
+      items: DashboardItem[];
+      extractionDiagnostics?: DemoExtractionDiagnostic[];
+    };
     setItems(payload.items);
-  }, []);
+    if (isDemoAccount && Array.isArray(payload.extractionDiagnostics)) {
+      setDemoDiagnostics(payload.extractionDiagnostics);
+    }
+  }, [isDemoAccount]);
 
   useEffect(() => {
     if (readOnly || inProgressCount === 0) {
@@ -319,7 +332,7 @@ export function DashboardClient({
 
   return (
     <div className="space-y-6">
-      <section className="card p-5">
+	      <section className="card p-5">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-[var(--muted)]">Private feed URL</p>
           <code className="block flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{feedUrl}</code>
@@ -516,24 +529,40 @@ export function DashboardClient({
             <p className="text-sm text-[var(--muted)]">No items yet. Submit a URL or upload a PDF.</p>
           ) : null}
 
-          {newestFirst.map((item) => {
+	          {newestFirst.map((item) => {
             const badgeClass = item.status.toLowerCase();
             const statusText = item.status.toUpperCase();
             const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
             const helpText = statusHelpText(item.status);
             const showRetry = statusText === "FAILED";
 
-            return (
-              <article key={item.id} className="rounded-xl border p-4">
+	            return (
+	              <article key={item.id} className="rounded-xl border p-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`badge ${badgeClass}`}>{item.status.toLowerCase()}</span>
                   <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{item.sourceType}</span>
                   <span className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</span>
                 </div>
 
-                <h3 className="font-semibold">{item.title || "Untitled item"}</h3>
-                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
-                {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
+	                <h3 className="font-semibold">{item.title || "Untitled item"}</h3>
+                  <p className="mt-1 text-xs text-[var(--muted)]">
+                    {item.sourceType === "URL" ? (
+                      item.sourceUrl ? (
+                        <>
+                          Source:{" "}
+                          <a className="underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
+                            {item.sourceUrl}
+                          </a>
+                        </>
+                      ) : (
+                        "Source: URL"
+                      )
+                    ) : (
+                      "Source: Uploaded PDF"
+                    )}
+                  </p>
+	                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
+	                {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
 
                 {mediaUrl ? (
                   <div className="mt-3 space-y-2">
@@ -558,9 +587,68 @@ export function DashboardClient({
                 ) : null}
               </article>
             );
-          })}
-        </div>
-      </section>
-    </div>
-  );
+	          })}
+	        </div>
+	      </section>
+
+      {!readOnly && isDemoAccount ? (
+        <section className="card p-5">
+          <h2 className="mb-2 text-lg font-semibold">Demo extraction diagnostics</h2>
+          <p className="mb-4 text-sm text-[var(--muted)]">Last 10 runs only. Older diagnostics are pruned automatically.</p>
+
+          {demoDiagnostics.length === 0 ? <p className="text-sm text-[var(--muted)]">No extraction diagnostics yet.</p> : null}
+
+          <div className="space-y-3">
+            {demoDiagnostics.map((diagnostic) => (
+              <article key={diagnostic.id} className="rounded-xl border p-4">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={`badge ${diagnostic.status.toLowerCase()}`}>{diagnostic.status.toLowerCase()}</span>
+                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{diagnostic.sourceType}</span>
+                  <span className="text-xs text-[var(--muted)]">{new Date(diagnostic.createdAt).toLocaleString()}</span>
+                </div>
+
+                <h3 className="font-semibold">{diagnostic.itemTitle || "Untitled item"}</h3>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {diagnostic.sourceType === "URL" && diagnostic.sourceUrl ? (
+                    <>
+                      Source:{" "}
+                      <a className="underline" href={diagnostic.sourceUrl} target="_blank" rel="noreferrer">
+                        {diagnostic.sourceUrl}
+                      </a>
+                    </>
+                  ) : (
+                    `Source: ${diagnostic.sourceLabel || "Uploaded PDF"}`
+                  )}
+                </p>
+                {diagnostic.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{diagnostic.errorMessage}</p> : null}
+
+                <details className="mt-3 rounded-lg border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">Extraction log</summary>
+                  <div className="mt-2 space-y-2">
+                    {diagnostic.logEntries.length === 0 ? <p className="text-xs text-[var(--muted)]">No log entries captured.</p> : null}
+                    {diagnostic.logEntries.map((entry, index) => (
+                      <div key={`${diagnostic.id}-log-${index}`} className="rounded-md border p-2 text-xs">
+                        <p className="font-medium">
+                          [{new Date(entry.at).toLocaleTimeString()}] {entry.stage}
+                        </p>
+                        <p className="mt-1">{entry.message}</p>
+                        {entry.details ? <pre className="mt-2 overflow-x-auto">{JSON.stringify(entry.details, null, 2)}</pre> : null}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+
+                <details className="mt-3 rounded-lg border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">Extracted text</summary>
+                  <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs">
+                    {diagnostic.extractedText || "(No extracted text captured.)"}
+                  </pre>
+                </details>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+	    </div>
+	  );
 }
