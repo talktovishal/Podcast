@@ -299,3 +299,26 @@ This file tracks concise session summaries and the exact user prompts that guide
   - "Going forward, after every change, can you just run the run.sh file and then after you make the change, kill it and then start it again? That way I don't have to do it every time."
   - "Did you start it right now? Looks like it's not running."
   - "Okay, I want to go back to the changes you did for the UX. I like this option much better, however, the only one change I would like you to do is put the title below the URL and the URL has another box around it. Not sure why it is the case. It should just be URL and then submit URL for option 1. And then, you know, I understand that when it comes to, so yeah, I just want you to move and even for the when the PDF is selected, I want you to move the PDF file choosing on the top. That would be nice. I wonder if you can really simplify it further, but this would be a good start as I think this would be good. You don't have to simplify it further. Just move, move the title below and the URL box or the PDF file box at the top. And then see for the URL, there are multiple boxes if you can simplify that."
+
+## Entry 016
+- Date: 2026-02-08
+- Summary:
+  - Audited current extraction implementation and confirmed prior state:
+    - HTML extraction used local `Readability + JSDOM` path in `packages/core/src/extract/html.ts`
+    - PDF extraction used local `pdfjs-dist` path in `packages/core/src/extract/pdf.ts`
+    - `vendor/postcast/` previously contained reference docs only, no runtime imports
+  - Pulled upstream `iamspruce/postcast` and ported its extraction/cleaning modules into a dedicated subfolder for clear provenance:
+    - `packages/core/src/extract/postcast/` (with README and source commit attribution)
+    - copied/adapted rule engine + cleaner modules and readability extractor
+  - Wired HTML extraction to use the new postcast ported pipeline.
+  - Preserved existing PDF extraction logic because upstream repo does not contain a PDF extractor module.
+  - Added test coverage to verify cleaner pipeline behavior (URL replacement + boilerplate removal) during HTML extraction.
+  - Updated third-party attribution with copied/adapted module list and source commit.
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Okay, thanks. Now let's get back to the parsing. What I observed is when you we parsed one of the web pages, it included a lot of junk like subtext below the image, which was not very helpful at all when it was converted into podcast. I had given a pointer to this particular GitHub repo, and I thought that we would end up using their HTML and PDF extraction logic from that repo since they have spent so much time cleaning with the cleanup. I'm not sure, did we do that? First, I would really like us to copy and paste the code from that repo. Just my only suggestion, my only request was that we keep it clean. We move it to its own subfolder so we know which code came from that. But I really want to make sure that all of our extraction code is coming from that repo because those folks have spent so much time both for the PDF and the HTML. Now understand that they may be doing the books extraction, but I do, I would imagine that they also have it for articles and we can just treat it as a chapter of a book or something like that. We like, you know, at the end, we just need the extraction logic. So can you please first tell me what have you done and can we go ahead and take it from this repo because they have put in so much effort?"
+  - "This was the repo -- https://github.com/iamspruce/postcast"

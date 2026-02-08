@@ -23,6 +23,38 @@ test("extractHtmlFromUrl extracts fixture", async () => {
   globalThis.fetch = originalFetch;
 });
 
+test("extractHtmlFromUrl applies postcast cleaner pipeline", async () => {
+  const noisyHtml = `
+    <html>
+      <head><title>Cleaner Fixture</title></head>
+      <body>
+        <article>
+          <h1>Cleaner Fixture</h1>
+          <p>This article has enough text to pass extraction minimums and stay deterministic for tests.</p>
+          <p>Read more at https://example.com/deep/link and continue reading for context and details.</p>
+          <p>Subscribe to our newsletter for updates.</p>
+          <p>This final paragraph adds more stable words so the extracted output remains over minimum length.</p>
+        </article>
+      </body>
+    </html>
+  `;
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () =>
+    ({
+      ok: true,
+      status: 200,
+      text: async () => noisyHtml
+    }) as unknown as Response) as typeof fetch;
+
+  const result = await extractHtmlFromUrl("https://example.com/cleaner");
+  assert.equal(result.title, "Cleaner Fixture");
+  assert.ok(result.text.includes("Link in description."));
+  assert.ok(!result.text.toLowerCase().includes("subscribe to our newsletter"));
+
+  globalThis.fetch = originalFetch;
+});
+
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {
   const originalFetch = globalThis.fetch;
 

@@ -1,6 +1,6 @@
-import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
 import { AppError, errorCodes } from "../errors/codes";
+import { cleanArticleTextWithPostcastRules } from "./postcast/cleanText";
+import { extractReadable } from "./postcast/readability";
 
 const FETCH_TIMEOUT_MS = 30_000;
 
@@ -100,22 +100,27 @@ export async function extractHtmlFromUrl(url: string): Promise<{ title: string; 
   }
 
   const html = await response.text();
-  const dom = new JSDOM(html, { url });
-  const reader = new Readability(dom.window.document);
-  const parsed = reader.parse();
-
-  if (!parsed?.textContent) {
+  let extracted: ReturnType<typeof extractReadable>;
+  try {
+    extracted = extractReadable(html, {
+      sourceId: "listenlater",
+      feedUrl: url,
+      canonicalUrl: url,
+      title: "Untitled"
+    });
+  } catch {
     throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this URL.", 400);
   }
 
-  const text = normalizeExtracted(parsed.textContent);
+  const cleaned = await cleanArticleTextWithPostcastRules(extracted);
+  const text = normalizeExtracted(cleaned.cleanText || extracted.text);
   if (text.length < 160) {
     throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
   }
 
   return {
-    title: parsed.title || "Untitled",
-    byline: parsed.byline,
+    title: extracted.title || "Untitled",
+    byline: extracted.author || null,
     text
   };
 }
