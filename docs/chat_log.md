@@ -73,6 +73,9 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `npm run export` passed.
     - `npm run license:check` passed.
     - `next build` and `next dev` currently stall in this execution environment (no completion/output beyond startup), so podcast HTTP contract curl checks could not be executed against a live server in-session.
+  - Git snapshots pushed:
+    - `be72a8d` (`feat: implement listenlater monorepo, pipeline, and docs`)
+    - `d11e1aa` (`fix: correct runtime paths and clean seeded media artifacts`)
 - User prompts:
   - "Okay, go ahead and don't stop at milestone one. Okay, I want you to go everything, just do start working on things end-to-end. I have full trust in you and I give you full access to everything."
 
