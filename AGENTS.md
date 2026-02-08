@@ -157,6 +157,7 @@ No hard-coded vendor logic scattered throughout the code.
 ## Git / PR / change rules
 - Small, reviewable diffs.
 - Avoid scope creep.
+- After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
 - If adding a dependency:
   - Explain why
   - Confirm license compatibility (avoid copyleft surprises)
@@ -204,7 +205,8 @@ Otherwise run:
 3) Implement the smallest change that satisfies the requirement.
 4) Run tests/lint; fix failures.
 5) Run Podcast compatibility gates.
-6) Provide a short “what changed + how to verify” note.
+6) Commit and push validated changes to `origin/<current-branch>`.
+7) Provide a short “what changed + how to verify” note.
 
 ---
 
