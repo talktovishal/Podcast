@@ -11,6 +11,7 @@
 - OAuth routes exist but still need production-hardening (identity-linking by provider subject, callback resilience, tests).
 - Chrome extension was previously listed as MVP non-goal and is now promoted to post-MVP planned milestones (M24-M28).
 - Post-M28 delivery milestones now split rollout into manageable slices (M29-M34) for quality, operations, and release readiness.
+- Durable Azure rollout direction is now locked for next wave (M35-M46): single VM compute + Azure PostgreSQL + Azure Blob, with Docker Compose parity and Bicep/azd IaC.
 
 ## Requirement Coverage Snapshot
 
@@ -39,6 +40,10 @@
 | Extraction quality guardrails for noisy/authenticated pages | M31 |
 | Operational observability and release certification | M21, M32, M33 |
 | Data lifecycle hardening for diagnostics and extension tokens | M34 |
+| Durable managed persistence independent of VM lifecycle | M35, M38, M39, M45 |
+| Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
+| Azure reproducible provisioning with IaC (`Bicep` + `azd`) | M43, M44 |
+| Backup/restore drill certification and evidence | M45, M46 |
 
 ## Milestone Status Snapshot
 
@@ -79,6 +84,18 @@
 | M32 | Planned |
 | M33 | Planned |
 | M34 | Planned |
+| M35 | Planned |
+| M36 | Planned |
+| M37 | Planned |
+| M38 | Planned |
+| M39 | Planned |
+| M40 | Planned |
+| M41 | Planned |
+| M42 | Planned |
+| M43 | Planned |
+| M44 | Planned |
+| M45 | Planned |
+| M46 | Planned |
 
 ## Milestones
 
@@ -696,6 +713,236 @@
   - `npm run test -- demo-diagnostics`
   - `npm run test -- extension-auth`
 
+### M35 - Durable Azure Target Lock + Parity Contract
+- Scope:
+  - Lock next-phase runtime target: single VM compute (`web`, `worker`, `python-tts`) + Azure PostgreSQL + Azure Blob.
+  - Lock local parity strategy: Docker Compose profile that mirrors Azure dependencies.
+  - Add ADR-style decision record for durability-first architecture choices and non-goals for this phase.
+- Key files/modules:
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - Durable target contract is explicit and unambiguous in docs.
+  - Local profiles `simple` and `parity` are defined with intended use-cases.
+  - Architecture review checklist maps components to existing code modules.
+- Verification commands:
+  - manual architecture checklist review in `docs/architecture.md`
+  - `pnpm run check:env`
+
+### M36 - Local Parity Compose Stack
+- Scope:
+  - Create parity stack with `web`, `worker`, `python-tts`, `postgres`, and `azurite`.
+  - Add parity startup and teardown scripts for repeatable local runs.
+  - Add health checks and troubleshooting guidance.
+- Key files/modules:
+  - `docker-compose.parity.yml`
+  - `scripts/parity-up.sh`
+  - `scripts/parity-down.sh`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - Parity stack starts cleanly on a fresh machine.
+  - Service health endpoints and dependencies become ready without manual patching.
+  - Developer can switch between `simple` and `parity` profiles predictably.
+- Verification commands:
+  - `docker compose -f docker-compose.parity.yml up -d --build`
+  - `docker compose -f docker-compose.parity.yml ps`
+  - `curl -sf http://localhost:8010/health`
+  - `docker compose -f docker-compose.parity.yml down`
+
+### M37 - Env Contract Hardening (Simple vs Parity vs Azure)
+- Scope:
+  - Add strict, profile-aware env validation to prevent config drift.
+  - Provide profile templates: `.env.simple.example`, `.env.parity.example`, `.env.azure.example`.
+  - Ensure missing critical vars fail fast with actionable remediation messages.
+- Key files/modules:
+  - `scripts/check-env.mjs`
+  - `.env.simple.example`
+  - `.env.parity.example`
+  - `.env.azure.example`
+  - `docs/env.md`
+- Acceptance criteria:
+  - All profiles validate required variables correctly.
+  - Error messages point directly to missing keys and profile docs.
+  - CI can run profile-level env validation as a gate.
+- Verification commands:
+  - `node scripts/check-env.mjs --profile simple`
+  - `node scripts/check-env.mjs --profile parity`
+  - `node scripts/check-env.mjs --profile azure`
+
+### M38 - PostgreSQL Migration Foundation
+- Scope:
+  - Replace SQLite as durable system-of-record for parity/Azure tracks.
+  - Introduce migration/import path for existing local SQLite datasets.
+  - Document rollback and data integrity verification strategy.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/migrations/*`
+  - `apps/web/scripts/*migrate*`
+  - `docs/architecture.md`
+- Acceptance criteria:
+  - Auth, items, jobs, episodes, tokens, and extension entities persist correctly in PostgreSQL.
+  - Migration/import preserves referential integrity.
+  - Rollback path is documented and tested on fixture data.
+- Verification commands:
+  - `pnpm --filter @listenlater/web prisma migrate deploy`
+  - `pnpm --filter @listenlater/web test -- db`
+  - `pnpm --filter @listenlater/web test -- auth`
+
+### M39 - Blob Storage Adapter (Uploads + Audio + Diagnostics Artifacts)
+- Scope:
+  - Implement Azure Blob storage adapter and wire it into upload/output paths.
+  - Migrate artifact references from local filesystem assumptions to object keys.
+  - Add retention/lifecycle policy notes for diagnostic artifacts.
+- Key files/modules:
+  - `packages/core/src/storage/*`
+  - `apps/web/src/app/api/items/pdf/route.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/architecture.md`
+- Acceptance criteria:
+  - New uploads and generated audio remain accessible across app restarts and VM replacement.
+  - Deterministic object key conventions are documented and test-covered.
+  - No critical artifact depends on VM-local disk for durability.
+- Verification commands:
+  - `pnpm test -- storage`
+  - `pnpm test -- ingestion`
+  - `pnpm test -- worker`
+
+### M40 - Media Proxy Contract with Blob Backend
+- Scope:
+  - Preserve strict podcast streaming semantics while serving from Blob-backed artifacts.
+  - Ensure `HEAD` and byte-range (`206`) behavior remains correct under proxy path.
+  - Keep feed/media token protections unchanged.
+- Key files/modules:
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `packages/core/src/rss/*`
+  - `scripts/verify_podcast_contract.sh`
+- Acceptance criteria:
+  - Podcast compatibility gate passes against Blob-backed media.
+  - `Content-Length`, `Content-Range`, and MIME values remain accurate.
+  - Unauthorized token access fails safely.
+- Verification commands:
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+  - `curl -I "<MP3_URL>"`
+  - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
+
+### M41 - Worker Artifact Flow Refactor (Blob-Native)
+- Scope:
+  - Refactor worker artifact handling to read/write durable storage keys instead of local paths.
+  - Ensure URL, PDF, and HTML snapshot pipelines remain behaviorally equivalent.
+  - Keep deterministic chunk/hash cache behavior unchanged.
+- Key files/modules:
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `packages/core/src/storage/*`
+  - worker and integration test suites
+- Acceptance criteria:
+  - Worker no longer assumes local disk durability for critical inputs/outputs.
+  - All ingest source types continue to process successfully.
+  - Regression coverage confirms no behavioral break in existing flows.
+- Verification commands:
+  - `pnpm --filter @listenlater/worker test -- jobs`
+  - `pnpm --filter @listenlater/web test -- auth-routes`
+  - `pnpm test -- extension-auth`
+
+### M42 - PostgreSQL Queue Resilience Hardening
+- Scope:
+  - Harden DB queue with stale lock reclaim and retry scheduler loop (`nextRetryAt` semantics).
+  - Add retry jitter and explicit idempotency guards for crash/restart scenarios.
+  - Document operational recovery steps for stuck or long-running jobs.
+- Key files/modules:
+  - `apps/worker/src/index.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Forced worker interruption does not leave jobs permanently stuck in `PROCESSING`.
+  - Retry behavior is predictable and deterministic.
+  - Idempotency guarantees remain intact under recovery.
+- Verification commands:
+  - `pnpm --filter @listenlater/worker test -- idempotency`
+  - `pnpm --filter @listenlater/worker test -- retries`
+  - `pnpm --filter @listenlater/worker test -- crash-recovery`
+
+### M43 - Azure IaC Baseline (`Bicep` + `azd`)
+- Scope:
+  - Add reproducible infrastructure definitions for VM compute, PostgreSQL, Blob, networking, and secret wiring.
+  - Add `azd` workflow for environment bootstrapping and configuration sync.
+  - Add IaC review checklist and drift-detection guidance.
+- Key files/modules:
+  - `infra/` (Bicep templates + parameters)
+  - `azure.yaml` (or equivalent `azd` project config)
+  - `docs/azure-deploy.md`
+- Acceptance criteria:
+  - Fresh resource group can be provisioned from IaC with no manual portal-only steps.
+  - Environment outputs map cleanly to app env variables.
+  - Drift checks are documented for repeat deployments.
+- Verification commands:
+  - `azd up`
+  - `azd env refresh`
+  - scripted `az deployment group what-if`
+
+### M44 - VM Runtime Deployment Automation
+- Scope:
+  - Automate VM runtime provisioning for Node, Python, app services, and Kokoro model bootstrap.
+  - Configure `systemd` units for `web`, `worker`, and `python-tts`.
+  - Add restart/reboot recovery checks and rollout steps.
+- Key files/modules:
+  - `scripts/azure/vm-provision/*`
+  - `scripts/azure/deploy/*`
+  - `ops/systemd/*`
+  - `docs/azure-deploy.md`
+- Acceptance criteria:
+  - Clean VM can be provisioned and run stack without manual ad-hoc edits.
+  - VM reboot restores all required services automatically.
+  - Deployment workflow is repeatable for upgrades.
+- Verification commands:
+  - end-to-end provisioning script on clean VM
+  - reboot validation checklist
+  - health endpoint checks post-reboot
+
+### M45 - Durability Drill and Restore Certification
+- Scope:
+  - Run controlled disaster drill: terminate VM compute, reprovision, reconnect to existing PostgreSQL/Blob, verify data integrity.
+  - Capture evidence for user records, feed history, and playable media continuity.
+  - Publish runbook and signed drill output.
+- Key files/modules:
+  - `docs/operations.md`
+  - `docs/release-checklist.md`
+  - drill helper scripts
+- Acceptance criteria:
+  - Pre-drill user/item/episode datasets are intact post-restore.
+  - Feed and media playback remain functional after VM replacement.
+  - Recovery evidence is archived and reviewable.
+- Verification commands:
+  - scripted pre-drill dataset snapshot/export
+  - restore verification script
+  - post-restore podcast contract checks
+
+### M46 - Parity CI Matrix + Release Gate
+- Scope:
+  - Add CI matrix for `simple` and `parity` profiles.
+  - Add pre-deploy gate requiring parity pass, podcast contract pass, and smoke pass evidence.
+  - Ensure regression checks include extension and OAuth critical flows under parity profile.
+- Key files/modules:
+  - `.github/workflows/ci.yml`
+  - `scripts/verify_podcast_contract.sh`
+  - `docs/release-checklist.md`
+- Acceptance criteria:
+  - Deployment is blocked automatically on parity/profile regressions.
+  - CI artifacts include parity run evidence and contract validation logs.
+  - Release checklist includes durability and parity gates by default.
+- Verification commands:
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test`
+  - parity integration suite via compose profile
+  - podcast contract gate script
+
+## Durable Azure/Public Interface Additions (M35-M46)
+- Storage interface is elevated to explicit runtime contract with `local` and `azure_blob` implementations.
+- Artifact references are standardized as object keys instead of VM-local filesystem paths.
+- Env contract is expanded with profile-specific requirements (`simple`, `parity`, `azure`).
+- Queue runner behavior expands to include stale-claim recovery and explicit retry scheduling semantics.
+
 ## Assumptions and Defaults
 - Package manager: `pnpm`.
 - Workspace package names will use `@listenlater/*`.
@@ -705,6 +952,10 @@
 - Optional Phase 1.5 milestone (M22) is explicitly non-blocking for MVP completion.
 - Chrome extension is post-MVP and does not block current MVP release.
 - Authenticated page capture policy is user-visible-only (no credential/session forwarding or bypass automation).
+- Region baseline for durable rollout milestones is `eastus`.
+- TTS remains self-hosted Kokoro (`services/python-tts`) with no external TTS API dependency.
+- Initial durable cloud rollout remains single-VM compute for cost-first operation.
+- Queue remains PostgreSQL-backed for this phase; Service Bus is a later scale milestone.
 
 ## Architecture Overview
 
@@ -784,9 +1035,13 @@
 ### Local vs Azure Runtime Strategy
 - Local:
   - SQLite + local filesystem media + Kokoro/python-tts local narration.
-- Azure:
-  - Azure SQL Serverless + Blob storage + containerized web/worker.
-  - optional cloud TTS provider via adapter.
+- Azure (existing readiness baseline):
+  - containerized web/worker + managed cloud resources as documented.
+- Azure (durable rollout target, M35-M46):
+  - single VM compute for `web`, `worker`, and `python-tts`.
+  - Azure PostgreSQL as durable relational source-of-truth.
+  - Azure Blob as durable artifact store for uploads/audio/diagnostics.
+  - self-hosted Kokoro models on VM (no external TTS API dependency).
 
 ## Risk Register
 
@@ -812,6 +1067,10 @@
 | License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
 | Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
 | Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |
+| SQLite-to-PostgreSQL migration drift breaks auth/feed/job integrity | Medium | High | row-count mismatch or failed auth/feed lookups post-migration | migration rehearsal, integrity checks, rollback scripts | M38, M46 |
+| Blob key/path migration regressions break media retrieval | Medium | High | 404 responses for known episodes or missing enclosure targets | deterministic key mapping tests + migration audits + contract checks | M39, M40, M41 |
+| Local parity profile drifts from Azure runtime behavior | Medium | High | parity pass/fail divergence across environments | compose parity profile + env profile gates + CI matrix enforcement | M36, M37, M46 |
+| Backup/restore runbook rot causes failed disaster recovery | Low | High | VM-loss drill fails or exceeds expected recovery objectives | scheduled drill cadence + signed restore evidence | M45, M46 |
 | Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
 
 ## 3-Minute Demo Script (Time-Boxed)
@@ -875,6 +1134,22 @@
 - Subscribe on Apple Podcasts (reachable host) and one additional RSS podcast app.
 - Play, seek, resume.
 - Validate read-only share mode cannot mutate content.
+
+### Durable Azure and Parity Validation Matrix (M35-M46)
+- Profile validation:
+  - `simple`, `parity`, and `azure` env checks with explicit required vars.
+- Migration validation:
+  - SQLite fixture import into PostgreSQL with row-count + relational integrity checks.
+- Storage validation:
+  - Blob write/read/delete behavior and deterministic object-key assertions.
+- Worker resilience validation:
+  - crash-recovery, retry scheduling, and duplicate prevention under PostgreSQL queue mode.
+- Contract validation:
+  - RSS and media `HEAD` + `Range` checks on Blob-backed delivery path.
+- Durability validation:
+  - VM-loss drill with full restore verification against PostgreSQL/Blob.
+- Extension validation:
+  - snapshot ingest still enqueues immediately and completes under parity profile.
 
 ## Milestone Execution Protocol (After Approval)
 - Execute one milestone at a time.
