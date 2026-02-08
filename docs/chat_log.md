@@ -245,3 +245,37 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `npm run build`
 - User prompts:
   - "Okay, now I've done some more testing. Let's do, let's fix a few issues one by one. The first thing is I'm still not happy with the option 1 and option 2 layout. I want you to simplify this further. Please take another shot at it. It's just too many words and you know, it is not intuitive at all. Just keep things intuitive. Maybe it's some sort of a radio button style where, you know, it's just obvious that if I click on one, the other one is automatically grayed or something like that. And then there is a title, optional title for both of them that I can click, that I can write or not. You know, you really have to make this intuitive. I don't have to read all these things. Reading is not helpful. You have to make this really simple for the user. So first fix that."
+
+## Entry 014
+- Date: 2026-02-08
+- Summary:
+  - Investigated failed processing item and identified concrete failure context:
+    - failed item id: `cmldbb3lg0004npgbbwgwvxu1`
+    - source: Washington Post URL
+    - previous user-facing error: `INTERNAL_ERROR / Unexpected worker error`
+  - Root cause of poor error UX:
+    - worker catch-all converted non-`AppError` exceptions into generic `INTERNAL_ERROR`
+    - extraction network failures/timeouts could surface as unknown errors, hiding actionable guidance
+  - Improvements implemented:
+    - `extractHtmlFromUrl` now has explicit fetch timeout (`30s`) and network/status-to-message mapping
+    - HTTP and network failures now return actionable `EXTRACTION_FAILED` messages (blocked, timeout, 404, rate-limited, upstream unavailable)
+    - worker now maps unexpected errors by stage (`extract`, `tts`, `persist`) to meaningful error codes/messages
+    - worker error events now include:
+      - `stage`
+      - `diagnostic`
+      - `retryRecommended`
+    - this makes admin/debug logs informative without exposing secrets
+  - Added tests:
+    - extraction maps 403 to actionable message
+    - extraction maps network timeout to actionable message
+  - Verification performed:
+    - reran failed job id `cmldbb3lg0005npgbrazgs6dd`
+    - new result: `FAILED / EXTRACTION_FAILED / Could not fetch this URL. Retry once; if it fails again, the site likely blocks automated access.`
+    - event payload now includes stage-aware context and retry recommendation
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Okay, good. Now the second thing is, if you look at the logs, one of the items failed for processing. You can see it. I got this failure, which was not very helpful, which said unexpected worker error. I want you to debug and first figure out what really happened, and then have some useful error messages, because when I see that, I don't know, should we just retry or something has really fundamentally failed or broken."

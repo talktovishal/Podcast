@@ -16,6 +16,8 @@ import { workerEnv } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 
+type WorkerStage = "extract" | "tts" | "persist" | "job";
+
 function now() {
   return new Date();
 }
@@ -27,6 +29,8 @@ async function appendJobEvent(input: {
   eventType: "start" | "success" | "error";
   message: string;
   errorCode?: string;
+  diagnostic?: string;
+  retryRecommended?: boolean;
 }) {
   const payload = sanitizeLogPayload(input);
   await prisma.jobEvent.create({
@@ -96,6 +100,57 @@ async function extractItemText(item: {
   };
 }
 
+function shouldRecommendRetry(errorCode: string): boolean {
+  switch (errorCode) {
+    case errorCodes.EXTRACTION_FAILED:
+    case errorCodes.TTS_FAILED:
+    case errorCodes.STORAGE_FAILED:
+    case errorCodes.RATE_LIMITED:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function formatDiagnostic(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+  return String(error);
+}
+
+function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError {
+  if (error instanceof AppError) {
+    return error;
+  }
+
+  if (stage === "extract") {
+    return new AppError(
+      errorCodes.EXTRACTION_FAILED,
+      "Could not read this source. Retry once, or try another URL/PDF if it keeps failing.",
+      502
+    );
+  }
+
+  if (stage === "tts") {
+    return new AppError(
+      errorCodes.TTS_FAILED,
+      "Audio generation failed unexpectedly. Retry once; if it repeats, check TTS setup.",
+      500
+    );
+  }
+
+  if (stage === "persist") {
+    return new AppError(
+      errorCodes.STORAGE_FAILED,
+      "Processing finished but saving the episode failed. Please retry.",
+      500
+    );
+  }
+
+  return new AppError(errorCodes.INTERNAL_ERROR, "Processing failed unexpectedly. Please retry.", 500);
+}
+
 export async function processJob(jobId: string): Promise<boolean> {
   const claimResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const next = await tx.job.findFirst({
@@ -146,6 +201,7 @@ export async function processJob(jobId: string): Promise<boolean> {
     message: "Processing started"
   });
 
+  let stage: WorkerStage = "extract";
   try {
     const extraction = await extractItemText({
       id: item.id,
@@ -172,6 +228,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         mimeType: cacheHit.mimeType
       };
     } else {
+      stage = "tts";
       audio = await synthesizeEpisodeAudio(item.id, extraction.text);
       await prisma.chunkCache.create({
         data: {
@@ -187,6 +244,7 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     const guid = `episode-${item.id}`;
 
+    stage = "persist";
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.episode.upsert({
         where: { itemId: item.id },
@@ -242,7 +300,9 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    const err = error instanceof AppError ? error : new AppError(errorCodes.INTERNAL_ERROR, "Unexpected worker error", 500);
+    const err = mapUnexpectedWorkerError(error, stage);
+    const diagnostic = formatDiagnostic(error);
+    const retryRecommended = shouldRecommendRetry(err.code);
 
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.item.update({
@@ -268,10 +328,12 @@ export async function processJob(jobId: string): Promise<boolean> {
     await appendJobEvent({
       jobId: claimResult.id,
       itemId: item.id,
-      stage: "job",
+      stage,
       eventType: "error",
       message: err.userMessage,
-      errorCode: err.code
+      errorCode: err.code,
+      diagnostic,
+      retryRecommended
     });
 
     return false;

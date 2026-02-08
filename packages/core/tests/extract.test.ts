@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { extractHtmlFromUrl } from "../src/extract/html";
 import { extractTextFromPdf } from "../src/extract/pdf";
+import { AppError, errorCodes } from "../src/errors/codes";
 
 test("extractHtmlFromUrl extracts fixture", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
@@ -18,6 +19,47 @@ test("extractHtmlFromUrl extracts fixture", async () => {
   const result = await extractHtmlFromUrl("https://example.com/article");
   assert.ok(result.text.length > 100);
   assert.ok(result.title.includes("Fixture"));
+
+  globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () =>
+    ({
+      ok: false,
+      status: 403,
+      text: async () => ""
+    }) as unknown as Response) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://example.com/blocked"),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage.toLowerCase().includes("blocked access")
+  );
+
+  globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlFromUrl maps network timeout to actionable extraction error", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => {
+    const err = new Error("fetch failed");
+    (err as Error & { cause?: { code?: string } }).cause = { code: "UND_ERR_HEADERS_TIMEOUT" };
+    throw err;
+  }) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://example.com/timeout"),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage.toLowerCase().includes("timed out")
+  );
 
   globalThis.fetch = originalFetch;
 });
