@@ -1,4 +1,5 @@
 import { AppError, errorCodes } from "../errors/codes";
+import { cleanPdfTextWithAbogenRules } from "./abogen/pdfClean";
 
 async function loadPdfjs() {
   const mod = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -46,18 +47,20 @@ export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: stri
   const doc = await loadingTask.promise;
   const extractedTitle = await extractPdfTitle(doc);
 
-  const texts: string[] = [];
+  const pages: string[] = [];
   for (let page = 1; page <= doc.numPages; page += 1) {
     const pageDoc = await doc.getPage(page);
     const content = await pageDoc.getTextContent();
-    for (const item of content.items as Array<{ str?: string }>) {
-      if (item.str?.trim()) {
-        texts.push(item.str.trim());
-      }
+    const lineFragments = (content.items as Array<{ str?: string }>)
+      .map((item) => item.str || "")
+      .filter((value) => value.trim().length > 0);
+    const cleanedPage = cleanPdfTextWithAbogenRules(lineFragments.join("\n"));
+    if (cleanedPage) {
+      pages.push(cleanedPage);
     }
   }
 
-  const text = normalizeExtracted(texts.join(" "));
+  const text = normalizeExtracted(pages.join("\n\n"));
   if (text.length < 120) {
     throw new AppError(
       errorCodes.PDF_OCR_NOT_SUPPORTED,

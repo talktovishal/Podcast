@@ -1,11 +1,39 @@
 import { AppError, errorCodes } from "../errors/codes";
-import { cleanArticleTextWithPostcastRules } from "./postcast/cleanText";
-import { extractReadable } from "./postcast/readability";
+import { Readability } from "@mozilla/readability";
+import { JSDOM } from "jsdom";
+import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
 
 const FETCH_TIMEOUT_MS = 30_000;
 
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): { title: string; byline: string | null; text: string } {
+  const dom = new JSDOM(html, { url: sourceUrl });
+  try {
+    const reader = new Readability(dom.window.document);
+    const article = reader.parse();
+    if (!article) {
+      throw new Error("Readability failed to extract article");
+    }
+
+    const fallbackTitle = resolveTitleFromHtmlWithAbogenFallback(html, "Untitled");
+    const articleHtml = article.content || "";
+    const title =
+      article.title?.trim() ||
+      resolveTitleFromHtmlWithAbogenFallback(articleHtml, fallbackTitle) ||
+      "Untitled";
+    const text = extractNarrationTextFromHtml(articleHtml || html);
+
+    return {
+      title,
+      byline: article.byline?.trim() || null,
+      text
+    };
+  } finally {
+    dom.window.close();
+  }
 }
 
 function mapFetchStatusToAppError(status: number): AppError {
@@ -100,27 +128,22 @@ export async function extractHtmlFromUrl(url: string): Promise<{ title: string; 
   }
 
   const html = await response.text();
-  let extracted: ReturnType<typeof extractReadable>;
   try {
-    extracted = extractReadable(html, {
-      sourceId: "listenlater",
-      feedUrl: url,
-      canonicalUrl: url,
-      title: "Untitled"
-    });
-  } catch {
+    const extracted = extractReadableWithAbogenCleanup(html, url);
+    const text = normalizeExtracted(extracted.text);
+    if (text.length < 160) {
+      throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
+    }
+
+    return {
+      title: extracted.title || "Untitled",
+      byline: extracted.byline,
+      text
+    };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
     throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this URL.", 400);
   }
-
-  const cleaned = await cleanArticleTextWithPostcastRules(extracted);
-  const text = normalizeExtracted(cleaned.cleanText || extracted.text);
-  if (text.length < 160) {
-    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
-  }
-
-  return {
-    title: extracted.title || "Untitled",
-    byline: extracted.author || null,
-    text
-  };
 }

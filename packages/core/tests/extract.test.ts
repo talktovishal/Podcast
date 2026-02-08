@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { extractHtmlFromUrl } from "../src/extract/html";
+import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
 
@@ -23,7 +24,7 @@ test("extractHtmlFromUrl extracts fixture", async () => {
   globalThis.fetch = originalFetch;
 });
 
-test("extractHtmlFromUrl applies postcast cleaner pipeline", async () => {
+test("extractHtmlFromUrl applies abogen cleaner pipeline", async () => {
   const noisyHtml = `
     <html>
       <head><title>Cleaner Fixture</title></head>
@@ -31,8 +32,15 @@ test("extractHtmlFromUrl applies postcast cleaner pipeline", async () => {
         <article>
           <h1>Cleaner Fixture</h1>
           <p>This article has enough text to pass extraction minimums and stay deterministic for tests.</p>
-          <p>Read more at https://example.com/deep/link and continue reading for context and details.</p>
-          <p>Subscribe to our newsletter for updates.</p>
+          <figure>
+            <img alt="Demo image" src="https://example.com/example.png" />
+            <figcaption>Image caption noise that should not be narrated.</figcaption>
+          </figure>
+          <ol>
+            <li>First ordered item with stable wording.</li>
+            <li>Second ordered item with stable wording.</li>
+          </ol>
+          <p>Footnote marker gets stripped from text<sup>1</sup> so narration stays clean.</p>
           <p>This final paragraph adds more stable words so the extracted output remains over minimum length.</p>
         </article>
       </body>
@@ -49,8 +57,9 @@ test("extractHtmlFromUrl applies postcast cleaner pipeline", async () => {
 
   const result = await extractHtmlFromUrl("https://example.com/cleaner");
   assert.equal(result.title, "Cleaner Fixture");
-  assert.ok(result.text.includes("Link in description."));
-  assert.ok(!result.text.toLowerCase().includes("subscribe to our newsletter"));
+  assert.ok(!result.text.toLowerCase().includes("image caption noise"));
+  assert.ok(result.text.includes("1) First ordered item with stable wording."));
+  assert.ok(!result.text.includes("Footnote marker gets stripped from text1"));
 
   globalThis.fetch = originalFetch;
 });
@@ -107,4 +116,19 @@ test("extractTextFromPdf extracts text fixture", async () => {
 test("extractTextFromPdf fails scanned-style fixture", async () => {
   const data = await readFile(new URL("../../../fixtures/pdf/scanned-like.pdf", import.meta.url));
   await assert.rejects(() => extractTextFromPdf(new Uint8Array(data)));
+});
+
+test("cleanPdfTextWithAbogenRules strips bracket/page-number artifacts", () => {
+  const raw = `
+    Example paragraph with references [12] that should disappear.
+    24
+    Footer text 49
+    - 51 -
+  `;
+
+  const cleaned = cleanPdfTextWithAbogenRules(raw);
+  assert.ok(cleaned.includes("Example paragraph with references"));
+  assert.ok(!cleaned.includes("[12]"));
+  assert.ok(!cleaned.includes("- 51 -"));
+  assert.ok(!cleaned.includes("Footer text 49"));
 });

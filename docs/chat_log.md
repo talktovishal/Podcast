@@ -322,3 +322,30 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Okay, thanks. Now let's get back to the parsing. What I observed is when you we parsed one of the web pages, it included a lot of junk like subtext below the image, which was not very helpful at all when it was converted into podcast. I had given a pointer to this particular GitHub repo, and I thought that we would end up using their HTML and PDF extraction logic from that repo since they have spent so much time cleaning with the cleanup. I'm not sure, did we do that? First, I would really like us to copy and paste the code from that repo. Just my only suggestion, my only request was that we keep it clean. We move it to its own subfolder so we know which code came from that. But I really want to make sure that all of our extraction code is coming from that repo because those folks have spent so much time both for the PDF and the HTML. Now understand that they may be doing the books extraction, but I do, I would imagine that they also have it for articles and we can just treat it as a chapter of a book or something like that. We like, you know, at the end, we just need the extraction logic. So can you please first tell me what have you done and can we go ahead and take it from this repo because they have put in so much effort?"
   - "This was the repo -- https://github.com/iamspruce/postcast"
+
+## Entry 017
+- Date: 2026-02-08
+- Summary:
+  - Switched extraction provenance target from `postcast` to `abogen` per corrected repo URL.
+  - Added dedicated abogen-derived extraction module folder:
+    - `packages/core/src/extract/abogen/cleanText.ts`
+    - `packages/core/src/extract/abogen/htmlToText.ts`
+    - `packages/core/src/extract/abogen/pdfClean.ts`
+    - `packages/core/src/extract/abogen/README.md`
+  - Rewired extraction paths:
+    - HTML URL extraction now uses Readability for article isolation plus abogen-derived HTML-to-text cleanup.
+    - PDF extraction now applies abogen-derived PDF text cleanup heuristics for page-number/citation noise.
+  - Added provenance docs:
+    - `vendor/abogen/README.md`
+    - updated `docs/THIRD_PARTY.md` with commit-pinned attribution and runtime note.
+  - Updated extraction tests for abogen cleaner behavior and added direct PDF cleaner unit coverage.
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `npm run export`
+    - `npm run license:check`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<active_feed_token>.xml"` (PASS)
+- User prompts:
+  - "I am so sorry, I just pointed you to the wrong GitHub URL. This is the one I really wanted you to take the learnings from for both HTML and PDF extraction. Can you please redo that? Really, I'm very sorry, but please use this one. -- https://github.com/denizsafak/abogen"
