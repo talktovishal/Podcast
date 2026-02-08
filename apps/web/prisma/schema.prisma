@@ -13,6 +13,8 @@ model User {
   passwordHash String?
   name         String?
   role         String      @default("USER")
+  ttsProvider  String      @default("mac-say")
+  ttsVoice     String      @default("Samantha")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 

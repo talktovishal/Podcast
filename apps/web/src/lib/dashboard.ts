@@ -17,6 +17,20 @@ export async function getDashboardItems(userId: string) {
   });
 }
 
+export async function getUserTtsSettings(userId: string): Promise<{ providerId: string; voice: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      ttsProvider: true,
+      ttsVoice: true
+    }
+  });
+  return {
+    providerId: user?.ttsProvider || "mac-say",
+    voice: user?.ttsVoice || "Samantha"
+  };
+}
+
 export async function getAdminMetrics() {
   const [activeUsers, totalItems, readyItems, failedItems, recentErrors, recentJobs] = await Promise.all([
     prisma.user.count(),

@@ -1,0 +1,8 @@
+# Optional model providers (install as needed).
+
+# Kokoro-82M Python runtime
+kokoro>=0.9.4
+misaki[en]>=0.9.4
+
+# MeloTTS v3
+git+https://github.com/myshell-ai/MeloTTS.git

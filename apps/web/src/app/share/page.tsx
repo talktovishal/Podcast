@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { getTtsCatalog, normalizeTtsSelection } from "@listenlater/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
-import { getActiveFeedTokenForUser, getDashboardItems } from "@/lib/dashboard";
+import { getActiveFeedTokenForUser, getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
+import { getTtsProviderAvailability } from "@/lib/tts";
 
 export default async function SharePage({ searchParams }: { searchParams: { token?: string } }) {
   const shareToken = searchParams.token;
@@ -32,7 +34,16 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
     );
   }
 
-  const items = await getDashboardItems(user.id);
+  const [items, ttsSettings, ttsAvailability] = await Promise.all([
+    getDashboardItems(user.id),
+    getUserTtsSettings(user.id),
+    getTtsProviderAvailability()
+  ]);
+  const ttsCatalog = getTtsCatalog();
+  const normalizedSelection = normalizeTtsSelection({
+    providerId: ttsSettings.providerId,
+    voice: ttsSettings.voice
+  });
 
   return (
     <main className="py-8">
@@ -50,6 +61,9 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
           readOnly
           feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
           feedToken={feedToken}
+          initialTtsSelection={normalizedSelection}
+          ttsCatalog={ttsCatalog}
+          ttsAvailability={ttsAvailability}
           initialItems={items.map((item) => ({
             id: item.id,
             title: item.title,

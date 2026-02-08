@@ -29,5 +29,18 @@ export const rotateFeedTokenSchema = z.object({
   reason: z.string().trim().max(200).optional()
 });
 
+export const updateTtsSettingsSchema = z.object({
+  providerId: z.string().trim().min(1).max(40),
+  voice: z.string().trim().min(1).max(80)
+});
+
+export const previewTtsSchema = z.object({
+  providerId: z.string().trim().min(1).max(40),
+  voice: z.string().trim().min(1).max(80),
+  text: z.string().trim().min(1).max(400).optional()
+});
+
 export type SubmitUrlInput = z.infer<typeof submitUrlSchema>;
 export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
+export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;
+export type PreviewTtsInput = z.infer<typeof previewTtsSchema>;

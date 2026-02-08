@@ -19,3 +19,5 @@
 
 ## Optional TTS provider
 - `OPENAI_API_KEY`
+- `PYTHON_TTS_URL` (default `http://127.0.0.1:8010`)
+- `PYTHON_TTS_TIMEOUT_MS` (default `120000`)

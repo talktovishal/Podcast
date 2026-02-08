@@ -21,6 +21,7 @@ function runBinary(cmd: string, args: string[]): Promise<void> {
 
 export class MacSayTtsProvider implements TtsProvider {
   readonly providerId = "mac-say";
+  readonly outputFormat = "m4a" as const;
 
   async synthesizeToFile({ text, voice, format, outPath }: SynthesizeInput): Promise<void> {
     const workspace = await mkdtemp(join(tmpdir(), "listenlater-tts-"));

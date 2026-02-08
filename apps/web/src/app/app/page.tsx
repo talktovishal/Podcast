@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTtsCatalog, normalizeTtsSelection } from "@listenlater/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";
 import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
-import { getDashboardItems } from "@/lib/dashboard";
+import { getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
+import { getTtsProviderAvailability } from "@/lib/tts";
 
 export default async function AppDashboardPage() {
   const user = await getAuthUserFromCookies();
@@ -13,8 +15,17 @@ export default async function AppDashboardPage() {
     redirect("/login");
   }
 
-  const feedToken = await ensureUserFeedToken(user.id);
-  const items = await getDashboardItems(user.id);
+  const [feedToken, items, ttsSettings, ttsAvailability] = await Promise.all([
+    ensureUserFeedToken(user.id),
+    getDashboardItems(user.id),
+    getUserTtsSettings(user.id),
+    getTtsProviderAvailability()
+  ]);
+  const normalizedSelection = normalizeTtsSelection({
+    providerId: ttsSettings.providerId,
+    voice: ttsSettings.voice
+  });
+  const ttsCatalog = getTtsCatalog();
 
   return (
     <main className="py-8">
@@ -46,6 +57,9 @@ export default async function AppDashboardPage() {
         <DashboardClient
           feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
           feedToken={feedToken}
+          initialTtsSelection={normalizedSelection}
+          ttsCatalog={ttsCatalog}
+          ttsAvailability={ttsAvailability}
           initialItems={items.map((item) => ({
             id: item.id,
             title: item.title,

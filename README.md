@@ -21,6 +21,21 @@ RSS-first personal podcast feed that converts URLs/PDFs into private podcast epi
 Optional:
 - `./run.sh --setup-only` (prepare environment without starting servers)
 
+## Open-source TTS providers (Kokoro + Melo)
+The app now supports provider/voice selection from the dashboard. By default it uses Apple Speech (`mac-say`).
+
+To enable `Kokoro-82M` and `MeloTTS v3`:
+
+1. Start the Python TTS service:
+   - `cd services/python-tts`
+   - `python3 -m venv .venv`
+   - `source .venv/bin/activate`
+   - `pip install -r requirements.txt`
+   - `pip install -r requirements.providers.txt`
+   - `uvicorn app.main:app --reload --port 8010`
+2. Keep `PYTHON_TTS_URL` in `.env` pointed at that service (`http://127.0.0.1:8010` by default).
+3. Open `/app` -> `Voice Settings` and choose provider + voice, preview, then save default.
+
 ## Demo and admin accounts
 `run.sh` seeds both accounts automatically on local first run.
 

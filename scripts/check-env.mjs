@@ -6,7 +6,9 @@ const optional = [
   'GOOGLE_CLIENT_SECRET',
   'APPLE_CLIENT_ID',
   'APPLE_CLIENT_SECRET',
-  'OPENAI_API_KEY'
+  'OPENAI_API_KEY',
+  'PYTHON_TTS_URL',
+  'PYTHON_TTS_TIMEOUT_MS'
 ];
 
 const missingRequired = required.filter((key) => !process.env[key]);

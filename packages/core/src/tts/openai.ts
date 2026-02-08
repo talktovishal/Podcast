@@ -4,6 +4,7 @@ import type { SynthesizeInput, TtsProvider } from "./types";
 
 export class OpenAiTtsProvider implements TtsProvider {
   readonly providerId = "openai";
+  readonly outputFormat = "mp3" as const;
 
   private readonly apiKey: string;
 

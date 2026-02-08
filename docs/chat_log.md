@@ -349,3 +349,46 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<active_feed_token>.xml"` (PASS)
 - User prompts:
   - "I am so sorry, I just pointed you to the wrong GitHub URL. This is the one I really wanted you to take the learnings from for both HTML and PDF extraction. Can you please redo that? Really, I'm very sorry, but please use this one. -- https://github.com/denizsafak/abogen"
+
+## Entry 018
+- Date: 2026-02-08
+- Summary:
+  - Added configurable multi-provider TTS architecture with per-user defaults and voice previews.
+  - Integrated provider catalog + validation in `packages/core`:
+    - `mac-say`, `kokoro`, `melo`, `openai`
+    - provider/voice normalization helpers and defaults
+  - Added new core providers:
+    - `KokoroTtsProvider` (python service bridge)
+    - `MeloTtsProvider` (python service bridge)
+    - generic `PythonModelTtsProvider` with WAV -> MP3/M4A conversion via `afconvert`/`ffmpeg`
+  - Updated worker pipeline to use user-selected provider/voice and include TTS config in cache keys to avoid stale voice reuse.
+  - Added user-level TTS settings in DB (`User.ttsProvider`, `User.ttsVoice`) plus bootstrap backfill for existing SQLite DBs.
+  - Added dashboard `Voice Settings` UI:
+    - provider selector
+    - voice selector
+    - sample text
+    - preview generation
+    - save default settings
+  - Added API routes:
+    - `GET/POST /api/tts/settings`
+    - `POST /api/tts/preview`
+  - Upgraded `services/python-tts` from scaffold to functional service:
+    - `GET /health`
+    - `GET /v1/providers`
+    - `POST /v1/synthesize`
+    - provider support for Kokoro-82M and MeloTTS v3 (with optional dependency install)
+  - Updated docs and env references:
+    - `.env.example`, `docs/env.md`, root `README.md`, `services/python-tts/README.md`
+  - Added TTS catalog unit tests in core.
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `npm run export`
+    - `npm run license:check`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<active_feed_token>.xml"` (PASS)
+- User prompts:
+  - "Okay, thank you for doing that. This is great. I will test it. I now want to move to TTS. The default TTS that is there in Apple is really bad, so I want to have a few different options. I did some research, and it looks like I have these two open source Apache slash MIT compatible models that I can use. Can you please provide integration to each one of them? Also, if we focus on English, there are probably each of them will have their own flavors of, you know, options like male, female, maybe different voices that are available. So can you please somehow add that configuration as well? There should be a place where there are some simple samples to try out, and then there is a default that somebody uses to synthesize their TTS, but they can change it based on what they want. So I'm wondering that we should start with the Kokoro model first and then we can move to Mello TTS, but I want to give you both of them so that you know that I'm interested in actually integrating them both."
+  - "- Kokoro-82M"
+  - "-  MeloTTS v3."

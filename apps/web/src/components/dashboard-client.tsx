@@ -19,9 +19,45 @@ type DashboardItem = {
     | null;
 };
 
+type TtsCatalog = {
+  providers: ReadonlyArray<{
+    id: string;
+    label: string;
+    summary: string;
+    openSource: boolean;
+  }>;
+  voicesByProvider: Record<
+    string,
+    ReadonlyArray<{
+      id: string;
+      label: string;
+      gender?: "male" | "female" | "neutral";
+      locale: string;
+    }>
+  >;
+  defaults: {
+    providerId: string;
+    voiceByProvider: Record<string, string>;
+  };
+};
+
+type TtsAvailability = Record<
+  string,
+  {
+    available: boolean;
+    reason?: string;
+  }
+>;
+
 type Props = {
   feedUrl: string;
   feedToken: string;
+  initialTtsSelection: {
+    providerId: string;
+    voice: string;
+  };
+  ttsCatalog: TtsCatalog;
+  ttsAvailability: TtsAvailability;
   readOnly?: boolean;
   initialItems: DashboardItem[];
 };
@@ -48,7 +84,15 @@ function statusHelpText(status: string): string | null {
   return null;
 }
 
-export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialItems }: Props) {
+export function DashboardClient({
+  feedUrl,
+  feedToken,
+  initialTtsSelection,
+  ttsCatalog,
+  ttsAvailability,
+  readOnly = false,
+  initialItems
+}: Props) {
   const [items, setItems] = useState(initialItems);
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
@@ -56,12 +100,34 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [ttsProvider, setTtsProvider] = useState(initialTtsSelection.providerId);
+  const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
+  const [previewText, setPreviewText] = useState(
+    "Hello from ListenLater. This is a quick voice sample so you can choose your default narration."
+  );
+  const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
+  const [isTtsBusy, setIsTtsBusy] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   }, [items]);
   const inProgressCount = useMemo(() => newestFirst.filter((item) => isPendingStatus(item.status)).length, [newestFirst]);
+  const ttsVoicesForProvider = useMemo(() => {
+    return ttsCatalog.voicesByProvider[ttsProvider] || [];
+  }, [ttsCatalog.voicesByProvider, ttsProvider]);
+  const selectedProviderAvailability = useMemo(() => ttsAvailability[ttsProvider], [ttsAvailability, ttsProvider]);
+
+  useEffect(() => {
+    if (ttsVoicesForProvider.some((voice) => voice.id === ttsVoice)) {
+      return;
+    }
+
+    const fallback = ttsCatalog.defaults.voiceByProvider[ttsProvider] || ttsVoicesForProvider[0]?.id || "";
+    if (fallback) {
+      setTtsVoice(fallback);
+    }
+  }, [ttsCatalog.defaults.voiceByProvider, ttsProvider, ttsVoice, ttsVoicesForProvider]);
 
   const refreshItems = useCallback(async () => {
     const response = await fetch("/api/seed-demo?refresh=items");
@@ -206,6 +272,58 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
     await submitPdf();
   }
 
+  async function saveTtsSettings() {
+    setIsTtsBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/tts/settings", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          providerId: ttsProvider,
+          voice: ttsVoice
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not save TTS settings.");
+        return;
+      }
+      setStatusMessage(`Default voice saved (${json.selection.providerId} / ${json.selection.voice}).`);
+    } finally {
+      setIsTtsBusy(false);
+    }
+  }
+
+  async function previewVoice() {
+    setIsTtsBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/tts/preview", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          providerId: ttsProvider,
+          voice: ttsVoice,
+          text: previewText
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not generate preview audio.");
+        return;
+      }
+      setPreviewAudioUrl(json.preview.dataUrl);
+      setStatusMessage(`Preview generated (${json.preview.providerId} / ${json.preview.voice}).`);
+    } finally {
+      setIsTtsBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="card p-5">
@@ -227,6 +345,103 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
           ) : null}
         </div>
       </section>
+
+      {!readOnly ? (
+        <section className="card p-5">
+          <h2 className="text-base font-semibold">Voice Settings</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Choose a default provider and voice for new episodes. Try a quick sample before saving.
+          </p>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Provider</span>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={ttsProvider}
+                disabled={isTtsBusy}
+                onChange={(event) => {
+                  setTtsProvider(event.target.value);
+                  setPreviewAudioUrl(null);
+                }}
+              >
+                {ttsCatalog.providers.map((provider) => {
+                  const availability = ttsAvailability[provider.id];
+                  const disabled = availability ? !availability.available && provider.id !== ttsProvider : false;
+                  return (
+                    <option key={provider.id} value={provider.id} disabled={disabled}>
+                      {provider.label}
+                      {availability && !availability.available ? " (Unavailable)" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Voice</span>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={ttsVoice}
+                disabled={isTtsBusy || ttsVoicesForProvider.length === 0}
+                onChange={(event) => {
+                  setTtsVoice(event.target.value);
+                  setPreviewAudioUrl(null);
+                }}
+              >
+                {ttsVoicesForProvider.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                    {voice.gender ? ` (${voice.gender})` : ""}
+                    {voice.locale ? ` - ${voice.locale}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {selectedProviderAvailability && !selectedProviderAvailability.available ? (
+            <p className="mt-2 text-xs text-[var(--danger)]">
+              {selectedProviderAvailability.reason || "Selected provider is unavailable in this environment."}
+            </p>
+          ) : null}
+
+          <label className="mt-3 block">
+            <span className="mb-1 block text-sm font-medium">Sample text</span>
+            <textarea
+              className="w-full rounded-lg border px-3 py-2"
+              rows={3}
+              value={previewText}
+              onChange={(event) => setPreviewText(event.target.value)}
+              maxLength={400}
+              disabled={isTtsBusy}
+            />
+          </label>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              className="rounded-lg border px-3 py-1.5 text-sm"
+              disabled={isTtsBusy || !previewText.trim()}
+              onClick={previewVoice}
+            >
+              Preview Voice
+            </button>
+            <button
+              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={isTtsBusy || !ttsVoice}
+              onClick={saveTtsSettings}
+            >
+              Save Default
+            </button>
+          </div>
+
+          {previewAudioUrl ? (
+            <div className="mt-3">
+              <audio controls className="w-full" preload="none" src={previewAudioUrl} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {!readOnly ? (
         <section className="card p-5">

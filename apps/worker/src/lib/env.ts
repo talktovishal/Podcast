@@ -9,5 +9,6 @@ export const workerEnv = {
   mediaRoot: process.env.MEDIA_ROOT ?? resolve(process.cwd(), "../web/.data/media"),
   pollMs: Number(process.env.WORKER_POLL_MS ?? 2500),
   openAiApiKey: process.env.OPENAI_API_KEY,
-  defaultVoice: process.env.TTS_VOICE ?? "Samantha"
+  pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
+  pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000)
 };

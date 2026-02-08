@@ -57,7 +57,7 @@ export default function LoginPage() {
           <div className="card p-6">
             <h2 className="font-semibold">Demo-friendly defaults</h2>
             <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>• Local TTS via macOS <code>say</code> is supported.</li>
+              <li>• Local TTS supports Apple Speech plus Kokoro/Melo (via python-tts).</li>
               <li>• Media endpoint supports <code>HEAD</code> and byte ranges.</li>
               <li>• Feed token rotation invalidates old URLs.</li>
             </ul>

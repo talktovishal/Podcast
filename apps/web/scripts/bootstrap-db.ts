@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS "User" (
   "passwordHash" TEXT,
   "name" TEXT,
   "role" TEXT NOT NULL DEFAULT 'USER',
+  "ttsProvider" TEXT NOT NULL DEFAULT 'mac-say',
+  "ttsVoice" TEXT NOT NULL DEFAULT 'Samantha',
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL
 );
@@ -143,6 +145,36 @@ function resolveSqliteBinary(): string {
   throw new Error("sqlite3 binary not found. Set SQLITE3_BIN to a valid sqlite3 path.");
 }
 
+function runSql(sqliteBin: string, dbPathInput: string, sql: string): string {
+  const result = spawnSync(sqliteBin, [dbPathInput, sql], {
+    encoding: "utf-8"
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || `sqlite command failed for SQL: ${sql}`);
+  }
+  return result.stdout ?? "";
+}
+
+function ensureUserColumns(sqliteBin: string): void {
+  const tableInfo = runSql(sqliteBin, dbPath, `PRAGMA table_info("User");`)
+    .trim()
+    .split("\n")
+    .filter(Boolean);
+  const existingColumns = new Set(tableInfo.map((line) => line.split("|")[1]).filter(Boolean));
+
+  const requiredColumns: Array<{ name: string; sqlType: string }> = [
+    { name: "ttsProvider", sqlType: `TEXT NOT NULL DEFAULT 'mac-say'` },
+    { name: "ttsVoice", sqlType: `TEXT NOT NULL DEFAULT 'Samantha'` }
+  ];
+
+  for (const column of requiredColumns) {
+    if (existingColumns.has(column.name)) {
+      continue;
+    }
+    runSql(sqliteBin, dbPath, `ALTER TABLE "User" ADD COLUMN "${column.name}" ${column.sqlType};`);
+  }
+}
+
 async function main() {
   await mkdir(dirname(dbPath), { recursive: true });
   const sqlPath = resolve(process.cwd(), ".data/bootstrap.sql");
@@ -157,6 +189,7 @@ async function main() {
     throw new Error("Failed to apply SQLite bootstrap schema");
   }
 
+  ensureUserColumns(sqliteBin);
   await access(dbPath, constants.F_OK);
   // eslint-disable-next-line no-console
   console.log(`DB bootstrap complete: ${dbPath}`);

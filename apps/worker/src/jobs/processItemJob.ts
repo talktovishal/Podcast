@@ -7,9 +7,11 @@ import {
   errorCodes,
   extractHtmlFromUrl,
   extractTextFromPdf,
+  normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
   sha256,
+  type TtsProviderId,
   validateFetchableUrl
 } from "@listenlater/core";
 import { workerEnv } from "../lib/env.js";
@@ -44,26 +46,32 @@ async function appendJobEvent(input: {
   });
 }
 
-async function synthesizeEpisodeAudio(itemId: string, text: string): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
-  const provider = makeTtsProvider();
+async function synthesizeEpisodeAudio(
+  itemId: string,
+  text: string,
+  selection: { providerId: TtsProviderId; voice: string }
+): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
+  const provider = makeTtsProvider({ providerId: selection.providerId });
+  const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
+  const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
   const itemDir = join(workerEnv.mediaRoot, "items", itemId);
-  const outputPath = join(itemDir, "episode.m4a");
+  const outputPath = join(itemDir, `episode.${extension}`);
 
   await mkdir(dirname(outputPath), { recursive: true });
 
   await provider.synthesizeToFile({
     text,
-    voice: workerEnv.defaultVoice,
-    format: "m4a",
+    voice: selection.voice,
+    format: provider.outputFormat,
     outPath: outputPath
   });
 
   const fileInfo = await stat(outputPath);
 
   return {
-    relativePath: join("items", itemId, "episode.m4a"),
+    relativePath: join("items", itemId, `episode.${extension}`),
     bytes: fileInfo.size,
-    mimeType: "audio/mp4"
+    mimeType
   };
 }
 
@@ -159,7 +167,16 @@ export async function processJob(jobId: string): Promise<boolean> {
         status: { in: ["QUEUED", "FAILED"] }
       },
       include: {
-        item: true
+        item: {
+          include: {
+            user: {
+              select: {
+                ttsProvider: true,
+                ttsVoice: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -175,7 +192,16 @@ export async function processJob(jobId: string): Promise<boolean> {
         attempt: { increment: 1 }
       },
       include: {
-        item: true
+        item: {
+          include: {
+            user: {
+              select: {
+                ttsProvider: true,
+                ttsVoice: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -217,7 +243,11 @@ export async function processJob(jobId: string): Promise<boolean> {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
     }
 
-    const cacheKey = sha256(chunks.map((chunk) => chunk.hash).join("|"));
+    const ttsSelection = normalizeTtsSelection({
+      providerId: item.user?.ttsProvider,
+      voice: item.user?.ttsVoice
+    });
+    const cacheKey = sha256([ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cacheHit = await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
@@ -229,7 +259,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       };
     } else {
       stage = "tts";
-      audio = await synthesizeEpisodeAudio(item.id, extraction.text);
+      audio = await synthesizeEpisodeAudio(item.id, extraction.text, ttsSelection);
       await prisma.chunkCache.create({
         data: {
           itemId: item.id,
