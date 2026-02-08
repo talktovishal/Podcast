@@ -11,6 +11,18 @@ This extension is intentionally kept in a standalone folder so you can package a
 3. Click **Load unpacked**.
 4. Select `/Users/vishalchowdhary/Documents/Podcast/apps/extension`.
 
+## One-command package
+From repo root:
+
+```bash
+npm run extension:package
+```
+
+This generates:
+- `dist/extension/listenlater-capture-v<version>.zip` (upload this to Web Store)
+- `dist/extension/webstore/*` (listing metadata templates)
+- `dist/extension/README.txt` (quick checklist)
+
 ## Connect flow
 1. Sign in to ListenLater web app (`/app`).
 2. Generate a one-time connect code from the **Chrome Extension** card.
@@ -25,3 +37,7 @@ The extension sends a raw HTML snapshot to:
 Auth exchange endpoints:
 - `POST /api/auth/extension/connect-code`
 - `POST /api/auth/extension/exchange`
+
+## Private Web Store publishing
+Use the checklist in:
+- `docs/chrome-webstore-private-publish.md`

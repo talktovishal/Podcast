@@ -543,3 +543,45 @@ This file tracks concise session summaries and the exact user prompts that guide
   - "that was a typo. what i wnated to say is it's good you have made the doc changes. now go ahead and make the runtime code changes, tests etc"
   - "you will also build the chrome extention correct? please build it in a separate folder so that it will be easy for me to package and publish it to the chrome web store"
   - "pls make sure that someone will be able to login to the extension so that they can connect the accounts and when they upload something it shows up in their podcast feed"
+
+## Entry 023
+- Date: 2026-02-08
+- Summary:
+  - Added OAuth setup guide for future self-serve configuration:
+    - `docs/oauth-setup.md` with Google + Apple step-by-step setup, env vars, callback URLs, and troubleshooting notes.
+  - Added a private Chrome Web Store publishing guide:
+    - `docs/chrome-webstore-private-publish.md` with minimal-manual workflow and tester-only visibility steps.
+  - Added one-command extension packaging automation:
+    - new script `scripts/package-extension.sh`
+    - new helper script `scripts/generate-extension-icons.py`
+    - new npm scripts:
+      - `npm run extension:icons`
+      - `npm run extension:package`
+  - Added extension Web Store metadata templates:
+    - `apps/extension/webstore/README.md`
+    - `apps/extension/webstore/listing-short-description.txt`
+    - `apps/extension/webstore/listing-description.md`
+    - `apps/extension/webstore/privacy-policy.md`
+    - `apps/extension/webstore/release-notes.md`
+  - Added extension icon assets + manifest wiring for publish readiness:
+    - `apps/extension/icons/icon16.png`
+    - `apps/extension/icons/icon32.png`
+    - `apps/extension/icons/icon48.png`
+    - `apps/extension/icons/icon128.png`
+    - `apps/extension/manifest.json` now references icons and action icons.
+  - Updated docs pointers for discoverability:
+    - `README.md`
+    - `apps/extension/README.md`
+    - `docs/documentation.md`
+  - Verified packaging output:
+    - `dist/extension/listenlater-capture-v0.1.0.zip`
+    - `dist/extension/webstore/*`
+  - Validation completed:
+    - `npm run extension:package`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `./scripts/verify_podcast_contract.sh "http://localhost:3001/rss/<token>.xml"` (PASS)
+- User prompts:
+  - "Can I not publish it to the web store, just not like available for everyone, but at least available for me?"
+  - "Yes, do that and then create all the files that are needed... Prioritize to make it very simple"

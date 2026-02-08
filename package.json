@@ -18,7 +18,9 @@
     "seed:demo": "npx pnpm --filter @listenlater/web run seed:demo",
     "check:env": "node scripts/check-env.mjs",
     "license:check": "node scripts/license-check.mjs",
-    "test:tts:e2e": "./scripts/test-python-tts-e2e.sh"
+    "test:tts:e2e": "./scripts/test-python-tts-e2e.sh",
+    "extension:icons": "python3 scripts/generate-extension-icons.py",
+    "extension:package": "./scripts/package-extension.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

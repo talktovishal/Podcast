@@ -64,6 +64,11 @@ OAuth behavior:
 The extension is kept as raw MV3 files in:
 - `apps/extension`
 
+Package for Web Store in one command:
+- `npm run extension:package`
+- Output ZIP: `dist/extension/listenlater-capture-v<version>.zip`
+- Private publish checklist: `docs/chrome-webstore-private-publish.md`
+
 Local load:
 1. Open `chrome://extensions`.
 2. Enable Developer mode.

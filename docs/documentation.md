@@ -42,6 +42,8 @@ Currently available:
   - generate one-time connect code from `/app`
   - exchange in extension popup for extension token
   - capture current page HTML and enqueue as `HTML_SNAPSHOT`.
+  - one-command packaging: `npm run extension:package`
+  - private publish checklist: `docs/chrome-webstore-private-publish.md`
 
 Planned next features (see `docs/plans.md`):
 - `M28`: extension security/compliance hardening and demo updates.
