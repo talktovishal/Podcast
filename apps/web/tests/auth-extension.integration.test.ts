@@ -222,6 +222,8 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     });
     assert.equal(finishedItem?.status, "READY");
     assert.ok(finishedItem?.episode);
+    assert.equal(finishedItem?.sourceHtml, null);
+    assert.ok(finishedItem?.sourceCapturedAt instanceof Date);
 
     const feedToken = await ensureUserFeedToken(user.id);
     const feedRequest = new NextRequest(`http://localhost/rss/${feedToken}.xml`);

@@ -127,6 +127,22 @@ test("extractHtmlSnapshot extracts content without network fetch", async () => {
   globalThis.fetch = originalFetch;
 });
 
+test("extractHtmlSnapshot fails with actionable message for low-signal content", () => {
+  const html = "<html><body><p>Too short.</p></body></html>";
+
+  assert.throws(
+    () =>
+      extractHtmlSnapshot({
+        html,
+        url: "https://example.com/too-short"
+      }),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_EMPTY &&
+      error.userMessage.toLowerCase().includes("too short")
+  );
+});
+
 test("extractTextFromPdf extracts text fixture", async () => {
   const data = await readFile(new URL("../../../fixtures/pdf/text-based.pdf", import.meta.url));
   const result = await extractTextFromPdf(new Uint8Array(data));

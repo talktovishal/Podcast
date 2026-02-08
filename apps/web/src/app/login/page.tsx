@@ -81,15 +81,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen py-16">
+    <main className="min-h-screen py-8 sm:py-16">
       <div className="container-shell grid gap-8 md:grid-cols-[1.1fr_1fr] items-start">
         <section className="space-y-6">
           <p className="inline-block rounded-full bg-[var(--accent-soft)] px-4 py-1 text-sm font-semibold text-[var(--accent)]">RSS-First Personal Podcast Feed</p>
-          <h1 className="font-bold text-5xl leading-tight">ListenLater</h1>
-          <p className="max-w-xl text-lg text-[var(--muted)]">
+          <h1 className="font-bold text-4xl leading-tight sm:text-5xl">ListenLater</h1>
+          <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
             Turn URLs and PDFs into private podcast episodes, subscribe from your favorite app, and demo instantly with seeded content.
           </p>
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <h2 className="font-semibold">Demo-friendly defaults</h2>
             <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
               <li>• Local TTS uses Kokoro-82M voices (via python-tts).</li>
@@ -99,12 +99,12 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="card p-6">
+        <section className="card p-4 sm:p-6">
           <div className="mb-5 flex gap-2">
-            <button className={`rounded-lg px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("login")}>
+            <button className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("login")}>
               Login
             </button>
-            <button className={`rounded-lg px-4 py-2 text-sm font-semibold ${mode === "signup" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("signup")}>
+            <button className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${mode === "signup" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("signup")}>
               Sign up
             </button>
           </div>
@@ -136,7 +136,7 @@ export default function LoginPage() {
 
             <div className="pt-3">
               <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted)]">OAuth</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {googleConfigured ? (
                   <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/google/start">
                     Continue with Google

@@ -20,6 +20,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  overflow-x: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at 10% 10%, #fdf8de 0, transparent 45%),
@@ -34,14 +35,14 @@ a {
 }
 
 .container-shell {
-  width: min(1100px, calc(100% - 2rem));
+  width: min(1100px, calc(100% - 1rem));
   margin: 0 auto;
 }
 
 .card {
   background: var(--surface);
   border: 1px solid rgba(31, 42, 31, 0.12);
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: 0 12px 30px rgba(20, 38, 30, 0.07);
 }
 
@@ -70,4 +71,14 @@ a {
 .badge.queued {
   background: #dce9ff;
   color: #2451a6;
+}
+
+@media (min-width: 640px) {
+  .container-shell {
+    width: min(1100px, calc(100% - 2rem));
+  }
+
+  .card {
+    border-radius: 16px;
+  }
 }
