@@ -585,3 +585,26 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Can I not publish it to the web store, just not like available for everyone, but at least available for me?"
   - "Yes, do that and then create all the files that are needed... Prioritize to make it very simple"
+
+## Entry 024
+- Date: 2026-02-08
+- Summary:
+  - Fixed dashboard refresh behavior so extension-submitted items appear promptly instead of waiting for a manual refresh or later state transition.
+    - `apps/web/src/components/dashboard-client.tsx`
+    - changed polling to run continuously for authenticated dashboard sessions (faster when in-progress items exist, slower idle polling otherwise)
+    - refresh requests now use `cache: "no-store"` plus timestamp query param to avoid stale item lists
+  - Improved source labeling in Recent items and demo diagnostics:
+    - replaced raw `HTML_SNAPSHOT` badge text with user-facing `Chrome extension`
+    - updated source line for snapshot items to read `Captured via Chrome extension` (and include URL when present)
+  - Added source label helper module + unit tests:
+    - `apps/web/src/lib/source-labels.ts`
+    - `apps/web/tests/source-labels.test.ts`
+  - Validation completed:
+    - `npm run lint`
+    - `npm run test`
+    - `npm run typecheck`
+    - `npm run build`
+    - `./scripts/verify_podcast_contract.sh "http://localhost:3001/rss/<token>.xml"` (PASS)
+- User prompts:
+  - "...submitted an article through the extension, it didn't immediately show up..."
+  - "...it shows up as HTML snapshot... I want ... Chrome extension ..."

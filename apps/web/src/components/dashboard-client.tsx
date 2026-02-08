@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
+import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
 
 type DashboardItem = {
   id: string;
@@ -135,7 +136,9 @@ export function DashboardClient({
   }, [ttsCatalog.defaults.voiceByProvider, ttsVoice, ttsVoicesForProvider]);
 
   const refreshItems = useCallback(async () => {
-    const response = await fetch("/api/seed-demo?refresh=items");
+    const response = await fetch(`/api/seed-demo?refresh=items&t=${Date.now()}`, {
+      cache: "no-store"
+    });
     if (!response.ok) {
       return;
     }
@@ -150,13 +153,14 @@ export function DashboardClient({
   }, [isDemoAccount]);
 
   useEffect(() => {
-    if (readOnly || inProgressCount === 0) {
+    if (readOnly) {
       return;
     }
 
+    const intervalMs = inProgressCount > 0 ? 2500 : 4500;
     const interval = window.setInterval(() => {
       void refreshItems();
-    }, 2500);
+    }, intervalMs);
 
     return () => {
       window.clearInterval(interval);
@@ -598,29 +602,30 @@ export function DashboardClient({
               <article key={item.id} className="rounded-xl border p-3 sm:p-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`badge ${badgeClass}`}>{item.status.toLowerCase()}</span>
-                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{item.sourceType}</span>
+                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{sourceTypeBadgeLabel(item.sourceType)}</span>
                   <span className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</span>
                 </div>
 
                 <h3 className="break-words font-semibold">{item.title || "Untitled item"}</h3>
-                  <p className="mt-1 text-xs text-[var(--muted)]">
-                    {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
-                      item.sourceUrl ? (
-                        <>
-                          Source:{" "}
-                          <a className="underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
-                            {item.sourceUrl}
-                          </a>
-                        </>
-                      ) : (
-                        item.sourceType === "URL" ? "Source: URL" : "Source: Captured browser page"
-                      )
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
+                    item.sourceUrl ? (
+                      <>
+                        Source:{" "}
+                        {item.sourceType === "HTML_SNAPSHOT" ? "Captured via Chrome extension from " : ""}
+                        <a className="underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
+                          {item.sourceUrl}
+                        </a>
+                      </>
                     ) : (
-                      "Source: Uploaded PDF"
-                    )}
-                  </p>
-	                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
-	                {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
+                      `Source: ${sourceFallbackLabel(item.sourceType)}`
+                    )
+                  ) : (
+                    "Source: Uploaded PDF"
+                  )}
+                </p>
+                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
+                {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
 
                 {mediaUrl ? (
                   <div className="mt-3 space-y-2">
@@ -661,7 +666,7 @@ export function DashboardClient({
               <article key={diagnostic.id} className="rounded-xl border p-3 sm:p-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`badge ${diagnostic.status.toLowerCase()}`}>{diagnostic.status.toLowerCase()}</span>
-                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{diagnostic.sourceType}</span>
+                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{sourceTypeBadgeLabel(diagnostic.sourceType)}</span>
                   <span className="text-xs text-[var(--muted)]">{new Date(diagnostic.createdAt).toLocaleString()}</span>
                 </div>
 
