@@ -58,6 +58,7 @@ Login flow for demoing:
 OAuth behavior:
 - Google/Apple login buttons require `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and `APPLE_CLIENT_ID`/`APPLE_CLIENT_SECRET`.
 - If these vars are empty, OAuth is intentionally not configured for local demo.
+- Step-by-step setup: `docs/oauth-setup.md`.
 
 ## Chrome extension (separate publishable folder)
 The extension is kept as raw MV3 files in:

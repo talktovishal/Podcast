@@ -31,6 +31,7 @@ OAuth notes:
 - Google login works only when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured.
 - Apple login works only when `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` are configured.
 - Empty OAuth vars are expected for local no-provider demos.
+- Detailed setup guide: `docs/oauth-setup.md`.
 
 ## Current vs planned
 Currently available:
