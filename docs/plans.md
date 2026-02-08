@@ -10,6 +10,7 @@
 - `docs/Prompts.md` now includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth routes exist but still need production-hardening (identity-linking by provider subject, callback resilience, tests).
 - Chrome extension was previously listed as MVP non-goal and is now promoted to post-MVP planned milestones (M24-M28).
+- Post-M28 delivery milestones now split rollout into manageable slices (M29-M34) for quality, operations, and release readiness.
 
 ## Requirement Coverage Snapshot
 
@@ -33,6 +34,11 @@
 | Demo starter item preloaded by default | M17 |
 | Attribution for copied patterns (`abogen`, `postcast`) | M03 |
 | Chrome extension raw HTML snapshot ingest | M24, M25, M26, M27, M28 |
+| OAuth + extension regression automation in CI | M20, M29 |
+| Extension onboarding and reconnect UX | M30 |
+| Extraction quality guardrails for noisy/authenticated pages | M31 |
+| Operational observability and release certification | M21, M32, M33 |
+| Data lifecycle hardening for diagnostics and extension tokens | M34 |
 
 ## Milestone Status Snapshot
 
@@ -67,6 +73,12 @@
 | M26 | Planned |
 | M27 | Planned |
 | M28 | Planned |
+| M29 | Planned |
+| M30 | Planned |
+| M31 | Planned |
+| M32 | Planned |
+| M33 | Planned |
+| M34 | Planned |
 
 ## Milestones
 
@@ -568,6 +580,122 @@
   - security tests (token misuse, payload abuse)
   - demo walkthrough including extension capture
 
+### M29 - OAuth + Extension End-to-End Regression Matrix (CI)
+- Scope:
+  - Add dedicated integration test suites for OAuth callback flows and extension auth/token exchange flows.
+  - Add HTML snapshot ingest integration tests to CI, including failure-path coverage.
+  - Enforce these suites as release-blocking quality gates.
+- Key files/modules:
+  - `apps/web/tests/integration/auth-oauth*.test.ts`
+  - `apps/web/tests/integration/extension-auth*.test.ts`
+  - `apps/web/tests/integration/html-snapshot*.test.ts`
+  - `.github/workflows/ci.yml`
+- Acceptance criteria:
+  - CI fails on OAuth or extension contract regressions.
+  - Test matrix includes unconfigured providers, callback failures, connect-code replay/expiry, and snapshot ingest success/failure.
+  - URL/PDF ingestion regression tests remain green.
+- Verification commands:
+  - `npm run test -- oauth`
+  - `npm run test -- extension-auth`
+  - `npm run test -- html-snapshot`
+  - `npm run lint`
+  - `npm run build`
+
+### M30 - Extension Onboarding + Recovery UX
+- Scope:
+  - Add in-app extension onboarding panel with connect status and reconnect guidance.
+  - Improve extension popup states for disconnected/connected/submitting/failed.
+  - Add token-expiry handling UX and retry actions for common failures.
+- Key files/modules:
+  - `apps/web/src/app/app/settings/*`
+  - `apps/extension/src/popup/*`
+  - `apps/extension/src/background/*`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - User can connect extension in under 30 seconds from dashboard.
+  - Expired/revoked token states show explicit reconnect path.
+  - Failed submissions provide actionable errors and retry option.
+- Verification commands:
+  - `npm run test -- extension-ui`
+  - `npm run test -- extension-auth`
+  - manual onboarding smoke walkthrough
+
+### M31 - Extraction Quality Guardrails for Noisy HTML
+- Scope:
+  - Build a fixture suite for noisy/authenticated-page HTML samples.
+  - Add extraction quality assertions (boilerplate reduction, minimum useful text, heading/body coherence).
+  - Add explicit failure mapping when cleaned text quality is too low to narrate.
+- Key files/modules:
+  - `fixtures/html/quality/*`
+  - `packages/core/src/extract/quality/*`
+  - `packages/core/src/extract/html/*`
+  - `apps/worker/src/jobs/processItemJob.ts`
+- Acceptance criteria:
+  - Quality fixture suite protects against known junk extraction regressions.
+  - Low-signal outputs fail with machine-readable quality error codes.
+  - Existing high-quality fixtures remain stable.
+- Verification commands:
+  - `npm run test -- extraction-quality`
+  - `npm run test -- extraction`
+  - `npm run test -- worker`
+
+### M32 - Operational Observability Baseline
+- Scope:
+  - Add service-level metrics for queue depth, job latency, retry rate, and failure codes.
+  - Surface key health metrics and recent pipeline failures in admin dashboard.
+  - Add operator runbook for local troubleshooting and production triage.
+- Key files/modules:
+  - `packages/core/src/logging/*`
+  - `apps/web/src/app/admin/*`
+  - `apps/worker/src/runner/*`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Admin can see current backlog, processing latency, and top failure reasons.
+  - Logs/metrics are correlated by `item_id` and `job_id`.
+  - Runbook contains actionable investigation steps for top incident classes.
+- Verification commands:
+  - `npm run test -- admin`
+  - `npm run test -- worker`
+  - manual admin observability walkthrough
+
+### M33 - Release Certification Matrix (Apple + Secondary App)
+- Scope:
+  - Formalize release candidate checklist with automated + manual podcast compatibility checks.
+  - Add reproducible Apple Podcasts + second-app subscription test protocol for reachable environments.
+  - Record release evidence artifacts (feed validation, range checks, manual smoke pass/fail).
+- Key files/modules:
+  - `scripts/verify_podcast_contract.sh`
+  - `docs/release-checklist.md`
+  - `docs/plans.md` release gate section
+- Acceptance criteria:
+  - Every RC has a signed-off checklist with scripted and manual results.
+  - Feed/media compatibility checks pass before release tag.
+  - Any failures are tracked with explicit blockers and owners.
+- Verification commands:
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+  - `curl -I "<FEED_URL>"`
+  - `curl -I "<MP3_URL>"`
+  - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
+
+### M34 - Security + Data Lifecycle Hardening
+- Scope:
+  - Harden retention controls for demo-only extraction diagnostics and extension auth artifacts.
+  - Add token rotation/revocation UX for extension access.
+  - Add periodic purge routines and audit logging coverage for sensitive artifacts.
+- Key files/modules:
+  - `apps/web/src/lib/demo-diagnostics.ts`
+  - `apps/web/src/app/api/auth/extension/*`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/worker/src/jobs/*`
+- Acceptance criteria:
+  - Demo diagnostics retention policy is automatically enforced and test-covered.
+  - Extension token rotation immediately invalidates prior tokens.
+  - Audit logs provide sufficient traceability without exposing secrets.
+- Verification commands:
+  - `npm run test -- security`
+  - `npm run test -- demo-diagnostics`
+  - `npm run test -- extension-auth`
+
 ## Assumptions and Defaults
 - Package manager: `pnpm`.
 - Workspace package names will use `@listenlater/*`.
@@ -675,6 +803,12 @@
 | Extension token leakage or replay | Medium | High | unauthorized extension submissions | short-lived connect codes, hashed stored tokens, revocation and replay checks | M24, M28 |
 | Snapshot payload abuse (oversized/hostile HTML) | Medium | High | high memory/CPU usage or ingest failures | strict payload caps, validation, and rate limits | M25, M28 |
 | Policy drift for paywalled content handling | Medium | Medium | feature requests imply bypass behavior | enforce user-visible-only policy in spec, code, and tests | M28 |
+| OAuth provider behavior drift (callback/profile edge cases) | Medium | Medium | intermittent sign-in failures in provider-specific paths | CI integration matrix + standardized error mapping | M23, M29 |
+| Extension onboarding friction reduces adoption/demo reliability | Medium | Medium | users fail to connect or repeatedly hit auth expiry issues | guided onboarding UI + reconnect flows + UX telemetry | M30 |
+| Extraction quality regressions on complex article layouts | High | Medium | narrated output includes boilerplate/junk text | quality fixture suite and quality-gate failures | M31 |
+| Limited operational visibility delays incident response | Medium | High | unresolved queue growth or repeated silent failures | metrics baseline + admin visibility + triage runbook | M32 |
+| Missing release evidence for podcast app compatibility | Medium | High | release regressions discovered only after demo | formal RC certification checklist and artifact capture | M33 |
+| Diagnostics retention misconfiguration exposes extra user data | Low | High | extracted text retained longer than intended | automated purge + retention tests + scoped demo-only storage | M34 |
 | License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
 | Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
 | Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |

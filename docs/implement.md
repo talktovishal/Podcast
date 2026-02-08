@@ -46,6 +46,12 @@
 4. `M26` worker extraction path for `HTML_SNAPSHOT`.
 5. `M27` Chrome extension MV3 capture + submit UX.
 6. `M28` extension security/compliance hardening + demo script updates.
+7. `M29` OAuth + extension CI integration matrix and regression gates.
+8. `M30` extension onboarding/reconnect UX hardening.
+9. `M31` extraction quality guardrails for noisy/authenticated HTML.
+10. `M32` operational observability baseline + admin surfacing.
+11. `M33` release certification matrix for Apple Podcasts + secondary app.
+12. `M34` security/data lifecycle hardening for diagnostics and extension tokens.
 
 ## Export artifacts
 - Run `npm run export`.

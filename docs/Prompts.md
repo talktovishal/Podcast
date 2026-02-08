@@ -19,6 +19,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - raw HTML snapshot ingest API
   - worker extraction path for snapshot mode
   - security/compliance hardening for authenticated page capture.
+- Post-extension delivery wave (`M29`-`M34`):
+  - CI-gated OAuth + extension end-to-end regression matrix
+  - extension onboarding/recovery UX polish
+  - extraction quality guardrails for noisy/authenticated HTML
+  - operational observability + release certification checklist
+  - security/data lifecycle hardening for extension and demo diagnostics.
 
 ### Future / Optional
 - Long-form split episodes (Phase 1.5).

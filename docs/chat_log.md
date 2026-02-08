@@ -477,3 +477,23 @@ This file tracks concise session summaries and the exact user prompts that guide
   - "update the prompts.md"
   - "spec to reflect all changes that we have done and the new features requested so that evrythign stays in sync"
   - "PLEASE IMPLEMENT THIS PLAN: # Spec Sync Plan: OAuth + Chrome Extension Milestones ..."
+
+## Entry 021
+- Date: 2026-02-08
+- Summary:
+  - Added a new roadmap wave of manageable milestones (`M29`-`M34`) after extension core delivery.
+  - Updated `docs/plans.md` to include:
+    - requirement coverage mappings for post-`M28` work
+    - milestone status rows for `M29`-`M34`
+    - decision-complete milestone definitions for quality gates, onboarding, extraction quality, operations, release certification, and security/data lifecycle hardening
+    - expanded risk register entries mapped to the new milestones
+  - Updated roadmap sync docs:
+    - `docs/Prompts.md` (`Next Milestones`) now includes post-extension wave (`M29`-`M34`)
+    - `docs/implement.md` upcoming sequence expanded through `M34`
+    - `docs/documentation.md` planned features expanded through `M34`
+    - `docs/architecture.md` now includes planned post-`M28` architecture increments
+  - Validation completed:
+    - docs consistency review across `docs/Prompts.md`, `docs/plans.md`, `docs/implement.md`, `docs/documentation.md`, `docs/architecture.md`
+- User prompts:
+  - "Yes, please go ahead and finish the implementation of all the milestones."
+  - "new milestones"

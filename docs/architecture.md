@@ -74,6 +74,20 @@ Policy constraints:
 - No credential/session forwarding from extension to backend.
 - No headless automation or bypass behavior for paywalled/protected content.
 
+## Post-M28 architecture increments (planned)
+- `M29` (quality gates):
+  - CI-required integration matrix for OAuth callbacks, extension token lifecycle, and HTML snapshot ingest.
+- `M30` (onboarding):
+  - Dashboard-to-extension connect flow with reconnect lifecycle state.
+- `M31` (extraction quality):
+  - quality-scoring layer in extraction path with deterministic fixture coverage.
+- `M32` (operations):
+  - pipeline metrics (queue depth, latency, failure rates) surfaced in admin and structured logs.
+- `M33` (release certification):
+  - release evidence artifacts for feed/media compatibility across Apple Podcasts and a secondary app.
+- `M34` (security/data lifecycle):
+  - automated retention and purge routines for demo diagnostics plus extension token lifecycle hardening.
+
 ## Runtime profiles
 - Local default:
   - SQLite (`apps/web/.data/db.sqlite`)

@@ -45,6 +45,12 @@ Planned next features (see `docs/plans.md`):
 - `M26`: worker extraction mode for `HTML_SNAPSHOT`.
 - `M27`: Chrome extension MV3 capture flow.
 - `M28`: extension security/compliance hardening and demo updates.
+- `M29`: OAuth + extension end-to-end regression matrix in CI.
+- `M30`: extension onboarding and reconnect UX improvements.
+- `M31`: extraction quality guardrails for noisy/authenticated pages.
+- `M32`: operational observability baseline in admin.
+- `M33`: release certification checklist (Apple Podcasts + secondary app).
+- `M34`: security and data lifecycle hardening for diagnostics/tokens.
 
 ## Feed and media
 - Feed endpoint: `/rss/<feed_token>.xml`
