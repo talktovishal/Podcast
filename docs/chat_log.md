@@ -159,3 +159,14 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `./run.sh --help`
 - User prompts:
   - "Okay, can you do one last thing for me, please? I want to get everything running locally and test now, start testing things out myself. I do still see you have a readme with multiple commands. Can you just write a simple run script, the shell script that I can just run one thing, and it will do everything for me and I will get things started. That way, I don't have to waste a lot of time."
+
+## Entry 010
+- Date: 2026-02-08
+- Summary:
+  - Added clear local demo onboarding instructions to `README.md` and `docs/documentation.md`.
+  - Documented seeded demo/admin credentials and what each account is for.
+  - Added step-by-step local demo script (login -> submit content -> validate playback -> validate feed -> review admin dashboard).
+  - Documented OAuth behavior when provider keys are empty.
+  - Added admin bootstrap caveat: changing `ADMIN_PASSWORD` later does not automatically reset existing DB credentials.
+- User prompts:
+  - "put this in the documentation + readme please"
