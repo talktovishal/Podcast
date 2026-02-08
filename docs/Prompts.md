@@ -2,6 +2,29 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ListenLater** web app from scratch.
 
+## Spec Status (as of 2026-02-08)
+
+### Implemented (as of 2026-02-08)
+- Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
+- Private feed tokens, rotation, and read-only share links are implemented.
+- RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
+- URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
+- Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
+- Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.
+
+### Next Milestones
+- OAuth hardening completion (Google + Apple) as env-gated production-ready auth.
+- Chrome extension flow:
+  - extension login/connect
+  - raw HTML snapshot ingest API
+  - worker extraction path for snapshot mode
+  - security/compliance hardening for authenticated page capture.
+
+### Future / Optional
+- Long-form split episodes (Phase 1.5).
+- Bookmarklet variant after extension.
+- Additional provider expansion beyond current Kokoro-first UX.
+
 ### Core goals
 
 - This must be impressive to **non-engineers** in a live demo:
@@ -24,8 +47,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Must run **fully locally by default**:
   - no required external hosted services
   - local DB + local storage
-  - local TTS provider (macOS `say`) supported so the demo works without paid APIs.
-- Have Auth integration with Google, Apple. 
+  - local TTS provider supported so the demo works without paid APIs (current default: Kokoro via python-tts; `say` can remain optional fallback).
+- Have Auth integration with Google, Apple (env-gated locally; local credential auth remains available).
 - I should have a private account that I can setup in a manner that I point someone to a url and they should be able to run as a read only mode so that it's easily demoable to anyone.
 
 **Remote run experience (Azure-ready)**
@@ -98,7 +121,8 @@ C) Convert to audio (worker)
   - PDF: pdfjs text extraction
   - Copy leverage as much code as possible from https://github.com/denizsafak/abogen Keeping clear track of it. Maintain a documentation.
 - Worker generates audio with a pluggable TTS provider:
-  - default local provider: macOS `say` → AAC (`.m4a`) or MP3 (see below)
+  - default local provider: Kokoro via python-tts → AAC (`.m4a`) (see below)
+  - optional local fallback: macOS `say`
   - optional: OpenAI TTS provider (only if API key set)
 - Output:
   - one episode per item (MVP)
@@ -146,9 +170,23 @@ H) Quality and engineering
 
 ### Explicit non-goals (MVP)
 - Native mobile app
-- Chrome extension (bookmarklet later)
 - Word-by-word highlighting in third-party podcast apps
 - Voice cloning
+
+### Next Milestones (Post-MVP Phase 2)
+- OAuth hardening completion (Google + Apple):
+  - provider config detection and UX gating
+  - callback robustness, state handling, and error mapping
+  - provider subject identity strategy to avoid unsafe email-only account linking.
+- Chrome extension (MV3) for authenticated page capture:
+  - extension login/connect flow
+  - raw HTML snapshot submission endpoint
+  - worker extraction mode for HTML snapshots without backend refetch.
+
+Policy for authenticated/paywalled pages:
+- Extension capture is allowed only for content already rendered to the logged-in user in the browser.
+- No credential forwarding, session forwarding, or backend login replay.
+- No headless bypass, paywall bypass, or DRM bypass automation.
 
 ---
 

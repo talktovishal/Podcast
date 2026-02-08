@@ -18,14 +18,22 @@ Primary entities:
 - `Episode`: published audio metadata used by RSS.
 - `ChunkCache`: deterministic hash cache to avoid repeated synthesis.
 
+Planned extension/auth entities:
+- `OAuthIdentity`: provider + subject mapping per user for hardened account linking.
+- `ExtensionToken`: scoped, hashed tokens for extension-only ingest APIs.
+- `ExtensionConnectCode` (ephemeral): one-time code used to exchange web session auth for extension token.
+
 ## Async pipeline
 1. Web API validates and enqueues an item/job.
 2. Worker claims queued jobs.
 3. Worker extracts text (Readability for URL, pdfjs for PDF).
 4. Worker normalizes/chunks text and computes deterministic hash.
-5. Worker synthesizes audio (local `say` default), caches output.
+5. Worker synthesizes audio (Kokoro-local default), caches output.
 6. Worker writes episode metadata and marks item `READY`.
 7. RSS endpoint includes ready episodes only.
+
+Planned source-type extension:
+- Add `HTML_SNAPSHOT` source mode for client-captured raw HTML, so worker extraction can run without backend URL fetch.
 
 ## Idempotency strategy
 - Item keeps stable identifier.
@@ -53,10 +61,23 @@ Primary entities:
 - Rate limiting per user and per IP on submit routes.
 - Delete item/account routes for data minimization.
 
+## Planned extension ingestion path
+1. User signs in on web app (local credentials or OAuth).
+2. Web app mints one-time extension connect code (`session` authenticated).
+3. Extension exchanges code for short-lived scoped `ExtensionToken`.
+4. Extension captures active-tab HTML snapshot (`outerHTML` + URL/title metadata).
+5. Extension calls `POST /api/items/html-snapshot` with token.
+6. Worker extracts from provided HTML snapshot and proceeds through normal pipeline.
+
+Policy constraints:
+- Capture is limited to content already rendered to the user in browser.
+- No credential/session forwarding from extension to backend.
+- No headless automation or bypass behavior for paywalled/protected content.
+
 ## Runtime profiles
 - Local default:
   - SQLite (`apps/web/.data/db.sqlite`)
   - Local media filesystem (`apps/web/.data/media`)
-  - macOS `say` for TTS.
+  - Kokoro via local python-tts service for narration.
 - Azure-ready:
   - DB/storage adapters and containerized runtime docs prepared.

@@ -434,3 +434,46 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "1. Okay, I think what will be helpful is, along with the title, I would appreciate if you also show the link to the URL from which the title was extracted. If it was an uploaded PDF, you can just say uploaded PDF. That's fine. I also want a mode for the demo URL that are you show the, if we can, what are we doing? Okay, let's first do that."
   - "2. Now for the demo account, which I am using to test and debug things, I also want us to store the extracted text and the corresponding log as to how did we extract that text. I want, you know, ability to do it for the past, you know, for the latest last 10 runs where we store all this data. And, you know, we can periodically flush it so that I don't have to worry about it. But then, for that, what I want to do is I would like to be able to see the logs for the extraction, you know, the end-to-end logs. So I want to see what we did, how did we, what did we fetch, what did we extract, so that I know is everything working correct or not. So can you please make that happen? Just again, for the, let's only do it for the demo account. I don't want you to do it for the others. For the others, let's not save the extracted text for now. We just, only the audio is good."
+
+## Entry 020
+- Date: 2026-02-08
+- Summary:
+  - Updated planning/spec docs to keep implementation and roadmap synchronized.
+  - `docs/Prompts.md`:
+    - added status-tagged sections: Implemented / Next Milestones / Future
+    - clarified current local TTS baseline as Kokoro-first (with optional `say` fallback)
+    - moved Chrome extension from MVP non-goal into explicit post-MVP milestones
+    - added policy language for authenticated page capture:
+      - user-visible content only
+      - no credential/session forwarding
+      - no headless/paywall/DRM bypass automation
+  - `docs/plans.md`:
+    - added milestone status snapshot (`Done`, `In Progress`, `Planned`) for existing milestones
+    - updated requirement coverage mappings
+    - added new milestones `M23`-`M28`:
+      - OAuth hardening
+      - extension auth/connect-code flow
+      - HTML snapshot ingest
+      - worker snapshot extraction path
+      - Chrome extension MV3 UX/capture flow
+      - extension security/compliance/demo readiness
+    - extended risk register with OAuth identity-linking, extension token leakage/replay, payload abuse, and policy-drift risks
+    - updated assumptions/defaults and architecture notes to align with current Kokoro-first runtime
+  - `docs/implement.md`:
+    - added spec-status synchronization workflow
+    - added upcoming implementation sequence for `M23`-`M28`
+  - `docs/architecture.md`:
+    - added planned extension ingestion path (connect code -> extension token -> HTML snapshot API -> worker extraction)
+  - `docs/documentation.md`:
+    - added “Current vs planned” section with links to `M23`-`M28`
+    - clarified extension is tracked post-MVP
+  - Validation completed:
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "I see that the Google and Apple authentication modes have not been integrated yet. ... add in a milestone for implementing the Google and Apple authentication."
+  - "The second thing I want you to do is really start thinking about the Chrome extension..."
+  - "update the prompts.md"
+  - "spec to reflect all changes that we have done and the new features requested so that evrythign stays in sync"
+  - "PLEASE IMPLEMENT THIS PLAN: # Spec Sync Plan: OAuth + Chrome Extension Milestones ..."

@@ -7,9 +7,9 @@
 - If any requirement appears conflicting, log it in "Spec Consistency Notes" and apply the smallest correction before coding.
 
 ## Spec Consistency Notes (Current)
-- `AGENTS.md` requires `docs/Prompts.md` to contain a **"Verification Prompts"** section.
-- Current `docs/Prompts.md` does not include that section.
-- Plan action: add a dedicated milestone to align `docs/Prompts.md` with this requirement before final release signoff.
+- `docs/Prompts.md` now includes a **"Verification Prompts"** section and status-tagged sections.
+- OAuth routes exist but still need production-hardening (identity-linking by provider subject, callback resilience, tests).
+- Chrome extension was previously listed as MVP non-goal and is now promoted to post-MVP planned milestones (M24-M28).
 
 ## Requirement Coverage Snapshot
 
@@ -18,6 +18,7 @@
 | One-command local startup (`pnpm dev`) | M01, M04 |
 | Local-first operation (no paid services) | M04, M12, M13 |
 | Google + Apple auth integration | M06 |
+| OAuth hardening completion (env-gated production-ready) | M23 |
 | Shareable read-only demo access | M07, M17 |
 | Async pipeline only (no heavy request work) | M09 |
 | Idempotent/restartable jobs + caching | M09, M11, M12, M13 |
@@ -31,6 +32,41 @@
 | License policy gate (deny AGPL/SSPL/NC) | M20 |
 | Demo starter item preloaded by default | M17 |
 | Attribution for copied patterns (`abogen`, `postcast`) | M03 |
+| Chrome extension raw HTML snapshot ingest | M24, M25, M26, M27, M28 |
+
+## Milestone Status Snapshot
+
+| Milestone | Status |
+|---|---|
+| M00 | Done |
+| M01 | Done |
+| M02 | Done |
+| M03 | Done |
+| M04 | Done |
+| M05 | Done |
+| M06 | In Progress |
+| M07 | Done |
+| M08 | Done |
+| M09 | Done |
+| M10 | Done |
+| M11 | Done |
+| M12 | Done |
+| M13 | Done |
+| M14 | Done |
+| M15 | Done |
+| M16 | Done |
+| M17 | Done |
+| M18 | Done |
+| M19 | Planned |
+| M20 | In Progress |
+| M21 | In Progress |
+| M22 | Planned |
+| M23 | Planned |
+| M24 | Planned |
+| M25 | Planned |
+| M26 | Planned |
+| M27 | Planned |
+| M28 | Planned |
 
 ## Milestones
 
@@ -228,25 +264,25 @@
   - `pnpm test -- chunking`
   - `pnpm test -- determinism`
 
-### M12 - TTS Provider Layer (macOS `say` + Optional OpenAI + Python Scaffold)
+### M12 - TTS Provider Layer (Kokoro-First + Optional Providers)
 - Scope:
   - Define `TtsProvider.synthesizeToFile({ text, voice, format, outPath })`.
-  - Implement `MacSayTtsProvider` for local mode.
-  - Implement optional `OpenAiTtsProvider` (enabled only with API key).
-  - Add Python service scaffold for future hosted model execution.
+  - Implement Kokoro-backed local narration path through python-tts service.
+  - Keep optional providers (e.g., OpenAI/macOS `say`) behind adapters where configured.
+  - Maintain python service runtime and preview prewarm path.
 - Key files/modules:
   - `packages/core/src/tts/types.ts`
-  - `packages/core/src/tts/macSay.ts`
+  - `packages/core/src/tts/kokoro.ts`
   - `packages/core/src/tts/openai.ts`
-  - `services/python-tts/` (scaffold)
+  - `services/python-tts/` (runtime service)
 - Acceptance criteria:
   - Local audio generation works with no cloud dependencies.
   - Provider selection is adapter-driven and test-mockable.
-  - Python scaffold can run locally (even if minimal) and is documented.
+  - Python service can run locally and expose synthesis/health endpoints.
 - Verification commands:
   - `pnpm test -- tts`
   - `pnpm test -- tts-provider-selection`
-  - `python -m venv .venv && . .venv/bin/activate && python --version` (python scaffold smoke)
+  - `npm run test:tts:e2e`
 
 ### M13 - Storage Adapter and Artifact Lifecycle
 - Scope:
@@ -417,13 +453,130 @@
   - `pnpm test -- longform-splitting`
   - `pnpm test -- rss`
 
+### M23 - OAuth Hardening Completion (Google + Apple)
+- Scope:
+  - Add provider config detection and explicit login UX gating.
+  - Harden callback/state handling and user-safe error mapping.
+  - Add provider-subject identity linking strategy to avoid unsafe email-only collisions.
+  - Add automated tests for success/failure callback paths.
+- Key files/modules:
+  - `apps/web/src/app/api/auth/google/*`
+  - `apps/web/src/app/api/auth/apple/*`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/app/login/page.tsx`
+- Acceptance criteria:
+  - Local password login works without external providers configured.
+  - OAuth buttons/routes handle unconfigured providers cleanly.
+  - With valid provider env set, callback creates session and lands in `/app`.
+  - Admin/user role protections remain intact.
+- Verification commands:
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - auth integration tests with mocked provider flows
+
+### M24 - Extension Auth Model (Login In Extension)
+- Scope:
+  - Implement one-time connect-code mint endpoint (session-authenticated from web app).
+  - Implement code exchange endpoint for extension-scoped token.
+  - Store extension tokens hashed at rest and support rotation/revocation.
+- Key files/modules:
+  - `apps/web/src/app/api/auth/extension/connect-code/*`
+  - `apps/web/src/app/api/auth/extension/exchange/*`
+  - `packages/core/src/security/tokens/*`
+  - Prisma schema additions for extension tokens/codes
+- Acceptance criteria:
+  - User can connect extension without entering provider secrets in extension UI.
+  - Extension token authorizes ingest-only extension APIs.
+  - Expired/replayed/revoked tokens are rejected with clear errors.
+- Verification commands:
+  - token lifecycle tests
+  - unauthorized/expired/replayed token tests
+
+### M25 - HTML Snapshot Ingestion API
+- Scope:
+  - Add new source type `HTML_SNAPSHOT`.
+  - Implement `POST /api/items/html-snapshot`.
+  - Accept canonical URL, optional title fallback, raw HTML snapshot, and capture metadata.
+  - Add payload size limits, schema validation, and abuse controls.
+  - Keep snapshot retention ephemeral by default.
+- Key files/modules:
+  - `apps/web/src/app/api/items/html-snapshot/*`
+  - `apps/web/src/lib/items.ts`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core` submit schemas
+- Acceptance criteria:
+  - Valid snapshot enqueue path works and does not require backend URL fetch.
+  - Clear errors for malformed or oversized payloads.
+  - Existing URL/PDF ingestion remains unchanged.
+- Verification commands:
+  - schema validation tests
+  - ingest API tests for `HTML_SNAPSHOT`
+  - regression tests for URL/PDF endpoints
+
+### M26 - Worker Extraction Path for Snapshot Mode
+- Scope:
+  - Extend extraction adapter to support URL, PDF, and HTML snapshot source modes.
+  - Reuse cleanup pipeline for deterministic output quality.
+  - Ensure chunk/hash determinism is unchanged for equivalent content.
+- Key files/modules:
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `packages/core/src/extract/*`
+  - extraction fixtures for snapshot mode
+- Acceptance criteria:
+  - `HTML_SNAPSHOT` source processes without network fetch.
+  - Output quality and determinism are comparable to current URL flow.
+  - Failures return actionable extraction errors.
+- Verification commands:
+  - extraction fixture tests for snapshot mode
+  - chunk determinism tests
+  - worker pipeline tests
+
+### M27 - Chrome Extension (MV3) UX + Capture Flow
+- Scope:
+  - Build extension popup UX with connect status and submit action.
+  - Capture `document.documentElement.outerHTML`, page URL, and title from active tab.
+  - Send authenticated payload to backend snapshot ingest API.
+  - Provide user-facing error/success feedback in extension popup.
+- Key files/modules:
+  - `apps/extension/` (MV3 manifest, popup, background, content script)
+  - backend extension auth and ingest routes
+  - docs for local extension loading
+- Acceptance criteria:
+  - End-to-end capture from active tab creates queued item successfully.
+  - Extension UX clearly indicates connected/disconnected/submission states.
+  - Errors are understandable (unsupported page, payload too large, auth expired).
+- Verification commands:
+  - local extension manual smoke script
+  - API contract tests for extension requests
+
+### M28 - Security/Compliance + Demo Readiness for Extension
+- Scope:
+  - Enforce user-visible-content-only policy for extension ingestion.
+  - Minimize extension permissions and review abuse scenarios.
+  - Add audit logging for extension submissions.
+  - Extend demo script to include extension capture flow.
+- Key files/modules:
+  - extension manifest + permission docs
+  - ingestion policy checks
+  - `docs/plans.md` demo script + security checklist
+- Acceptance criteria:
+  - Security checklist passes for token handling and payload controls.
+  - Extension flow is demo-ready and repeatable.
+  - Policy is explicit: no credential forwarding/session replay/headless bypass.
+- Verification commands:
+  - security tests (token misuse, payload abuse)
+  - demo walkthrough including extension capture
+
 ## Assumptions and Defaults
 - Package manager: `pnpm`.
 - Workspace package names will use `@listenlater/*`.
-- Local demo audio format defaults to MP3 for broad podcast compatibility.
+- Local demo audio format currently defaults to AAC/M4A (`audio/mp4`).
 - OAuth providers are optional at runtime and must not block local credential login.
 - Apple Podcasts verification requires a reachable host (Azure deployment or trusted tunnel).
 - Optional Phase 1.5 milestone (M22) is explicitly non-blocking for MVP completion.
+- Chrome extension is post-MVP and does not block current MVP release.
+- Authenticated page capture policy is user-visible-only (no credential/session forwarding or bypass automation).
 
 ## Architecture Overview
 
@@ -452,7 +605,7 @@
 - `ShareToken` (read-only demo):
   - `id`, `user_id`, `token_hash`, `scope=read_only`, `expires_at`
 - `Item`:
-  - `id`, `user_id`, `source_type(url|pdf)`, `source_uri_or_file`, `status`, `error_code`, `error_message`
+  - `id`, `user_id`, `source_type(url|pdf|html_snapshot)`, `source_uri_or_file`, `status`, `error_code`, `error_message`
 - `Episode`:
   - `id`, `item_id`, `guid`, `title`, `audio_path`, `audio_bytes`, `mime_type`, `published_at`
 - `Job`:
@@ -480,6 +633,7 @@
 - `ExtractorAdapter`:
   - `extractFromUrl(input): ExtractResult`
   - `extractFromPdf(input): ExtractResult`
+  - `extractFromHtmlSnapshot(input): ExtractResult`
 - `TtsProvider`:
   - `synthesizeToFile({ text, voice, format, outPath })`
 - `StorageAdapter`:
@@ -501,7 +655,7 @@
 
 ### Local vs Azure Runtime Strategy
 - Local:
-  - SQLite + local filesystem media + `say` TTS.
+  - SQLite + local filesystem media + Kokoro/python-tts local narration.
 - Azure:
   - Azure SQL Serverless + Blob storage + containerized web/worker.
   - optional cloud TTS provider via adapter.
@@ -517,6 +671,10 @@
 | Retry logic creates duplicate episodes | Medium | High | duplicate GUID/enclosures | deterministic IDs + check-before-generate + transactionally claimed jobs | M09, M11 |
 | Token leakage in logs/errors | Low | High | token strings visible in logs/UI errors | token redaction + secure error mapping | M07, M20 |
 | OAuth instability in local demos | Medium | Medium | login blocked when providers unavailable | local auth fallback always enabled | M06 |
+| OAuth account-linking ambiguity (same email across providers) | Medium | High | wrong account linked after provider login | introduce provider-subject identity table and linking rules | M23 |
+| Extension token leakage or replay | Medium | High | unauthorized extension submissions | short-lived connect codes, hashed stored tokens, revocation and replay checks | M24, M28 |
+| Snapshot payload abuse (oversized/hostile HTML) | Medium | High | high memory/CPU usage or ingest failures | strict payload caps, validation, and rate limits | M25, M28 |
+| Policy drift for paywalled content handling | Medium | Medium | feature requests imply bypass behavior | enforce user-visible-only policy in spec, code, and tests | M28 |
 | License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
 | Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
 | Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |
@@ -571,6 +729,8 @@
 - Scanned PDF -> failed with explicit OCR-not-supported error.
 - Media `HEAD` + `Range` behavior.
 - Feed token rotation invalidates prior feed URL.
+- OAuth callback coverage (unconfigured provider, state mismatch, token/profile failures, success path).
+- Extension connect-code/token lifecycle and HTML snapshot ingest end-to-end.
 
 ### Snapshot/Determinism Tests
 - RSS XML snapshots.

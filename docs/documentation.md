@@ -32,6 +32,20 @@ OAuth notes:
 - Apple login works only when `APPLE_CLIENT_ID` and `APPLE_CLIENT_SECRET` are configured.
 - Empty OAuth vars are expected for local no-provider demos.
 
+## Current vs planned
+Currently available:
+- URL and PDF ingestion from web dashboard.
+- Private feed + share links + admin dashboard.
+- Kokoro-first voice settings and preview.
+
+Planned next features (see `docs/plans.md`):
+- `M23`: OAuth hardening completion (Google + Apple).
+- `M24`: extension connect-code auth model.
+- `M25`: HTML snapshot ingest API (`POST /api/items/html-snapshot`).
+- `M26`: worker extraction mode for `HTML_SNAPSHOT`.
+- `M27`: Chrome extension MV3 capture flow.
+- `M28`: extension security/compliance hardening and demo updates.
+
 ## Feed and media
 - Feed endpoint: `/rss/<feed_token>.xml`
 - Media endpoint: `/api/media/...` (HEAD + Range enabled)
@@ -53,3 +67,4 @@ OAuth notes:
 - No OCR for scanned/image-heavy PDFs.
 - No voice cloning.
 - No native mobile app.
+- Chrome extension is planned post-MVP and tracked in `M24`-`M28`.
