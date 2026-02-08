@@ -1,16 +1,16 @@
 # AGENTS.md — Personal Podcast Feed (RSS-first)
 
 This file is the **execution contract** for coding agents in this repo (Codex, etc.).
-Product/feature requirements live in **prompts.md**. Do not duplicate product specs here.
+Product/feature requirements live in **docs/Prompts.md**. Do not duplicate product specs here.
 
 Codex reads `AGENTS.md` before doing any work. Keep this file practical and enforceable. :contentReference[oaicite:1]{index=1}
 
 ---
 
 ## Source of truth & precedence (important)
-- If you need product requirements, API contracts, UX flows, MVP scope, or acceptance criteria, **read prompts.md**.
-- Do **not** rewrite prompts.md unless explicitly asked.
-- If prompts.md conflicts with code/tests, **surface the mismatch** and propose the smallest fix.
+- If you need product requirements, API contracts, UX flows, MVP scope, or acceptance criteria, **read docs/Prompts.md**.
+- Do **not** rewrite docs/Prompts.md unless explicitly asked.
+- If docs/Prompts.md conflicts with code/tests, **surface the mismatch** and propose the smallest fix.
 
 ---
 
@@ -60,7 +60,7 @@ Ship an RSS-first “Personal Podcast Feed”: users submit a URL or upload a te
 ---
 
 ## MVP scope guardrails (hard boundaries)
-Do NOT implement any of the following unless explicitly requested in prompts.md:
+Do NOT implement any of the following unless explicitly requested in docs/Prompts.md:
 - Dedicated mobile app
 - Voice cloning
 - “Two-host conversation” narration
@@ -124,20 +124,20 @@ No hard-coded vendor logic scattered throughout the code.
 ## Auth, privacy, and security rules
 
 ### Authentication surfaces
-- Web UI: session-based auth (cookie) per prompts.md.
+- Web UI: session-based auth (cookie) per docs/Prompts.md.
 - RSS: feed token embedded in feed URL.
-- Media: token-based access OR signed URLs per prompts.md.
+- Media: token-based access OR signed URLs per docs/Prompts.md.
 
 ### Token handling
 - Treat feed/media tokens as secrets:
   - Don’t log them
   - Don’t leak them into client-visible error messages
-  - Provide rotation that invalidates prior URLs (as required by prompts.md)
+  - Provide rotation that invalidates prior URLs (as required by docs/Prompts.md)
 
 ### Data minimization
 - Store only what’s needed to operate/debug.
-- Avoid retaining full extracted text indefinitely unless prompts.md requires it.
-- Implement delete item + delete account per prompts.md.
+- Avoid retaining full extracted text indefinitely unless docs/Prompts.md requires it.
+- Implement delete item + delete account per docs/Prompts.md.
 
 ### Abuse prevention (MVP baseline)
 - Rate limit submission endpoints per user and per IP.
@@ -199,7 +199,7 @@ Otherwise run:
 ---
 
 ## Working procedure for agents
-1) Read prompts.md sections relevant to the task.
+1) Read docs/Prompts.md sections relevant to the task.
 2) Summarize requirements and acceptance criteria.
 3) Implement the smallest change that satisfies the requirement.
 4) Run tests/lint; fix failures.
@@ -211,8 +211,8 @@ Otherwise run:
 ## Verification prompts (keep spec separate)
 To prevent drift and keep long projects consistent:
 
-- prompts.md MUST include a section titled **“Verification Prompts”**.
-- For any milestone-sized work (or before marking a PR done), run the verification prompts from prompts.md and apply fixes if they reveal violations.
-- Do not invent new verification prompts in chat; add them to prompts.md so the team uses the same checklist every time.
+- docs/Prompts.md MUST include a section titled **“Verification Prompts”**.
+- For any milestone-sized work (or before marking a PR done), run the verification prompts from docs/Prompts.md and apply fixes if they reveal violations.
+- Do not invent new verification prompts in chat; add them to docs/Prompts.md so the team uses the same checklist every time.
 
 OpenAI’s recommended practice is to use repo docs (like AGENTS.md + related plan/docs files) to create consistent, repeatable behavior across runs. :contentReference[oaicite:2]{index=2}

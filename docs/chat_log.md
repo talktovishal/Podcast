@@ -29,6 +29,16 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Okay, I did that through the ID. Now everything should, the GitHub should be set up correctly. Can you make sure all the files got checked in?"
 
+## Entry 003
+- Date: 2026-02-08
+- Summary:
+  - Moved markdown project docs from repository root into `docs/` for a cleaner layout.
+  - Kept `AGENTS.md` at repository root for agent/tooling discovery, and updated references to `docs/Prompts.md`.
+  - Updated planning doc path references from `plans.md` to `docs/plans.md`.
+  - Confirmed changes are committed and pushed.
+- User prompts:
+  - "Move the MD files also in the docs folder, so it's clean, and let's maintain the readme file at the root that you can create later as you are building the things."
+
 ## Logging Rule (Going Forward)
 - For each meaningful request:
   - Add one new entry with date, concise summary, and exact user prompt text.

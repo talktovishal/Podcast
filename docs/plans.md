@@ -2,14 +2,14 @@
 
 ## Planning Gate
 - This file is planning-only. No implementation starts until explicit user approval.
-- Source-of-truth product requirements: `Prompts.md`.
+- Source-of-truth product requirements: `docs/Prompts.md`.
 - Execution guardrails and compatibility invariants: `AGENTS.md`.
 - If any requirement appears conflicting, log it in "Spec Consistency Notes" and apply the smallest correction before coding.
 
 ## Spec Consistency Notes (Current)
-- `AGENTS.md` requires `Prompts.md` to contain a **"Verification Prompts"** section.
-- Current `Prompts.md` does not include that section.
-- Plan action: add a dedicated milestone to align `Prompts.md` with this requirement before final release signoff.
+- `AGENTS.md` requires `docs/Prompts.md` to contain a **"Verification Prompts"** section.
+- Current `docs/Prompts.md` does not include that section.
+- Plan action: add a dedicated milestone to align `docs/Prompts.md` with this requirement before final release signoff.
 
 ## Requirement Coverage Snapshot
 
@@ -39,12 +39,12 @@
   - Convert prompts/guardrails into an auditable checklist.
   - Define completion criteria and stop/go gate for implementation start.
 - Key files/modules:
-  - `plans.md`
+  - `docs/plans.md`
 - Acceptance criteria:
-  - All hard requirements from `Prompts.md` map to milestones.
+  - All hard requirements from `docs/Prompts.md` map to milestones.
   - Known spec mismatch list is explicit.
 - Verification commands:
-  - Manual checklist review in `plans.md`.
+  - Manual checklist review in `docs/plans.md`.
 
 ### M01 - Workspace Bootstrap and Command Contract
 - Scope:
@@ -369,11 +369,11 @@
 - Scope:
   - Add CI workflow for lint, typecheck, tests, build, snapshots.
   - Add dependency license gate to block AGPL/SSPL/NC.
-  - Add and run verification prompts flow from `Prompts.md`.
+  - Add and run verification prompts flow from `docs/Prompts.md`.
 - Key files/modules:
   - `.github/workflows/ci.yml` (or equivalent)
   - `scripts/license-check.*`
-  - `Prompts.md` (add "Verification Prompts" section)
+  - `docs/Prompts.md` (add "Verification Prompts" section)
 - Acceptance criteria:
   - CI fails on lint/type/test/snapshot/license violations.
   - Verification prompts exist and are run before release signoff.
@@ -392,7 +392,7 @@
   - Validate with manual app subscription tests on reachable host.
 - Key files/modules:
   - `scripts/verify_podcast_contract.sh`
-  - release checklist doc section in `plans.md`
+  - release checklist doc section in `docs/plans.md`
 - Acceptance criteria:
   - Contract script passes on final feed URL.
   - Manual smoke tests pass: Apple Podcasts + one other podcast app.
@@ -520,7 +520,7 @@
 | License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
 | Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
 | Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |
-| Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `Prompts.md` and run each milestone | M20 |
+| Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
 
 ## 3-Minute Demo Script (Time-Boxed)
 
