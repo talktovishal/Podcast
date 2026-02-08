@@ -281,3 +281,29 @@ If serving media from the web server:
 
 Start now.
 First, create `plans.md` with the complete plan, risk register, demo script, and architecture overview. Do NOT start coding until `plans.md` exists and is coherent. 
+
+## Verification Prompts
+
+Before marking any milestone complete, run and record the results for:
+
+1. Workspace quality gates
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test`
+- `npm run build`
+
+2. Export and license gates
+- `npm run export`
+- `npm run license:check`
+
+3. Podcast compatibility gate
+- Start web server (`npm run start --workspace @listenlater/web -- --hostname 127.0.0.1 --port 3000`)
+- Run:
+  - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
+
+4. Demo flow gate
+- Confirm seeded demo user can login and see starter item.
+- Confirm starter item plays in browser and seek works.
+- Confirm admin dashboard loads and shows metrics.
+
+If any gate fails, fix and re-run all impacted gates before committing.

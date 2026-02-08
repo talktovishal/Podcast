@@ -1,4 +1,4 @@
-import { AppError, errorCodes } from "../errors/codes.js";
+import { AppError, errorCodes } from "../errors/codes";
 
 async function loadPdfjs() {
   const mod = await import("pdfjs-dist/legacy/build/pdf.mjs");

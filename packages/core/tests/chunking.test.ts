@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chunkText } from "../src/chunking/chunkText.js";
+import { chunkText } from "../src/chunking/chunkText";
 
 test("chunkText is deterministic", () => {
   const input = "Paragraph one. Sentence two.\n\nParagraph two with more text.";

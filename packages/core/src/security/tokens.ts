@@ -1,4 +1,4 @@
-import { makeToken, sha256 } from "../utils/hash.js";
+import { makeToken, sha256 } from "../utils/hash";
 
 export type SecretToken = {
   plain: string;

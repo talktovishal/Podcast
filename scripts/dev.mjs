@@ -12,6 +12,7 @@ function runOrFail(command, args) {
 }
 
 runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'prisma:generate']);
+runOrFail('npx', ['pnpm', '--filter', '@listenlater/worker', 'run', 'prisma:generate']);
 runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'db:bootstrap']);
 runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'seed:demo']);
 

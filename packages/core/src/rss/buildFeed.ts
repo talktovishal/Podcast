@@ -1,4 +1,4 @@
-import { toRfc2822 } from "../utils/date.js";
+import { toRfc2822 } from "../utils/date";
 
 export type FeedEpisode = {
   guid: string;

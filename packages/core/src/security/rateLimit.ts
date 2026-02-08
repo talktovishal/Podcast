@@ -1,4 +1,4 @@
-import { AppError, errorCodes } from "../errors/codes.js";
+import { AppError, errorCodes } from "../errors/codes";
 
 export type RateLimitKey = string;
 

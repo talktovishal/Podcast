@@ -1,4 +1,4 @@
-import { sha256 } from "../utils/hash.js";
+import { sha256 } from "../utils/hash";
 
 export type TextChunk = {
   index: number;

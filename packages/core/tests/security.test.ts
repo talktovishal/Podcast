@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { validateFetchableUrl } from "../src/security/urlPolicy.js";
+import { validateFetchableUrl } from "../src/security/urlPolicy";
 
 test("validateFetchableUrl blocks localhost", async () => {
   await assert.rejects(() => validateFetchableUrl("http://localhost:3000"));

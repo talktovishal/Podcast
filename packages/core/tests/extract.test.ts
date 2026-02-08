@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { extractHtmlFromUrl } from "../src/extract/html.js";
-import { extractTextFromPdf } from "../src/extract/pdf.js";
+import { extractHtmlFromUrl } from "../src/extract/html";
+import { extractTextFromPdf } from "../src/extract/pdf";
 
 test("extractHtmlFromUrl extracts fixture", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");

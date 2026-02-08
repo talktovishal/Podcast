@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
-import { AppError, errorCodes } from "../errors/codes.js";
+import { AppError, errorCodes } from "../errors/codes";
 
 const PRIVATE_IPV4_PATTERNS = [
   /^10\./,

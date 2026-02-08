@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
-import { AppError, errorCodes } from "../errors/codes.js";
-import type { SynthesizeInput, TtsProvider } from "./types.js";
+import { AppError, errorCodes } from "../errors/codes";
+import type { SynthesizeInput, TtsProvider } from "./types";
 
 export class OpenAiTtsProvider implements TtsProvider {
   readonly providerId = "openai";

@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { AppError, errorCodes } from "../errors/codes.js";
-import type { SynthesizeInput, TtsProvider } from "./types.js";
+import { AppError, errorCodes } from "../errors/codes";
+import type { SynthesizeInput, TtsProvider } from "./types";
 
 function runBinary(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {

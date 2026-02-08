@@ -64,7 +64,7 @@ async function synthesizeEpisodeAudio(itemId: string, text: string): Promise<{ r
 
 async function extractItemText(item: {
   id: string;
-  sourceType: "URL" | "PDF";
+  sourceType: string;
   sourceUrl: string | null;
   sourceFilePath: string | null;
 }) {
@@ -80,6 +80,10 @@ async function extractItemText(item: {
 
   if (!item.sourceFilePath) {
     throw new AppError(errorCodes.INVALID_INPUT, "Missing source PDF path", 400);
+  }
+
+  if (item.sourceType !== "PDF") {
+    throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
   }
 
   const pdfData = await readFile(item.sourceFilePath);

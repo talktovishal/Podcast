@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRssXml } from "../src/rss/buildFeed.js";
+import { buildRssXml } from "../src/rss/buildFeed";
 
 test("buildRssXml keeps deterministic ordering and escapes XML", () => {
   const xml = buildRssXml({

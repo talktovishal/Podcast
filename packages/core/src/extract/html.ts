@@ -1,6 +1,6 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import { AppError, errorCodes } from "../errors/codes.js";
+import { AppError, errorCodes } from "../errors/codes";
 
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
