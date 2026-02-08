@@ -139,3 +139,23 @@ This file tracks concise session summaries and the exact user prompts that guide
   - Confirmed RSS unit tests include duplicate GUID and duplicate enclosure rejection checks.
 - User prompts:
   - "What do you recommend we do to verify the Apple podcast or any other integration? Can we at least write unit tests to make sure everything works so that we know that the integration is going to be successful?"
+
+## Entry 009
+- Date: 2026-02-08
+- Summary:
+  - Added one-command local launcher script at `run.sh`.
+  - Script behavior:
+    - creates `.env` from `.env.example` when missing
+    - installs dependencies with `pnpm` lockfile (on first run, or forced)
+    - runs `npm run check:env`
+    - starts full local stack via `npm run dev` (web + worker + bootstrap/seed flow)
+  - Added helpful options:
+    - `--setup-only`
+    - `--force-install`
+    - `--help`
+  - Updated root README quick start to use `./run.sh` as the primary command.
+  - Validation performed:
+    - `bash -n run.sh`
+    - `./run.sh --help`
+- User prompts:
+  - "Okay, can you do one last thing for me, please? I want to get everything running locally and test now, start testing things out myself. I do still see you have a readme with multiple commands. Can you just write a simple run script, the shell script that I can just run one thing, and it will do everything for me and I will get things started. That way, I don't have to waste a lot of time."

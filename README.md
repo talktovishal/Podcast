@@ -10,11 +10,16 @@ RSS-first personal podcast feed that converts URLs/PDFs into private podcast epi
 - `fixtures` - deterministic HTML/PDF/demo fixtures
 
 ## Quick start
-1. `npm install`
-2. `npx pnpm --filter @listenlater/web run prisma:generate`
-3. `npx pnpm --filter @listenlater/web run db:bootstrap`
-4. `npx pnpm --filter @listenlater/web run seed:demo`
-5. `npm run dev`
+1. `./run.sh`
+
+`run.sh` will:
+- create `.env` from `.env.example` if missing
+- install dependencies (on first run, or with `--force-install`)
+- run environment checks
+- start web + worker with demo seed/bootstrap flow
+
+Optional:
+- `./run.sh --setup-only` (prepare environment without starting servers)
 
 ## Validation
 - `npm run lint`
