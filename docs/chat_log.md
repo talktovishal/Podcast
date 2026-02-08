@@ -279,3 +279,23 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `npm run build`
 - User prompts:
   - "Okay, good. Now the second thing is, if you look at the logs, one of the items failed for processing. You can see it. I got this failure, which was not very helpful, which said unexpected worker error. I want you to debug and first figure out what really happened, and then have some useful error messages, because when I see that, I don't know, should we just retry or something has really fundamentally failed or broken."
+
+## Entry 015
+- Date: 2026-02-08
+- Summary:
+  - Refined ingest form layout per UX feedback for simpler visual hierarchy.
+  - Changes made in `apps/web/src/components/dashboard-client.tsx`:
+    - moved optional title input below URL field in URL mode
+    - moved PDF file picker to the top in PDF mode, with optional title below it
+    - removed extra nested surrounding box to avoid the “multiple boxes” feeling in URL mode
+    - kept radio-style Option 1/Option 2 selector and shared title behavior
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Okay, good. Now the second thing is, if you look at the logs, one of the items failed for processing. You can see it. I got this failure, which was not very helpful, which said unexpected worker error. I want you to debug and first figure out what really happened, and then have some useful error messages, because when I see that, I don't know, should we just retry or something has really fundamentally failed or broken."
+  - "Going forward, after every change, can you just run the run.sh file and then after you make the change, kill it and then start it again? That way I don't have to do it every time."
+  - "Did you start it right now? Looks like it's not running."
+  - "Okay, I want to go back to the changes you did for the UX. I like this option much better, however, the only one change I would like you to do is put the title below the URL and the URL has another box around it. Not sure why it is the case. It should just be URL and then submit URL for option 1. And then, you know, I understand that when it comes to, so yeah, I just want you to move and even for the when the PDF is selected, I want you to move the PDF file choosing on the top. That would be nice. I wonder if you can really simplify it further, but this would be a good start as I think this would be good. You don't have to simplify it further. Just move, move the title below and the URL box or the PDF file box at the top. And then see for the URL, there are multiple boxes if you can simplify that."

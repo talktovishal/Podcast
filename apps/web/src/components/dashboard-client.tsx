@@ -274,17 +274,7 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
             </div>
           </fieldset>
 
-          <label className="mt-3 block">
-            <span className="mb-1 block text-sm font-medium">Optional title</span>
-            <input
-              className="w-full rounded-lg border px-3 py-2"
-              placeholder="Leave blank to auto-title"
-              value={titleInput}
-              onChange={(event) => setTitleInput(event.target.value)}
-            />
-          </label>
-
-          <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.14)] bg-[var(--surface)] p-4">
+          <div className="mt-3 space-y-3">
             {sourceMode === "url" ? (
               <article>
                 <label className="block">
@@ -294,6 +284,16 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
                     placeholder="https://example.com/article"
                     value={urlInput}
                     onChange={(event) => setUrlInput(event.target.value)}
+                  />
+                </label>
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Optional title</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    placeholder="Leave blank to auto-title"
+                    value={titleInput}
+                    onChange={(event) => setTitleInput(event.target.value)}
                   />
                 </label>
               </article>
@@ -310,6 +310,16 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
                   }}
                 />
                 {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Optional title</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    placeholder="Leave blank to auto-title"
+                    value={titleInput}
+                    onChange={(event) => setTitleInput(event.target.value)}
+                  />
+                </label>
               </article>
             )}
 
