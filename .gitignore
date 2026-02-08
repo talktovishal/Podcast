@@ -10,5 +10,6 @@ coverage
 .env.*
 !.env.example
 apps/web/.data
+apps/web/apps
 exports
 services/python-tts/.venv

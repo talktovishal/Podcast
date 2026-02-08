@@ -5,8 +5,8 @@
    - `npm install`
 2. Generate Prisma client:
    - `npx pnpm --filter @listenlater/web run prisma:generate`
-3. Run migrations:
-   - `npx pnpm --filter @listenlater/web run prisma:migrate`
+3. Bootstrap local SQLite schema:
+   - `npx pnpm --filter @listenlater/web run db:bootstrap`
 4. Seed demo content:
    - `npx pnpm --filter @listenlater/web run seed:demo`
 5. Start full stack:

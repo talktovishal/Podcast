@@ -12,7 +12,7 @@ RSS-first personal podcast feed that converts URLs/PDFs into private podcast epi
 ## Quick start
 1. `npm install`
 2. `npx pnpm --filter @listenlater/web run prisma:generate`
-3. `npx pnpm --filter @listenlater/web run prisma:migrate`
+3. `npx pnpm --filter @listenlater/web run db:bootstrap`
 4. `npx pnpm --filter @listenlater/web run seed:demo`
 5. `npm run dev`
 

@@ -47,6 +47,15 @@ async function ensureStarterAudio(path: string): Promise<number> {
   return info.size;
 }
 
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   await ensureDataDirs();
   await ensureAdminUser();
@@ -133,6 +142,23 @@ async function main() {
           payloadJson: {
             message: "Demo starter seeded"
           }
+        }
+      });
+    }
+  }
+  else if (existingStarter.episode) {
+    const expectedRelativePath = join("items", "demo-starter", "episode.m4a");
+    const expectedFullPath = join(env.mediaRoot, expectedRelativePath);
+    const exists = await fileExists(expectedFullPath);
+
+    if (!exists) {
+      const bytes = await ensureStarterAudio(expectedFullPath);
+      await prisma.episode.update({
+        where: { id: existingStarter.episode.id },
+        data: {
+          audioPath: expectedRelativePath,
+          audioBytes: bytes,
+          mimeType: "audio/mp4"
         }
       });
     }
