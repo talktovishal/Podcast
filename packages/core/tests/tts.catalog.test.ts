@@ -9,8 +9,8 @@ import {
 
 test("normalizeTtsSelection applies defaults when selection is missing", () => {
   const selection = normalizeTtsSelection({});
-  assert.equal(selection.providerId, "mac-say");
-  assert.equal(selection.voice, "Samantha");
+  assert.equal(selection.providerId, "kokoro");
+  assert.equal(selection.voice, "af_heart");
 });
 
 test("normalizeTtsSelection keeps valid provider and voice", () => {
@@ -27,8 +27,8 @@ test("normalizeTtsSelection falls back when voice is invalid", () => {
     providerId: "melo",
     voice: "not-real"
   });
-  assert.equal(selection.providerId, "melo");
-  assert.equal(selection.voice, getDefaultVoiceForProvider("melo"));
+  assert.equal(selection.providerId, "kokoro");
+  assert.equal(selection.voice, getDefaultVoiceForProvider("kokoro"));
 });
 
 test("catalog includes voices for each provider", () => {

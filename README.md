@@ -16,25 +16,25 @@ RSS-first personal podcast feed that converts URLs/PDFs into private podcast epi
 - create `.env` from `.env.example` if missing
 - install dependencies (on first run, or with `--force-install`)
 - run environment checks
+- bootstrap python-tts dependencies/assets
 - start web + worker with demo seed/bootstrap flow
 
 Optional:
 - `./run.sh --setup-only` (prepare environment without starting servers)
 
-## Open-source TTS providers (Kokoro + Melo)
-The app now supports provider/voice selection from the dashboard. By default it uses Apple Speech (`mac-say`).
+## Voice settings (Kokoro-only)
+The app uses Kokoro-82M voices for narration.
 
-To enable `Kokoro-82M` and `MeloTTS v3`:
+`run.sh` now provisions and launches python-tts automatically (unless `ENABLE_PYTHON_TTS_DEV=0`).
+It also prewarms cached sample previews for every Kokoro voice on startup.
 
-1. Start the Python TTS service:
-   - `cd services/python-tts`
-   - `python3 -m venv .venv`
-   - `source .venv/bin/activate`
-   - `pip install -r requirements.txt`
-   - `pip install -r requirements.providers.txt`
-   - `uvicorn app.main:app --reload --port 8010`
-2. Keep `PYTHON_TTS_URL` in `.env` pointed at that service (`http://127.0.0.1:8010` by default).
-3. Open `/app` -> `Voice Settings` and choose provider + voice, preview, then save default.
+Once running:
+1. Open `/app`.
+2. Go to `Voice Settings`.
+3. Pick a voice, run `Preview Voice`, then `Save Default`.
+
+Standalone provider test:
+- `npm run test:tts:e2e`
 
 ## Demo and admin accounts
 `run.sh` seeds both accounts automatically on local first run.

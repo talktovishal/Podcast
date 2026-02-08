@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import importlib.util
 import io
 import os
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Literal
 
 import numpy as np
@@ -49,29 +51,62 @@ MELO_ENGLISH_VOICES = [
 
 _kokoro_pipelines: Dict[str, Any] = {}
 _melo_models: Dict[str, Any] = {}
+NLTK_RESOURCE_PATHS = {
+    "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng",
+    "cmudict": "corpora/cmudict",
+}
+
+
+def _kokoro_health() -> ProviderHealth:
+    if importlib.util.find_spec("kokoro") is None:
+        return ProviderHealth(available=False, reason="kokoro package is not installed.")
+
+    if importlib.util.find_spec("en_core_web_sm") is None:
+        return ProviderHealth(
+            available=False,
+            reason="spaCy model 'en_core_web_sm' is missing. Run scripts/bootstrap-python-tts.sh.",
+        )
+
+    return ProviderHealth(available=True)
+
+
+def _melo_health() -> ProviderHealth:
+    if importlib.util.find_spec("melo.api") is None:
+        return ProviderHealth(available=False, reason="melo package is not installed.")
+
+    try:
+        import unidic
+
+        mecabrc = Path(unidic.DICDIR) / "mecabrc"
+        if not mecabrc.exists():
+            return ProviderHealth(
+                available=False,
+                reason="UniDic dictionary is missing. Run scripts/bootstrap-python-tts.sh.",
+            )
+    except Exception as exc:
+        return ProviderHealth(available=False, reason=f"unidic check failed: {exc}")
+
+    try:
+        import nltk
+
+        for resource_path in NLTK_RESOURCE_PATHS.values():
+            nltk.data.find(resource_path)
+    except LookupError:
+        return ProviderHealth(
+            available=False,
+            reason="NLTK data is missing (averaged_perceptron_tagger_eng/cmudict). Run scripts/bootstrap-python-tts.sh.",
+        )
+    except Exception as exc:
+        return ProviderHealth(available=False, reason=f"nltk check failed: {exc}")
+
+    return ProviderHealth(available=True)
 
 
 def _provider_health() -> Dict[str, ProviderHealth]:
-    health: Dict[str, ProviderHealth] = {
-        "kokoro": ProviderHealth(available=True),
-        "melo": ProviderHealth(available=True),
+    return {
+        "kokoro": _kokoro_health(),
+        "melo": _melo_health(),
     }
-
-    try:
-        import kokoro  # noqa: F401
-    except Exception as exc:
-        health["kokoro"] = ProviderHealth(available=False, reason=f"kokoro import failed: {exc}")
-
-    try:
-        import melo  # noqa: F401
-    except Exception:
-        # Fallback import path used by MeloTTS.
-        try:
-            from melo.api import TTS  # noqa: F401
-        except Exception as exc:
-            health["melo"] = ProviderHealth(available=False, reason=f"melo import failed: {exc}")
-
-    return health
 
 
 def _get_kokoro_pipeline(language_code: str) -> Any:
@@ -186,14 +221,23 @@ def synthesize(payload: SynthesizePayload) -> Response:
     if not provider_health.available:
         raise HTTPException(status_code=503, detail=provider_health.reason or "Provider unavailable.")
 
-    if payload.provider == "kokoro":
-        if payload.voice not in KOKORO_ENGLISH_VOICES:
-            raise HTTPException(status_code=400, detail=f"Unsupported Kokoro voice: {payload.voice}")
-        audio, sample_rate = _synthesize_kokoro(payload.text, payload.voice, payload.speed)
-    else:
-        if payload.voice not in MELO_ENGLISH_VOICES:
-            raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
-        audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
+    try:
+        if payload.provider == "kokoro":
+            if payload.voice not in KOKORO_ENGLISH_VOICES:
+                raise HTTPException(status_code=400, detail=f"Unsupported Kokoro voice: {payload.voice}")
+            audio, sample_rate = _synthesize_kokoro(payload.text, payload.voice, payload.speed)
+        else:
+            if payload.voice not in MELO_ENGLISH_VOICES:
+                raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
+            audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"{payload.provider} synthesis failed: {exc}") from exc
 
     wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
     return Response(

@@ -1,18 +1,21 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
 import {
   AppError,
   KokoroTtsProvider,
-  MacSayTtsProvider,
-  MeloTtsProvider,
-  OpenAiTtsProvider,
   errorCodes,
+  getTtsVoiceOptions,
   normalizeTtsSelection,
   type TtsProvider,
   type TtsProviderId
 } from "@listenlater/core";
 import { env } from "./env";
+
+const ENABLED_PROVIDER_ID: TtsProviderId = "kokoro";
+const PREVIEW_EXTENSION = "m4a";
+const PREVIEW_MIME_TYPE = "audio/mp4";
+const PREVIEW_SAMPLE_TEXT =
+  "Hello from ListenLater. This is a quick voice sample so you can choose the default narration style.";
 
 export type TtsSelection = {
   providerId: TtsProviderId;
@@ -25,20 +28,29 @@ export type ProviderAvailability = {
 };
 
 function makeTtsProvider(selection: TtsSelection): TtsProvider {
-  switch (selection.providerId) {
-    case "kokoro":
-      return new KokoroTtsProvider(env.pythonTtsUrl, env.pythonTtsTimeoutMs);
-    case "melo":
-      return new MeloTtsProvider(env.pythonTtsUrl, env.pythonTtsTimeoutMs);
-    case "openai":
-      if (!env.openAiApiKey) {
-        throw new AppError(errorCodes.TTS_FAILED, "OpenAI TTS is not configured.", 400);
-      }
-      return new OpenAiTtsProvider(env.openAiApiKey);
-    case "mac-say":
-      return new MacSayTtsProvider();
-    default:
-      return new MacSayTtsProvider();
+  if (selection.providerId !== ENABLED_PROVIDER_ID) {
+    throw new AppError(errorCodes.TTS_FAILED, "Only Kokoro-82M is enabled for this environment.", 400);
+  }
+  return new KokoroTtsProvider(env.pythonTtsUrl, env.pythonTtsTimeoutMs);
+}
+
+function previewDirPath(): string {
+  return join(env.mediaRoot, "tts-previews", ENABLED_PROVIDER_ID);
+}
+
+function previewFilePath(voice: string): string {
+  return join(previewDirPath(), `${voice}.${PREVIEW_EXTENSION}`);
+}
+
+async function hasNonEmptyFile(path: string): Promise<boolean> {
+  try {
+    const fileInfo = await stat(path);
+    return fileInfo.size > 0;
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
   }
 }
 
@@ -64,64 +76,123 @@ async function loadPythonProviderHealth(): Promise<Record<string, { available: b
 export async function getTtsProviderAvailability(): Promise<Record<TtsProviderId, ProviderAvailability>> {
   const python = await loadPythonProviderHealth();
   const kokoro = python.kokoro;
-  const melo = python.melo;
 
   return {
-    "mac-say": { available: true },
+    "mac-say": { available: false, reason: "Disabled in this build." },
     kokoro: kokoro
       ? { available: Boolean(kokoro.available), reason: kokoro.reason }
       : { available: false, reason: "python-tts service not reachable" },
-    melo: melo ? { available: Boolean(melo.available), reason: melo.reason } : { available: false, reason: "python-tts service not reachable" },
-    openai: env.openAiApiKey
-      ? { available: true }
-      : { available: false, reason: "OPENAI_API_KEY is not set" }
+    melo: { available: false, reason: "Hidden in this build." },
+    openai: { available: false, reason: "Disabled in this build." }
   };
 }
 
 export async function assertTtsSelectionAvailable(selectionInput: { providerId?: string | null; voice?: string | null }): Promise<TtsSelection> {
-  const selection = normalizeTtsSelection(selectionInput);
+  const selection = normalizeTtsSelection({
+    providerId: ENABLED_PROVIDER_ID,
+    voice: selectionInput.voice
+  });
   const availability = await getTtsProviderAvailability();
-  const status = availability[selection.providerId];
+  const status = availability[ENABLED_PROVIDER_ID];
   if (!status.available) {
     throw new AppError(
       errorCodes.TTS_FAILED,
-      `${selection.providerId} is not available in this environment${status.reason ? ` (${status.reason})` : ""}.`,
+      `Kokoro-82M is not available in this environment${status.reason ? ` (${status.reason})` : ""}.`,
       400
     );
   }
-  return selection;
+  return {
+    providerId: ENABLED_PROVIDER_ID,
+    voice: selection.voice
+  };
+}
+
+async function ensureCachedKokoroPreview(selection: TtsSelection): Promise<string> {
+  const outPath = previewFilePath(selection.voice);
+  if (await hasNonEmptyFile(outPath)) {
+    return outPath;
+  }
+
+  await mkdir(previewDirPath(), { recursive: true });
+  const provider = makeTtsProvider(selection);
+  await provider.synthesizeToFile({
+    text: PREVIEW_SAMPLE_TEXT,
+    voice: selection.voice,
+    format: provider.outputFormat,
+    outPath
+  });
+
+  if (!(await hasNonEmptyFile(outPath))) {
+    throw new AppError(errorCodes.TTS_FAILED, `Preview generation produced an empty file for voice '${selection.voice}'.`, 500);
+  }
+
+  return outPath;
+}
+
+export async function precomputeKokoroVoicePreviews(): Promise<{
+  created: number;
+  reused: number;
+  failed: Array<{ voice: string; error: string }>;
+}> {
+  const availability = await getTtsProviderAvailability();
+  const status = availability[ENABLED_PROVIDER_ID];
+  if (!status.available) {
+    throw new AppError(
+      errorCodes.TTS_FAILED,
+      `Kokoro-82M preview precompute cannot start${status.reason ? ` (${status.reason})` : ""}.`,
+      400
+    );
+  }
+
+  await mkdir(previewDirPath(), { recursive: true });
+  const result = {
+    created: 0,
+    reused: 0,
+    failed: [] as Array<{ voice: string; error: string }>
+  };
+
+  for (const voice of getTtsVoiceOptions(ENABLED_PROVIDER_ID)) {
+    const voicePath = previewFilePath(voice.id);
+    if (await hasNonEmptyFile(voicePath)) {
+      result.reused += 1;
+      continue;
+    }
+
+    try {
+      await ensureCachedKokoroPreview({
+        providerId: ENABLED_PROVIDER_ID,
+        voice: voice.id
+      });
+      result.created += 1;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      result.failed.push({ voice: voice.id, error: message });
+    }
+  }
+
+  return result;
+}
+
+export function getKokoroPreviewSampleText(): string {
+  return PREVIEW_SAMPLE_TEXT;
 }
 
 export async function synthesizePreviewDataUrl(input: {
   providerId?: string | null;
   voice?: string | null;
-  text: string;
+  text?: string;
 }): Promise<{ providerId: TtsProviderId; voice: string; mimeType: string; dataUrl: string }> {
   const selection = await assertTtsSelectionAvailable({
-    providerId: input.providerId,
+    providerId: ENABLED_PROVIDER_ID,
     voice: input.voice
   });
-  const provider = makeTtsProvider(selection);
-  const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
-  const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
-  const workspace = await mkdtemp(join(tmpdir(), "listenlater-preview-"));
-  const outPath = join(workspace, `preview.${extension}`);
+  const outPath = await ensureCachedKokoroPreview(selection);
+  const buffer = await readFile(outPath);
 
-  try {
-    await provider.synthesizeToFile({
-      text: input.text,
-      voice: selection.voice,
-      format: provider.outputFormat,
-      outPath
-    });
-    const buffer = await readFile(outPath);
-    return {
-      providerId: selection.providerId,
-      voice: selection.voice,
-      mimeType,
-      dataUrl: `data:${mimeType};base64,${buffer.toString("base64")}`
-    };
-  } finally {
-    await rm(workspace, { recursive: true, force: true });
-  }
+  return {
+    providerId: selection.providerId,
+    voice: selection.voice,
+    mimeType: PREVIEW_MIME_TYPE,
+    dataUrl: `data:${PREVIEW_MIME_TYPE};base64,${buffer.toString("base64")}`
+  };
 }

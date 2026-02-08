@@ -100,11 +100,7 @@ export function DashboardClient({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
-  const [ttsProvider, setTtsProvider] = useState(initialTtsSelection.providerId);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
-  const [previewText, setPreviewText] = useState(
-    "Hello from ListenLater. This is a quick voice sample so you can choose your default narration."
-  );
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
@@ -114,20 +110,20 @@ export function DashboardClient({
   }, [items]);
   const inProgressCount = useMemo(() => newestFirst.filter((item) => isPendingStatus(item.status)).length, [newestFirst]);
   const ttsVoicesForProvider = useMemo(() => {
-    return ttsCatalog.voicesByProvider[ttsProvider] || [];
-  }, [ttsCatalog.voicesByProvider, ttsProvider]);
-  const selectedProviderAvailability = useMemo(() => ttsAvailability[ttsProvider], [ttsAvailability, ttsProvider]);
+    return ttsCatalog.voicesByProvider.kokoro || [];
+  }, [ttsCatalog.voicesByProvider]);
+  const selectedProviderAvailability = useMemo(() => ttsAvailability.kokoro, [ttsAvailability]);
 
   useEffect(() => {
     if (ttsVoicesForProvider.some((voice) => voice.id === ttsVoice)) {
       return;
     }
 
-    const fallback = ttsCatalog.defaults.voiceByProvider[ttsProvider] || ttsVoicesForProvider[0]?.id || "";
+    const fallback = ttsCatalog.defaults.voiceByProvider.kokoro || ttsVoicesForProvider[0]?.id || "";
     if (fallback) {
       setTtsVoice(fallback);
     }
-  }, [ttsCatalog.defaults.voiceByProvider, ttsProvider, ttsVoice, ttsVoicesForProvider]);
+  }, [ttsCatalog.defaults.voiceByProvider, ttsVoice, ttsVoicesForProvider]);
 
   const refreshItems = useCallback(async () => {
     const response = await fetch("/api/seed-demo?refresh=items");
@@ -282,7 +278,6 @@ export function DashboardClient({
           "content-type": "application/json"
         },
         body: JSON.stringify({
-          providerId: ttsProvider,
           voice: ttsVoice
         })
       });
@@ -291,7 +286,7 @@ export function DashboardClient({
         setStatusMessage(json.error_message || "Could not save TTS settings.");
         return;
       }
-      setStatusMessage(`Default voice saved (${json.selection.providerId} / ${json.selection.voice}).`);
+      setStatusMessage(`Default voice saved (${json.selection.voice}).`);
     } finally {
       setIsTtsBusy(false);
     }
@@ -307,9 +302,7 @@ export function DashboardClient({
           "content-type": "application/json"
         },
         body: JSON.stringify({
-          providerId: ttsProvider,
-          voice: ttsVoice,
-          text: previewText
+          voice: ttsVoice
         })
       });
       const json = await response.json();
@@ -318,7 +311,7 @@ export function DashboardClient({
         return;
       }
       setPreviewAudioUrl(json.preview.dataUrl);
-      setStatusMessage(`Preview generated (${json.preview.providerId} / ${json.preview.voice}).`);
+      setStatusMessage(`Preview generated (${json.preview.voice}).`);
     } finally {
       setIsTtsBusy(false);
     }
@@ -349,35 +342,9 @@ export function DashboardClient({
       {!readOnly ? (
         <section className="card p-5">
           <h2 className="text-base font-semibold">Voice Settings</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Choose a default provider and voice for new episodes. Try a quick sample before saving.
-          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Choose your default Kokoro voice for new episodes.</p>
 
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Provider</span>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
-                value={ttsProvider}
-                disabled={isTtsBusy}
-                onChange={(event) => {
-                  setTtsProvider(event.target.value);
-                  setPreviewAudioUrl(null);
-                }}
-              >
-                {ttsCatalog.providers.map((provider) => {
-                  const availability = ttsAvailability[provider.id];
-                  const disabled = availability ? !availability.available && provider.id !== ttsProvider : false;
-                  return (
-                    <option key={provider.id} value={provider.id} disabled={disabled}>
-                      {provider.label}
-                      {availability && !availability.available ? " (Unavailable)" : ""}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-
+          <div className="mt-3">
             <label className="block">
               <span className="mb-1 block text-sm font-medium">Voice</span>
               <select
@@ -405,25 +372,10 @@ export function DashboardClient({
               {selectedProviderAvailability.reason || "Selected provider is unavailable in this environment."}
             </p>
           ) : null}
-
-          <label className="mt-3 block">
-            <span className="mb-1 block text-sm font-medium">Sample text</span>
-            <textarea
-              className="w-full rounded-lg border px-3 py-2"
-              rows={3}
-              value={previewText}
-              onChange={(event) => setPreviewText(event.target.value)}
-              maxLength={400}
-              disabled={isTtsBusy}
-            />
-          </label>
+          <p className="mt-2 text-xs text-[var(--muted)]">Preview uses a fixed sample clip generated at startup and cached on disk.</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              className="rounded-lg border px-3 py-1.5 text-sm"
-              disabled={isTtsBusy || !previewText.trim()}
-              onClick={previewVoice}
-            >
+            <button className="rounded-lg border px-3 py-1.5 text-sm" disabled={isTtsBusy} onClick={previewVoice}>
               Preview Voice
             </button>
             <button

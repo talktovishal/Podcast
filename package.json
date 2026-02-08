@@ -17,7 +17,8 @@
     "export": "npx pnpm --filter @listenlater/web run export",
     "seed:demo": "npx pnpm --filter @listenlater/web run seed:demo",
     "check:env": "node scripts/check-env.mjs",
-    "license:check": "node scripts/license-check.mjs"
+    "license:check": "node scripts/license-check.mjs",
+    "test:tts:e2e": "./scripts/test-python-tts-e2e.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

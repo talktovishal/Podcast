@@ -16,28 +16,10 @@ export type TtsProviderOption = {
 
 export const TTS_PROVIDER_OPTIONS: readonly TtsProviderOption[] = [
   {
-    id: "mac-say",
-    label: "Apple Speech",
-    summary: "Built-in macOS speech engine.",
-    openSource: false
-  },
-  {
     id: "kokoro",
     label: "Kokoro-82M",
     summary: "Open-source Kokoro model via local Python TTS service.",
     openSource: true
-  },
-  {
-    id: "melo",
-    label: "MeloTTS v3",
-    summary: "Open-source MeloTTS model via local Python TTS service.",
-    openSource: true
-  },
-  {
-    id: "openai",
-    label: "OpenAI TTS",
-    summary: "Remote OpenAI speech synthesis (optional).",
-    openSource: false
   }
 ];
 
@@ -73,7 +55,7 @@ export const TTS_VOICES_BY_PROVIDER: Readonly<Record<TtsProviderId, readonly Tts
   ]
 };
 
-export const DEFAULT_TTS_PROVIDER: TtsProviderId = "mac-say";
+export const DEFAULT_TTS_PROVIDER: TtsProviderId = "kokoro";
 
 const DEFAULT_VOICE_BY_PROVIDER: Readonly<Record<TtsProviderId, string>> = {
   "mac-say": "Samantha",

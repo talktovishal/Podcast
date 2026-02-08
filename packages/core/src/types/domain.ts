@@ -30,12 +30,12 @@ export const rotateFeedTokenSchema = z.object({
 });
 
 export const updateTtsSettingsSchema = z.object({
-  providerId: z.string().trim().min(1).max(40),
+  providerId: z.string().trim().min(1).max(40).optional(),
   voice: z.string().trim().min(1).max(80)
 });
 
 export const previewTtsSchema = z.object({
-  providerId: z.string().trim().min(1).max(40),
+  providerId: z.string().trim().min(1).max(40).optional(),
   voice: z.string().trim().min(1).max(80),
   text: z.string().trim().min(1).max(400).optional()
 });

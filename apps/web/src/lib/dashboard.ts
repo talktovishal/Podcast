@@ -26,8 +26,8 @@ export async function getUserTtsSettings(userId: string): Promise<{ providerId: 
     }
   });
   return {
-    providerId: user?.ttsProvider || "mac-say",
-    voice: user?.ttsVoice || "Samantha"
+    providerId: user?.ttsProvider || "kokoro",
+    voice: user?.ttsVoice || "af_heart"
   };
 }
 

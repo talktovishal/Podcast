@@ -4,6 +4,8 @@ import { getAuthUserFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { assertTtsSelectionAvailable, getTtsProviderAvailability } from "@/lib/tts";
 
+const KOKORO_PROVIDER_ID = "kokoro";
+
 export async function GET(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
     getTtsProviderAvailability()
   ]);
   const selection = normalizeTtsSelection({
-    providerId: stored?.ttsProvider,
+    providerId: KOKORO_PROVIDER_ID,
     voice: stored?.ttsVoice
   });
 
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         error_code: "INVALID_INPUT",
-        error_message: "Provider and voice are required."
+        error_message: "Voice is required."
       },
       { status: 400 }
     );
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const selection = await assertTtsSelectionAvailable({
-      providerId: parsed.data.providerId,
+      providerId: KOKORO_PROVIDER_ID,
       voice: parsed.data.voice
     });
     await prisma.user.update({

@@ -1,10 +1,9 @@
 import { previewTtsSchema } from "@listenlater/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { synthesizePreviewDataUrl } from "@/lib/tts";
+import { getKokoroPreviewSampleText, synthesizePreviewDataUrl } from "@/lib/tts";
 
-const DEFAULT_SAMPLE_TEXT =
-  "Hello from ListenLater. This is a quick voice sample so you can choose the default narration style.";
+const KOKORO_PROVIDER_ID = "kokoro";
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
@@ -19,7 +18,7 @@ export async function POST(request: NextRequest) {
       {
         ok: false,
         error_code: "INVALID_INPUT",
-        error_message: "Provider and voice are required for preview."
+        error_message: "Voice is required for preview."
       },
       { status: 400 }
     );
@@ -27,14 +26,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const preview = await synthesizePreviewDataUrl({
-      providerId: parsed.data.providerId,
-      voice: parsed.data.voice,
-      text: parsed.data.text || DEFAULT_SAMPLE_TEXT
+      providerId: KOKORO_PROVIDER_ID,
+      voice: parsed.data.voice
     });
 
     return NextResponse.json({
       ok: true,
-      preview
+      preview,
+      sampleText: getKokoroPreviewSampleText()
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Preview generation failed.";

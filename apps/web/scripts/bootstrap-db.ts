@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS "User" (
   "passwordHash" TEXT,
   "name" TEXT,
   "role" TEXT NOT NULL DEFAULT 'USER',
-  "ttsProvider" TEXT NOT NULL DEFAULT 'mac-say',
-  "ttsVoice" TEXT NOT NULL DEFAULT 'Samantha',
+  "ttsProvider" TEXT NOT NULL DEFAULT 'kokoro',
+  "ttsVoice" TEXT NOT NULL DEFAULT 'af_heart',
   "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" DATETIME NOT NULL
 );
@@ -163,8 +163,8 @@ function ensureUserColumns(sqliteBin: string): void {
   const existingColumns = new Set(tableInfo.map((line) => line.split("|")[1]).filter(Boolean));
 
   const requiredColumns: Array<{ name: string; sqlType: string }> = [
-    { name: "ttsProvider", sqlType: `TEXT NOT NULL DEFAULT 'mac-say'` },
-    { name: "ttsVoice", sqlType: `TEXT NOT NULL DEFAULT 'Samantha'` }
+    { name: "ttsProvider", sqlType: `TEXT NOT NULL DEFAULT 'kokoro'` },
+    { name: "ttsVoice", sqlType: `TEXT NOT NULL DEFAULT 'af_heart'` }
   ];
 
   for (const column of requiredColumns) {

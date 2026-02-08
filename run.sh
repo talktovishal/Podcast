@@ -71,6 +71,11 @@ fi
 echo "Running environment check..."
 npm run check:env
 
+if [[ "${ENABLE_PYTHON_TTS_DEV:-1}" != "0" ]]; then
+  echo "Bootstrapping python-tts dependencies (Kokoro + Melo)..."
+  ./scripts/bootstrap-python-tts.sh
+fi
+
 if [[ "$SETUP_ONLY" == "1" ]]; then
   echo "Setup complete."
   exit 0

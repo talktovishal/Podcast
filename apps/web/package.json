@@ -12,6 +12,7 @@
     "test": "tsx --test tests/**/*.test.ts",
     "export": "tsx scripts/export.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "tts:precompute": "tsx scripts/precompute-tts-previews.ts",
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init"
