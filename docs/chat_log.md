@@ -198,3 +198,26 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `npm run build`
 - User prompts:
   - "Okay, I'm testing it now. First thing, when you, in the upload page, right now, you know, it has this optional title and below that the title URL, and then on the right, the text file. It's confusing. You know, either somebody will put a title or will upload the file. What I want you to do is very specific. Right now it's very confusing. If somebody's uploading a title, you should extract the title from the web page. The web page probably has a title, so extract it from there or infer one from the content. And the second is, um, in terms of the PDF, make it very clear that you are either uploading the, giving the URL or doing the PDF. It's confusing. Finally, there should be some indication um on that page, which says that the processing is in progress or at least uh you know, say something that in progress because right now I just see retry and delete the moment I have submitted a URL and I have no idea whether something has already started or not. So that's very confusing. So fix those things, please."
+
+## Entry 012
+- Date: 2026-02-08
+- Summary:
+  - Refined ingest UI design to reduce clunky layout:
+    - replaced side-by-side option blocks with a cleaner source mode switcher (`Option 1: URL` / `Option 2: PDF`)
+    - kept source separation explicit while reducing visual noise
+  - Restored a shared optional title input for both URL and PDF submissions.
+  - Re-enabled URL title pass-through in API (`/api/items/url`).
+  - Improved automatic title fallback behavior:
+    - URL: existing metadata/content extraction remains fallback when title is blank
+    - PDF: now attempts PDF metadata title extraction (`info.Title` / `dc:title`) before content-based inference
+  - Kept existing processing visibility improvements (in-progress banner + polling).
+  - Added/updated validation coverage:
+    - existing title resolver tests remain green
+    - PDF extraction test now asserts returned `title` shape (`string | null`)
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Thanks, you fixed it, and now it's very clear it's either option 1 or option 2. I don't like the design, it's a bit too clunky. Maybe you can smoothen that a little bit, take a look at that. I can provide you a picture of how it looks. Let me actually, I can do that if you want me to, but you can do, I can do that for you. So it's not that pleasing. Maybe you can take a look. So see if you can make that changes a little bit. And the second is now the title is gone. It's no longer allowing me to put in a title. So the way I think about it is irrespective of option 1 or option 2, you should always allow me to put in a title. And if the title is not allowed, then you can extract it from the page or the PDF. Like either it can be the title of the PDF. Maybe there is a title in the page, or maybe in the HTML metadata. So try to get it from there. I also like the processing line item right now, so that is also good. I will see if it automatically, it says that it's going to refresh automatically, so I'm going to check whether it is indeed going to refresh automatically or not. And I will let you know. I hope you have some tests for that."

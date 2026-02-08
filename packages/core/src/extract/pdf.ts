@@ -9,10 +9,42 @@ function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: string; pages: number }> {
+function normalizePdfTitle(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.replace(/\u0000/g, "").trim();
+  if (!normalized || normalized.toLowerCase() === "untitled") {
+    return null;
+  }
+
+  return normalized;
+}
+
+async function extractPdfTitle(doc: { getMetadata: () => Promise<unknown> }): Promise<string | null> {
+  try {
+    const metadata = (await doc.getMetadata()) as {
+      info?: { Title?: unknown };
+      metadata?: { get?: (name: string) => unknown };
+    };
+
+    const infoTitle = normalizePdfTitle(metadata.info?.Title);
+    if (infoTitle) {
+      return infoTitle;
+    }
+
+    return normalizePdfTitle(metadata.metadata?.get?.("dc:title"));
+  } catch {
+    return null;
+  }
+}
+
+export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: string; pages: number; title: string | null }> {
   const pdfjs = await loadPdfjs();
   const loadingTask = pdfjs.getDocument({ data });
   const doc = await loadingTask.promise;
+  const extractedTitle = await extractPdfTitle(doc);
 
   const texts: string[] = [];
   for (let page = 1; page <= doc.numPages; page += 1) {
@@ -34,5 +66,5 @@ export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: stri
     );
   }
 
-  return { text, pages: doc.numPages };
+  return { text, pages: doc.numPages, title: extractedTitle };
 }

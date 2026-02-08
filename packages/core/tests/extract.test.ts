@@ -27,6 +27,7 @@ test("extractTextFromPdf extracts text fixture", async () => {
   const result = await extractTextFromPdf(new Uint8Array(data));
   assert.ok(result.pages >= 1);
   assert.ok(result.text.toLowerCase().includes("listenlater fixture"));
+  assert.ok(result.title === null || typeof result.title === "string");
 });
 
 test("extractTextFromPdf fails scanned-style fixture", async () => {

@@ -91,7 +91,7 @@ async function extractItemText(item: {
   const extracted = await extractTextFromPdf(new Uint8Array(pdfData));
 
   return {
-    title: "Uploaded PDF",
+    title: extracted.title,
     text: extracted.text
   };
 }
