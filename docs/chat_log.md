@@ -9,6 +9,9 @@ This file tracks concise session summaries and the exact user prompts that guide
   - Created and then substantially expanded `plans.md` into a detailed, milestone-based execution plan.
   - Added requirement coverage mapping, risk register, architecture overview, test matrix, and a 3-minute demo script.
   - Kept work in planning mode only, with no implementation coding started.
+  - Added this persistent chat log file for summaries + exact prompts.
+  - Created the initial local git commit for project bootstrap docs.
+  - Attempted GitHub setup; blocked by missing auth (`gh` not installed, no SSH key auth, no GitHub token in environment).
 - User prompts:
   - "Read the prompt.md file and treat it as a complete specification of the project I am trying to build."
   - "First, create `plans.md` with the complete plan, risk register, demo script, and architecture overview. Do NOT start coding until `plans.md` exists and is coherent. Get my permission first before you start coding"
