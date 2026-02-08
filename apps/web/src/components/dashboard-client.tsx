@@ -197,6 +197,15 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
     await refreshItems();
   }
 
+  async function submitActiveSource() {
+    if (sourceMode === "url") {
+      await submitUrl();
+      return;
+    }
+
+    await submitPdf();
+  }
+
   return (
     <div className="space-y-6">
       <section className="card p-5">
@@ -221,50 +230,65 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
 
       {!readOnly ? (
         <section className="card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">Add New Episode</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Option 1 is URL, option 2 is PDF. Submit one source per item.</p>
-            </div>
+          <h2 className="text-base font-semibold">Add New Episode</h2>
 
-            <div className="inline-flex rounded-xl border border-[rgba(31,42,31,0.2)] bg-[var(--surface)] p-1 shadow-sm">
-              <button
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${sourceMode === "url" ? "bg-[var(--accent)] text-white" : "text-[var(--muted)]"}`}
-                onClick={() => setSourceMode("url")}
-                disabled={isBusy}
+          <fieldset className="mt-3">
+            <legend className="sr-only">Choose source</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <label
+                className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  sourceMode === "url"
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
+                    : "border-[rgba(31,42,31,0.15)] bg-[var(--surface)] text-[var(--muted)] opacity-60"
+                }`}
               >
+                <input
+                  className="sr-only"
+                  type="radio"
+                  name="source-mode"
+                  value="url"
+                  checked={sourceMode === "url"}
+                  onChange={() => setSourceMode("url")}
+                  disabled={isBusy}
+                />
                 Option 1: URL
-              </button>
-              <button
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${sourceMode === "pdf" ? "bg-[var(--accent)] text-white" : "text-[var(--muted)]"}`}
-                onClick={() => setSourceMode("pdf")}
-                disabled={isBusy}
+              </label>
+              <label
+                className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                  sourceMode === "pdf"
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
+                    : "border-[rgba(31,42,31,0.15)] bg-[var(--surface)] text-[var(--muted)] opacity-60"
+                }`}
               >
+                <input
+                  className="sr-only"
+                  type="radio"
+                  name="source-mode"
+                  value="pdf"
+                  checked={sourceMode === "pdf"}
+                  onChange={() => setSourceMode("pdf")}
+                  disabled={isBusy}
+                />
                 Option 2: PDF
-              </button>
+              </label>
             </div>
-          </div>
+          </fieldset>
 
-          <label className="mt-4 block">
-            <span className="mb-1 block text-sm font-medium">Optional title (applies to URL or PDF)</span>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-sm font-medium">Optional title</span>
             <input
               className="w-full rounded-lg border px-3 py-2"
-              placeholder="Leave blank to auto-extract title from page/PDF"
+              placeholder="Leave blank to auto-title"
               value={titleInput}
               onChange={(event) => setTitleInput(event.target.value)}
             />
           </label>
 
-          <div className="mt-4 rounded-2xl border border-[rgba(31,42,31,0.14)] bg-[linear-gradient(145deg,#ffffff,#f7fbf8)] p-4">
+          <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.14)] bg-[var(--surface)] p-4">
             {sourceMode === "url" ? (
               <article>
-                <h3 className="font-semibold">Submit URL</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Paste an article URL. If no title is entered, ListenLater extracts one from page metadata/content.
-                </p>
-
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Article URL</span>
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium">URL</span>
                   <input
                     className="w-full rounded-lg border px-3 py-2"
                     placeholder="https://example.com/article"
@@ -272,23 +296,13 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
                     onChange={(event) => setUrlInput(event.target.value)}
                   />
                 </label>
-
-                <button
-                  className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  disabled={isBusy || !urlInput.trim()}
-                  onClick={submitUrl}
-                >
-                  Submit URL
-                </button>
               </article>
             ) : (
               <article>
-                <h3 className="font-semibold">Upload PDF</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">Upload one text-based PDF file. OCR for scanned PDFs is not supported yet.</p>
-
+                <label className="mb-1 block text-sm font-medium">PDF</label>
                 <input
                   ref={pdfInputRef}
-                  className="mt-3 block w-full text-sm"
+                  className="block w-full text-sm"
                   type="file"
                   accept="application/pdf"
                   onChange={(event) => {
@@ -296,16 +310,16 @@ export function DashboardClient({ feedUrl, feedToken, readOnly = false, initialI
                   }}
                 />
                 {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
-
-                <button
-                  className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  disabled={isBusy || !pdfFile}
-                  onClick={submitPdf}
-                >
-                  Upload PDF
-                </button>
               </article>
             )}
+
+            <button
+              className="mt-3 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)}
+              onClick={submitActiveSource}
+            >
+              {sourceMode === "url" ? "Submit URL" : "Upload PDF"}
+            </button>
           </div>
         </section>
       ) : null}

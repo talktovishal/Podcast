@@ -221,3 +221,27 @@ This file tracks concise session summaries and the exact user prompts that guide
     - `npm run build`
 - User prompts:
   - "Thanks, you fixed it, and now it's very clear it's either option 1 or option 2. I don't like the design, it's a bit too clunky. Maybe you can smoothen that a little bit, take a look at that. I can provide you a picture of how it looks. Let me actually, I can do that if you want me to, but you can do, I can do that for you. So it's not that pleasing. Maybe you can take a look. So see if you can make that changes a little bit. And the second is now the title is gone. It's no longer allowing me to put in a title. So the way I think about it is irrespective of option 1 or option 2, you should always allow me to put in a title. And if the title is not allowed, then you can extract it from the page or the PDF. Like either it can be the title of the PDF. Maybe there is a title in the page, or maybe in the HTML metadata. So try to get it from there. I also like the processing line item right now, so that is also good. I will see if it automatically, it says that it's going to refresh automatically, so I'm going to check whether it is indeed going to refresh automatically or not. And I will let you know. I hope you have some tests for that."
+
+## Entry 013
+- Date: 2026-02-08
+- Summary:
+  - Simplified the ingest UX further to reduce reading and make source choice more intuitive.
+  - Replaced verbose source layout with a radio-style selector using two clear options:
+    - `Option 1: URL`
+    - `Option 2: PDF`
+  - Added stronger visual state contrast:
+    - selected option highlighted
+    - unselected option automatically dimmed/grayed
+  - Kept one shared optional title field for both modes.
+  - Simplified the active input area to minimal fields only:
+    - URL mode: URL input + submit
+    - PDF mode: file picker + upload
+    - removed extra explanatory copy to reduce clutter
+  - No backend behavior changes in this pass.
+  - Validation completed:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+- User prompts:
+  - "Okay, now I've done some more testing. Let's do, let's fix a few issues one by one. The first thing is I'm still not happy with the option 1 and option 2 layout. I want you to simplify this further. Please take another shot at it. It's just too many words and you know, it is not intuitive at all. Just keep things intuitive. Maybe it's some sort of a radio button style where, you know, it's just obvious that if I click on one, the other one is automatically grayed or something like that. And then there is a title, optional title for both of them that I can click, that I can write or not. You know, you really have to make this intuitive. I don't have to read all these things. Reading is not helpful. You have to make this really simple for the user. So first fix that."
