@@ -34,4 +34,73 @@ test("buildRssXml keeps deterministic ordering and escapes XML", () => {
   assert.ok(xml.indexOf("One") < xml.indexOf("Two"));
   assert.ok(xml.includes("Feed &amp; Test"));
   assert.ok(xml.includes("Hello &lt;world&gt;"));
+  assert.ok(xml.includes('xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"'));
+  assert.ok(xml.includes("<atom:link "));
+  assert.ok(/<guid isPermaLink="false">a<\/guid>/.test(xml));
+  assert.ok(/<enclosure url="http:\/\/localhost\/media\/1\.m4a" length="111" type="audio\/mp4" \/>/.test(xml));
+  assert.ok(/<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT<\/pubDate>/.test(xml));
+});
+
+test("buildRssXml rejects duplicate GUIDs", () => {
+  assert.throws(() =>
+    buildRssXml({
+      title: "Feed",
+      description: "Desc",
+      link: "http://localhost:3000",
+      feedUrl: "http://localhost:3000/rss/token.xml",
+      language: "en-us",
+      episodes: [
+        {
+          guid: "same",
+          title: "One",
+          description: "One",
+          pubDate: new Date("2025-01-02T00:00:00Z"),
+          enclosureUrl: "http://localhost/media/1.m4a",
+          enclosureLength: 111,
+          enclosureType: "audio/mp4"
+        },
+        {
+          guid: "same",
+          title: "Two",
+          description: "Two",
+          pubDate: new Date("2025-01-01T00:00:00Z"),
+          enclosureUrl: "http://localhost/media/2.m4a",
+          enclosureLength: 222,
+          enclosureType: "audio/mp4"
+        }
+      ]
+    })
+  );
+});
+
+test("buildRssXml rejects duplicate enclosure URLs", () => {
+  assert.throws(() =>
+    buildRssXml({
+      title: "Feed",
+      description: "Desc",
+      link: "http://localhost:3000",
+      feedUrl: "http://localhost:3000/rss/token.xml",
+      language: "en-us",
+      episodes: [
+        {
+          guid: "a",
+          title: "One",
+          description: "One",
+          pubDate: new Date("2025-01-02T00:00:00Z"),
+          enclosureUrl: "http://localhost/media/same.m4a",
+          enclosureLength: 111,
+          enclosureType: "audio/mp4"
+        },
+        {
+          guid: "b",
+          title: "Two",
+          description: "Two",
+          pubDate: new Date("2025-01-01T00:00:00Z"),
+          enclosureUrl: "http://localhost/media/same.m4a",
+          enclosureLength: 222,
+          enclosureType: "audio/mp4"
+        }
+      ]
+    })
+  );
 });

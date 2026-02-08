@@ -111,3 +111,31 @@ This file tracks concise session summaries and the exact user prompts that guide
 - For each meaningful request:
   - Add one new entry with date, concise summary, and exact user prompt text.
   - Keep entries short and reviewable.
+
+## Entry 008
+- Date: 2026-02-08
+- Summary:
+  - Hardened podcast compatibility validation by strengthening `scripts/verify_podcast_contract.sh`.
+  - Added strict RSS checks before media probing:
+    - valid XML parse
+    - `<rss>` + `<channel>` presence
+    - iTunes namespace present
+    - at least one `<item>`
+    - per-item GUID required and globally unique
+    - per-item `pubDate` required and RFC2822-parseable
+    - item ordering newest-first by `pubDate`
+    - per-item enclosure required with non-empty URL
+    - enclosure URL uniqueness across items
+    - enclosure `length` positive integer
+    - enclosure MIME restricted to `audio/mpeg` or `audio/mp4`
+  - Confirmed local end-to-end gates are passing after changes:
+    - `npm run typecheck`
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `npm run export`
+    - `npm run license:check`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<token>.xml"` (PASS, including Range 206)
+  - Confirmed RSS unit tests include duplicate GUID and duplicate enclosure rejection checks.
+- User prompts:
+  - "What do you recommend we do to verify the Apple podcast or any other integration? Can we at least write unit tests to make sure everything works so that we know that the integration is going to be successful?"

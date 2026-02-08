@@ -29,7 +29,38 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+function validateEpisodes(episodes: FeedEpisode[]): void {
+  const guidSet = new Set<string>();
+  const enclosureSet = new Set<string>();
+
+  for (const episode of episodes) {
+    if (!episode.guid.trim()) {
+      throw new Error("RSS episode GUID cannot be empty.");
+    }
+
+    if (guidSet.has(episode.guid)) {
+      throw new Error(`Duplicate RSS GUID detected: ${episode.guid}`);
+    }
+    guidSet.add(episode.guid);
+
+    if (!episode.enclosureUrl.trim()) {
+      throw new Error(`Episode ${episode.guid} is missing enclosure URL.`);
+    }
+
+    if (enclosureSet.has(episode.enclosureUrl)) {
+      throw new Error(`Duplicate enclosure URL detected: ${episode.enclosureUrl}`);
+    }
+    enclosureSet.add(episode.enclosureUrl);
+
+    if (!Number.isFinite(episode.enclosureLength) || episode.enclosureLength < 0) {
+      throw new Error(`Invalid enclosure length for episode ${episode.guid}.`);
+    }
+  }
+}
+
 export function buildRssXml(input: FeedInput): string {
+  validateEpisodes(input.episodes);
+
   const sorted = [...input.episodes].sort((a, b) => {
     const dateDiff = b.pubDate.getTime() - a.pubDate.getTime();
     if (dateDiff !== 0) {
