@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+.next
+.turbo
+dist
+coverage
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+apps/web/.data
+exports
+services/python-tts/.venv

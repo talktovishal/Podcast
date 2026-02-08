@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String?
+  name         String?
+  role         String      @default("USER")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  sessions     Session[]
+  feedTokens   FeedToken[]
+  shareTokens  ShareToken[]
+  items        Item[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FeedToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenValue String  @unique
+  tokenHash String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  rotatedAt DateTime?
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
+}
+
+model ShareToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenValue String  @unique
+  tokenHash String   @unique
+  scope     String   @default("read_only")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Item {
+  id            String      @id @default(cuid())
+  userId        String
+  title         String?
+  sourceType    String
+  sourceUrl     String?
+  sourceFilePath String?
+  status        String      @default("QUEUED")
+  errorCode     String?
+  errorMessage  String?
+  textHash      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs          Job[]
+  jobEvents     JobEvent[]
+  episode       Episode?
+  chunkCaches   ChunkCache[]
+
+  @@index([userId, status])
+}
+
+model Episode {
+  id          String   @id @default(cuid())
+  itemId       String   @unique
+  guid         String   @unique
+  title        String
+  description  String
+  audioPath    String
+  audioBytes   Int
+  mimeType     String
+  publishedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([publishedAt])
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  itemId      String
+  attempt     Int       @default(0)
+  status      String    @default("QUEUED")
+  lockedAt    DateTime?
+  nextRetryAt DateTime?
+  errorCode   String?
+  errorMessage String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  events      JobEvent[]
+
+  @@index([status, createdAt])
+}
+
+model JobEvent {
+  id         String   @id @default(cuid())
+  jobId       String
+  itemId      String
+  stage       String
+  eventType   String
+  payloadJson Json
+  createdAt   DateTime @default(now())
+
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+}
+
+model ChunkCache {
+  id         String   @id @default(cuid())
+  itemId      String
+  chunkIndex  Int
+  hash        String   @unique
+  filePath    String
+  audioBytes  Int
+  mimeType    String
+  createdAt   DateTime @default(now())
+
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}

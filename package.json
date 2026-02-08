@@ -1,0 +1,27 @@
+{
+  "name": "listenlater",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "export": "npx pnpm --filter @listenlater/web run export",
+    "seed:demo": "npx pnpm --filter @listenlater/web run seed:demo",
+    "check:env": "node scripts/check-env.mjs",
+    "license:check": "node scripts/license-check.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}

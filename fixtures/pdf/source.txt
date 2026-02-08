@@ -1,0 +1,4 @@
+ListenLater fixture PDF.
+
+This PDF is text-based and intended for deterministic extraction tests.
+It includes several sentences so that extraction output is non-empty and useful.

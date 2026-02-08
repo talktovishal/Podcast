@@ -48,6 +48,34 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Okay, now that we are set up correctly, are we ready to work on, are you ready to work on the plans and all the milestones step by step? After every milestone is finished, I want you to, after you test and verify everything, I also want you to check it in to GitHub so that we always have the latest snapshot in GitHub. Let me know if you are ready before, let me know if you are ready to begin and I will give you the go ahead. Please note you have to generate the architecture and other things that I had requested for, specifically implement.md and architecture.md and documentation.md, but I assume that will happen as part of your implementation phase. Let me know and I will give you the go ahead."
 
+## Entry 005
+- Date: 2026-02-08
+- Summary:
+  - Bootstrapped full monorepo implementation: `apps/web`, `apps/worker`, `packages/core`, fixtures, docs, CI, export, and deployment scaffolding.
+  - Implemented core product surfaces:
+    - session auth + OAuth scaffolding (Google/Apple)
+    - private feed token + share token flows
+    - URL/PDF ingestion with validation + SSRF/rate limiting
+    - async worker pipeline with extraction, chunking, local TTS, cache, and deterministic episode publishing
+    - deterministic RSS generation and media routes with HEAD/Range semantics
+    - dashboard UX, admin dashboard, read-only share mode, and account/item deletion
+    - demo seed and export scripts
+  - Added requested documentation files:
+    - `docs/architecture.md`
+    - `docs/implement.md`
+    - `docs/documentation.md`
+  - Added Python TTS scaffold in `services/python-tts`.
+  - Added verification tooling and gates (tests, lint, typecheck, license check, contract script preserved).
+  - Validation results:
+    - `npm run typecheck` passed.
+    - `npm run lint` passed.
+    - `npm run test` passed.
+    - `npm run export` passed.
+    - `npm run license:check` passed.
+    - `next build` and `next dev` currently stall in this execution environment (no completion/output beyond startup), so podcast HTTP contract curl checks could not be executed against a live server in-session.
+- User prompts:
+  - "Okay, go ahead and don't stop at milestone one. Okay, I want you to go everything, just do start working on things end-to-end. I have full trust in you and I give you full access to everything."
+
 ## Logging Rule (Going Forward)
 - For each meaningful request:
   - Add one new entry with date, concise summary, and exact user prompt text.
