@@ -39,6 +39,15 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "Move the MD files also in the docs folder, so it's clean, and let's maintain the readme file at the root that you can create later as you are building the things."
 
+## Entry 004
+- Date: 2026-02-08
+- Summary:
+  - Confirmed readiness to execute milestones step-by-step.
+  - Agreed operating cadence: complete milestone -> test/verify -> commit -> push to GitHub.
+  - Captured additional required docs to generate during implementation: `docs/architecture.md`, `docs/implement.md`, and `docs/documentation.md`.
+- User prompts:
+  - "Okay, now that we are set up correctly, are we ready to work on, are you ready to work on the plans and all the milestones step by step? After every milestone is finished, I want you to, after you test and verify everything, I also want you to check it in to GitHub so that we always have the latest snapshot in GitHub. Let me know if you are ready before, let me know if you are ready to begin and I will give you the go ahead. Please note you have to generate the architecture and other things that I had requested for, specifically implement.md and architecture.md and documentation.md, but I assume that will happen as part of your implementation phase. Let me know and I will give you the go ahead."
+
 ## Logging Rule (Going Forward)
 - For each meaningful request:
   - Add one new entry with date, concise summary, and exact user prompt text.
