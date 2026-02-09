@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createSecretToken } from "@listenlater/core";
+import { KokoroTtsProvider, createSecretToken } from "@listenlater/core";
 import { hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
@@ -35,9 +35,41 @@ async function renderStarterAudioBuffer(): Promise<Buffer> {
   const aiffPath = join(tempDir, "starter.aiff");
 
   try {
-    await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
-    await run("afconvert", [aiffPath, "-o", m4aPath, "-f", "m4af", "-d", "aac"]);
-    return readFile(m4aPath);
+    if (process.platform === "darwin") {
+      try {
+        await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
+        await run("afconvert", [aiffPath, "-o", m4aPath, "-f", "m4af", "-d", "aac"]);
+        return readFile(m4aPath);
+      } catch {
+        // Fall through to python-tts provider path.
+      }
+    }
+
+    try {
+      const provider = new KokoroTtsProvider(env.pythonTtsUrl, env.pythonTtsTimeoutMs);
+      await provider.synthesizeToFile({
+        text: DEMO_TEXT,
+        voice: "af_heart",
+        format: "m4a",
+        outPath: m4aPath
+      });
+      return readFile(m4aPath);
+    } catch {
+      // Final fallback for Linux parity/CI environments: create a short silent AAC clip.
+      await run("ffmpeg", [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=24000:cl=mono",
+        "-t",
+        "2",
+        "-c:a",
+        "aac",
+        m4aPath
+      ]);
+      return readFile(m4aPath);
+    }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

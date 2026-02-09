@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg wget git && rm -rf /var/lib/apt/lists/*
 
 COPY services/python-tts/requirements.txt ./requirements.txt
 COPY services/python-tts/requirements.providers.txt ./requirements.providers.txt

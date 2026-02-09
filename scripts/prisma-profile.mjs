@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 
 const repoRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const profile = process.env.RUNTIME_PROFILE || "simple";
@@ -22,9 +22,13 @@ if (args.length === 0) {
 }
 
 const hasSchemaArg = args.some((arg) => arg === "--schema" || arg.startsWith("--schema="));
-const finalArgs = hasSchemaArg ? args : [...args, "--schema", schemaForProfile()];
+const schemaPath = (() => {
+  const path = schemaForProfile();
+  return isAbsolute(path) ? path : resolve(repoRoot, path);
+})();
+const finalArgs = hasSchemaArg ? args : [...args, "--schema", schemaPath];
 
-const result = spawnSync("npx", ["prisma", ...finalArgs], {
+const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "exec", "prisma", ...finalArgs], {
   cwd: repoRoot,
   stdio: "inherit",
   env: process.env

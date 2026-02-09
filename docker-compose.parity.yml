@@ -21,7 +21,7 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite:3.33.0
     container_name: listenlater-azurite
     restart: unless-stopped
-    command: "azurite --blobHost 0.0.0.0 --blobPort 10000"
+    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck"
     ports:
       - "10000:10000"
     volumes:
