@@ -43,14 +43,22 @@ function parseEnvFile(filePath) {
   return result;
 }
 
-function getEffectiveEnv() {
+function getEffectiveEnv(profile) {
   const rootEnvPath = path.resolve(".env");
   const webEnvPath = path.resolve("apps/web/.env");
+  const profileEnvPath = path.resolve(`.env.${profile}`);
+  const profileExamplePath = path.resolve(`.env.${profile}.example`);
+  const webProfileEnvPath = path.resolve(`apps/web/.env.${profile}`);
+
   const merged = {
     ...parseEnvFile(rootEnvPath),
     ...parseEnvFile(webEnvPath),
+    ...parseEnvFile(profileExamplePath),
+    ...parseEnvFile(profileEnvPath),
+    ...parseEnvFile(webProfileEnvPath),
     ...process.env
   };
+
   return merged;
 }
 
@@ -108,7 +116,7 @@ function profileRequirements(profile) {
 
 function run() {
   const { profile } = parseArgs();
-  const env = getEffectiveEnv();
+  const env = getEffectiveEnv(profile);
   const { required, optional } = profileRequirements(profile);
 
   const missingRequired = required.filter((key) => !env[key] || String(env[key]).trim() === "");

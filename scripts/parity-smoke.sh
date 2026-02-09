@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+PARITY_ENV_FILE=".env.parity"
+if [[ ! -f "$PARITY_ENV_FILE" && -f ".env.parity.example" ]]; then
+  PARITY_ENV_FILE=".env.parity.example"
+fi
+
+if [[ -f "$PARITY_ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$PARITY_ENV_FILE"
+  set +a
+fi
+
 BASE_URL="${BASE_URL:-http://127.0.0.1:3000}"
 DEMO_EMAIL="${DEMO_EMAIL:-demo@listenlater.local}"
 DEMO_PASSWORD="${DEMO_PASSWORD:-demo-password}"

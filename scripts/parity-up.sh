@@ -4,6 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+PARITY_ENV_FILE=".env.parity"
+if [[ ! -f "$PARITY_ENV_FILE" && -f ".env.parity.example" ]]; then
+  PARITY_ENV_FILE=".env.parity.example"
+fi
+
+if [[ -f "$PARITY_ENV_FILE" ]]; then
+  echo "[parity-up] loading environment from ${PARITY_ENV_FILE}..."
+  set -a
+  # shellcheck disable=SC1090
+  source "$PARITY_ENV_FILE"
+  set +a
+fi
+
 echo "[parity-up] validating parity environment..."
 node ./scripts/check-env.mjs --profile parity
 
