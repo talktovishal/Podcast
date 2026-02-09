@@ -6,15 +6,19 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run prisma:generate && next build",
-    "start": "next start",
+    "start": "npm run prisma:generate && next start",
     "lint": "npm run prisma:generate && next lint",
     "typecheck": "npm run prisma:generate && tsc --noEmit",
-    "test": "npm run prisma:generate && tsx --test tests/**/*.test.ts",
+    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npm run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite LISTENLATER_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
     "export": "tsx scripts/export.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "tts:precompute": "tsx scripts/precompute-tts-previews.ts",
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
-    "prisma:generate": "prisma generate",
+    "db:export-json": "tsx scripts/db-export-json.ts",
+    "db:import-json": "tsx scripts/db-import-json.ts",
+    "ops:snapshot": "tsx scripts/ops-snapshot.ts",
+    "ops:verify-restore": "tsx scripts/ops-verify-restore.ts",
+    "prisma:generate": "node ../../scripts/prisma-profile.mjs generate",
     "prisma:migrate": "prisma migrate dev --name init"
   },
   "dependencies": {

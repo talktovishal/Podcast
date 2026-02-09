@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "npm run prisma:generate && tsx watch src/index.ts",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
+    "start": "npm run prisma:generate && node dist/src/index.js",
     "lint": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
     "typecheck": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
-    "test": "npm run prisma:generate && tsx --test tests/**/*.test.ts",
-    "prisma:generate": "prisma generate --schema ../web/prisma/schema.prisma"
+    "test": "DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npx pnpm --filter @listenlater/web run db:bootstrap && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite LISTENLATER_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
+    "prisma:generate": "node ../../scripts/prisma-profile.mjs generate"
   },
   "dependencies": {
     "@listenlater/core": "workspace:*",

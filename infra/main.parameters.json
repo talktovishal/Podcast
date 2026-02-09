@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": {
+      "value": "listenlater"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "vmSize": {
+      "value": "Standard_D4as_v5"
+    },
+    "adminUsername": {
+      "value": "azureuser"
+    },
+    "adminPublicKey": {
+      "value": "ssh-rsa REPLACE_WITH_YOUR_PUBLIC_KEY"
+    },
+    "postgresAdminLogin": {
+      "value": "listenlater_admin"
+    },
+    "postgresAdminPassword": {
+      "value": "REPLACE_WITH_SECURE_PASSWORD"
+    }
+  }
+}

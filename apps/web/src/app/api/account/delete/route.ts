@@ -1,9 +1,8 @@
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { clearSessionCookie, getAuthUserFromRequest } from "@/lib/auth";
-import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 
 export async function DELETE(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
@@ -14,13 +13,22 @@ export async function DELETE(request: NextRequest) {
   const items = await prisma.item.findMany({ where: { userId: user.id }, include: { episode: true } });
 
   await prisma.user.delete({ where: { id: user.id } });
+  const storage = getArtifactStorage();
 
   for (const item of items) {
     if (item.episode?.audioPath) {
-      await rm(join(env.mediaRoot, item.episode.audioPath), { force: true });
+      if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
+        await rm(item.episode.audioPath, { force: true });
+      } else {
+        await storage.deleteObject(item.episode.audioPath);
+      }
     }
     if (item.sourceFilePath) {
-      await rm(item.sourceFilePath, { force: true });
+      if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
+        await rm(item.sourceFilePath, { force: true });
+      } else {
+        await storage.deleteObject(item.sourceFilePath);
+      }
     }
   }
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=ListenLater Python TTS Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=listenlater
+Group=listenlater
+WorkingDirectory=/opt/listenlater/services/python-tts
+EnvironmentFile=/etc/listenlater/listenlater.env
+ExecStart=/usr/bin/env bash -lc 'cd /opt/listenlater/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010'
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

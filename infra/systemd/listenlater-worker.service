@@ -1,0 +1,18 @@
+[Unit]
+Description=ListenLater Worker
+After=network.target listenlater-python-tts.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=listenlater
+Group=listenlater
+WorkingDirectory=/opt/listenlater
+EnvironmentFile=/etc/listenlater/listenlater.env
+ExecStart=/usr/bin/env bash -lc 'cd /opt/listenlater && RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/worker run start'
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

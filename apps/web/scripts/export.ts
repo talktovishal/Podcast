@@ -1,8 +1,9 @@
-import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { buildRssXml } from "@listenlater/core";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
+import { getArtifactStorage } from "../src/lib/storage";
 
 async function main() {
   const outputRoot = resolve(process.cwd(), "../../exports");
@@ -21,12 +22,14 @@ async function main() {
   });
 
   const manifest: Array<{ guid: string; title: string; source_audio: string; exported_audio: string; bytes: number }> = [];
+  const storage = getArtifactStorage();
 
   for (const episode of episodes) {
-    const source = join(env.mediaRoot, episode.audioPath);
+    const source = episode.audioPath;
     const exported = join(mediaRoot, `${episode.id}${episode.mimeType === "audio/mpeg" ? ".mp3" : ".m4a"}`);
     await mkdir(dirname(exported), { recursive: true });
-    await copyFile(source, exported);
+    const audio = await storage.getObject(episode.audioPath);
+    await writeFile(exported, audio);
 
     manifest.push({
       guid: episode.guid,

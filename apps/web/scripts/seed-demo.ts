@@ -1,11 +1,13 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createSecretToken } from "@listenlater/core";
 import { hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
 import { prisma } from "../src/lib/prisma";
+import { getArtifactStorage, normalizeStorageKey } from "../src/lib/storage";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
 
 const DEMO_EMAIL = env.demoEmail;
@@ -27,33 +29,35 @@ function run(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-async function ensureStarterAudio(path: string): Promise<number> {
+async function renderStarterAudioBuffer(): Promise<Buffer> {
+  const tempDir = await mkdtemp(join(tmpdir(), "listenlater-seed-"));
+  const m4aPath = join(tempDir, "starter.m4a");
+  const aiffPath = join(tempDir, "starter.aiff");
+
   try {
-    const existing = await stat(path);
-    if (existing.size > 0) {
-      return existing.size;
-    }
-  } catch {
-    // continue
+    await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
+    await run("afconvert", [aiffPath, "-o", m4aPath, "-f", "m4af", "-d", "aac"]);
+    return readFile(m4aPath);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
   }
-
-  const aiffPath = path.replace(/\.m4a$/, ".aiff");
-  await mkdir(dirname(path), { recursive: true });
-
-  await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
-  await run("afconvert", [aiffPath, "-o", path, "-f", "m4af", "-d", "aac"]);
-
-  const info = await stat(path);
-  return info.size;
 }
 
-async function fileExists(path: string): Promise<boolean> {
+async function ensureStarterAudioObject(relativePath: string): Promise<number> {
+  const storage = getArtifactStorage();
+
   try {
-    await stat(path);
-    return true;
+    const existing = await storage.headObject(relativePath);
+    if (existing.bytes > 0) {
+      return existing.bytes;
+    }
   } catch {
-    return false;
+    // object does not exist yet
   }
+
+  const audio = await renderStarterAudioBuffer();
+  const stored = await storage.putObject(relativePath, audio, { contentType: "audio/mp4" });
+  return stored.bytes;
 }
 
 async function main() {
@@ -97,17 +101,16 @@ async function main() {
     }
   });
 
-  if (!existingStarter) {
-    const relativePath = join("items", "demo-starter", "episode.m4a");
-    const fullPath = join(env.mediaRoot, relativePath);
-    const bytes = await ensureStarterAudio(fullPath);
+  const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.m4a"));
+  const bytes = await ensureStarterAudioObject(relativePath);
 
+  if (!existingStarter) {
     const item = await prisma.item.create({
       data: {
         userId: user.id,
         title: "Welcome to ListenLater",
         sourceType: "PDF",
-        sourceFilePath: resolve(process.cwd(), "../../fixtures/pdf/text-based.pdf"),
+        sourceFilePath: null,
         status: "READY",
         jobs: {
           create: {
@@ -145,18 +148,16 @@ async function main() {
         }
       });
     }
-  }
-  else if (existingStarter.episode) {
-    const expectedRelativePath = join("items", "demo-starter", "episode.m4a");
-    const expectedFullPath = join(env.mediaRoot, expectedRelativePath);
-    const exists = await fileExists(expectedFullPath);
-
-    if (!exists) {
-      const bytes = await ensureStarterAudio(expectedFullPath);
+  } else if (existingStarter.episode) {
+    if (
+      existingStarter.episode.audioPath !== relativePath ||
+      existingStarter.episode.audioBytes !== bytes ||
+      existingStarter.episode.mimeType !== "audio/mp4"
+    ) {
       await prisma.episode.update({
         where: { id: existingStarter.episode.id },
         data: {
-          audioPath: expectedRelativePath,
+          audioPath: relativePath,
           audioBytes: bytes,
           mimeType: "audio/mp4"
         }

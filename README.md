@@ -1,91 +1,67 @@
 # ListenLater
 
-RSS-first personal podcast feed that converts URLs/PDFs into private podcast episodes.
+RSS-first personal podcast feed that converts URLs/PDFs/extension captures into private podcast episodes.
 
 ## Monorepo layout
-- `apps/web` - Next.js UI + API routes
-- `apps/worker` - async processing worker
-- `apps/extension` - standalone Chrome extension (MV3) for page capture
-- `packages/core` - shared extraction, RSS, chunking, security, adapter types
-- `docs` - plans, architecture, implementation docs
-- `fixtures` - deterministic HTML/PDF/demo fixtures
+- `/Users/vishalchowdhary/Documents/Podcast/apps/web` - Next.js UI + API routes
+- `/Users/vishalchowdhary/Documents/Podcast/apps/worker` - async processing worker
+- `/Users/vishalchowdhary/Documents/Podcast/apps/extension` - standalone Chrome extension (MV3)
+- `/Users/vishalchowdhary/Documents/Podcast/packages/core` - shared extraction/RSS/storage/security logic
+- `/Users/vishalchowdhary/Documents/Podcast/services/python-tts` - local Kokoro service
+- `/Users/vishalchowdhary/Documents/Podcast/docs` - plans, architecture, deployment/runbooks
 
 ## Quick start
-1. `./run.sh`
+Simple local profile:
+```bash
+./run.sh --profile simple
+```
 
-`run.sh` will:
-- create `.env` from `.env.example` if missing
-- install dependencies (on first run, or with `--force-install`)
-- run environment checks
-- bootstrap python-tts dependencies/assets
-- start web + worker with demo seed/bootstrap flow
+Parity profile (Docker Compose with PostgreSQL + Azurite):
+```bash
+./run.sh --profile parity
+```
 
-Optional:
-- `./run.sh --setup-only` (prepare environment without starting servers)
+Azure profile env validation:
+```bash
+./run.sh --profile azure
+```
 
-## Voice settings (Kokoro-only)
-The app uses Kokoro-82M voices for narration.
-
-`run.sh` now provisions and launches python-tts automatically (unless `ENABLE_PYTHON_TTS_DEV=0`).
-It also prewarms cached sample previews for every Kokoro voice on startup.
-
-Once running:
-1. Open `/app`.
-2. Go to `Voice Settings`.
-3. Pick a voice, run `Preview Voice`, then `Save Default`.
-
-Standalone provider test:
-- `npm run test:tts:e2e`
-
-## Demo and admin accounts
-`run.sh` seeds both accounts automatically on local first run.
-
+## Demo/admin accounts
+Seeded automatically by `run.sh`:
 - Demo user:
   - email: `demo@listenlater.local`
   - password: `demo-password`
 - Admin user:
   - email: `admin@listenlater.local`
-  - password: `admin-demo-password` (from `.env`)
+  - password: `admin-demo-password`
 
-Login flow for demoing:
-1. Sign in as demo user at `/login`.
-2. Open `/app` and submit a URL or upload a text-based PDF.
-3. Wait for item status to become `READY`.
-4. Play the generated episode and test seeking.
-5. Copy private RSS URL from dashboard and test in podcast client.
-6. Sign in as admin and open `/admin` for metrics/events view.
+## Extension packaging
+```bash
+npm run extension:package
+```
 
-OAuth behavior:
-- Google/Apple login buttons require `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and `APPLE_CLIENT_ID`/`APPLE_CLIENT_SECRET`.
-- If these vars are empty, OAuth is intentionally not configured for local demo.
-- Step-by-step setup: `docs/oauth-setup.md`.
+Output:
+- `dist/extension/listenlater-capture-v<version>.zip`
 
-## Chrome extension (separate publishable folder)
-The extension is kept as raw MV3 files in:
-- `apps/extension`
+## Durable migration + ops helpers
+- SQLite -> PostgreSQL migration:
+  - `npm run db:migrate:sqlite-to-postgres -- --postgres-url "<DATABASE_URL>"`
+- Parity smoke + feed/media contract:
+  - `npm run parity:smoke`
+- Durability drill snapshot:
+  - `npm run ops:pre-drill-snapshot`
+- Durability restore verification:
+  - `npm run ops:verify-restore`
 
-Package for Web Store in one command:
-- `npm run extension:package`
-- Output ZIP: `dist/extension/listenlater-capture-v<version>.zip`
-- Private publish checklist: `docs/chrome-webstore-private-publish.md`
+## Azure deployment
+See:
+- `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
+- `/Users/vishalchowdhary/Documents/Podcast/infra/README.md`
 
-Local load:
-1. Open `chrome://extensions`.
-2. Enable Developer mode.
-3. Click **Load unpacked**.
-4. Select `apps/extension`.
-
-Connect + capture:
-1. In `/app`, generate a one-time extension connect code.
-2. Paste it into the extension popup and click **Connect**.
-3. Click **Capture Current Page** on any HTTP/HTTPS tab.
-
-Admin credential note:
-- Admin is created from `.env` defaults.
-- Changing `ADMIN_PASSWORD` later does not automatically reset the existing admin password in the current DB.
-
-## Validation
-- `npm run lint`
+## Validation gates
 - `npm run typecheck`
+- `npm run lint`
 - `npm run test`
 - `npm run build`
+- `npm run export`
+- `npm run license:check`

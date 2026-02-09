@@ -6,8 +6,9 @@ on:
   pull_request:
 
 jobs:
-  validate:
-    runs-on: macos-latest
+  validate-simple:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -16,11 +17,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install
+      - name: Prepare simple profile env
+        run: cp .env.simple.example .env
 
-      - name: Generate Prisma client
-        run: npx pnpm --filter @listenlater/web run prisma:generate
+      - name: Install dependencies
+        run: npx pnpm install --frozen-lockfile
+
+      - name: Environment check (simple)
+        run: npm run check:env:simple
 
       - name: Typecheck
         run: npm run typecheck
@@ -34,5 +38,39 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Export
+        run: npm run export
+
       - name: License gate
         run: npm run license:check
+
+  validate-parity:
+    runs-on: ubuntu-latest
+    needs: validate-simple
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepare parity profile env
+        run: cp .env.parity.example .env
+
+      - name: Install dependencies
+        run: npx pnpm install --frozen-lockfile
+
+      - name: Environment check (parity)
+        run: npm run check:env:parity
+
+      - name: Start parity stack
+        run: npm run parity:up
+
+      - name: Parity smoke + podcast contract
+        run: npm run parity:smoke
+
+      - name: Stop parity stack
+        if: always()
+        run: npm run parity:down

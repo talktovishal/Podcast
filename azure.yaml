@@ -1,0 +1,6 @@
+name: listenlater
+metadata:
+  template: listenlater-azure-vm
+infra:
+  provider: bicep
+  path: infra

@@ -8,6 +8,7 @@ import { chunkText, extractHtmlSnapshot, sha256 } from "@listenlater/core";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
 import { POST as exchangePost } from "../src/app/api/auth/extension/exchange/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
+import { GET as seedDemoGet } from "../src/app/api/seed-demo/route";
 import { GET as rssGet } from "../src/app/rss/[token]/route";
 import { createSession, ensureUserFeedToken, findOrCreateOAuthUser } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
@@ -16,7 +17,8 @@ import { processJob } from "../../worker/src/jobs/processItemJob";
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady) {
+  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+    dbReady = true;
     return;
   }
 
@@ -174,6 +176,24 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     const submitPayload = (await submitResponse.json()) as {
       item_id: string;
     };
+
+    const refreshRequest = new NextRequest("http://localhost/api/seed-demo?refresh=items", {
+      headers: {
+        cookie: `listenlater_session=${sessionToken}`
+      }
+    });
+    const refreshResponse = await seedDemoGet(refreshRequest);
+    assert.equal(refreshResponse.status, 200);
+    const refreshPayload = (await refreshResponse.json()) as {
+      ok: boolean;
+      items: Array<{
+        id: string;
+        status: string;
+      }>;
+    };
+    assert.equal(refreshPayload.ok, true);
+    const queuedItem = refreshPayload.items.find((entry) => entry.id === submitPayload.item_id);
+    assert.equal(queuedItem?.status, "QUEUED");
 
     const createdItem = await prisma.item.findUnique({
       where: { id: submitPayload.item_id },

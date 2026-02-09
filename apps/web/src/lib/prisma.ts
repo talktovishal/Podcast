@@ -5,7 +5,7 @@ declare global {
   var __prisma__: PrismaClient | undefined;
 }
 
-process.env.DATABASE_URL = process.env.DATABASE_URL ?? env.databaseUrl;
+process.env.DATABASE_URL = env.databaseUrl;
 
 export const prisma = global.__prisma__ ?? new PrismaClient();
 

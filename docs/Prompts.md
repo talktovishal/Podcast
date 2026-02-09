@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ListenLater** web app from scratch.
 
-## Spec Status (as of 2026-02-08)
+## Spec Status (as of 2026-02-09)
 
-### Implemented (as of 2026-02-08)
+### Implemented (as of 2026-02-09)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -17,6 +17,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - raw HTML snapshot ingest endpoint
   - worker extraction path for `HTML_SNAPSHOT`
   - standalone MV3 extension package under `apps/extension`.
+- Durable Azure/parity implementation assets are in place:
+  - profile-aware env validation (`simple`, `parity`, `azure`)
+  - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
+  - object storage abstraction (`local`, `azure_blob`) wired into uploads/audio/media
+  - SQLite export/import migration scripts for PostgreSQL transition
+  - Bicep + azd infra baseline and VM deployment automation scripts.
 
 ### Next Milestones
 - Extension and auth hardening follow-ups:
@@ -29,6 +35,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - extraction quality guardrails for noisy/authenticated HTML
   - operational observability + release certification checklist
   - security/data lifecycle hardening for extension and demo diagnostics.
+- Durable Azure rollout wave (`M35`-`M46`):
+  - single-VM compute with self-hosted Kokoro runtime
+  - Azure PostgreSQL + Azure Blob durability
+  - Docker Compose parity profile for local/Azure dependency parity
+  - Bicep + azd reproducible provisioning and durability drill runbooks.
 
 ### Future / Optional
 - Long-form split episodes (Phase 1.5).
@@ -290,8 +301,8 @@ Document tradeoffs in `plans.md`.
 - Local DB: SQLite via Prisma (file in `apps/web/.data/db.sqlite`)
 - Local media storage (dev): `apps/web/.data/media/`
 - In Azure mode:
-  - DB becomes Azure SQL Serverless
-  - media stored in Azure Blob or S3-compatible storage
+  - DB becomes Azure PostgreSQL Flexible Server
+  - media stored in Azure Blob Storage
 
 ### 4.2 Job engine (deterministic + idempotent)
 - Item statuses:

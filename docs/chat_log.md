@@ -608,3 +608,57 @@ This file tracks concise session summaries and the exact user prompts that guide
 - User prompts:
   - "...submitted an article through the extension, it didn't immediately show up..."
   - "...it shows up as HTML snapshot... I want ... Chrome extension ..."
+
+## Entry 025
+- Date: 2026-02-09
+- Summary:
+  - Implemented runtime delivery for durable Azure/parity milestone wave (`M35`-`M46`) and synchronized spec/docs.
+  - Runtime/data-plane changes:
+    - completed object storage abstraction wiring for uploads/audio/media paths (`local` + `azure_blob`)
+    - made demo starter seeding storage-backed instead of filesystem-only assumptions
+    - added web health endpoint (`/api/health`) for parity/Azure checks
+    - hardened worker queue behavior with stale reclaim + retry scheduling tests
+  - PostgreSQL migration foundation:
+    - added SQLite export/import scripts:
+      - `apps/web/scripts/db-export-json.ts`
+      - `apps/web/scripts/db-import-json.ts`
+    - added orchestrator:
+      - `scripts/migrate-sqlite-to-postgres.sh`
+  - Parity environment and release gates:
+    - added/updated parity scripts:
+      - `scripts/parity-up.sh`
+      - `scripts/parity-down.sh`
+      - `scripts/parity-smoke.sh`
+    - expanded CI to matrix-like validation with `simple` and `parity` jobs (`.github/workflows/ci.yml`)
+  - Azure IaC + deployment automation:
+    - added `azure.yaml`
+    - added `infra/main.bicep`, `infra/main.parameters.json`, `infra/README.md`
+    - added VM deploy automation scripts:
+      - `scripts/azure/bootstrap-vm.sh`
+      - `scripts/azure/push-to-vm.sh`
+      - `scripts/azure/render-env.sh`
+      - `scripts/azure/install-systemd.sh`
+      - `scripts/azure/deploy-vm-runtime.sh`
+    - added service templates:
+      - `infra/systemd/listenlater-web.service`
+      - `infra/systemd/listenlater-worker.service`
+      - `infra/systemd/listenlater-python-tts.service`
+  - Durability drill/runbooks:
+    - added snapshot + restore verification scripts:
+      - `apps/web/scripts/ops-snapshot.ts`
+      - `apps/web/scripts/ops-verify-restore.ts`
+      - `scripts/ops/pre-drill-snapshot.sh`
+      - `scripts/ops/verify-restore.sh`
+    - added operations runbook:
+      - `docs/operations.md`
+  - Testing additions:
+    - `apps/web/tests/media-route.test.ts` (`HEAD`/`Range`)
+    - `apps/worker/tests/queue-resilience.test.ts`
+    - `packages/core/tests/storage.test.ts`
+    - updated extension integration test to assert immediate queued visibility after snapshot submit.
+  - Documentation/spec sync:
+    - updated `docs/Prompts.md`, `docs/plans.md`, `docs/architecture.md`, `docs/implement.md`, `docs/documentation.md`, `docs/env.md`, `docs/azure-deploy.md`, and root `README.md`.
+- User prompts:
+  - "PLEASE IMPLEMENT THIS PLAN: # Plan.md Expansion: Durable Azure + Local-Azure Parity Milestones"
+  - "Are all the new sections completed, everything implemented?"
+  - "Go ahead and please start working on them. I want you to finish the runtime implementation for all the new sections."

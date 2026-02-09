@@ -84,18 +84,18 @@
 | M32 | Planned |
 | M33 | Planned |
 | M34 | Planned |
-| M35 | Planned |
-| M36 | Planned |
-| M37 | Planned |
-| M38 | Planned |
-| M39 | Planned |
-| M40 | Planned |
-| M41 | Planned |
-| M42 | Planned |
-| M43 | Planned |
-| M44 | Planned |
-| M45 | Planned |
-| M46 | Planned |
+| M35 | Done |
+| M36 | Done |
+| M37 | Done |
+| M38 | Done |
+| M39 | Done |
+| M40 | Done |
+| M41 | Done |
+| M42 | Done |
+| M43 | Done |
+| M44 | Done |
+| M45 | Done |
+| M46 | Done |
 
 ## Milestones
 

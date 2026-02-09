@@ -1,5 +1,6 @@
-import { mkdir, readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
@@ -18,6 +19,7 @@ import {
 import { workerEnv } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
+import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
 
 type WorkerStage = "extract" | "tts" | "persist" | "job";
 type ExtractionLogEntry = {
@@ -129,25 +131,36 @@ async function synthesizeEpisodeAudio(
   const provider = makeTtsProvider({ providerId: selection.providerId });
   const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
   const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
-  const itemDir = join(workerEnv.mediaRoot, "items", itemId);
-  const outputPath = join(itemDir, `episode.${extension}`);
+  const relativePath = normalizeStorageKey(join("items", itemId, `episode.${extension}`));
+  const tempDir = await mkdtemp(join(tmpdir(), "listenlater-worker-"));
+  const tempOutputPath = join(tempDir, `episode.${extension}`);
 
-  await mkdir(dirname(outputPath), { recursive: true });
+  try {
+    await provider.synthesizeToFile({
+      text,
+      voice: selection.voice,
+      format: provider.outputFormat,
+      outPath: tempOutputPath
+    });
 
-  await provider.synthesizeToFile({
-    text,
-    voice: selection.voice,
-    format: provider.outputFormat,
-    outPath: outputPath
-  });
+    const bytes = await readFile(tempOutputPath);
+    const stored = await getArtifactStorage().putObject(relativePath, bytes, {
+      contentType: mimeType
+    });
 
-  const fileInfo = await stat(outputPath);
+    return {
+      relativePath,
+      bytes: stored.bytes,
+      mimeType: stored.contentType || mimeType
+    };
+  } finally {
+    await rm(tempDir, { recursive: true, force: true });
+  }
+}
 
-  return {
-    relativePath: join("items", itemId, `episode.${extension}`),
-    bytes: fileInfo.size,
-    mimeType
-  };
+function buildRetryAt(delayMs: number): Date {
+  const jitter = Math.floor(Math.random() * 5_000);
+  return new Date(Date.now() + delayMs + jitter);
 }
 
 async function extractItemText(item: {
@@ -214,8 +227,21 @@ async function extractItemText(item: {
     throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
   }
 
-  appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from disk");
-  const pdfData = await readFile(item.sourceFilePath);
+  let pdfData: Buffer;
+  if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
+    appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from legacy local path", {
+      sourceFilePath: item.sourceFilePath
+    });
+    pdfData = await readFile(item.sourceFilePath);
+  } else {
+    const storageKey = normalizeStorageKey(item.sourceFilePath);
+    appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from artifact storage", {
+      storageKey,
+      backend: workerEnv.storageBackend
+    });
+    pdfData = await getArtifactStorage().getObject(storageKey);
+  }
+
   appendExtractionLog(item.logs, "extract:pdf", "PDF bytes loaded", {
     bytes: pdfData.byteLength
   });
@@ -286,12 +312,59 @@ function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError 
   return new AppError(errorCodes.INTERNAL_ERROR, "Processing failed unexpectedly. Please retry.", 500);
 }
 
+async function reclaimStaleProcessingJobs(): Promise<number> {
+  const staleBefore = new Date(Date.now() - workerEnv.staleProcessingMs);
+  const staleJobs = await prisma.job.findMany({
+    where: {
+      status: "PROCESSING",
+      lockedAt: {
+        lt: staleBefore
+      }
+    },
+    select: {
+      id: true,
+      itemId: true
+    }
+  });
+
+  if (staleJobs.length === 0) {
+    return 0;
+  }
+
+  for (const job of staleJobs) {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      await tx.job.update({
+        where: { id: job.id },
+        data: {
+          status: "QUEUED",
+          lockedAt: null,
+          nextRetryAt: new Date()
+        }
+      });
+
+      await tx.item.updateMany({
+        where: {
+          id: job.itemId,
+          status: "PROCESSING"
+        },
+        data: {
+          status: "QUEUED"
+        }
+      });
+    });
+  }
+
+  return staleJobs.length;
+}
+
 export async function processJob(jobId: string): Promise<boolean> {
+  const nowTs = now();
   const claimResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const next = await tx.job.findFirst({
       where: {
         id: jobId,
-        status: { in: ["QUEUED", "FAILED"] }
+        status: { in: ["QUEUED", "FAILED"] },
+        OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: nowTs } }]
       },
       include: {
         item: {
@@ -541,7 +614,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           status: "FAILED",
           errorCode: err.code,
           errorMessage: err.userMessage,
-          nextRetryAt: new Date(Date.now() + 30_000)
+          nextRetryAt: buildRetryAt(Math.max(30_000, workerEnv.retryPollMs))
         }
       });
     });
@@ -580,13 +653,14 @@ export async function processJob(jobId: string): Promise<boolean> {
 }
 
 export async function processNextQueuedJob(): Promise<boolean> {
+  await reclaimStaleProcessingJobs();
+
   const next = await prisma.job.findFirst({
     where: {
-      status: "QUEUED"
+      status: { in: ["QUEUED", "FAILED"] },
+      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }]
     },
-    orderBy: {
-      createdAt: "asc"
-    }
+    orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }]
   });
 
   if (!next) {

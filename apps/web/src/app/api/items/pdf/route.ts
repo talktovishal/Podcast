@@ -1,13 +1,12 @@
 import { makeToken, submitPdfSchema } from "@listenlater/core";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { env } from "@/lib/env";
 import { ensureDataDirs } from "@/lib/fs";
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
 import { enforceSubmitRateLimits } from "@/lib/rate-limit";
+import { getArtifactStorage, normalizeStorageKey } from "@/lib/storage";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
@@ -40,18 +39,18 @@ export async function POST(request: NextRequest) {
 
     await ensureDataDirs();
     const random = makeToken(10);
-    const relativePath = join(user.id, `${Date.now()}-${random}.pdf`);
-    const fullPath = join(env.uploadRoot, relativePath);
-    await mkdir(dirname(fullPath), { recursive: true });
+    const relativePath = normalizeStorageKey(join("uploads", user.id, `${Date.now()}-${random}.pdf`));
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    await writeFile(fullPath, bytes);
+    await getArtifactStorage().putObject(relativePath, bytes, {
+      contentType: "application/pdf"
+    });
 
     const item = await enqueueItem({
       userId: user.id,
       title,
       sourceType: "PDF",
-      sourceFilePath: fullPath
+      sourceFilePath: relativePath
     });
 
     return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });

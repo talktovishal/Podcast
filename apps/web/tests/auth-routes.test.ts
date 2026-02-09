@@ -16,7 +16,8 @@ import { prisma } from "../src/lib/prisma";
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady) {
+  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+    dbReady = true;
     return;
   }
 

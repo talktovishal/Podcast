@@ -1,9 +1,8 @@
 import { rm } from "node:fs/promises";
-import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   const user = await getAuthUserFromRequest(request);
@@ -18,13 +17,22 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
 
   await prisma.item.delete({ where: { id: item.id } });
 
+  const storage = getArtifactStorage();
+
   if (item.episode?.audioPath) {
-    const full = join(env.mediaRoot, item.episode.audioPath);
-    await rm(full, { force: true });
+    if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
+      await rm(item.episode.audioPath, { force: true });
+    } else {
+      await storage.deleteObject(item.episode.audioPath);
+    }
   }
 
   if (item.sourceFilePath) {
-    await rm(item.sourceFilePath, { force: true });
+    if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
+      await rm(item.sourceFilePath, { force: true });
+    } else {
+      await storage.deleteObject(item.sourceFilePath);
+    }
   }
 
   return NextResponse.json({ ok: true });

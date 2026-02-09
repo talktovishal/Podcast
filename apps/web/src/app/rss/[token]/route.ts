@@ -3,8 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
+function normalizeFeedToken(value: string): string {
+  return value.replace(/\\.xml$/i, "");
+}
+
 export async function GET(request: NextRequest, context: { params: { token: string } }) {
-  const tokenHash = hashIncomingToken(context.params.token);
+  const token = normalizeFeedToken(context.params.token);
+  const tokenHash = hashIncomingToken(token);
   const feed = await prisma.feedToken.findFirst({
     where: {
       tokenHash,
@@ -36,14 +41,14 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     title: `${feed.user.name || feed.user.email} - ListenLater`,
     description: "Private ListenLater feed",
     link: env.appUrl,
-    feedUrl: `${env.appUrl}/rss/${context.params.token}.xml`,
+    feedUrl: `${env.appUrl}/rss/${token}.xml`,
     language: "en-us",
     episodes: episodes.map((episode) => ({
       guid: episode.guid,
       title: episode.title,
       description: episode.description,
       pubDate: episode.publishedAt,
-      enclosureUrl: `${env.appUrl}/api/media/${episode.audioPath}?feed_token=${context.params.token}&eid=${episode.id}`,
+      enclosureUrl: `${env.appUrl}/api/media/${episode.audioPath}?feed_token=${token}&eid=${episode.id}`,
       enclosureLength: episode.audioBytes,
       enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
     }))
@@ -59,7 +64,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
 }
 
 export async function HEAD(request: NextRequest, context: { params: { token: string } }) {
-  const tokenHash = hashIncomingToken(context.params.token);
+  const tokenHash = hashIncomingToken(normalizeFeedToken(context.params.token));
   const exists = await prisma.feedToken.findFirst({ where: { tokenHash, active: true }, select: { id: true } });
   return new NextResponse(null, { status: exists ? 200 : 404 });
 }

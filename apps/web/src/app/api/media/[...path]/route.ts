@@ -1,14 +1,14 @@
-import { createReadStream } from "node:fs";
-import { access, stat } from "node:fs/promises";
-import { join } from "node:path";
 import { hashIncomingToken } from "@listenlater/core";
 import { NextRequest, NextResponse } from "next/server";
-import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { getArtifactStorage } from "@/lib/storage";
 
 function contentTypeForPath(path: string): string {
   if (path.endsWith(".mp3")) {
     return "audio/mpeg";
+  }
+  if (path.endsWith(".pdf")) {
+    return "application/pdf";
   }
   return "audio/mp4";
 }
@@ -45,18 +45,17 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     return new NextResponse(null, { status: 401 });
   }
 
-  const relativePath = context.params.path.join("/");
-  const fullPath = join(env.mediaRoot, relativePath);
+  const key = context.params.path.join("/");
 
   try {
-    await access(fullPath);
-    const info = await stat(fullPath);
+    const storage = getArtifactStorage();
+    const head = await storage.headObject(key);
 
     return new NextResponse(null, {
       status: 200,
       headers: {
-        "content-type": contentTypeForPath(relativePath),
-        "content-length": String(info.size),
+        "content-type": head.contentType || contentTypeForPath(key),
+        "content-length": String(head.bytes),
         "accept-ranges": "bytes"
       }
     });
@@ -71,19 +70,18 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const relativePath = context.params.path.join("/");
-  const fullPath = join(env.mediaRoot, relativePath);
+  const key = context.params.path.join("/");
 
   try {
-    await access(fullPath);
-    const info = await stat(fullPath);
-    const size = info.size;
-    const mimeType = contentTypeForPath(relativePath);
-
+    const storage = getArtifactStorage();
+    const head = await storage.headObject(key);
+    const size = head.bytes;
+    const mimeType = head.contentType || contentTypeForPath(key);
     const range = request.headers.get("range");
+
     if (!range) {
-      const stream = createReadStream(fullPath);
-      return new NextResponse(stream as unknown as ReadableStream, {
+      const full = await storage.getObject(key);
+      return new NextResponse(new Uint8Array(full), {
         status: 200,
         headers: {
           "content-type": mimeType,
@@ -104,10 +102,10 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     }
 
     const { start, end } = parsedRange;
-    const chunkSize = end - start + 1;
-    const stream = createReadStream(fullPath, { start, end });
+    const chunk = await storage.getObject(key, { start, end });
+    const chunkSize = chunk.byteLength;
 
-    return new NextResponse(stream as unknown as ReadableStream, {
+    return new NextResponse(new Uint8Array(chunk), {
       status: 206,
       headers: {
         "content-type": mimeType,

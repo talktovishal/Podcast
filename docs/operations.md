@@ -1,0 +1,50 @@
+# Operations Runbook
+
+## Durability objective
+Customer accounts, feed metadata, and generated audio must survive VM loss.
+
+Durability boundary:
+- durable: Azure PostgreSQL + Azure Blob
+- non-durable: VM local disk/process state
+
+## VM runtime recovery
+1. Recreate or repair VM compute.
+2. Re-deploy runtime (`scripts/azure/deploy-vm-runtime.sh`).
+3. Ensure env points to existing PostgreSQL + Blob resources.
+4. Restart systemd services.
+5. Validate health and podcast contract.
+
+## Pre-drill snapshot
+Capture baseline before a failure simulation:
+```bash
+npm run ops:pre-drill-snapshot
+```
+Default artifact:
+- `exports/ops/pre-drill-snapshot.json`
+
+## Restore verification
+After VM replacement/redeploy:
+```bash
+npm run ops:verify-restore
+```
+This verifies:
+- DB counts are not regressed vs snapshot
+- previously captured episodes still exist in DB
+- episode audio objects are still readable from storage
+- parity smoke + podcast contract gate still pass
+
+## Signed durability drill report (template)
+- Drill date:
+- Operators:
+- Snapshot file:
+- Azure region/resource group:
+- Failure simulated (VM stop/delete/recreate):
+- Recovery completion time:
+- Service health after restore (web/worker/python-tts):
+- Snapshot verify result:
+- Podcast contract result:
+- Notes/remediations:
+- Sign-off:
+
+## Latest evidence
+- Pending first live Azure drill execution.
