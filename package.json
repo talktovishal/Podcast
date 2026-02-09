@@ -29,7 +29,10 @@
     "ops:pre-drill-snapshot": "./scripts/ops/pre-drill-snapshot.sh",
     "ops:verify-restore": "./scripts/ops/verify-restore.sh",
     "extension:icons": "python3 scripts/generate-extension-icons.py",
-    "extension:package": "./scripts/package-extension.sh"
+    "extension:package": "./scripts/package-extension.sh",
+    "logs:collect": "node scripts/logs-collect.mjs",
+    "logs:triage": "node scripts/logs-triage.mjs",
+    "observability:verify": "node scripts/observability-verify.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

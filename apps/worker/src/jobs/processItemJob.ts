@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
@@ -12,6 +13,7 @@ import {
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
+  withLogContext,
   sha256,
   type TtsProviderId,
   validateFetchableUrl
@@ -20,6 +22,7 @@ import { workerEnv } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
+import { workerLogger } from "../lib/logger.js";
 
 type WorkerStage = "extract" | "tts" | "persist" | "job";
 type ExtractionLogEntry = {
@@ -33,6 +36,14 @@ const DEMO_TRACE_LIMIT = 10;
 
 function now() {
   return new Date();
+}
+
+function generateTraceId(): string {
+  return randomBytes(16).toString("hex");
+}
+
+function generateSpanId(): string {
+  return randomBytes(8).toString("hex");
 }
 
 function logNow() {
@@ -420,6 +431,8 @@ export async function processJob(jobId: string): Promise<boolean> {
   }
 
   const item = claimResult.item;
+  const traceId = generateTraceId();
+  const spanId = generateSpanId();
   const extractionLogs: ExtractionLogEntry[] = [];
   const isDemoUser = (item.user?.email ?? "").toLowerCase() === workerEnv.demoEmail.toLowerCase();
   let sourceLabelForDiagnostics =
@@ -429,6 +442,21 @@ export async function processJob(jobId: string): Promise<boolean> {
         ? item.sourceUrl || "Captured browser page"
         : "Uploaded PDF";
   let extractedTextForDiagnostics = "";
+
+  await withLogContext(
+    {
+      trace_id: traceId,
+      span_id: spanId,
+      job_id: claimResult.id,
+      item_id: item.id
+    },
+    async () => {
+      await workerLogger.info("Job claimed", {
+        sourceType: item.sourceType,
+        attempt: claimResult.attempt
+      });
+    }
+  );
 
   await appendJobEvent({
     jobId: claimResult.id,
@@ -444,6 +472,14 @@ export async function processJob(jobId: string): Promise<boolean> {
 
   let stage: WorkerStage = "extract";
   try {
+    return await withLogContext(
+      {
+        trace_id: traceId,
+        span_id: spanId,
+        job_id: claimResult.id,
+        item_id: item.id
+      },
+      async () => {
     const extraction = await extractItemText({
       id: item.id,
       sourceType: item.sourceType,
@@ -484,6 +520,10 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
     if (cacheHit) {
+      await workerLogger.info("TTS cache hit", {
+        cacheKey,
+        bytes: cacheHit.audioBytes
+      });
       appendExtractionLog(extractionLogs, "tts", "Cache hit for synthesized audio", {
         cacheKey,
         filePath: cacheHit.filePath,
@@ -496,6 +536,11 @@ export async function processJob(jobId: string): Promise<boolean> {
       };
     } else {
       stage = "tts";
+      await workerLogger.info("TTS cache miss; synthesizing", {
+        cacheKey,
+        providerId: ttsSelection.providerId,
+        voice: ttsSelection.voice
+      });
       appendExtractionLog(extractionLogs, "tts", "Cache miss, synthesizing narration", {
         cacheKey
       });
@@ -578,6 +623,10 @@ export async function processJob(jobId: string): Promise<boolean> {
       message: "Processing completed"
     });
     appendExtractionLog(extractionLogs, "job", "Job completed successfully");
+    await workerLogger.info("Job completed", {
+      status: "SUCCEEDED",
+      sourceType: item.sourceType
+    });
 
     try {
       await maybeStoreDemoExtractionTrace({
@@ -593,6 +642,8 @@ export async function processJob(jobId: string): Promise<boolean> {
     }
 
     return true;
+      }
+    );
   } catch (error) {
     const err = mapUnexpectedWorkerError(error, stage);
     const diagnostic = formatDiagnostic(error);
@@ -634,6 +685,25 @@ export async function processJob(jobId: string): Promise<boolean> {
       errorMessage: err.userMessage,
       retryRecommended
     });
+    await withLogContext(
+      {
+        trace_id: traceId,
+        span_id: spanId,
+        job_id: claimResult.id,
+        item_id: item.id
+      },
+      async () => {
+        await workerLogger.errorWithCode({
+          msg: "Job failed",
+          error_code: err.code,
+          attrs: {
+            stage,
+            diagnostic,
+            retryRecommended
+          }
+        });
+      }
+    );
 
     try {
       await maybeStoreDemoExtractionTrace({
@@ -653,7 +723,10 @@ export async function processJob(jobId: string): Promise<boolean> {
 }
 
 export async function processNextQueuedJob(): Promise<boolean> {
-  await reclaimStaleProcessingJobs();
+  const reclaimed = await reclaimStaleProcessingJobs();
+  if (reclaimed > 0) {
+    await workerLogger.warn("Reclaimed stale processing jobs", { reclaimed });
+  }
 
   const next = await prisma.job.findFirst({
     where: {

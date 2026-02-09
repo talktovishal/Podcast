@@ -57,6 +57,18 @@ Recommended:
 - `WORKER_STALE_PROCESSING_MS`
 - `WORKER_RETRY_POLL_MS`
 
+## Observability and logging (all profiles)
+- `LOG_ROOT` (default: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`)
+- `LOG_RETENTION_DAYS` (default: `14`)
+- `LOG_MAX_BYTES` (default: `10485760`)
+- `LOG_MAX_FILES` (default: `10`)
+- `LISTENLATER_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
+
+## Telemetry wiring (Azure + parity)
+- `OTEL_ENABLED` (`1` to enable OTel exporters when configured)
+- `OTEL_SERVICE_NAME` (service tag override)
+- `AZURE_MONITOR_CONNECTION_STRING` (Azure Monitor exporter connection string)
+
 ## Validation commands
 - `npm run check:env:simple`
 - `npm run check:env:parity`

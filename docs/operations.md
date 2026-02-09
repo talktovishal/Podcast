@@ -48,3 +48,31 @@ This verifies:
 
 ## Latest evidence
 - Pending first live Azure drill execution.
+
+## Observability runbook
+Dedicated local log root:
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/worker/app.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/python-tts/app.log.jsonl`
+
+Collect and bundle diagnostics:
+```bash
+npm run logs:collect
+```
+
+Generate ranked error digest:
+```bash
+npm run logs:triage
+```
+Output:
+- `/Users/vishalchowdhary/Documents/Podcast/exports/diagnostics/error-digest.md`
+
+## Alert query starter pack (Azure Log Analytics / Kusto)
+- Top error codes:
+  - `AppTraces | where SeverityLevel >= 3 | summarize count() by tostring(Properties.error_code) | top 20 by count_`
+- Repeated invalid input patterns:
+  - `AppTraces | where tostring(Properties.error_code) startswith \"INVALID_\" | summarize count() by Message, OperationName`
+- Slow spans:
+  - `AppDependencies | where DurationMs > 5000 | top 50 by DurationMs desc`
+- Extension ingest failures:
+  - `AppTraces | where Message has \"html-snapshot\" and SeverityLevel >= 3 | top 100 by TimeGenerated desc`

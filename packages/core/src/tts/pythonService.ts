@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { AppError, errorCodes } from "../errors/codes";
+import { getLogContext } from "../logging/context";
 import type { SynthesizeInput, TtsProvider, TtsProviderId } from "./types";
 
 type PythonProviderId = Extract<TtsProviderId, "kokoro" | "melo">;
@@ -55,16 +56,31 @@ export class PythonModelTtsProvider implements TtsProvider {
     this.timeoutMs = params.timeoutMs ?? 120_000;
   }
 
-  async synthesizeToFile({ text, voice, format, outPath }: SynthesizeInput): Promise<void> {
+  async synthesizeToFile({ text, voice, format, outPath, headers }: SynthesizeInput): Promise<void> {
     const workspace = await mkdtemp(join(tmpdir(), `listenlater-${this.providerId}-`));
     const wavPath = join(workspace, "speech.wav");
+    const ctx = getLogContext();
+    const requestHeaders: Record<string, string> = {
+      "content-type": "application/json",
+      ...(headers ?? {})
+    };
+    if (!requestHeaders["x-request-id"] && ctx.request_id) {
+      requestHeaders["x-request-id"] = ctx.request_id;
+    }
+    if (!requestHeaders["x-job-id"] && ctx.job_id) {
+      requestHeaders["x-job-id"] = ctx.job_id;
+    }
+    if (!requestHeaders["x-item-id"] && ctx.item_id) {
+      requestHeaders["x-item-id"] = ctx.item_id;
+    }
+    if (!requestHeaders.traceparent && ctx.trace_id && ctx.span_id) {
+      requestHeaders.traceparent = `00-${ctx.trace_id}-${ctx.span_id}-01`;
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}/v1/synthesize`, {
         method: "POST",
-        headers: {
-          "content-type": "application/json"
-        },
+        headers: requestHeaders,
         signal: AbortSignal.timeout(this.timeoutMs),
         body: JSON.stringify({
           provider: this.providerId,

@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return fromError(error);
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/auth/extension/exchange"
+    });
   }
 }

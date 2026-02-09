@@ -39,6 +39,7 @@
 | Extension onboarding and reconnect UX | M30 |
 | Extraction quality guardrails for noisy/authenticated pages | M31 |
 | Operational observability and release certification | M21, M32, M33 |
+| Unified observability, error triage, and Azure monitoring parity | M47, M48, M49, M50, M51, M52, M53, M54, M55, M56 |
 | Data lifecycle hardening for diagnostics and extension tokens | M34 |
 | Durable managed persistence independent of VM lifecycle | M35, M38, M39, M45 |
 | Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
@@ -96,6 +97,16 @@
 | M44 | Done |
 | M45 | Done |
 | M46 | Done |
+| M47 | In Progress |
+| M48 | In Progress |
+| M49 | In Progress |
+| M50 | In Progress |
+| M51 | Planned |
+| M52 | Planned |
+| M53 | Planned |
+| M54 | Planned |
+| M55 | In Progress |
+| M56 | Planned |
 
 ## Milestones
 
@@ -1071,6 +1082,10 @@
 | Blob key/path migration regressions break media retrieval | Medium | High | 404 responses for known episodes or missing enclosure targets | deterministic key mapping tests + migration audits + contract checks | M39, M40, M41 |
 | Local parity profile drifts from Azure runtime behavior | Medium | High | parity pass/fail divergence across environments | compose parity profile + env profile gates + CI matrix enforcement | M36, M37, M46 |
 | Backup/restore runbook rot causes failed disaster recovery | Low | High | VM-loss drill fails or exceeds expected recovery objectives | scheduled drill cadence + signed restore evidence | M45, M46 |
+| Observability schema drift between services breaks correlation | Medium | High | logs present but trace/request IDs do not align | shared schema in `packages/core` + contract tests + propagation headers | M47, M50, M56 |
+| Log volume growth increases cost/noise and hides real incidents | Medium | Medium | high ingestion with low signal quality | severity gates, log rotation, digest aggregation, 14-day retention | M48, M55 |
+| Secrets accidentally leak via logs during failures | Low | High | tokens/cookies visible in log bundles | centralized redaction and redaction tests before release gate | M49, M56 |
+| Azure alert fatigue from poor thresholds | Medium | Medium | repeated non-actionable alert fires | phase-in dashboards with tuned thresholds and runbook-linked alerts | M54 |
 | Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
 
 ## 3-Minute Demo Script (Time-Boxed)
@@ -1185,3 +1200,93 @@
 - Regressions found:
 - Fixes applied:
 - Commit hash:
+
+## Observability Track (M47-M56)
+
+### M47 - Observability Contract and Error Taxonomy Lock
+- Scope:
+  - shared log schema (`ts`, `level`, `service`, `env`, `msg`, correlation keys, `error_code`, `support_id`)
+  - consistent API error contract (`error_code`, `error_message`, `retry_recommended`, `support_id`)
+- Key files/modules:
+  - `packages/core/src/logging/types.ts`
+  - `apps/web/src/lib/http.ts`
+  - `docs/architecture.md`, `docs/env.md`, `docs/operations.md`
+- Acceptance:
+  - schema is documented and runtime code emits/returns `support_id` on failures.
+
+### M48 - Dedicated Local Log Storage + Rotation
+- Scope:
+  - dedicated root: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/`
+  - per-service JSONL sinks with retention controls.
+  - diagnostics bundle command.
+- Key files/modules:
+  - `packages/core/src/logging/structured.ts`
+  - `scripts/logs-collect.mjs`
+- Acceptance:
+  - logs exist under predictable service paths and can be bundled with one command.
+
+### M49 - Node Structured Logging Baseline (Web + Worker)
+- Scope:
+  - shared logger wiring for web + worker.
+  - worker lifecycle logging and API error logging with support IDs.
+- Key files/modules:
+  - `apps/web/src/lib/logger.ts`
+  - `apps/web/src/lib/http.ts`
+  - `apps/worker/src/lib/logger.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+- Acceptance:
+  - correlated worker events + API failure logs exist in JSONL.
+
+### M50 - Python TTS Structured Logging + Correlation
+- Scope:
+  - JSONL logging in python-tts service.
+  - propagate/request correlation headers.
+- Key files/modules:
+  - `services/python-tts/app/main.py`
+  - `packages/core/src/tts/pythonService.ts`
+- Acceptance:
+  - one failure can be traced across worker and python-tts logs via shared IDs.
+
+### M51 - OpenTelemetry Instrumentation End-to-End
+- Scope:
+  - add OTel tracing in web/worker/python.
+  - propagate W3C trace context.
+- Status notes:
+  - planned; correlation header plumbing is already in place from M50.
+
+### M52 - Metrics Layer (Service + Business KPIs)
+- Scope:
+  - emit request/job/TTS/storage KPIs for local + Azure.
+- Status notes:
+  - planned; metric names and dashboards to be finalized with M53-M54.
+
+### M53 - Azure Monitor + Log Analytics Wiring
+- Scope:
+  - wire OTel exporter config to Azure Monitor.
+  - add query pack for top errors/latency/failure clusters.
+- Status notes:
+  - planned; starter query snippets documented in `docs/operations.md`.
+
+### M54 - Dashboards + Alerts
+- Scope:
+  - API, worker, TTS, and media contract dashboards + alert rules.
+- Status notes:
+  - planned.
+
+### M55 - Error Triage Loop Automation
+- Scope:
+  - recurring digest from log signatures.
+- Key files/modules:
+  - `scripts/logs-triage.mjs`
+  - output: `exports/diagnostics/error-digest.md`
+- Acceptance:
+  - ranked digest generated from latest JSONL logs.
+
+### M56 - Observability Validation and Release Gate
+- Scope:
+  - verify redaction/correlation/logging via automated checks.
+- Key files/modules:
+  - `scripts/observability-verify.mjs`
+  - test suites in `packages/core/tests` and `apps/web/tests`
+- Acceptance:
+  - observability verification command passes in CI/local.

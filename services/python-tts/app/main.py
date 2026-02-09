@@ -2,19 +2,126 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
+import logging
 import os
 import tempfile
+import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Literal
 
 import numpy as np
 import soundfile as sf
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="ListenLater Python TTS")
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_ROOT = Path(os.getenv("LOG_ROOT", str(Path.cwd().parents[1] / ".runtime" / "logs")))
+LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
+LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
+LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))
+LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
+
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(tz=timezone.utc).isoformat()
+
+
+def _rotate_logs_if_needed() -> None:
+    try:
+        if not LOG_PATH.exists() or LOG_PATH.stat().st_size <= LOG_MAX_BYTES:
+            return
+        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
+        rotated = LOG_PATH.with_name(f"{LOG_PATH.name}.{timestamp}")
+        LOG_PATH.rename(rotated)
+        LOG_PATH.touch(exist_ok=True)
+    except Exception:
+        return
+
+    try:
+        rotated_logs = sorted(
+            [entry for entry in LOG_PATH.parent.glob(f"{LOG_PATH.name}.*") if entry.is_file()],
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        for stale in rotated_logs[LOG_MAX_FILES:]:
+            stale.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
+def _extract_trace_id(traceparent: str | None) -> str | None:
+    if not traceparent:
+        return None
+    parts = traceparent.split("-")
+    if len(parts) != 4:
+        return None
+    return parts[1]
+
+
+def _extract_span_id(traceparent: str | None) -> str | None:
+    if not traceparent:
+        return None
+    parts = traceparent.split("-")
+    if len(parts) != 4:
+        return None
+    return parts[2]
+
+
+def _safe_user_hash(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    import hashlib
+
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
+def _log_event(
+    level: str,
+    msg: str,
+    *,
+    error_code: str | None = None,
+    request_id: str | None = None,
+    job_id: str | None = None,
+    item_id: str | None = None,
+    traceparent: str | None = None,
+    attrs: dict[str, Any] | None = None,
+) -> None:
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    event = {
+        "ts": _utc_now_iso(),
+        "level": level,
+        "service": "python-tts",
+        "env": os.getenv("RUNTIME_PROFILE", "simple"),
+        "msg": msg,
+        "error_code": error_code,
+        "trace_id": _extract_trace_id(traceparent),
+        "span_id": _extract_span_id(traceparent),
+        "request_id": request_id,
+        "job_id": job_id,
+        "item_id": item_id,
+        "user_id_hash": _safe_user_hash(os.getenv("DEMO_EMAIL")),
+        "attrs": attrs or {},
+    }
+    with LOG_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, ensure_ascii=True) + "\n")
+    _rotate_logs_if_needed()
+
+
+def _request_context(request: Request) -> dict[str, str | None]:
+    return {
+        "traceparent": request.headers.get("traceparent"),
+        "request_id": request.headers.get("x-request-id"),
+        "job_id": request.headers.get("x-job-id"),
+        "item_id": request.headers.get("x-item-id"),
+    }
 
 
 class SynthesizePayload(BaseModel):
@@ -215,10 +322,31 @@ def providers() -> dict[str, Any]:
 
 
 @app.post("/v1/synthesize")
-def synthesize(payload: SynthesizePayload) -> Response:
+def synthesize(payload: SynthesizePayload, request: Request) -> Response:
+    started = time.perf_counter()
+    request_ctx = _request_context(request)
+    _log_event(
+        "INFO",
+        "TTS synth request received",
+        request_id=request_ctx["request_id"],
+        job_id=request_ctx["job_id"],
+        item_id=request_ctx["item_id"],
+        traceparent=request_ctx["traceparent"],
+        attrs={"provider": payload.provider, "voice": payload.voice, "text_chars": len(payload.text)},
+    )
     health_info = _provider_health()
     provider_health = health_info[payload.provider]
     if not provider_health.available:
+        _log_event(
+            "ERROR",
+            "TTS provider unavailable",
+            error_code="TTS_UNAVAILABLE",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={"provider": payload.provider, "reason": provider_health.reason},
+        )
         raise HTTPException(status_code=503, detail=provider_health.reason or "Provider unavailable.")
 
     try:
@@ -230,16 +358,72 @@ def synthesize(payload: SynthesizePayload) -> Response:
             if payload.voice not in MELO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
             audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
-    except HTTPException:
+    except HTTPException as exc:
+        _log_event(
+            "WARN",
+            "TTS synth rejected",
+            error_code="INVALID_INPUT",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={"provider": payload.provider, "status": exc.status_code, "detail": exc.detail},
+        )
         raise
     except ValueError as exc:
+        _log_event(
+            "WARN",
+            "TTS synth invalid value",
+            error_code="INVALID_INPUT",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={"provider": payload.provider, "detail": str(exc)},
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
+        _log_event(
+            "ERROR",
+            "TTS synth runtime failure",
+            error_code="TTS_FAILED",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={"provider": payload.provider, "detail": str(exc)},
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except Exception as exc:
+        _log_event(
+            "ERROR",
+            "TTS synth unexpected failure",
+            error_code="INTERNAL_ERROR",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={"provider": payload.provider, "detail": str(exc)},
+        )
         raise HTTPException(status_code=500, detail=f"{payload.provider} synthesis failed: {exc}") from exc
 
     wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+    _log_event(
+        "INFO",
+        "TTS synth completed",
+        request_id=request_ctx["request_id"],
+        job_id=request_ctx["job_id"],
+        item_id=request_ctx["item_id"],
+        traceparent=request_ctx["traceparent"],
+        attrs={
+            "provider": payload.provider,
+            "voice": payload.voice,
+            "sample_rate": sample_rate,
+            "duration_ms": elapsed_ms,
+            "bytes": len(wav_bytes),
+        },
+    )
     return Response(
         content=wav_bytes,
         media_type="audio/wav",

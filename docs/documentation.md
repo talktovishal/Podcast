@@ -46,6 +46,18 @@ Milestones `M35`-`M46` are implemented in repository assets:
 - durability snapshot/restore drill scripts and operations runbook
 - CI matrix with simple + parity release gates
 
+## Observability status
+Current implementation:
+- structured JSONL runtime logs in `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`
+- support IDs included on API error payloads from shared error helper
+- correlation propagation from worker to python-tts (`traceparent`, request/job/item IDs)
+- diagnostics scripts:
+  - `npm run logs:collect`
+  - `npm run logs:triage`
+
+Planned next steps:
+- M51-M54 for full OTel export, Azure Monitor wiring, and dashboards/alerts.
+
 ## OAuth setup
 Google + Apple setup guide:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`

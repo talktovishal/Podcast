@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 const repoRoot = resolve(process.cwd(), "../..");
+const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
@@ -30,6 +31,13 @@ export const env = {
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
   mediaRoot: process.env.MEDIA_ROOT ?? resolve(process.cwd(), ".data/media"),
   uploadRoot: process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads"),
+  logRoot: process.env.LOG_ROOT ?? defaultLogRoot,
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 10 * 1024 * 1024),
+  logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
+  telemetryEnabled: process.env.OTEL_ENABLED === "1",
+  telemetryServiceName: process.env.OTEL_SERVICE_NAME ?? "web",
+  azureMonitorConnectionString: process.env.AZURE_MONITOR_CONNECTION_STRING,
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
   googleClientId: process.env.GOOGLE_CLIENT_ID,

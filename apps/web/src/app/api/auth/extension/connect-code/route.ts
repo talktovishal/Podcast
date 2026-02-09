@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
       expires_at: result.expiresAt.toISOString()
     });
   } catch (error) {
-    return fromError(error);
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/auth/extension/connect-code"
+    });
   }
 }

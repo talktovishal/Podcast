@@ -5,6 +5,7 @@ export type SynthesizeInput = {
   voice: string;
   format: "mp3" | "m4a";
   outPath: string;
+  headers?: Record<string, string>;
 };
 
 export interface TtsProvider {

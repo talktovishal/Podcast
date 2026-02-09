@@ -1,6 +1,7 @@
 import { workerEnv } from "./lib/env.js";
 import { prisma } from "./lib/prisma.js";
 import { processNextQueuedJob } from "./jobs/processItemJob.js";
+import { workerLogger } from "./lib/logger.js";
 
 async function loop() {
   const processed = await processNextQueuedJob();
@@ -10,8 +11,11 @@ async function loop() {
 }
 
 async function main() {
-  // eslint-disable-next-line no-console
-  console.log(`[worker] starting with poll interval ${workerEnv.pollMs}ms`);
+  await workerLogger.info("Worker starting", {
+    pollMs: workerEnv.pollMs,
+    retryPollMs: workerEnv.retryPollMs,
+    runtimeProfile: workerEnv.runtimeProfile
+  });
 
   while (true) {
     await loop();
@@ -20,8 +24,9 @@ async function main() {
 
 main()
   .catch(async (error) => {
-    // eslint-disable-next-line no-console
-    console.error("[worker] fatal", error);
+    await workerLogger.fatal("Worker fatal error", {
+      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    });
     await prisma.$disconnect();
     process.exit(1);
   })

@@ -64,6 +64,27 @@ If parity/azure runtime paths changed, also run:
 - durability drill snapshot/restore scripts
 - parity CI + release gate checks
 
+## M47-M56 implementation sequence
+1. M47/M48
+- lock shared log/error schema and support-id contract
+- enable dedicated JSONL sinks with rotation under `.runtime/logs`
+
+2. M49/M50
+- wire structured logging in web/worker/python-tts
+- propagate correlation IDs (`traceparent`, `x-request-id`, `x-job-id`, `x-item-id`)
+
+3. M51/M52
+- add OTel tracing and service/business metrics export wiring
+- keep metric names stable across local and Azure
+
+4. M53/M54
+- configure Azure Monitor + Log Analytics export
+- add dashboards + alert thresholds with runbook links
+
+5. M55/M56
+- implement `logs:triage` digest loop
+- make observability checks release-gating via `observability:verify`
+
 ## Migration helpers
 - SQLite export:
   - `npx pnpm --filter @listenlater/web run db:export-json -- --out <file>`

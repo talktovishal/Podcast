@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromExtensionTokenRequest, getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
+import { logger } from "@/lib/logger";
 import { enforceSubmitRateLimits } from "@/lib/rate-limit";
 
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") || undefined;
   try {
     const [sessionUser, extensionUser] = await Promise.all([
       getAuthUserFromRequest(request),
@@ -42,9 +44,17 @@ export async function POST(request: NextRequest) {
       sourceHtml: payload.html,
       sourceCapturedAt: payload.capturedAt ? new Date(payload.capturedAt) : undefined
     });
+    await logger.info("HTML snapshot item enqueued", {
+      requestId,
+      itemId: item.id,
+      userId: user.id
+    });
 
     return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });
   } catch (error) {
-    return fromError(error);
+    return fromError(error, {
+      requestId,
+      route: "/api/items/html-snapshot"
+    });
   }
 }

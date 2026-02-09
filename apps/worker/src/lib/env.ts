@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");
+const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
@@ -31,6 +32,13 @@ export const workerEnv = {
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
   mediaRoot: process.env.MEDIA_ROOT ?? resolve(process.cwd(), "../web/.data/media"),
+  logRoot: process.env.LOG_ROOT ?? defaultLogRoot,
+  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 10 * 1024 * 1024),
+  logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
+  telemetryEnabled: process.env.OTEL_ENABLED === "1",
+  telemetryServiceName: process.env.OTEL_SERVICE_NAME ?? "worker",
+  azureMonitorConnectionString: process.env.AZURE_MONITOR_CONNECTION_STRING,
   pollMs: Number(process.env.WORKER_POLL_MS ?? 2500),
   staleProcessingMs: Number(process.env.WORKER_STALE_PROCESSING_MS ?? 15 * 60 * 1000),
   retryPollMs: Number(process.env.WORKER_RETRY_POLL_MS ?? 5000),

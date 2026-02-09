@@ -81,6 +81,9 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    return fromError(error);
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/auth/login"
+    });
   }
 }

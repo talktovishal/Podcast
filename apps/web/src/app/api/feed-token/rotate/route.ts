@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
       feed_url: `${env.appUrl}/rss/${token}.xml`
     });
   } catch (error) {
-    return fromError(error);
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/feed-token/rotate"
+    });
   }
 }

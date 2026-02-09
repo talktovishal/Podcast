@@ -5,12 +5,14 @@ import { getAuthUserFromRequest } from "@/lib/auth";
 import { ensureDataDirs } from "@/lib/fs";
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
+import { logger } from "@/lib/logger";
 import { enforceSubmitRateLimits } from "@/lib/rate-limit";
 import { getArtifactStorage, normalizeStorageKey } from "@/lib/storage";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
+  const requestId = request.headers.get("x-request-id") || undefined;
   try {
     const user = await getAuthUserFromRequest(request);
     if (!user) {
@@ -52,9 +54,17 @@ export async function POST(request: NextRequest) {
       sourceType: "PDF",
       sourceFilePath: relativePath
     });
+    await logger.info("PDF item enqueued", {
+      requestId,
+      itemId: item.id,
+      userId: user.id
+    });
 
     return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });
   } catch (error) {
-    return fromError(error);
+    return fromError(error, {
+      requestId,
+      route: "/api/items/pdf"
+    });
   }
 }
