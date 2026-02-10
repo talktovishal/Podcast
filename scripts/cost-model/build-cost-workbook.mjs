@@ -101,8 +101,27 @@ async function main() {
   }
 
   wsInputs.addRow([]);
+  wsInputs.addRow(["Infra sizing knobs", "Knob", "Value", "Unit"]);
+  styleHeader(wsInputs.getRow(wsInputs.rowCount));
+  const pgVCoresRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Postgres vCores", BASE_INPUTS.global.postgresVCores, "count"]);
+  const pgStorageRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Postgres storage GB", BASE_INPUTS.global.postgresStorageGb, "GB"]);
+  const blobFloorRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Blob storage floor GB", BASE_INPUTS.global.blobStorageFloorGb, "GB"]);
+  const blobRetentionMultRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Blob audio retention multiplier", BASE_INPUTS.global.blobAudioRetentionMultiplier, "x"]);
+  const tableMinGbRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Table storage minimum GB", BASE_INPUTS.global.tableStorageMinGb, "GB"]);
+  const tableDbGrowthMultRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Infra sizing knobs", "Table DB growth multiplier", BASE_INPUTS.global.tableStorageDbGrowthMultiplier, "x"]);
+  for (const row of [pgVCoresRow, pgStorageRow, blobFloorRow, blobRetentionMultRow, tableMinGbRow, tableDbGrowthMultRow]) {
+    styleInput(wsInputs.getCell(`C${row}`));
+  }
+
+  wsInputs.addRow([]);
   wsInputs.addRow(["Cohort", "Knob", "Free", "Pro", "Team", "Unit"]);
-  styleHeader(wsInputs.getRow(11));
+  styleHeader(wsInputs.getRow(wsInputs.rowCount));
 
   const knobRows = [
     ["Users", "Active users", "activeUsers", "count"],
@@ -121,7 +140,7 @@ async function main() {
     ["Table", "Table ops per article", "avgTableOpsPerArticle", "ops"]
   ];
 
-  let rowCursor = 12;
+  let rowCursor = wsInputs.rowCount + 1;
   for (const [section, label, key, unit] of knobRows) {
     wsInputs.addRow([section, label, BASE_INPUTS.cohorts.Free[key], BASE_INPUTS.cohorts.Pro[key], BASE_INPUTS.cohorts.Team[key], unit]);
     styleInput(wsInputs.getCell(`C${rowCursor}`));
@@ -337,13 +356,13 @@ async function main() {
     ["VM compute", "vm_hourly * hours * required_vm_count", `Inputs!C${priceStart}*Inputs!C4*Formulas!F${reqVmTotalRow}`],
     ["VM public IP", "public_ip_hourly * hours", `Inputs!C${priceStart + 14}*Inputs!C4`],
     ["VM OS disk", "os_disk_month", `Inputs!C${priceStart + 15}`],
-    ["Postgres compute", "pg_vcore_3yr_reserved * vcores / 36", `(Inputs!C${priceStart + 5}/36)*2`],
-    ["Postgres storage", "pg_storage_rate * 128GB", `Inputs!C${priceStart + 6}*128`],
-    ["Postgres backup", "pg_backup_rate * 128GB * backup_multiplier", `Inputs!C${priceStart + 7}*128*Inputs!C9`],
-    ["Blob storage", "blob_rate * MAX(128, audio_gb * 3)", `Inputs!C${priceStart + 8}*MAX(128,Formulas!F6*3)`],
+    ["Postgres compute", "pg_vcore_3yr_reserved * vcores / 36", `(Inputs!C${priceStart + 5}/36)*Inputs!C${pgVCoresRow}`],
+    ["Postgres storage", "pg_storage_rate * configured_pg_gb", `Inputs!C${priceStart + 6}*Inputs!C${pgStorageRow}`],
+    ["Postgres backup", "pg_backup_rate * configured_pg_gb * backup_multiplier", `Inputs!C${priceStart + 7}*Inputs!C${pgStorageRow}*Inputs!C9`],
+    ["Blob storage", "blob_rate * MAX(blob_floor_gb, audio_gb*retention_mult)", `Inputs!C${priceStart + 8}*MAX(Inputs!C${blobFloorRow},Formulas!F6*Inputs!C${blobRetentionMultRow})`],
     ["Blob write ops", "write_rate * episodes/10k", `Inputs!C${priceStart + 9}*(Formulas!F4/10000)`],
     ["Blob read ops", "read_rate * blob_reads/10k", `Inputs!C${priceStart + 10}*(Formulas!F7/10000)`],
-    ["Table storage", "table_rate * MAX(5, db_growth*2)", `Inputs!C${priceStart + 11}*MAX(5,Formulas!F9*2)`],
+    ["Table storage", "table_rate * MAX(table_min_gb, db_growth*table_mult)", `Inputs!C${priceStart + 11}*MAX(Inputs!C${tableMinGbRow},Formulas!F9*Inputs!C${tableDbGrowthMultRow})`],
     ["Table ops", "table_ops_rate * table_ops/10k", `Inputs!C${priceStart + 12}*(Formulas!F10/10000)`],
     ["Network egress", "egress_rate * egress_gb", `Inputs!C${priceStart + 13}*Formulas!F8`]
   ];
@@ -374,10 +393,10 @@ async function main() {
     ["PAYG baseline", "Cost_Breakdown!C14"],
     ["VM only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 1) + "/12)*Formulas!F" + reqVmTotalRow],
     ["VM only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 2) + "/36)*Formulas!F" + reqVmTotalRow],
-    ["Postgres only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 4) + "/12)*2"],
-    ["Postgres only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 5) + "/36)*2"],
-    ["VM + Postgres - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 1) + "/12)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 4) + "/12)*2"],
-    ["VM + Postgres - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 2) + "/36)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 5) + "/36)*2"]
+    ["Postgres only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 4) + "/12)*Inputs!C" + pgVCoresRow],
+    ["Postgres only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 5) + "/36)*Inputs!C" + pgVCoresRow],
+    ["VM + Postgres - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 1) + "/12)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 4) + "/12)*Inputs!C" + pgVCoresRow],
+    ["VM + Postgres - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 2) + "/36)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 5) + "/36)*Inputs!C" + pgVCoresRow]
   ];
 
   for (const [name, monthlyExpr] of commitRows) {

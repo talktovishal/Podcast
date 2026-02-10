@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-10T02:55:10.193Z**
+- Snapshot generated: **2026-02-10T03:00:00.248Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 
@@ -28,6 +28,14 @@ Global assumptions:
 - TTS success rate: 97.0%
 - Retry rate: 8.0%
 - DB backup multiplier: 1.2x
+
+Infrastructure sizing assumptions (editable in Excel `Inputs`):
+- PostgreSQL vCores: 2
+- PostgreSQL storage: 128 GB
+- Blob storage floor: 128 GB
+- Blob audio retention multiplier: 3x
+- Table storage minimum: 5 GB
+- Table DB-growth multiplier: 2x
 
 ## 4. Scenario summary
 | Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Estimated VMs required | Monthly cost | Annual cost |
@@ -114,6 +122,8 @@ Tabs:
 5. `Pricing_Strategy`: 90%/95% margin targets and suggested Pro/Team monthly prices.
 6. `Sensitivity`: +/− workload stress tests.
 7. `Finance_Summary`: executive snapshot for finance review.
+
+Every key assumption is now exposed in `Inputs` (workload, conversion, margins, TTS capacity, API capacity, and infra sizing constants).
 
 ## 8. Caveats for finance review
 - Retail API prices can change; rerun `npm run costs:refresh-prices` before final procurement.

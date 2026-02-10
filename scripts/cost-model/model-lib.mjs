@@ -35,6 +35,12 @@ export const BASE_INPUTS = {
     backupMultiplierDb: 1.2,
     retentionMonthsBlob: 12,
     retentionMonthsDb: 24,
+    postgresVCores: 2,
+    postgresStorageGb: 128,
+    blobStorageFloorGb: 128,
+    blobAudioRetentionMultiplier: 3,
+    tableStorageMinGb: 5,
+    tableStorageDbGrowthMultiplier: 2,
     ttsRealtimeFactorPerVm: 2.4,
     vmUtilizationTarget: 0.75,
     vmWebApiOverheadFraction: 0.2,
@@ -354,13 +360,13 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
     vmCompute: vmHourly * requiredVmCount,
     vmPublicIp: prices.publicIpHourly * inputs.global.hoursPerMonth,
     vmOsDisk: prices.osDiskMonth,
-    postgresCompute: postgresVcoreMonthly * ARCH_BASELINE.postgresVCores,
-    postgresStorage: prices.postgresStorageGbMonth * ARCH_BASELINE.postgresStorageGb,
-    postgresBackup: prices.postgresBackupGbMonth * ARCH_BASELINE.postgresStorageGb * inputs.global.backupMultiplierDb,
-    blobStorage: prices.blobHotLrsGbMonth * Math.max(ARCH_BASELINE.postgresStorageGb, totals.audioGbMonth * inputs.global.retentionMonthsBlob * 0.25),
+    postgresCompute: postgresVcoreMonthly * inputs.global.postgresVCores,
+    postgresStorage: prices.postgresStorageGbMonth * inputs.global.postgresStorageGb,
+    postgresBackup: prices.postgresBackupGbMonth * inputs.global.postgresStorageGb * inputs.global.backupMultiplierDb,
+    blobStorage: prices.blobHotLrsGbMonth * Math.max(inputs.global.blobStorageFloorGb, totals.audioGbMonth * inputs.global.blobAudioRetentionMultiplier),
     blobWriteOps: prices.blobWriteOpsPer10k * (totals.readyEpisodesMonth / 10000),
     blobReadOps: prices.blobReadOpsPer10k * (totals.blobReadsMonth / 10000),
-    tableStorage: prices.tableLrsGbMonth * Math.max(5, totals.dbGrowthGbMonth * 0.25),
+    tableStorage: prices.tableLrsGbMonth * Math.max(inputs.global.tableStorageMinGb, totals.dbGrowthGbMonth * inputs.global.tableStorageDbGrowthMultiplier),
     tableOps: prices.tableOpsPer10k * (totals.tableOpsMonth / 10000),
     egress: prices.bandwidthEgressGb * totals.egressGbMonth
   };
@@ -370,8 +376,8 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
 
   const vmRi1YMonthly = (prices.vmReservation1Year / 12) * requiredVmCount;
   const vmRi3YMonthly = (prices.vmReservation3Year / 36) * requiredVmCount;
-  const pgRi1YMonthly = (prices.postgresVcoreReservation1Year / 12) * ARCH_BASELINE.postgresVCores;
-  const pgRi3YMonthly = (prices.postgresVcoreReservation3Year / 36) * ARCH_BASELINE.postgresVCores;
+  const pgRi1YMonthly = (prices.postgresVcoreReservation1Year / 12) * inputs.global.postgresVCores;
+  const pgRi3YMonthly = (prices.postgresVcoreReservation3Year / 36) * inputs.global.postgresVCores;
 
   const commitment = {
     paygMonthly: monthlyTotal,

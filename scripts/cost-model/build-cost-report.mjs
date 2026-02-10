@@ -125,6 +125,14 @@ Global assumptions:
 - Retry rate: ${(BASE_INPUTS.global.retryRate * 100).toFixed(1)}%
 - DB backup multiplier: ${BASE_INPUTS.global.backupMultiplierDb}x
 
+Infrastructure sizing assumptions (editable in Excel \`Inputs\`):
+- PostgreSQL vCores: ${BASE_INPUTS.global.postgresVCores}
+- PostgreSQL storage: ${BASE_INPUTS.global.postgresStorageGb} GB
+- Blob storage floor: ${BASE_INPUTS.global.blobStorageFloorGb} GB
+- Blob audio retention multiplier: ${BASE_INPUTS.global.blobAudioRetentionMultiplier}x
+- Table storage minimum: ${BASE_INPUTS.global.tableStorageMinGb} GB
+- Table DB-growth multiplier: ${BASE_INPUTS.global.tableStorageDbGrowthMultiplier}x
+
 ## 4. Scenario summary
 | Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Estimated VMs required | Monthly cost | Annual cost |
 |---|---:|---:|---:|---:|---:|---:|
@@ -202,6 +210,8 @@ Tabs:
 5. \`Pricing_Strategy\`: 90%/95% margin targets and suggested Pro/Team monthly prices.
 6. \`Sensitivity\`: +/− workload stress tests.
 7. \`Finance_Summary\`: executive snapshot for finance review.
+
+Every key assumption is now exposed in \`Inputs\` (workload, conversion, margins, TTS capacity, API capacity, and infra sizing constants).
 
 ## 8. Caveats for finance review
 - Retail API prices can change; rerun \`npm run costs:refresh-prices\` before final procurement.
