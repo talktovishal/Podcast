@@ -138,7 +138,8 @@ async function appendJobEvent(input: {
 async function synthesizeEpisodeAudio(
   itemId: string,
   chunks: { text: string }[],
-  selection: { providerId: TtsProviderId; voice: string }
+  selection: { providerId: TtsProviderId; voice: string },
+  onProgress?: (current: number, total: number) => Promise<void> | void
 ): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
   const provider = makeTtsProvider({ providerId: selection.providerId });
   const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
@@ -155,6 +156,9 @@ async function synthesizeEpisodeAudio(
         format: provider.outputFormat,
         outPath: tempOutputPath
       });
+      if (onProgress) {
+        await onProgress(1, 1);
+      }
     } else {
       const segmentPaths: string[] = [];
       for (let index = 0; index < chunks.length; index += 1) {
@@ -166,6 +170,9 @@ async function synthesizeEpisodeAudio(
           format: provider.outputFormat,
           outPath: segmentPath
         });
+        if (onProgress) {
+          await onProgress(index + 1, chunks.length);
+        }
         segmentPaths.push(segmentPath);
       }
       await concatenateAudioSegments(segmentPaths, tempOutputPath, provider.outputFormat);
@@ -536,7 +543,7 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     await tx.item.update({
       where: { id: next.itemId },
-      data: { status: "PROCESSING", errorCode: null, errorMessage: null }
+      data: { status: "PROCESSING", errorCode: null, errorMessage: "Processing in progress..." }
     });
 
     return claimed;
@@ -656,12 +663,33 @@ export async function processJob(jobId: string): Promise<boolean> {
       await workerLogger.info("TTS cache miss; synthesizing", {
         cacheKey,
         providerId: ttsSelection.providerId,
-        voice: ttsSelection.voice
+        voice: ttsSelection.voice,
+        chunkCount: chunks.length
       });
       appendExtractionLog(extractionLogs, "tts", "Cache miss, synthesizing narration", {
-        cacheKey
+        cacheKey,
+        chunkCount: chunks.length
       });
-      audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection);
+      let lastProgressWriteAt = 0;
+      audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection, async (current, total) => {
+        const nowMs = Date.now();
+        const shouldWrite = current === total || current === 1 || nowMs - lastProgressWriteAt >= 4000;
+        if (!shouldWrite) {
+          return;
+        }
+        lastProgressWriteAt = nowMs;
+        const progressMessage =
+          total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
+        await prisma.item.updateMany({
+          where: {
+            id: item.id,
+            status: "PROCESSING"
+          },
+          data: {
+            errorMessage: progressMessage
+          }
+        });
+      });
       await prisma.chunkCache.create({
         data: {
           itemId: item.id,

@@ -72,13 +72,16 @@ function isPendingStatus(status: string): boolean {
   return normalized === "QUEUED" || normalized === "PROCESSING";
 }
 
-function statusHelpText(status: string): string | null {
+function statusHelpText(status: string, processingMessage?: string | null): string | null {
   const normalized = status.toUpperCase();
   if (normalized === "QUEUED") {
     return "Queued. Waiting for worker to start processing.";
   }
 
   if (normalized === "PROCESSING") {
+    if (processingMessage && processingMessage.trim()) {
+      return `${processingMessage.trim()} Audio will appear when complete.`;
+    }
     return "Processing in progress. Audio will appear when complete.";
   }
 
@@ -595,7 +598,7 @@ export function DashboardClient({
             const badgeClass = item.status.toLowerCase();
             const statusText = item.status.toUpperCase();
             const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
-            const helpText = statusHelpText(item.status);
+            const helpText = statusHelpText(item.status, item.errorMessage);
             const showRetry = statusText === "FAILED";
 
             return (
@@ -625,7 +628,9 @@ export function DashboardClient({
                   )}
                 </p>
                 {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
-                {item.errorMessage ? <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p> : null}
+                {item.errorMessage && statusText === "FAILED" ? (
+                  <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p>
+                ) : null}
 
                 {mediaUrl ? (
                   <div className="mt-3 space-y-2">
