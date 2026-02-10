@@ -35,7 +35,7 @@ export const env = {
   uploadRoot: process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads"),
   logRoot: process.env.LOG_ROOT ?? defaultLogRoot,
   logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
-  logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 10 * 1024 * 1024),
+  logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
   telemetryEnabled: process.env.OTEL_ENABLED === "1",
   telemetryServiceName: process.env.OTEL_SERVICE_NAME ?? "web",

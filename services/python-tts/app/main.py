@@ -23,7 +23,7 @@ app = FastAPI(title="ArticlePod Python TTS")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROOT = Path(os.getenv("LOG_ROOT", str(Path.cwd().parents[1] / ".runtime" / "logs")))
 LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
-LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
+LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(1 * 1024 * 1024)))
 LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
 TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))

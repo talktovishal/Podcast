@@ -60,7 +60,7 @@ Recommended:
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`)
 - `LOG_RETENTION_DAYS` (default: `14`)
-- `LOG_MAX_BYTES` (default: `10485760`)
+- `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)
 - `LISTENLATER_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
 

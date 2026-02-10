@@ -112,7 +112,7 @@ export type StructuredLogger = {
 
 export function createStructuredLogger(options: LoggerOptions): StructuredLogger {
   const fileName = options.fileName ?? "app.log.jsonl";
-  const maxBytes = options.maxBytes ?? 10 * 1024 * 1024;
+  const maxBytes = options.maxBytes ?? 1 * 1024 * 1024;
   const maxFiles = options.maxFiles ?? 10;
   const retentionDays = options.retentionDays ?? 14;
   const filePath = join(options.logRoot, options.service, fileName);
