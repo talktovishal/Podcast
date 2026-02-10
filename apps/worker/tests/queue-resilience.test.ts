@@ -320,3 +320,53 @@ test("does not auto-retry non-retryable failed job", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("does not process failed job that exceeded max retry attempts", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-max-attempts`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `max-attempts-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Max Attempts ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/max-attempts/${uniq}`,
+      sourceHtml: SNAPSHOT_HTML,
+      sourceCapturedAt: new Date(),
+      status: "FAILED",
+      errorCode: "TTS_FAILED",
+      errorMessage: "Audio generation failed."
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "FAILED",
+      attempt: 99,
+      errorCode: "TTS_FAILED",
+      errorMessage: "Audio generation failed.",
+      nextRetryAt: new Date(Date.now() - 60_000)
+    }
+  });
+
+  try {
+    const processed = await processJob(job.id);
+    assert.equal(processed, false);
+
+    const unchanged = await prisma.job.findUnique({ where: { id: job.id } });
+    assert.equal(unchanged?.status, "FAILED");
+    assert.equal(unchanged?.attempt, 99);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

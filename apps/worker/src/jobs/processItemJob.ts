@@ -484,8 +484,14 @@ export async function processJob(jobId: string): Promise<boolean> {
     const next = await tx.job.findFirst({
       where: {
         id: jobId,
-        status: { in: ["QUEUED", "FAILED"] },
-        OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: nowTs } }]
+        OR: [
+          { status: "QUEUED" },
+          {
+            status: "FAILED",
+            nextRetryAt: { lte: nowTs },
+            attempt: { lt: workerEnv.maxRetryAttempts }
+          }
+        ]
       },
       include: {
         item: {
@@ -758,7 +764,8 @@ export async function processJob(jobId: string): Promise<boolean> {
   } catch (error) {
     const err = mapUnexpectedWorkerError(error, stage);
     const diagnostic = formatDiagnostic(error);
-    const retryRecommended = shouldRecommendRetry(err);
+    const retryRecommended =
+      shouldRecommendRetry(err) && claimResult.attempt < workerEnv.maxRetryAttempts;
     const safeErrorMessage = toSafeErrorMessage(err.userMessage);
 
     try {
@@ -872,16 +879,29 @@ export async function processNextQueuedJob(): Promise<boolean> {
     await workerLogger.warn("Reclaimed stale processing jobs", { reclaimed });
   }
 
-  const next = await prisma.job.findFirst({
+  const nextQueued = await prisma.job.findFirst({
     where: {
-      OR: [{ status: "QUEUED" }, { status: "FAILED", nextRetryAt: { lte: now() } }]
+      status: "QUEUED"
+    },
+    orderBy: [{ createdAt: "asc" }]
+  });
+
+  if (nextQueued) {
+    return processJob(nextQueued.id);
+  }
+
+  const nextRetryable = await prisma.job.findFirst({
+    where: {
+      status: "FAILED",
+      nextRetryAt: { lte: now() },
+      attempt: { lt: workerEnv.maxRetryAttempts }
     },
     orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }]
   });
 
-  if (!next) {
+  if (!nextRetryable) {
     return false;
   }
 
-  return processJob(next.id);
+  return processJob(nextRetryable.id);
 }
