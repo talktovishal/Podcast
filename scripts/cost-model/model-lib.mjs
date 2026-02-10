@@ -28,11 +28,17 @@ export const BASE_INPUTS = {
     headroomFactor: 1.3,
     workerParallelism: 4,
     vmCount: 1,
+    vmPricingMode: "payg",
+    postgresPricingMode: "ri_3y",
     ttsSuccessRate: 0.97,
     retryRate: 0.08,
     backupMultiplierDb: 1.2,
     retentionMonthsBlob: 12,
-    retentionMonthsDb: 24
+    retentionMonthsDb: 24,
+    ttsRealtimeFactorPerVm: 2.4,
+    vmUtilizationTarget: 0.75,
+    vmWebApiOverheadFraction: 0.2,
+    apiSubmissionsCapacityPerVmHour: 120
   },
   cohorts: {
     Free: {
@@ -277,7 +283,8 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
     blobReadsMonth: 0,
     egressGbMonth: 0,
     dbGrowthGbMonth: 0,
-    tableOpsMonth: 0
+    tableOpsMonth: 0,
+    peakSubmissionsPerHour: 0
   };
 
   for (const cohortName of COHORTS) {
@@ -292,6 +299,8 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
     const egressGbMonth = cohort.activeUsers * cohort.avgEgressGbPerUserPerMonth;
     const dbGrowthGbMonth = (effectiveJobsMonth * cohort.avgDbStorageKbPerArticle) / (1024 * 1024);
     const tableOpsMonth = effectiveJobsMonth * cohort.avgTableOpsPerArticle;
+    const peakSubmissionsPerHour =
+      (cohort.activeUsers / 1000) * base.peakSubmissionsPerHourPer1000Users * scenario.usageMultiplier;
 
     totals.submissionsMonth += submissionsMonth;
     totals.effectiveJobsMonth += effectiveJobsMonth;
@@ -302,13 +311,44 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
     totals.egressGbMonth += egressGbMonth;
     totals.dbGrowthGbMonth += dbGrowthGbMonth;
     totals.tableOpsMonth += tableOpsMonth;
+    totals.peakSubmissionsPerHour += peakSubmissionsPerHour;
   }
 
+  const ttsCapacityMinutesPerVmMonth =
+    inputs.global.hoursPerMonth *
+    60 *
+    inputs.global.ttsRealtimeFactorPerVm *
+    inputs.global.vmUtilizationTarget *
+    (1 - inputs.global.vmWebApiOverheadFraction);
+  const requiredVmForTts = Math.max(1, Math.ceil(totals.audioMinutesMonth / Math.max(ttsCapacityMinutesPerVmMonth, 1)));
+  const requiredVmForApi = Math.max(
+    1,
+    Math.ceil(
+      (totals.peakSubmissionsPerHour * inputs.global.headroomFactor) /
+        Math.max(inputs.global.apiSubmissionsCapacityPerVmHour, 1)
+    )
+  );
+  const requiredVmCount = Math.max(inputs.global.vmCount, requiredVmForTts, requiredVmForApi);
+
+  const vmHourly =
+    inputs.global.vmPricingMode === "ri_3y"
+      ? prices.vmReservation3Year / 36
+      : inputs.global.vmPricingMode === "ri_1y"
+        ? prices.vmReservation1Year / 12
+        : prices.vmHourlyPayg * inputs.global.hoursPerMonth;
+
+  const postgresVcoreMonthly =
+    inputs.global.postgresPricingMode === "ri_3y"
+      ? prices.postgresVcoreReservation3Year / 36
+      : inputs.global.postgresPricingMode === "ri_1y"
+        ? prices.postgresVcoreReservation1Year / 12
+        : prices.postgresVcoreHourlyPayg * inputs.global.hoursPerMonth;
+
   const monthly = {
-    vmCompute: prices.vmHourlyPayg * inputs.global.hoursPerMonth * inputs.global.vmCount,
+    vmCompute: vmHourly * requiredVmCount,
     vmPublicIp: prices.publicIpHourly * inputs.global.hoursPerMonth,
     vmOsDisk: prices.osDiskMonth,
-    postgresCompute: prices.postgresVcoreHourlyPayg * ARCH_BASELINE.postgresVCores * inputs.global.hoursPerMonth,
+    postgresCompute: postgresVcoreMonthly * ARCH_BASELINE.postgresVCores,
     postgresStorage: prices.postgresStorageGbMonth * ARCH_BASELINE.postgresStorageGb,
     postgresBackup: prices.postgresBackupGbMonth * ARCH_BASELINE.postgresStorageGb * inputs.global.backupMultiplierDb,
     blobStorage: prices.blobHotLrsGbMonth * Math.max(ARCH_BASELINE.postgresStorageGb, totals.audioGbMonth * inputs.global.retentionMonthsBlob * 0.25),
@@ -322,8 +362,8 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
   const monthlyTotal = Object.values(monthly).reduce((sum, value) => sum + value, 0);
   const annualTotal = monthlyTotal * 12;
 
-  const vmRi1YMonthly = (prices.vmReservation1Year / 12) * inputs.global.vmCount;
-  const vmRi3YMonthly = (prices.vmReservation3Year / 36) * inputs.global.vmCount;
+  const vmRi1YMonthly = (prices.vmReservation1Year / 12) * requiredVmCount;
+  const vmRi3YMonthly = (prices.vmReservation3Year / 36) * requiredVmCount;
   const pgRi1YMonthly = (prices.postgresVcoreReservation1Year / 12) * ARCH_BASELINE.postgresVCores;
   const pgRi3YMonthly = (prices.postgresVcoreReservation3Year / 36) * ARCH_BASELINE.postgresVCores;
 
@@ -340,6 +380,12 @@ export function computeScenarioTotals(inputs, prices, scenarioName) {
   return {
     scenarioName,
     totals,
+    capacity: {
+      ttsCapacityMinutesPerVmMonth,
+      requiredVmForTts,
+      requiredVmForApi,
+      requiredVmCount
+    },
     monthly,
     monthlyTotal,
     annualTotal,

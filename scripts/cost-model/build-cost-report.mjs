@@ -42,7 +42,7 @@ function buildScenarioRows(results) {
   return results
     .map(
       (entry) =>
-        `| ${entry.scenarioName} | ${Math.round(entry.totals.submissionsMonth).toLocaleString()} | ${Math.round(entry.totals.readyEpisodesMonth).toLocaleString()} | ${roundCurrency(entry.totals.audioGbMonth).toLocaleString()} | ${roundCurrency(entry.totals.egressGbMonth).toLocaleString()} | ${usd(entry.monthlyTotal)} | ${usd(entry.annualTotal)} |`
+        `| ${entry.scenarioName} | ${Math.round(entry.totals.submissionsMonth).toLocaleString()} | ${Math.round(entry.totals.readyEpisodesMonth).toLocaleString()} | ${roundCurrency(entry.totals.audioGbMonth).toLocaleString()} | ${roundCurrency(entry.totals.egressGbMonth).toLocaleString()} | ${entry.capacity.requiredVmCount} | ${usd(entry.monthlyTotal)} | ${usd(entry.annualTotal)} |`
     )
     .join("\n");
 }
@@ -104,9 +104,24 @@ Global assumptions:
 - DB backup multiplier: ${BASE_INPUTS.global.backupMultiplierDb}x
 
 ## 4. Scenario summary
-| Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Monthly cost | Annual cost |
+| Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Estimated VMs required | Monthly cost | Annual cost |
 |---|---:|---:|---:|---:|---:|---:|
 ${buildScenarioRows(results)}
+
+VM estimation method:
+- required_vm_tts = ceil(audio_minutes_month / (hours*60*tts_realtime_factor*utilization*(1-overhead)))
+- required_vm_api = ceil((peak_submissions_hour*headroom)/api_submissions_capacity_per_vm_hour)
+- required_vm_total = max(base_vm_count, required_vm_tts, required_vm_api)
+
+Default capacity assumptions currently in model:
+- Kokoro real-time factor per VM: **${BASE_INPUTS.global.ttsRealtimeFactorPerVm}x**
+- VM utilization target: **${(BASE_INPUTS.global.vmUtilizationTarget * 100).toFixed(0)}%**
+- Web/API overhead: **${(BASE_INPUTS.global.vmWebApiOverheadFraction * 100).toFixed(0)}%**
+- API submissions capacity per VM hour: **${BASE_INPUTS.global.apiSubmissionsCapacityPerVmHour}**
+
+Kokoro throughput references used for theoretical sizing:
+- [hexgrad/kokoro README](https://github.com/hexgrad/kokoro) (model and project baseline)
+- [remsky/Kokoro-FastAPI README](https://github.com/remsky/Kokoro-FastAPI) (community benchmark guidance, incl. ~2.4x realtime on CPU ONNX paths)
 
 ## 5. Commitment comparison (base scenario)
 | Strategy | Monthly cost | Annual cost | Monthly savings vs PAYG | Savings % |
@@ -118,6 +133,8 @@ ${buildCommitmentRows(base)}
 - VM reservation 1Y: ${usd(snapshot.prices.vmReservation1Year)} upfront
 - VM reservation 3Y: ${usd(snapshot.prices.vmReservation3Year)} upfront
 - PostgreSQL vCore hourly PAYG: ${usd(snapshot.prices.postgresVcoreHourlyPayg)} per hour
+- PostgreSQL vCore reservation 1Y: ${usd(snapshot.prices.postgresVcoreReservation1Year)} upfront
+- PostgreSQL vCore reservation 3Y: ${usd(snapshot.prices.postgresVcoreReservation3Year)} upfront
 - PostgreSQL storage: ${usd(snapshot.prices.postgresStorageGbMonth)} per GB-month
 - Blob hot LRS storage: ${usd(snapshot.prices.blobHotLrsGbMonth)} per GB-month
 - Blob write ops: ${usd(snapshot.prices.blobWriteOpsPer10k)} per 10K
@@ -140,6 +157,7 @@ Tabs:
 - Retail API prices can change; rerun \`npm run costs:refresh-prices\` before final procurement.
 - Enterprise discounts, Azure credits, support-plan charges, tax, and monitoring/log ingestion are not included unless added as separate line items.
 - Reservation figures are modeled using listed upfront terms annualized for monthly comparison.
+- PostgreSQL compute is modeled using **3-year reservation by default** in cost breakdown.
 `;
 
   await mkdir(dirname(outPath), { recursive: true });

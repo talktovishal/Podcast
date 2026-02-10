@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-10T02:32:00.057Z**
+- Snapshot generated: **2026-02-10T02:48:19.738Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 
@@ -30,28 +30,45 @@ Global assumptions:
 - DB backup multiplier: 1.2x
 
 ## 4. Scenario summary
-| Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Monthly cost | Annual cost |
+| Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Estimated VMs required | Monthly cost | Annual cost |
 |---|---:|---:|---:|---:|---:|---:|
-| Low | 27,451 | 28,758 | 84.2 | 436.24 | $316.87 | $3,802.49 |
-| Base | 52,288 | 54,777 | 213.85 | 779 | $338.86 | $4,066.31 |
-| High | 117,125 | 122,700 | 670.63 | 1,869.6 | $411.47 | $4,937.62 |
+| Low | 27,451 | 28,758 | 84.2 | 436.24 | 4 | $615.61 | $7,387.37 |
+| Base | 52,288 | 54,777 | 213.85 | 779 | 8 | $1,139.84 | $13,678.07 |
+| High | 117,125 | 122,700 | 670.63 | 1,869.6 | 25 | $3,346.97 | $40,163.62 |
+
+VM estimation method:
+- required_vm_tts = ceil(audio_minutes_month / (hours*60*tts_realtime_factor*utilization*(1-overhead)))
+- required_vm_api = ceil((peak_submissions_hour*headroom)/api_submissions_capacity_per_vm_hour)
+- required_vm_total = max(base_vm_count, required_vm_tts, required_vm_api)
+
+Default capacity assumptions currently in model:
+- Kokoro real-time factor per VM: **2.4x**
+- VM utilization target: **75%**
+- Web/API overhead: **20%**
+- API submissions capacity per VM hour: **120**
+
+Kokoro throughput references used for theoretical sizing:
+- [hexgrad/kokoro README](https://github.com/hexgrad/kokoro) (model and project baseline)
+- [remsky/Kokoro-FastAPI README](https://github.com/remsky/Kokoro-FastAPI) (community benchmark guidance, incl. ~2.4x realtime on CPU ONNX paths)
 
 ## 5. Commitment comparison (base scenario)
 | Strategy | Monthly cost | Annual cost | Monthly savings vs PAYG | Savings % |
 |---|---:|---:|---:|---:|
-| PAYG | $338.86 | $4,066.31 | $0.00 | 0.00% |
-| VM only - 1Y RI | $287.38 | $3,448.59 | $51.48 | 15.19% |
-| VM only - 3Y RI | $261.02 | $3,132.26 | $77.84 | 22.97% |
-| Postgres only - 1Y RI | $286.92 | $3,443.03 | $51.94 | 15.33% |
-| Postgres only - 3Y RI | $260.92 | $3,131.03 | $77.94 | 23.00% |
-| VM + Postgres - 1Y RI | $235.44 | $2,825.31 | $103.42 | 30.52% |
-| VM + Postgres - 3Y RI | $183.08 | $2,196.98 | $155.78 | 45.97% |
+| PAYG | $1,139.84 | $13,678.07 | $0.00 | 0.00% |
+| VM only - 1Y RI | $728.03 | $8,736.31 | $411.81 | 36.13% |
+| VM only - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
+| Postgres only - 1Y RI | $1,165.84 | $13,990.07 | $-26.00 | -2.28% |
+| Postgres only - 3Y RI | $1,139.84 | $13,678.07 | $0.00 | 0.00% |
+| VM + Postgres - 1Y RI | $754.03 | $9,048.31 | $385.81 | 33.85% |
+| VM + Postgres - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
 
 ## 6. Key price points used in model
 - VM hourly PAYG: $0.17 per hour
 - VM reservation 1Y: $889.00 upfront
 - VM reservation 3Y: $1,718.00 upfront
 - PostgreSQL vCore hourly PAYG: $0.09 per hour
+- PostgreSQL vCore reservation 1Y: $468.00 upfront
+- PostgreSQL vCore reservation 3Y: $936.00 upfront
 - PostgreSQL storage: $0.12 per GB-month
 - Blob hot LRS storage: $0.02 per GB-month
 - Blob write ops: $0.05 per 10K
@@ -74,3 +91,4 @@ Tabs:
 - Retail API prices can change; rerun `npm run costs:refresh-prices` before final procurement.
 - Enterprise discounts, Azure credits, support-plan charges, tax, and monitoring/log ingestion are not included unless added as separate line items.
 - Reservation figures are modeled using listed upfront terms annualized for monthly comparison.
+- PostgreSQL compute is modeled using **3-year reservation by default** in cost breakdown.

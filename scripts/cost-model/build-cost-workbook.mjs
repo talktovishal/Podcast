@@ -173,6 +173,21 @@ async function main() {
     styleCalculated(wsInputs.getCell(`C${wsInputs.rowCount}`));
   }
 
+  wsInputs.addRow([]);
+  wsInputs.addRow(["Capacity knobs", "Knob", "Value", "Unit"]);
+  styleHeader(wsInputs.getRow(wsInputs.rowCount));
+  const ttsRealtimeRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Capacity knobs", "Kokoro real-time factor per VM", BASE_INPUTS.global.ttsRealtimeFactorPerVm, "x realtime"]);
+  const vmUtilRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Capacity knobs", "Target VM utilization", BASE_INPUTS.global.vmUtilizationTarget, "fraction"]);
+  const vmOverheadRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Capacity knobs", "Web/API overhead fraction", BASE_INPUTS.global.vmWebApiOverheadFraction, "fraction"]);
+  const apiCapRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Capacity knobs", "API submissions capacity per VM hour", BASE_INPUTS.global.apiSubmissionsCapacityPerVmHour, "submissions/hour"]);
+  for (const row of [ttsRealtimeRow, vmUtilRow, vmOverheadRow, apiCapRow]) {
+    styleInput(wsInputs.getCell(`C${row}`));
+  }
+
   const wsFormulas = workbook.addWorksheet("Formulas");
   wsFormulas.columns = [{ width: 34 }, { width: 24 }, { width: 20 }, { width: 20 }, { width: 20 }, { width: 16 }];
   wsFormulas.addRow(["Metric", "Formula (per cohort)", "Free", "Pro", "Team", "Total"]);
@@ -209,6 +224,57 @@ async function main() {
   addMetric("Egress GB / month", "users * egress/user * multiplier", `Inputs!C12*${selectedUserMult}*Inputs!C22*${selectedEgressMult}`, `Inputs!D12*${selectedUserMult}*Inputs!D22*${selectedEgressMult}`, `Inputs!E12*${selectedUserMult}*Inputs!E22*${selectedEgressMult}`);
   addMetric("DB growth GB / month", "effective jobs * KB/article / (1024*1024)", `(C3*Inputs!C24)/(1024*1024)`, `(D3*Inputs!D24)/(1024*1024)`, `(E3*Inputs!E24)/(1024*1024)`);
   addMetric("Table ops / month", "effective jobs * ops/article", `C3*Inputs!C25`, `D3*Inputs!D25`, `E3*Inputs!E25`);
+  addMetric(
+    "Peak submissions / hour",
+    "(users/1000) * peak_submissions_per_1000 * scenario usage multiplier",
+    `(Inputs!C12/1000)*Inputs!C14*${selectedUsageMult}`,
+    `(Inputs!D12/1000)*Inputs!D14*${selectedUsageMult}`,
+    `(Inputs!E12/1000)*Inputs!E14*${selectedUsageMult}`
+  );
+
+  wsFormulas.addRow([
+    "TTS capacity minutes / VM / month",
+    "hours * 60 * realtime_factor * utilization * (1-overhead)",
+    "",
+    "",
+    "",
+    { formula: `Inputs!C4*60*Inputs!C${ttsRealtimeRow}*Inputs!C${vmUtilRow}*(1-Inputs!C${vmOverheadRow})` }
+  ]);
+  const ttsCapacityRow = wsFormulas.rowCount;
+  styleCalculated(wsFormulas.getCell(`F${ttsCapacityRow}`));
+
+  wsFormulas.addRow([
+    "Required VMs (TTS)",
+    "ceil(audio_minutes / tts_capacity_per_vm)",
+    "",
+    "",
+    "",
+    { formula: `MAX(1,ROUNDUP(F5/F${ttsCapacityRow},0))` }
+  ]);
+  const reqVmTtsRow = wsFormulas.rowCount;
+  styleCalculated(wsFormulas.getCell(`F${reqVmTtsRow}`));
+
+  wsFormulas.addRow([
+    "Required VMs (API peak)",
+    "ceil((peak_submissions_hour * headroom)/api_capacity_per_vm_hour)",
+    "",
+    "",
+    "",
+    { formula: `MAX(1,ROUNDUP((F11*Inputs!C5)/Inputs!C${apiCapRow},0))` }
+  ]);
+  const reqVmApiRow = wsFormulas.rowCount;
+  styleCalculated(wsFormulas.getCell(`F${reqVmApiRow}`));
+
+  wsFormulas.addRow([
+    "Required VMs (total)",
+    "max(base_vm_count, vm_tts, vm_api)",
+    "",
+    "",
+    "",
+    { formula: `MAX(Inputs!C6,F${reqVmTtsRow},F${reqVmApiRow})` }
+  ]);
+  const reqVmTotalRow = wsFormulas.rowCount;
+  styleCalculated(wsFormulas.getCell(`F${reqVmTotalRow}`));
 
   const wsPrices = workbook.addWorksheet("Prices");
   wsPrices.columns = [{ width: 30 }, { width: 26 }, { width: 16 }, { width: 14 }, { width: 24 }];
@@ -244,10 +310,10 @@ async function main() {
   styleHeader(wsBreakdown.getRow(1));
 
   const breakdownRows = [
-    ["VM compute", "vm_hourly * hours * vm_count", `Inputs!C${priceStart}*Inputs!C4*Inputs!C6`],
+    ["VM compute", "vm_hourly * hours * required_vm_count", `Inputs!C${priceStart}*Inputs!C4*Formulas!F${reqVmTotalRow}`],
     ["VM public IP", "public_ip_hourly * hours", `Inputs!C${priceStart + 14}*Inputs!C4`],
     ["VM OS disk", "os_disk_month", `Inputs!C${priceStart + 15}`],
-    ["Postgres compute", "pg_vcore_hourly * vcores * hours", `Inputs!C${priceStart + 3}*2*Inputs!C4`],
+    ["Postgres compute", "pg_vcore_3yr_reserved * vcores / 36", `(Inputs!C${priceStart + 5}/36)*2`],
     ["Postgres storage", "pg_storage_rate * 128GB", `Inputs!C${priceStart + 6}*128`],
     ["Postgres backup", "pg_backup_rate * 128GB * backup_multiplier", `Inputs!C${priceStart + 7}*128*Inputs!C9`],
     ["Blob storage", "blob_rate * MAX(128, audio_gb * 3)", `Inputs!C${priceStart + 8}*MAX(128,Formulas!F6*3)`],
@@ -282,12 +348,12 @@ async function main() {
 
   const commitRows = [
     ["PAYG baseline", "Cost_Breakdown!C14"],
-    ["VM only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 1) + "/12)*Inputs!C6"],
-    ["VM only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 2) + "/36)*Inputs!C6"],
+    ["VM only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 1) + "/12)*Formulas!F" + reqVmTotalRow],
+    ["VM only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 + (Inputs!C" + (priceStart + 2) + "/36)*Formulas!F" + reqVmTotalRow],
     ["Postgres only - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 4) + "/12)*2"],
     ["Postgres only - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 5) + "/36)*2"],
-    ["VM + Postgres - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 1) + "/12)*Inputs!C6 + (Inputs!C" + (priceStart + 4) + "/12)*2"],
-    ["VM + Postgres - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 2) + "/36)*Inputs!C6 + (Inputs!C" + (priceStart + 5) + "/36)*2"]
+    ["VM + Postgres - 1Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 1) + "/12)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 4) + "/12)*2"],
+    ["VM + Postgres - 3Y RI", "Cost_Breakdown!C14 - Cost_Breakdown!C2 - Cost_Breakdown!C5 + (Inputs!C" + (priceStart + 2) + "/36)*Formulas!F" + reqVmTotalRow + " + (Inputs!C" + (priceStart + 5) + "/36)*2"]
   ];
 
   for (const [name, monthlyExpr] of commitRows) {
@@ -325,6 +391,9 @@ async function main() {
   wsSummary.addRow(["Selected scenario", { formula: "Inputs!C2" }, "Low/Base/High toggle on Inputs tab"]);
   wsSummary.addRow(["Monthly total cost", { formula: "Cost_Breakdown!C14" }, "USD/month"]);
   wsSummary.addRow(["Annual total cost", { formula: "Cost_Breakdown!D14" }, "USD/year"]);
+  wsSummary.addRow(["Estimated required VM count", { formula: `Formulas!F${reqVmTotalRow}` }, "Computed from TTS + API peak"]);
+  wsSummary.addRow(["Required VMs for TTS only", { formula: `Formulas!F${reqVmTtsRow}` }, "Capacity from Kokoro realtime factor"]);
+  wsSummary.addRow(["Required VMs for API peak only", { formula: `Formulas!F${reqVmApiRow}` }, "Headroom-adjusted request peak"]);
   wsSummary.addRow(["Best commitment monthly", { formula: "MIN(Commitment_Compare!B2:B8)" }, "Lowest modeled monthly cost"]);
   wsSummary.addRow(["Best commitment strategy", "VM + Postgres - 3Y RI", "From Commitment_Compare table"]);
   wsSummary.addRow(["Top cost driver", "VM + Postgres compute", "Review Cost_Breakdown % column"]);
