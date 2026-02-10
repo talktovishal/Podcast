@@ -32,10 +32,13 @@
     "extension:package": "./scripts/package-extension.sh",
     "logs:collect": "node scripts/logs-collect.mjs",
     "logs:triage": "node scripts/logs-triage.mjs",
-    "observability:verify": "node scripts/observability-verify.mjs"
+    "observability:verify": "node scripts/observability-verify.mjs",
+    "costs:refresh-prices": "node scripts/cost-model/fetch-azure-prices.mjs",
+    "costs:build": "node scripts/cost-model/build-all.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "exceljs": "^4.4.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2"
   }

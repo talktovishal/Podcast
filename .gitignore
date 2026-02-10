@@ -11,7 +11,11 @@ coverage
 !.env.example
 apps/web/.data
 apps/web/apps
-exports
+exports/*
+!exports/costs/
+exports/costs/*
+!exports/costs/azure-cost-model.xlsx
+!exports/costs/azure-prices.snapshot.json
 services/python-tts/.venv
 __pycache__/
 .pytest_cache/
