@@ -38,7 +38,10 @@ export const BASE_INPUTS = {
     ttsRealtimeFactorPerVm: 2.4,
     vmUtilizationTarget: 0.75,
     vmWebApiOverheadFraction: 0.2,
-    apiSubmissionsCapacityPerVmHour: 120
+    apiSubmissionsCapacityPerVmHour: 120,
+    targetGrossMargin90: 0.9,
+    targetGrossMargin95: 0.95,
+    teamPriceMultiplierVsPro: 4
   },
   cohorts: {
     Free: {

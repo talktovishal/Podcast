@@ -188,6 +188,19 @@ async function main() {
     styleInput(wsInputs.getCell(`C${row}`));
   }
 
+  wsInputs.addRow([]);
+  wsInputs.addRow(["Pricing knobs", "Knob", "Value", "Unit"]);
+  styleHeader(wsInputs.getRow(wsInputs.rowCount));
+  const margin90Row = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Target gross margin (floor)", BASE_INPUTS.global.targetGrossMargin90, "fraction"]);
+  const margin95Row = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Target gross margin (comfort)", BASE_INPUTS.global.targetGrossMargin95, "fraction"]);
+  const teamMultiplierRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Team price multiplier vs Pro", BASE_INPUTS.global.teamPriceMultiplierVsPro, "x"]);
+  for (const row of [margin90Row, margin95Row, teamMultiplierRow]) {
+    styleInput(wsInputs.getCell(`C${row}`));
+  }
+
   const wsFormulas = workbook.addWorksheet("Formulas");
   wsFormulas.columns = [{ width: 34 }, { width: 24 }, { width: 20 }, { width: 20 }, { width: 20 }, { width: 16 }];
   wsFormulas.addRow(["Metric", "Formula (per cohort)", "Free", "Pro", "Team", "Total"]);
@@ -371,6 +384,33 @@ async function main() {
     styleCalculated(wsCommit.getCell(`E${r}`));
   }
 
+  const wsPricing = workbook.addWorksheet("Pricing_Strategy");
+  wsPricing.columns = [{ width: 44 }, { width: 24 }, { width: 44 }];
+  wsPricing.addRow(["Metric", "Value", "Formula / notes"]);
+  styleHeader(wsPricing.getRow(1));
+  wsPricing.addRow(["Modeled monthly cost (selected scenario)", { formula: "Cost_Breakdown!C14" }, "from Cost_Breakdown"]);
+  wsPricing.addRow(["Required monthly revenue for 90% margin", { formula: `B2/(1-Inputs!C${margin90Row})` }, "revenue = cost/(1-margin)"]);
+  wsPricing.addRow(["Required monthly revenue for 95% margin", { formula: `B2/(1-Inputs!C${margin95Row})` }, "revenue = cost/(1-margin)"]);
+  wsPricing.addRow([]);
+  wsPricing.addRow(["Scenario-adjusted Pro users", { formula: `Inputs!D12*${selectedUserMult}` }, "Pro active users in selected scenario"]);
+  wsPricing.addRow(["Scenario-adjusted Team users", { formula: `Inputs!E12*${selectedUserMult}` }, "Team active users in selected scenario"]);
+  wsPricing.addRow(["Total paying users (Pro+Team)", { formula: "B6+B7" }, "free tier excluded"]);
+  wsPricing.addRow(["Team price multiplier vs Pro", { formula: `Inputs!C${teamMultiplierRow}` }, "editable in Inputs"]);
+  wsPricing.addRow(["Price denominator (Pro + Team*multiplier)", { formula: "B6 + (B7*B9)" }, "for solving two-tier pricing"]);
+  wsPricing.addRow([]);
+  wsPricing.addRow(["Recommended Pro price @90% margin", { formula: "B3/B10" }, "monthly price per Pro user"]);
+  wsPricing.addRow(["Recommended Team price @90% margin", { formula: "B12*B9" }, "monthly price per Team user"]);
+  wsPricing.addRow(["Blended ARPU needed @90% margin", { formula: "B3/B8" }, "monthly revenue / paying user"]);
+  wsPricing.addRow([]);
+  wsPricing.addRow(["Recommended Pro price @95% margin", { formula: "B4/B10" }, "monthly price per Pro user"]);
+  wsPricing.addRow(["Recommended Team price @95% margin", { formula: "B16*B9" }, "monthly price per Team user"]);
+  wsPricing.addRow(["Blended ARPU needed @95% margin", { formula: "B4/B8" }, "monthly revenue / paying user"]);
+  wsPricing.addRow([]);
+  wsPricing.addRow(["Margin check @95 pricing", { formula: "IF((B16*B6+B17*B7)=0,0,1-(B2/(B16*B6+B17*B7)))" }, "should approximate target margin"]);
+  for (let r = 2; r <= wsPricing.rowCount; r += 1) {
+    styleCalculated(wsPricing.getCell(`B${r}`));
+  }
+
   const wsSensitivity = workbook.addWorksheet("Sensitivity");
   wsSensitivity.columns = [{ width: 28 }, { width: 16 }, { width: 18 }, { width: 18 }];
   wsSensitivity.addRow(["Case", "Load multiplier", "Monthly USD", "Delta vs base"]);
@@ -395,6 +435,10 @@ async function main() {
   wsSummary.addRow(["Required VMs for TTS only", { formula: `Formulas!F${reqVmTtsRow}` }, "Capacity from Kokoro realtime factor"]);
   wsSummary.addRow(["Required VMs for API peak only", { formula: `Formulas!F${reqVmApiRow}` }, "Headroom-adjusted request peak"]);
   wsSummary.addRow(["Best commitment monthly", { formula: "MIN(Commitment_Compare!B2:B8)" }, "Lowest modeled monthly cost"]);
+  wsSummary.addRow(["Required revenue @90% margin", { formula: "Pricing_Strategy!B3" }, "monthly"]);
+  wsSummary.addRow(["Required revenue @95% margin", { formula: "Pricing_Strategy!B4" }, "monthly"]);
+  wsSummary.addRow(["Recommended Pro price @95%", { formula: "Pricing_Strategy!B16" }, "monthly"]);
+  wsSummary.addRow(["Recommended Team price @95%", { formula: "Pricing_Strategy!B17" }, "monthly"]);
   wsSummary.addRow(["Best commitment strategy", "VM + Postgres - 3Y RI", "From Commitment_Compare table"]);
   wsSummary.addRow(["Top cost driver", "VM + Postgres compute", "Review Cost_Breakdown % column"]);
   wsSummary.addRow(["Architecture baseline", `${ARCH_BASELINE.vmSku}, ${ARCH_BASELINE.postgresSku}, Blob Hot LRS`, "from infra/main.bicep"]);

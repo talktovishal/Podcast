@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-10T02:48:19.738Z**
+- Snapshot generated: **2026-02-10T02:52:00.477Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 
@@ -62,6 +62,22 @@ Kokoro throughput references used for theoretical sizing:
 | VM + Postgres - 1Y RI | $754.03 | $9,048.31 | $385.81 | 33.85% |
 | VM + Postgres - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
 
+## 5.1 Margin pricing targets (base scenario)
+Using paying tiers = Pro + Team, and Team priced at 4x Pro.
+
+| Metric | Value |
+|---|---:|
+| Modeled monthly cost | $1,139.84 |
+| Paying users (Pro + Team) | 580 |
+| Revenue needed @90% margin | $11,398.39 |
+| Revenue needed @95% margin | $22,796.79 |
+| Blended ARPU needed @90% margin | $19.65 |
+| Blended ARPU needed @95% margin | $39.30 |
+| Suggested Pro price @90% margin | $13.90 |
+| Suggested Team price @90% margin | $55.60 |
+| Suggested Pro price @95% margin | $27.80 |
+| Suggested Team price @95% margin | $111.20 |
+
 ## 6. Key price points used in model
 - VM hourly PAYG: $0.17 per hour
 - VM reservation 1Y: $889.00 upfront
@@ -84,8 +100,9 @@ Tabs:
 2. `Formulas`: inspect derived workloads from your input knobs.
 3. `Cost_Breakdown`: component-level monthly/annual costs and cost shares.
 4. `Commitment_Compare`: PAYG vs 1Y/3Y RI strategies and savings.
-5. `Sensitivity`: +/− workload stress tests.
-6. `Finance_Summary`: executive snapshot for finance review.
+5. `Pricing_Strategy`: 90%/95% margin targets and suggested Pro/Team monthly prices.
+6. `Sensitivity`: +/− workload stress tests.
+7. `Finance_Summary`: executive snapshot for finance review.
 
 ## 8. Caveats for finance review
 - Retail API prices can change; rerun `npm run costs:refresh-prices` before final procurement.

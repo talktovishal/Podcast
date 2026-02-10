@@ -73,6 +73,16 @@ async function main() {
   const snapshot = await getSnapshot();
   const results = computeAllScenarios(BASE_INPUTS, snapshot);
   const base = results.find((entry) => entry.scenarioName === "Base") || results[0];
+  const payingUsersBase = BASE_INPUTS.cohorts.Pro.activeUsers + BASE_INPUTS.cohorts.Team.activeUsers;
+  const denominator = BASE_INPUTS.cohorts.Pro.activeUsers + (BASE_INPUTS.cohorts.Team.activeUsers * BASE_INPUTS.global.teamPriceMultiplierVsPro);
+  const requiredRevenue90 = base.monthlyTotal / (1 - BASE_INPUTS.global.targetGrossMargin90);
+  const requiredRevenue95 = base.monthlyTotal / (1 - BASE_INPUTS.global.targetGrossMargin95);
+  const proPrice90 = requiredRevenue90 / denominator;
+  const teamPrice90 = proPrice90 * BASE_INPUTS.global.teamPriceMultiplierVsPro;
+  const proPrice95 = requiredRevenue95 / denominator;
+  const teamPrice95 = proPrice95 * BASE_INPUTS.global.teamPriceMultiplierVsPro;
+  const arpu90 = requiredRevenue90 / payingUsersBase;
+  const arpu95 = requiredRevenue95 / payingUsersBase;
 
   const md = `# Azure Cost Model (Finance Draft)
 
@@ -128,6 +138,22 @@ Kokoro throughput references used for theoretical sizing:
 |---|---:|---:|---:|---:|
 ${buildCommitmentRows(base)}
 
+## 5.1 Margin pricing targets (base scenario)
+Using paying tiers = Pro + Team, and Team priced at ${BASE_INPUTS.global.teamPriceMultiplierVsPro}x Pro.
+
+| Metric | Value |
+|---|---:|
+| Modeled monthly cost | ${usd(base.monthlyTotal)} |
+| Paying users (Pro + Team) | ${payingUsersBase.toLocaleString()} |
+| Revenue needed @90% margin | ${usd(requiredRevenue90)} |
+| Revenue needed @95% margin | ${usd(requiredRevenue95)} |
+| Blended ARPU needed @90% margin | ${usd(arpu90)} |
+| Blended ARPU needed @95% margin | ${usd(arpu95)} |
+| Suggested Pro price @90% margin | ${usd(proPrice90)} |
+| Suggested Team price @90% margin | ${usd(teamPrice90)} |
+| Suggested Pro price @95% margin | ${usd(proPrice95)} |
+| Suggested Team price @95% margin | ${usd(teamPrice95)} |
+
 ## 6. Key price points used in model
 - VM hourly PAYG: ${usd(snapshot.prices.vmHourlyPayg)} per hour
 - VM reservation 1Y: ${usd(snapshot.prices.vmReservation1Year)} upfront
@@ -150,8 +176,9 @@ Tabs:
 2. \`Formulas\`: inspect derived workloads from your input knobs.
 3. \`Cost_Breakdown\`: component-level monthly/annual costs and cost shares.
 4. \`Commitment_Compare\`: PAYG vs 1Y/3Y RI strategies and savings.
-5. \`Sensitivity\`: +/− workload stress tests.
-6. \`Finance_Summary\`: executive snapshot for finance review.
+5. \`Pricing_Strategy\`: 90%/95% margin targets and suggested Pro/Team monthly prices.
+6. \`Sensitivity\`: +/− workload stress tests.
+7. \`Finance_Summary\`: executive snapshot for finance review.
 
 ## 8. Caveats for finance review
 - Retail API prices can change; rerun \`npm run costs:refresh-prices\` before final procurement.
