@@ -83,40 +83,60 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen py-6 sm:py-10">
-      <div className="container-shell grid items-start gap-6 lg:grid-cols-[1.12fr_1fr] lg:gap-10">
-        <section className="space-y-5">
-          <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
-            Built for continuous learning
-          </p>
-          <h1 className="max-w-2xl font-bold text-3xl leading-tight sm:text-5xl">
-            {BRAND_NAME}
-            <span className="mt-1 block text-[#246f62]">Keep up with more of what you want to read.</span>
-          </h1>
-          <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Save articles and PDFs, then listen to them as private podcast episodes during commutes, workouts, and walks.
-          </p>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <article className="card border-[#d5e8e2] p-4">
-              <p className="text-sm font-semibold text-[var(--ink)]">Capture anything quickly</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Paste URLs, upload PDFs, or use the Chrome extension while browsing.</p>
-            </article>
-            <article className="card border-[#d5e8e2] p-4">
-              <p className="text-sm font-semibold text-[var(--ink)]">Listen in your podcast app</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Every episode appears in your private RSS feed and supports standard playback controls.</p>
-            </article>
-            <article className="card border-[#d5e8e2] p-4 sm:col-span-2">
-              <p className="text-sm font-semibold text-[var(--ink)]">Designed for high-volume reading</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Today: full-article narration. Next: optional daily, weekly, and monthly catch-up summaries across everything you saved.
-              </p>
-            </article>
+      <div className="container-shell">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--ink)] text-sm font-bold text-white">AP</div>
+            <p className="text-xl font-semibold tracking-tight">{BRAND_NAME}</p>
           </div>
-        </section>
 
-        <section className="card border-[#cde5df] p-4 sm:p-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Welcome back</p>
-          <h2 className="mb-5 text-lg font-semibold sm:text-xl">Log in to your feed</h2>
+          <nav className="flex flex-wrap items-center gap-2 text-sm text-[var(--muted)]">
+            <a className="rounded-full px-3 py-1.5 transition hover:bg-[#e8f5f0] hover:text-[var(--ink)]" href="#">
+              Product
+            </a>
+            <a className="rounded-full px-3 py-1.5 transition hover:bg-[#e8f5f0] hover:text-[var(--ink)]" href="#">
+              Resources
+            </a>
+            <a className="rounded-full px-3 py-1.5 transition hover:bg-[#e8f5f0] hover:text-[var(--ink)]" href="#">
+              Pricing
+            </a>
+          </nav>
+        </header>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[1.12fr_1fr] lg:gap-10">
+          <section className="space-y-6">
+            <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
+              Private Article Podcasts
+            </p>
+
+            <h1 className="max-w-2xl font-bold text-4xl leading-[1.05] sm:text-6xl">
+              Learn continuously,
+              <span className="mt-1 block text-[#246f62]">even when you are away from your screen.</span>
+            </h1>
+
+            <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
+              Convert saved reading into podcast episodes and keep up during commute time.
+            </p>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <article className="card border-[#d5e8e2] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Capture</p>
+                <p className="mt-1 text-sm text-[var(--ink)]">URL, PDF, extension</p>
+              </article>
+              <article className="card border-[#d5e8e2] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Listen</p>
+                <p className="mt-1 text-sm text-[var(--ink)]">Private RSS feed</p>
+              </article>
+              <article className="card border-[#d5e8e2] p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Scale</p>
+                <p className="mt-1 text-sm text-[var(--ink)]">Daily to monthly summaries</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="card border-[#cde5df] p-4 sm:p-6">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Welcome back</p>
+            <h2 className="mb-5 text-lg font-semibold sm:text-xl">Log in to your feed</h2>
           <div className="mb-5 flex gap-2">
             <button className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("login")}>
               Login
@@ -176,7 +196,8 @@ export default function LoginPage() {
               {!oauthProviders ? <p className="mt-2 text-xs text-[var(--muted)]">Checking provider availability…</p> : null}
             </div>
           </div>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
   );
