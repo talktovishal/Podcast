@@ -211,3 +211,107 @@ test("processes retry-eligible failed job when nextRetryAt is due", async () => 
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("fails fast with INVALID_INPUT when extracted text exceeds TTS limit", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-oversize`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `oversize-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const repeated = "Long-form paragraph. ".repeat(1500);
+  const oversizedHtml = `<html><body><article><h1>Oversized</h1><p>${repeated}</p></article></body></html>`;
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Oversized ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/oversized/${uniq}`,
+      sourceHtml: oversizedHtml,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED",
+      attempt: 0
+    }
+  });
+
+  try {
+    const processed = await processJob(job.id);
+    assert.equal(processed, false);
+
+    const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
+    const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
+
+    assert.equal(finishedJob?.status, "FAILED");
+    assert.equal(finishedJob?.errorCode, "INVALID_INPUT");
+    assert.match(finishedJob?.errorMessage ?? "", /too long/i);
+    assert.equal(finishedItem?.status, "FAILED");
+    assert.equal(finishedItem?.errorCode, "INVALID_INPUT");
+    assert.match(finishedItem?.errorMessage ?? "", /too long/i);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("does not auto-retry non-retryable failed job", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-no-retry`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `no-retry-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `No Retry ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/no-retry/${uniq}`,
+      sourceHtml: SNAPSHOT_HTML,
+      sourceCapturedAt: new Date(),
+      status: "FAILED",
+      errorCode: "INVALID_INPUT",
+      errorMessage: "Input invalid."
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "FAILED",
+      attempt: 1,
+      errorCode: "INVALID_INPUT",
+      errorMessage: "Input invalid.",
+      nextRetryAt: null
+    }
+  });
+
+  try {
+    const processed = await processNextQueuedJob();
+    assert.equal(processed, false);
+
+    const unchanged = await prisma.job.findUnique({ where: { id: job.id } });
+    assert.equal(unchanged?.status, "FAILED");
+    assert.equal(unchanged?.attempt, 1);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

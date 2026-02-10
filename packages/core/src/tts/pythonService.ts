@@ -8,6 +8,36 @@ import type { SynthesizeInput, TtsProvider, TtsProviderId } from "./types";
 
 type PythonProviderId = Extract<TtsProviderId, "kokoro" | "melo">;
 
+function sanitizeServiceDetail(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail.trim();
+  }
+
+  if (Array.isArray(detail)) {
+    for (const entry of detail) {
+      const normalized = sanitizeServiceDetail(entry);
+      if (normalized) {
+        return normalized;
+      }
+    }
+    return "";
+  }
+
+  if (detail && typeof detail === "object") {
+    const record = detail as Record<string, unknown>;
+    if (typeof record.msg === "string" && record.msg.trim()) {
+      const location = Array.isArray(record.loc) ? record.loc.join(".") : "";
+      const prefix = location ? `${location}: ` : "";
+      return `${prefix}${record.msg.trim()}`;
+    }
+    if (typeof record.detail === "string" && record.detail.trim()) {
+      return record.detail.trim();
+    }
+  }
+
+  return "";
+}
+
 function runBinary(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: "ignore" });
@@ -92,8 +122,8 @@ export class PythonModelTtsProvider implements TtsProvider {
       if (!response.ok) {
         let detail = "";
         try {
-          const parsed = (await response.json()) as { detail?: string };
-          detail = parsed.detail || "";
+          const parsed = (await response.json()) as { detail?: unknown };
+          detail = sanitizeServiceDetail(parsed.detail);
         } catch {
           // fall through
         }

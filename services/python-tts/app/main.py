@@ -26,6 +26,7 @@ LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
 LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(10 * 1024 * 1024)))
 LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
+TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 
@@ -127,7 +128,7 @@ def _request_context(request: Request) -> dict[str, str | None]:
 class SynthesizePayload(BaseModel):
     provider: Literal["kokoro", "melo"]
     voice: str = Field(min_length=1, max_length=80)
-    text: str = Field(min_length=1, max_length=12_000)
+    text: str = Field(min_length=1, max_length=TTS_MAX_TEXT_CHARS)
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
 
 

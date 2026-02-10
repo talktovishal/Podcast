@@ -32,6 +32,7 @@ type ExtractionLogEntry = {
 };
 
 const DEMO_TRACE_LIMIT = 10;
+const MAX_ERROR_MESSAGE_LENGTH = 500;
 
 function now() {
   return new Date();
@@ -290,10 +291,36 @@ function formatDiagnostic(error: unknown): string {
   return String(error);
 }
 
+function toSafeErrorMessage(input: unknown): string {
+  let message = "";
+  if (typeof input === "string") {
+    message = input;
+  } else if (input instanceof Error) {
+    message = input.message;
+  } else if (input === null || input === undefined) {
+    message = "";
+  } else {
+    try {
+      message = JSON.stringify(input);
+    } catch {
+      message = String(input);
+    }
+  }
+
+  const normalized = message.trim() || "Processing failed unexpectedly. Please retry.";
+  if (normalized.length <= MAX_ERROR_MESSAGE_LENGTH) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, MAX_ERROR_MESSAGE_LENGTH - 3).trimEnd()}...`;
+}
+
 function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError {
   if (error instanceof AppError) {
     return error;
   }
+
+  const diagnostic = toSafeErrorMessage(error).toLowerCase();
 
   if (stage === "extract") {
     return new AppError(
@@ -304,6 +331,13 @@ function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError 
   }
 
   if (stage === "tts") {
+    if (diagnostic.includes("at most") && diagnostic.includes("body.text")) {
+      return new AppError(
+        errorCodes.INVALID_INPUT,
+        "This source is too long to narrate in one episode. Try splitting it into smaller parts.",
+        400
+      );
+    }
     return new AppError(
       errorCodes.TTS_FAILED,
       "Audio generation failed unexpectedly. Retry once; if it repeats, check TTS setup.",
@@ -497,6 +531,14 @@ export async function processJob(jobId: string): Promise<boolean> {
       resolvedTitle
     });
 
+    if (extraction.text.length > workerEnv.maxTtsTextChars) {
+      throw new AppError(
+        errorCodes.INVALID_INPUT,
+        `This source is too long (${extraction.text.length.toLocaleString()} chars). Limit is ${workerEnv.maxTtsTextChars.toLocaleString()} chars per episode. Please split it into smaller parts.`,
+        400
+      );
+    }
+
     const chunks = chunkText(extraction.text);
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
@@ -647,41 +689,73 @@ export async function processJob(jobId: string): Promise<boolean> {
     const err = mapUnexpectedWorkerError(error, stage);
     const diagnostic = formatDiagnostic(error);
     const retryRecommended = shouldRecommendRetry(err.code);
+    const safeErrorMessage = toSafeErrorMessage(err.userMessage);
 
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.item.update({
+    try {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.item.update({
+          where: { id: item.id },
+          data: {
+            status: "FAILED",
+            errorCode: err.code,
+            errorMessage: safeErrorMessage
+          }
+        });
+
+        await tx.job.update({
+          where: { id: claimResult.id },
+          data: {
+            status: "FAILED",
+            errorCode: err.code,
+            errorMessage: safeErrorMessage,
+            nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
+          }
+        });
+      });
+    } catch (stateError) {
+      const fallbackMessage = toSafeErrorMessage(stateError);
+      await workerLogger.errorWithCode({
+        msg: "Failed to persist job failure state",
+        error_code: errorCodes.INTERNAL_ERROR,
+        attrs: {
+          originalErrorCode: err.code,
+          originalErrorMessage: safeErrorMessage,
+          fallbackMessage
+        }
+      });
+
+      await prisma.item.updateMany({
         where: { id: item.id },
         data: {
           status: "FAILED",
           errorCode: err.code,
-          errorMessage: err.userMessage
+          errorMessage: "Processing failed. Please retry."
         }
       });
-
-      await tx.job.update({
+      await prisma.job.updateMany({
         where: { id: claimResult.id },
         data: {
           status: "FAILED",
           errorCode: err.code,
-          errorMessage: err.userMessage,
-          nextRetryAt: buildRetryAt(Math.max(30_000, workerEnv.retryPollMs))
+          errorMessage: "Processing failed. Please retry.",
+          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
         }
       });
-    });
+    }
 
     await appendJobEvent({
       jobId: claimResult.id,
       itemId: item.id,
       stage,
       eventType: "error",
-      message: err.userMessage,
+      message: safeErrorMessage,
       errorCode: err.code,
       diagnostic,
       retryRecommended
     });
     appendExtractionLog(extractionLogs, stage, "Job failed", {
       errorCode: err.code,
-      errorMessage: err.userMessage,
+      errorMessage: safeErrorMessage,
       retryRecommended
     });
     await withLogContext(
@@ -692,15 +766,16 @@ export async function processJob(jobId: string): Promise<boolean> {
         item_id: item.id
       },
       async () => {
-        await workerLogger.errorWithCode({
-          msg: "Job failed",
-          error_code: err.code,
-          attrs: {
-            stage,
-            diagnostic,
-            retryRecommended
-          }
-        });
+    await workerLogger.errorWithCode({
+      msg: "Job failed",
+      error_code: err.code,
+      attrs: {
+        stage,
+        diagnostic,
+        retryRecommended,
+        userMessage: safeErrorMessage
+      }
+    });
       }
     );
 
@@ -729,8 +804,7 @@ export async function processNextQueuedJob(): Promise<boolean> {
 
   const next = await prisma.job.findFirst({
     where: {
-      status: { in: ["QUEUED", "FAILED"] },
-      OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now() } }]
+      OR: [{ status: "QUEUED" }, { status: "FAILED", nextRetryAt: { lte: now() } }]
     },
     orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }]
   });

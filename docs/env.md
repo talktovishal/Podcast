@@ -54,8 +54,9 @@ Recommended:
 
 ## Worker controls
 - `WORKER_POLL_MS`
-- `WORKER_STALE_PROCESSING_MS`
+- `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
 - `WORKER_RETRY_POLL_MS`
+- `WORKER_MAX_TTS_TEXT_CHARS` (default `20000`; oversized sources fail fast with actionable guidance)
 
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`)
