@@ -1,0 +1,18 @@
+import Image from "next/image";
+import Link from "next/link";
+import { BRAND_NAME } from "@listenlater/core/src/config/brand";
+
+type BrandLogoProps = {
+  href?: string;
+  className?: string;
+  showWordmark?: boolean;
+};
+
+export function BrandLogo({ href = "/login", className = "", showWordmark = true }: BrandLogoProps) {
+  return (
+    <Link href={href} className={`inline-flex items-center gap-3 ${className}`}>
+      <Image src="/brand/articlepod-mark.svg" alt={`${BRAND_NAME} logo`} width={40} height={40} priority />
+      {showWordmark ? <span className="text-xl font-semibold tracking-tight text-[var(--ink)]">{BRAND_NAME}</span> : null}
+    </Link>
+  );
+}
