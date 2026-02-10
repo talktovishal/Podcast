@@ -158,6 +158,7 @@ No hard-coded vendor logic scattered throughout the code.
 - Small, reviewable diffs.
 - Avoid scope creep.
 - After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
+- Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - If adding a dependency:
   - Explain why
   - Confirm license compatibility (avoid copyleft surprises)
