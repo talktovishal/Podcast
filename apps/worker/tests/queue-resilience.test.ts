@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { chunkText, sha256 } from "@listenlater/core";
 import { extractHtmlSnapshot } from "@listenlater/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
+import { workerEnv } from "../src/lib/env.js";
 import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js";
 
 let dbReady = false;
@@ -50,7 +51,7 @@ async function seedCacheForItem(itemId: string): Promise<string> {
 
 async function seedCacheForHtml(itemId: string, html: string, url: string): Promise<string> {
   const extracted = extractHtmlSnapshot({ html, url });
-  const chunks = chunkText(extracted.text);
+  const chunks = chunkText(extracted.text, workerEnv.ttsChunkMaxChars);
   const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
   await prisma.chunkCache.create({

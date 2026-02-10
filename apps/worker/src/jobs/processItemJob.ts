@@ -344,8 +344,13 @@ async function extractItemText(item: {
   };
 }
 
-function shouldRecommendRetry(errorCode: string): boolean {
-  switch (errorCode) {
+export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage">): boolean {
+  const message = error.userMessage.toLowerCase();
+  if (error.code === errorCodes.TTS_FAILED && message.includes("ffmpeg")) {
+    return false;
+  }
+
+  switch (error.code) {
     case errorCodes.EXTRACTION_FAILED:
     case errorCodes.TTS_FAILED:
     case errorCodes.STORAGE_FAILED:
@@ -603,12 +608,13 @@ export async function processJob(jobId: string): Promise<boolean> {
       resolvedTitle
     });
 
-    const chunks = chunkText(extraction.text);
+    const chunks = chunkText(extraction.text, workerEnv.ttsChunkMaxChars);
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
     }
     appendExtractionLog(extractionLogs, "extract", "Text chunking complete", {
-      chunkCount: chunks.length
+      chunkCount: chunks.length,
+      chunkMaxChars: workerEnv.ttsChunkMaxChars
     });
 
     const ttsSelection = normalizeTtsSelection({
@@ -752,7 +758,7 @@ export async function processJob(jobId: string): Promise<boolean> {
   } catch (error) {
     const err = mapUnexpectedWorkerError(error, stage);
     const diagnostic = formatDiagnostic(error);
-    const retryRecommended = shouldRecommendRetry(err.code);
+    const retryRecommended = shouldRecommendRetry(err);
     const safeErrorMessage = toSafeErrorMessage(err.userMessage);
 
     try {

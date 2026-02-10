@@ -43,6 +43,7 @@ export const workerEnv = {
   pollMs: Number(process.env.WORKER_POLL_MS ?? 2500),
   staleProcessingMs: Number(process.env.WORKER_STALE_PROCESSING_MS ?? 3 * 60 * 1000),
   retryPollMs: Number(process.env.WORKER_RETRY_POLL_MS ?? 5000),
+  ttsChunkMaxChars: Number(process.env.WORKER_TTS_CHUNK_MAX_CHARS ?? 120000),
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
