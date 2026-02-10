@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f3f8f6;
+  --bg: #f7fbfa;
   --surface: #ffffff;
   --ink: #182620;
   --accent: #1f7a5a;
@@ -23,9 +23,9 @@ body {
   overflow-x: hidden;
   color: var(--ink);
   background:
-    radial-gradient(circle at 8% 8%, #effaf5 0, transparent 45%),
-    radial-gradient(circle at 85% 0%, #d9f2ea 0, transparent 42%),
-    radial-gradient(circle at 50% 100%, #e7f7f2 0, transparent 40%),
+    radial-gradient(circle at 8% 8%, #f0faf6 0, transparent 42%),
+    radial-gradient(circle at 85% 0%, #e6f5ef 0, transparent 38%),
+    radial-gradient(circle at 50% 100%, #f1faf6 0, transparent 42%),
     var(--bg);
   font-family: "Avenir Next", "Segoe UI", "Gill Sans", sans-serif;
 }

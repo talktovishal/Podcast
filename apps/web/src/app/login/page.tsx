@@ -82,41 +82,34 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen py-5 sm:py-10">
-      <div className="container-shell grid items-start gap-6 md:grid-cols-[1.15fr_1fr] md:gap-8">
+    <main className="min-h-screen py-6 sm:py-10">
+      <div className="container-shell grid items-start gap-6 lg:grid-cols-[1.12fr_1fr] lg:gap-10">
         <section className="space-y-5">
-          <p className="inline-block rounded-full border border-[#c5e8df] bg-[#e8f7f2] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
-            Private Article Podcasts
+          <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
+            Built for continuous learning
           </p>
-          <h1 className="max-w-xl font-bold text-3xl leading-tight sm:text-5xl">
+          <h1 className="max-w-2xl font-bold text-3xl leading-tight sm:text-5xl">
             {BRAND_NAME}
-            <span className="block text-[#246f62]">Read less. Listen more.</span>
+            <span className="mt-1 block text-[#246f62]">Keep up with more of what you want to read.</span>
           </h1>
-          <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
-            Save any article or PDF and turn it into a private podcast episode you can play in your favorite podcast app.
+          <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
+            Save articles and PDFs, then listen to them as private podcast episodes during commutes, workouts, and walks.
           </p>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <article className="card border-[#d3e8e2] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">1. Save</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Paste a URL, upload a PDF, or capture directly from the Chrome extension.</p>
+            <article className="card border-[#d5e8e2] p-4">
+              <p className="text-sm font-semibold text-[var(--ink)]">Capture anything quickly</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Paste URLs, upload PDFs, or use the Chrome extension while browsing.</p>
             </article>
-            <article className="card border-[#d3e8e2] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">2. Process</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">ArticlePod extracts the useful content and generates clean narration audio.</p>
+            <article className="card border-[#d5e8e2] p-4">
+              <p className="text-sm font-semibold text-[var(--ink)]">Listen in your podcast app</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Every episode appears in your private RSS feed and supports standard playback controls.</p>
             </article>
-            <article className="card border-[#d3e8e2] p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">3. Listen</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">Episodes appear in your private RSS feed and work in standard podcast players.</p>
-            </article>
-            <article className="relative overflow-hidden rounded-2xl border border-[#c3e8de] bg-[linear-gradient(140deg,#eaf7f3_0%,#ffffff_50%,#dff4ed_100%)] p-4">
-              <div className="absolute -right-7 -top-7 h-24 w-24 rounded-full bg-[#bfe8da]/50 blur-2xl" />
-              <p className="relative text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Why It Feels Fast</p>
-              <div className="relative mt-2 space-y-2 text-sm text-[var(--muted)]">
-                <p className="rounded-lg bg-white/90 px-2 py-1">Async processing pipeline</p>
-                <p className="rounded-lg bg-white/90 px-2 py-1">Podcast-compatible streaming</p>
-                <p className="rounded-lg bg-white/90 px-2 py-1">Simple playback + download</p>
-              </div>
+            <article className="card border-[#d5e8e2] p-4 sm:col-span-2">
+              <p className="text-sm font-semibold text-[var(--ink)]">Designed for high-volume reading</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Today: full-article narration. Next: optional daily, weekly, and monthly catch-up summaries across everything you saved.
+              </p>
             </article>
           </div>
         </section>
