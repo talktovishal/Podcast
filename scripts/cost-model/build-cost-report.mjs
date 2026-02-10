@@ -75,6 +75,12 @@ async function main() {
   const base = results.find((entry) => entry.scenarioName === "Base") || results[0];
   const payingUsersBase = BASE_INPUTS.cohorts.Pro.activeUsers + BASE_INPUTS.cohorts.Team.activeUsers;
   const denominator = BASE_INPUTS.cohorts.Pro.activeUsers + (BASE_INPUTS.cohorts.Team.activeUsers * BASE_INPUTS.global.teamPriceMultiplierVsPro);
+  const totalUsersBase =
+    BASE_INPUTS.cohorts.Free.activeUsers + BASE_INPUTS.cohorts.Pro.activeUsers + BASE_INPUTS.cohorts.Team.activeUsers;
+  const convProUsers = totalUsersBase * BASE_INPUTS.global.conversionToProRate;
+  const convTeamUsers = totalUsersBase * BASE_INPUTS.global.conversionToTeamRate;
+  const convPayingUsers = convProUsers + convTeamUsers;
+  const convDenominator = convProUsers + (convTeamUsers * BASE_INPUTS.global.teamPriceMultiplierVsPro);
   const requiredRevenue90 = base.monthlyTotal / (1 - BASE_INPUTS.global.targetGrossMargin90);
   const requiredRevenue95 = base.monthlyTotal / (1 - BASE_INPUTS.global.targetGrossMargin95);
   const proPrice90 = requiredRevenue90 / denominator;
@@ -83,6 +89,12 @@ async function main() {
   const teamPrice95 = proPrice95 * BASE_INPUTS.global.teamPriceMultiplierVsPro;
   const arpu90 = requiredRevenue90 / payingUsersBase;
   const arpu95 = requiredRevenue95 / payingUsersBase;
+  const convProPrice90 = requiredRevenue90 / convDenominator;
+  const convTeamPrice90 = convProPrice90 * BASE_INPUTS.global.teamPriceMultiplierVsPro;
+  const convProPrice95 = requiredRevenue95 / convDenominator;
+  const convTeamPrice95 = convProPrice95 * BASE_INPUTS.global.teamPriceMultiplierVsPro;
+  const convArpu90 = requiredRevenue90 / convPayingUsers;
+  const convArpu95 = requiredRevenue95 / convPayingUsers;
 
   const md = `# Azure Cost Model (Finance Draft)
 
@@ -139,20 +151,31 @@ Kokoro throughput references used for theoretical sizing:
 ${buildCommitmentRows(base)}
 
 ## 5.1 Margin pricing targets (base scenario)
-Using paying tiers = Pro + Team, and Team priced at ${BASE_INPUTS.global.teamPriceMultiplierVsPro}x Pro.
+Team priced at ${BASE_INPUTS.global.teamPriceMultiplierVsPro}x Pro.
 
 | Metric | Value |
 |---|---:|
 | Modeled monthly cost | ${usd(base.monthlyTotal)} |
-| Paying users (Pro + Team) | ${payingUsersBase.toLocaleString()} |
+| Pricing mode default | ${BASE_INPUTS.global.pricingMode} |
 | Revenue needed @90% margin | ${usd(requiredRevenue90)} |
 | Revenue needed @95% margin | ${usd(requiredRevenue95)} |
-| Blended ARPU needed @90% margin | ${usd(arpu90)} |
-| Blended ARPU needed @95% margin | ${usd(arpu95)} |
-| Suggested Pro price @90% margin | ${usd(proPrice90)} |
-| Suggested Team price @90% margin | ${usd(teamPrice90)} |
-| Suggested Pro price @95% margin | ${usd(proPrice95)} |
-| Suggested Team price @95% margin | ${usd(teamPrice95)} |
+
+Tier-count mode (uses modeled Pro+Team users):
+- Paying users = ${payingUsersBase.toLocaleString()}
+- Blended ARPU needed @90% = ${usd(arpu90)}
+- Blended ARPU needed @95% = ${usd(arpu95)}
+- Suggested Pro/Team @90% = ${usd(proPrice90)} / ${usd(teamPrice90)}
+- Suggested Pro/Team @95% = ${usd(proPrice95)} / ${usd(teamPrice95)}
+
+Conversion-based mode (uses total users and conversion rates):
+- Total users = ${totalUsersBase.toLocaleString()}
+- Conversion to Pro = ${(BASE_INPUTS.global.conversionToProRate * 100).toFixed(2)}%
+- Conversion to Team = ${(BASE_INPUTS.global.conversionToTeamRate * 100).toFixed(2)}%
+- Paying users from conversion = ${Math.round(convPayingUsers).toLocaleString()}
+- Blended ARPU needed @90% = ${usd(convArpu90)}
+- Blended ARPU needed @95% = ${usd(convArpu95)}
+- Suggested Pro/Team @90% = ${usd(convProPrice90)} / ${usd(convTeamPrice90)}
+- Suggested Pro/Team @95% = ${usd(convProPrice95)} / ${usd(convTeamPrice95)}
 
 ## 6. Key price points used in model
 - VM hourly PAYG: ${usd(snapshot.prices.vmHourlyPayg)} per hour

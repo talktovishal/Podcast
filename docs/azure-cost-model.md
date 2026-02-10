@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-10T02:52:00.477Z**
+- Snapshot generated: **2026-02-10T02:55:10.193Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 
@@ -63,20 +63,31 @@ Kokoro throughput references used for theoretical sizing:
 | VM + Postgres - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
 
 ## 5.1 Margin pricing targets (base scenario)
-Using paying tiers = Pro + Team, and Team priced at 4x Pro.
+Team priced at 4x Pro.
 
 | Metric | Value |
 |---|---:|
 | Modeled monthly cost | $1,139.84 |
-| Paying users (Pro + Team) | 580 |
+| Pricing mode default | tier_counts |
 | Revenue needed @90% margin | $11,398.39 |
 | Revenue needed @95% margin | $22,796.79 |
-| Blended ARPU needed @90% margin | $19.65 |
-| Blended ARPU needed @95% margin | $39.30 |
-| Suggested Pro price @90% margin | $13.90 |
-| Suggested Team price @90% margin | $55.60 |
-| Suggested Pro price @95% margin | $27.80 |
-| Suggested Team price @95% margin | $111.20 |
+
+Tier-count mode (uses modeled Pro+Team users):
+- Paying users = 580
+- Blended ARPU needed @90% = $19.65
+- Blended ARPU needed @95% = $39.30
+- Suggested Pro/Team @90% = $13.90 / $55.60
+- Suggested Pro/Team @95% = $27.80 / $111.20
+
+Conversion-based mode (uses total users and conversion rates):
+- Total users = 2,580
+- Conversion to Pro = 8.00%
+- Conversion to Team = 1.50%
+- Paying users from conversion = 245
+- Blended ARPU needed @90% = $46.51
+- Blended ARPU needed @95% = $93.01
+- Suggested Pro/Team @90% = $31.56 / $126.23
+- Suggested Pro/Team @95% = $63.11 / $252.46
 
 ## 6. Key price points used in model
 - VM hourly PAYG: $0.17 per hour

@@ -197,7 +197,18 @@ async function main() {
   wsInputs.addRow(["Pricing knobs", "Target gross margin (comfort)", BASE_INPUTS.global.targetGrossMargin95, "fraction"]);
   const teamMultiplierRow = wsInputs.rowCount + 1;
   wsInputs.addRow(["Pricing knobs", "Team price multiplier vs Pro", BASE_INPUTS.global.teamPriceMultiplierVsPro, "x"]);
-  for (const row of [margin90Row, margin95Row, teamMultiplierRow]) {
+  const pricingModeRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Pricing mode", BASE_INPUTS.global.pricingMode, "(tier_counts/conversion_based)"]);
+  wsInputs.getCell(`C${pricingModeRow}`).dataValidation = {
+    type: "list",
+    allowBlank: false,
+    formulae: ['"tier_counts,conversion_based"']
+  };
+  const conversionProRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Conversion to Pro rate", BASE_INPUTS.global.conversionToProRate, "fraction of total active users"]);
+  const conversionTeamRow = wsInputs.rowCount + 1;
+  wsInputs.addRow(["Pricing knobs", "Conversion to Team rate", BASE_INPUTS.global.conversionToTeamRate, "fraction of total active users"]);
+  for (const row of [margin90Row, margin95Row, teamMultiplierRow, pricingModeRow, conversionProRow, conversionTeamRow]) {
     styleInput(wsInputs.getCell(`C${row}`));
   }
 
@@ -394,19 +405,26 @@ async function main() {
   wsPricing.addRow([]);
   wsPricing.addRow(["Scenario-adjusted Pro users", { formula: `Inputs!D12*${selectedUserMult}` }, "Pro active users in selected scenario"]);
   wsPricing.addRow(["Scenario-adjusted Team users", { formula: `Inputs!E12*${selectedUserMult}` }, "Team active users in selected scenario"]);
-  wsPricing.addRow(["Total paying users (Pro+Team)", { formula: "B6+B7" }, "free tier excluded"]);
+  wsPricing.addRow(["Total active users (all cohorts)", { formula: `((Inputs!C12+Inputs!D12+Inputs!E12)*${selectedUserMult})` }, "used by conversion mode"]);
+  wsPricing.addRow(["Conversion-mode Pro users", { formula: `B8*Inputs!C${conversionProRow}` }, "from conversion rate"]);
+  wsPricing.addRow(["Conversion-mode Team users", { formula: `B8*Inputs!C${conversionTeamRow}` }, "from conversion rate"]);
+  wsPricing.addRow(["Tier-count mode paying users (Pro+Team)", { formula: "B6+B7" }, "free tier excluded"]);
+  wsPricing.addRow(["Active pricing mode", { formula: `Inputs!C${pricingModeRow}` }, "tier_counts or conversion_based"]);
+  wsPricing.addRow(["Selected Pro users", { formula: `IF(B12=\"conversion_based\",B9,B6)` }, "users used for pricing solve"]);
+  wsPricing.addRow(["Selected Team users", { formula: `IF(B12=\"conversion_based\",B10,B7)` }, "users used for pricing solve"]);
+  wsPricing.addRow(["Total paying users (selected mode)", { formula: "B13+B14" }, "for blended ARPU"]);
   wsPricing.addRow(["Team price multiplier vs Pro", { formula: `Inputs!C${teamMultiplierRow}` }, "editable in Inputs"]);
-  wsPricing.addRow(["Price denominator (Pro + Team*multiplier)", { formula: "B6 + (B7*B9)" }, "for solving two-tier pricing"]);
+  wsPricing.addRow(["Price denominator (Pro + Team*multiplier)", { formula: "B13 + (B14*B16)" }, "for solving two-tier pricing"]);
   wsPricing.addRow([]);
-  wsPricing.addRow(["Recommended Pro price @90% margin", { formula: "B3/B10" }, "monthly price per Pro user"]);
-  wsPricing.addRow(["Recommended Team price @90% margin", { formula: "B12*B9" }, "monthly price per Team user"]);
-  wsPricing.addRow(["Blended ARPU needed @90% margin", { formula: "B3/B8" }, "monthly revenue / paying user"]);
+  wsPricing.addRow(["Recommended Pro price @90% margin", { formula: "IF(B17=0,0,B3/B17)" }, "monthly price per Pro user"]);
+  wsPricing.addRow(["Recommended Team price @90% margin", { formula: "B19*B16" }, "monthly price per Team user"]);
+  wsPricing.addRow(["Blended ARPU needed @90% margin", { formula: "IF(B15=0,0,B3/B15)" }, "monthly revenue / paying user"]);
   wsPricing.addRow([]);
-  wsPricing.addRow(["Recommended Pro price @95% margin", { formula: "B4/B10" }, "monthly price per Pro user"]);
-  wsPricing.addRow(["Recommended Team price @95% margin", { formula: "B16*B9" }, "monthly price per Team user"]);
-  wsPricing.addRow(["Blended ARPU needed @95% margin", { formula: "B4/B8" }, "monthly revenue / paying user"]);
+  wsPricing.addRow(["Recommended Pro price @95% margin", { formula: "IF(B17=0,0,B4/B17)" }, "monthly price per Pro user"]);
+  wsPricing.addRow(["Recommended Team price @95% margin", { formula: "B23*B16" }, "monthly price per Team user"]);
+  wsPricing.addRow(["Blended ARPU needed @95% margin", { formula: "IF(B15=0,0,B4/B15)" }, "monthly revenue / paying user"]);
   wsPricing.addRow([]);
-  wsPricing.addRow(["Margin check @95 pricing", { formula: "IF((B16*B6+B17*B7)=0,0,1-(B2/(B16*B6+B17*B7)))" }, "should approximate target margin"]);
+  wsPricing.addRow(["Margin check @95 pricing", { formula: "IF((B23*B13+B24*B14)=0,0,1-(B2/(B23*B13+B24*B14)))" }, "should approximate target margin"]);
   for (let r = 2; r <= wsPricing.rowCount; r += 1) {
     styleCalculated(wsPricing.getCell(`B${r}`));
   }
@@ -437,8 +455,8 @@ async function main() {
   wsSummary.addRow(["Best commitment monthly", { formula: "MIN(Commitment_Compare!B2:B8)" }, "Lowest modeled monthly cost"]);
   wsSummary.addRow(["Required revenue @90% margin", { formula: "Pricing_Strategy!B3" }, "monthly"]);
   wsSummary.addRow(["Required revenue @95% margin", { formula: "Pricing_Strategy!B4" }, "monthly"]);
-  wsSummary.addRow(["Recommended Pro price @95%", { formula: "Pricing_Strategy!B16" }, "monthly"]);
-  wsSummary.addRow(["Recommended Team price @95%", { formula: "Pricing_Strategy!B17" }, "monthly"]);
+  wsSummary.addRow(["Recommended Pro price @95%", { formula: "Pricing_Strategy!B23" }, "monthly"]);
+  wsSummary.addRow(["Recommended Team price @95%", { formula: "Pricing_Strategy!B24" }, "monthly"]);
   wsSummary.addRow(["Best commitment strategy", "VM + Postgres - 3Y RI", "From Commitment_Compare table"]);
   wsSummary.addRow(["Top cost driver", "VM + Postgres compute", "Review Cost_Breakdown % column"]);
   wsSummary.addRow(["Architecture baseline", `${ARCH_BASELINE.vmSku}, ${ARCH_BASELINE.postgresSku}, Blob Hot LRS`, "from infra/main.bicep"]);

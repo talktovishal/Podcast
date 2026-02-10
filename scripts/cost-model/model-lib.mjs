@@ -41,7 +41,10 @@ export const BASE_INPUTS = {
     apiSubmissionsCapacityPerVmHour: 120,
     targetGrossMargin90: 0.9,
     targetGrossMargin95: 0.95,
-    teamPriceMultiplierVsPro: 4
+    teamPriceMultiplierVsPro: 4,
+    pricingMode: "tier_counts",
+    conversionToProRate: 0.08,
+    conversionToTeamRate: 0.015
   },
   cohorts: {
     Free: {
