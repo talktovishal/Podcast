@@ -81,11 +81,13 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen py-8 sm:py-16">
-      <div className="container-shell grid gap-8 md:grid-cols-[1.1fr_1fr] items-start">
+    <main className="min-h-screen py-5 sm:py-16">
+      <div className="container-shell grid items-start gap-6 md:grid-cols-[1.1fr_1fr] md:gap-8">
         <section className="space-y-6">
-          <p className="inline-block rounded-full bg-[var(--accent-soft)] px-4 py-1 text-sm font-semibold text-[var(--accent)]">RSS-First Personal Podcast Feed</p>
-          <h1 className="font-bold text-4xl leading-tight sm:text-5xl">ListenLater</h1>
+          <p className="inline-block rounded-full bg-[var(--accent-soft)] px-4 py-1 text-xs font-semibold text-[var(--accent)] sm:text-sm">
+            RSS-First Personal Podcast Feed
+          </p>
+          <h1 className="font-bold text-3xl leading-tight sm:text-5xl">ListenLater</h1>
           <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
             Turn URLs and PDFs into private podcast episodes, subscribe from your favorite app, and demo instantly with seeded content.
           </p>

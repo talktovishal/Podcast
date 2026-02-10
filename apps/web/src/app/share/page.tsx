@@ -46,9 +46,9 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
   });
 
   return (
-    <main className="py-8">
+    <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card p-5">
+        <header className="card p-4 sm:p-5">
           <p className="text-sm text-[var(--muted)]">Read-only demo</p>
           <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">This shared view is read-only. You can listen, browse status, and validate podcast playback behavior.</p>

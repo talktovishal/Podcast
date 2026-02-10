@@ -30,17 +30,17 @@ export default async function AppDashboardPage() {
   const ttsCatalog = getTtsCatalog();
 
   return (
-    <main className="py-8">
+    <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card flex flex-wrap items-center justify-between gap-4 p-5">
+        <header className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <p className="text-sm text-[var(--muted)]">Signed in as</p>
             <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             {user.role === "ADMIN" ? (
-              <Link className="rounded-lg border px-3 py-1.5 text-sm" href="/admin">
+              <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/admin">
                 Admin
               </Link>
             ) : null}

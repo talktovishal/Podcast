@@ -16,15 +16,15 @@ export default async function AdminPage() {
   const metrics = await getAdminMetrics();
 
   return (
-    <main className="py-8">
+    <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card flex flex-wrap items-center justify-between gap-4 p-5">
+        <header className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <p className="text-sm text-[var(--muted)]">Administrator dashboard</p>
             <h1 className="font-bold text-2xl">System observability</h1>
           </div>
 
-          <Link href="/app" className="rounded-lg border px-3 py-1.5 text-sm">
+          <Link href="/app" className="w-full rounded-lg border px-3 py-2 text-center text-sm sm:w-auto">
             Back to app
           </Link>
         </header>
@@ -72,7 +72,9 @@ export default async function AdminPage() {
                 <div key={event.id} className="rounded-lg border p-3 text-sm">
                   <p className="font-medium">{event.stage}</p>
                   <p className="text-xs text-[var(--muted)]">{new Date(event.createdAt).toLocaleString()}</p>
-                  <pre className="mt-1 overflow-x-auto text-xs text-[var(--danger)]">{JSON.stringify(event.payloadJson, null, 2)}</pre>
+                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-xs text-[var(--danger)]">
+                    {JSON.stringify(event.payloadJson, null, 2)}
+                  </pre>
                 </div>
               ))}
             </div>

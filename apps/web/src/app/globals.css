@@ -82,3 +82,10 @@ a {
     border-radius: 16px;
   }
 }
+
+@media (max-width: 639px) {
+  .card {
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(20, 38, 30, 0.06);
+  }
+}

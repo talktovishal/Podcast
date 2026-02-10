@@ -367,16 +367,16 @@ export function DashboardClient({
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <p className="text-sm text-[var(--muted)]">Private feed URL</p>
           <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{feedUrl}</code>
-          <button className="w-full rounded-lg border px-3 py-1.5 text-sm sm:w-auto" onClick={() => navigator.clipboard.writeText(feedUrl)}>
+          <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={() => navigator.clipboard.writeText(feedUrl)}>
             Copy
           </button>
           {!readOnly ? (
-            <button className="w-full rounded-lg border px-3 py-1.5 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
               Rotate token
             </button>
           ) : null}
           {!readOnly ? (
-            <button className="w-full rounded-lg border px-3 py-1.5 text-sm sm:w-auto" onClick={createShareLink}>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
               Create read-only link
             </button>
           ) : null}
@@ -390,12 +390,12 @@ export function DashboardClient({
             Generate a one-time connect code, then paste it into the extension popup to authorize page capture.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button className="rounded-lg border px-3 py-1.5 text-sm" onClick={generateExtensionConnectCode} disabled={isBusy}>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={generateExtensionConnectCode} disabled={isBusy}>
               Generate connect code
             </button>
             {extensionConnectCode ? (
               <button
-                className="rounded-lg border px-3 py-1.5 text-sm"
+                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
                 onClick={() => navigator.clipboard.writeText(extensionConnectCode)}
               >
                 Copy code
@@ -450,11 +450,11 @@ export function DashboardClient({
           <p className="mt-2 text-xs text-[var(--muted)]">Preview uses a fixed sample clip generated at startup and cached on disk.</p>
 
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button className="rounded-lg border px-3 py-1.5 text-sm" disabled={isTtsBusy} onClick={previewVoice}>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" disabled={isTtsBusy} onClick={previewVoice}>
               Preview Voice
             </button>
             <button
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
               disabled={isTtsBusy || !ttsVoice}
               onClick={saveTtsSettings}
             >
@@ -478,7 +478,7 @@ export function DashboardClient({
             <legend className="sr-only">Choose source</legend>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label
-                className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
                   sourceMode === "url"
                     ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
                     : "border-[rgba(31,42,31,0.15)] bg-[var(--surface)] text-[var(--muted)] opacity-60"
@@ -496,7 +496,7 @@ export function DashboardClient({
                 Option 1: URL
               </label>
               <label
-                className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
                   sourceMode === "pdf"
                     ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--ink)]"
                     : "border-[rgba(31,42,31,0.15)] bg-[var(--surface)] text-[var(--muted)] opacity-60"
@@ -544,7 +544,7 @@ export function DashboardClient({
                 <label className="mb-1 block text-sm font-medium">PDF</label>
                 <input
                   ref={pdfInputRef}
-                  className="block w-full text-sm"
+                  className="block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)]"
                   type="file"
                   accept="application/pdf"
                   onChange={(event) => {
@@ -607,13 +607,13 @@ export function DashboardClient({
                 </div>
 
                 <h3 className="break-words font-semibold">{item.title || "Untitled item"}</h3>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                <p className="mt-1 break-words text-xs text-[var(--muted)]">
                   {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
                     item.sourceUrl ? (
                       <>
                         Source:{" "}
                         {item.sourceType === "HTML_SNAPSHOT" ? "Captured via Chrome extension from " : ""}
-                        <a className="underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
+                        <a className="break-all underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
                           {item.sourceUrl}
                         </a>
                       </>
@@ -639,11 +639,11 @@ export function DashboardClient({
                 {!readOnly ? (
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
                     {showRetry ? (
-                      <button className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => retryItem(item.id)}>
+                      <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
                         Retry
                       </button>
                     ) : null}
-                    <button className="rounded-lg border px-3 py-1.5 text-xs" onClick={() => deleteItem(item.id)}>
+                    <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
                       Delete
                     </button>
                   </div>
@@ -671,11 +671,11 @@ export function DashboardClient({
                 </div>
 
                 <h3 className="break-words font-semibold">{diagnostic.itemTitle || "Untitled item"}</h3>
-                <p className="mt-1 text-xs text-[var(--muted)]">
+                <p className="mt-1 break-words text-xs text-[var(--muted)]">
                   {(diagnostic.sourceType === "URL" || diagnostic.sourceType === "HTML_SNAPSHOT") && diagnostic.sourceUrl ? (
                     <>
                       Source:{" "}
-                      <a className="underline" href={diagnostic.sourceUrl} target="_blank" rel="noreferrer">
+                      <a className="break-all underline" href={diagnostic.sourceUrl} target="_blank" rel="noreferrer">
                         {diagnostic.sourceUrl}
                       </a>
                     </>
@@ -695,7 +695,9 @@ export function DashboardClient({
                           [{new Date(entry.at).toLocaleTimeString()}] {entry.stage}
                         </p>
                         <p className="mt-1">{entry.message}</p>
-                        {entry.details ? <pre className="mt-2 overflow-x-auto">{JSON.stringify(entry.details, null, 2)}</pre> : null}
+                        {entry.details ? (
+                          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words">{JSON.stringify(entry.details, null, 2)}</pre>
+                        ) : null}
                       </div>
                     ))}
                   </div>
