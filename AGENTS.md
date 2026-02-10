@@ -200,6 +200,7 @@ Otherwise run:
 ---
 
 ## Working procedure for agents
+0) Read `docs/codex-execution-checklist.md` before making any change and follow it for the entire task.
 1) Read docs/Prompts.md sections relevant to the task.
 2) Summarize requirements and acceptance criteria.
 3) Implement the smallest change that satisfies the requirement.
