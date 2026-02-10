@@ -1,5 +1,6 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
@@ -136,7 +137,7 @@ async function appendJobEvent(input: {
 
 async function synthesizeEpisodeAudio(
   itemId: string,
-  text: string,
+  chunks: { text: string }[],
   selection: { providerId: TtsProviderId; voice: string }
 ): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
   const provider = makeTtsProvider({ providerId: selection.providerId });
@@ -147,12 +148,28 @@ async function synthesizeEpisodeAudio(
   const tempOutputPath = join(tempDir, `episode.${extension}`);
 
   try {
-    await provider.synthesizeToFile({
-      text,
-      voice: selection.voice,
-      format: provider.outputFormat,
-      outPath: tempOutputPath
-    });
+    if (chunks.length === 1) {
+      await provider.synthesizeToFile({
+        text: chunks[0]?.text ?? "",
+        voice: selection.voice,
+        format: provider.outputFormat,
+        outPath: tempOutputPath
+      });
+    } else {
+      const segmentPaths: string[] = [];
+      for (let index = 0; index < chunks.length; index += 1) {
+        const segmentPath = join(tempDir, `segment-${index}.${extension}`);
+        const segmentText = chunks[index]?.text ?? "";
+        await provider.synthesizeToFile({
+          text: segmentText,
+          voice: selection.voice,
+          format: provider.outputFormat,
+          outPath: segmentPath
+        });
+        segmentPaths.push(segmentPath);
+      }
+      await concatenateAudioSegments(segmentPaths, tempOutputPath, provider.outputFormat);
+    }
 
     const bytes = await readFile(tempOutputPath);
     const stored = await getArtifactStorage().putObject(relativePath, bytes, {
@@ -166,6 +183,61 @@ async function synthesizeEpisodeAudio(
     };
   } finally {
     await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function runBinary(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: "ignore" });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${cmd} exited with code ${code}`));
+      }
+    });
+  });
+}
+
+async function concatenateAudioSegments(
+  segmentPaths: string[],
+  outPath: string,
+  format: "mp3" | "m4a"
+): Promise<void> {
+  if (segmentPaths.length === 0) {
+    throw new AppError(errorCodes.TTS_FAILED, "Audio generation produced no segments.", 500);
+  }
+  if (segmentPaths.length === 1) {
+    const single = await readFile(segmentPaths[0]);
+    await writeFile(outPath, single);
+    return;
+  }
+
+  const concatManifestPath = join(tmpdir(), `articlepod-concat-${randomBytes(6).toString("hex")}.txt`);
+  const escapePath = (value: string) => value.replace(/'/g, "'\\''");
+  const manifest = segmentPaths.map((path) => `file '${escapePath(path)}'`).join("\n");
+  await writeFile(concatManifestPath, `${manifest}\n`, "utf8");
+
+  try {
+    try {
+      await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-c", "copy", outPath]);
+      return;
+    } catch {
+      if (format === "m4a") {
+        await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-c:a", "aac", outPath]);
+      } else {
+        await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-codec:a", "libmp3lame", outPath]);
+      }
+    }
+  } catch {
+    throw new AppError(
+      errorCodes.TTS_FAILED,
+      "Could not merge synthesized audio segments. Ensure ffmpeg is installed and available on PATH.",
+      500
+    );
+  } finally {
+    await rm(concatManifestPath, { force: true });
   }
 }
 
@@ -531,14 +603,6 @@ export async function processJob(jobId: string): Promise<boolean> {
       resolvedTitle
     });
 
-    if (extraction.text.length > workerEnv.maxTtsTextChars) {
-      throw new AppError(
-        errorCodes.INVALID_INPUT,
-        `This source is too long (${extraction.text.length.toLocaleString()} chars). Limit is ${workerEnv.maxTtsTextChars.toLocaleString()} chars per episode. Please split it into smaller parts.`,
-        400
-      );
-    }
-
     const chunks = chunkText(extraction.text);
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
@@ -585,7 +649,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       appendExtractionLog(extractionLogs, "tts", "Cache miss, synthesizing narration", {
         cacheKey
       });
-      audio = await synthesizeEpisodeAudio(item.id, extraction.text, ttsSelection);
+      audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection);
       await prisma.chunkCache.create({
         data: {
           itemId: item.id,

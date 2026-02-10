@@ -45,7 +45,11 @@ const SNAPSHOT_HTML = `
 `;
 
 async function seedCacheForItem(itemId: string): Promise<string> {
-  const extracted = extractHtmlSnapshot({ html: SNAPSHOT_HTML, url: `https://example.com/${itemId}` });
+  return seedCacheForHtml(itemId, SNAPSHOT_HTML, `https://example.com/${itemId}`);
+}
+
+async function seedCacheForHtml(itemId: string, html: string, url: string): Promise<string> {
+  const extracted = extractHtmlSnapshot({ html, url });
   const chunks = chunkText(extracted.text);
   const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
@@ -212,7 +216,7 @@ test("processes retry-eligible failed job when nextRetryAt is due", async () => 
   }
 });
 
-test("fails fast with INVALID_INPUT when extracted text exceeds TTS limit", async () => {
+test("processes oversized snapshot when chunk cache is available", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-oversize`;
 
@@ -225,7 +229,7 @@ test("fails fast with INVALID_INPUT when extracted text exceeds TTS limit", asyn
     }
   });
 
-  const repeated = "Long-form paragraph. ".repeat(1500);
+  const repeated = "Long-form paragraph. ".repeat(3000);
   const oversizedHtml = `<html><body><article><h1>Oversized</h1><p>${repeated}</p></article></body></html>`;
 
   const item = await prisma.item.create({
@@ -248,19 +252,19 @@ test("fails fast with INVALID_INPUT when extracted text exceeds TTS limit", asyn
     }
   });
 
+  await seedCacheForHtml(item.id, oversizedHtml, `https://example.com/oversized/${uniq}`);
+
   try {
     const processed = await processJob(job.id);
-    assert.equal(processed, false);
+    assert.equal(processed, true);
 
     const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
     const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const episode = await prisma.episode.findUnique({ where: { itemId: item.id } });
 
-    assert.equal(finishedJob?.status, "FAILED");
-    assert.equal(finishedJob?.errorCode, "INVALID_INPUT");
-    assert.match(finishedJob?.errorMessage ?? "", /too long/i);
-    assert.equal(finishedItem?.status, "FAILED");
-    assert.equal(finishedItem?.errorCode, "INVALID_INPUT");
-    assert.match(finishedItem?.errorMessage ?? "", /too long/i);
+    assert.equal(finishedJob?.status, "SUCCEEDED");
+    assert.equal(finishedItem?.status, "READY");
+    assert.ok(episode?.audioPath);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
