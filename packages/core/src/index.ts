@@ -4,8 +4,6 @@ export * from "./security/urlPolicy";
 export * from "./security/tokens";
 export * from "./security/rateLimit";
 export * from "./chunking/chunkText";
-export * from "./extract/html";
-export * from "./extract/pdf";
 export * from "./tts/types";
 export * from "./tts/catalog";
 export * from "./tts/macSay";

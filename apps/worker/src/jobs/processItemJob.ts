@@ -7,9 +7,6 @@ import {
   AppError,
   chunkText,
   errorCodes,
-  extractHtmlFromUrl,
-  extractHtmlSnapshot,
-  extractTextFromPdf,
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
@@ -18,6 +15,8 @@ import {
   type TtsProviderId,
   validateFetchableUrl
 } from "@listenlater/core";
+import { extractHtmlFromUrl, extractHtmlSnapshot } from "@listenlater/core/src/extract/html";
+import { extractTextFromPdf } from "@listenlater/core/src/extract/pdf";
 import { workerEnv } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";

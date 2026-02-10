@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, extractHtmlSnapshot, sha256 } from "@listenlater/core";
+import { chunkText, sha256 } from "@listenlater/core";
+import { extractHtmlSnapshot } from "@listenlater/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
 import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js";
 
