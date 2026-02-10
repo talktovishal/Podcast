@@ -1,4 +1,4 @@
-# ListenLater Detailed Build Plan
+# ArticlePod Detailed Build Plan
 
 ## Planning Gate
 - This file is planning-only. No implementation starts until explicit user approval.

@@ -1,4 +1,4 @@
-# ListenLater Chrome Extension (MV3)
+# ArticlePod Chrome Extension (MV3)
 
 This extension is intentionally kept in a standalone folder so you can package and publish it directly to the Chrome Web Store.
 
@@ -24,7 +24,7 @@ This generates:
 - `dist/extension/README.txt` (quick checklist)
 
 ## Connect flow
-1. Sign in to ListenLater web app (`/app`).
+1. Sign in to ArticlePod web app (`/app`).
 2. Generate a one-time connect code from the **Chrome Extension** card.
 3. Open extension popup.
 4. Set server URL (default `http://localhost:3000`).

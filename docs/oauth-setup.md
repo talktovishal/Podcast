@@ -1,6 +1,6 @@
 # OAuth Setup Guide (Google + Apple)
 
-This guide explains how to enable Google and Apple login for ListenLater.
+This guide explains how to enable Google and Apple login for ArticlePod.
 
 Current app callback paths:
 - Google: `<APP_URL>/api/auth/google/callback`

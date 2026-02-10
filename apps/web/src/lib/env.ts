@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from "@listenlater/core";
 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
@@ -20,11 +21,12 @@ function normalizeDatabaseUrl(raw: string): string {
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 
 export const env = {
+  brandName: process.env.BRAND_NAME ?? BRAND_NAME,
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
   databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), ".data/db.sqlite")}`),
   storageBackend,
   storageRoot: process.env.STORAGE_ROOT ?? resolve(process.cwd(), ".data/media"),
-  storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? "listenlater",
+  storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? BRAND_SLUG,
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageAccountUrl: process.env.AZURE_STORAGE_ACCOUNT_URL,
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
@@ -47,7 +49,7 @@ export const env = {
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
-  demoEmail: process.env.DEMO_EMAIL ?? "demo@listenlater.local",
-  adminEmail: process.env.ADMIN_EMAIL ?? "admin@listenlater.local",
+  demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL,
+  adminEmail: process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD ?? "admin-demo-password"
 };

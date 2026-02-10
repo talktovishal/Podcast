@@ -1,6 +1,6 @@
-# prompts.md — Codex spec for ListenLater (RSS-first)
+# prompts.md — Codex spec for ArticlePod (RSS-first)
 
-You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ListenLater** web app from scratch.
+You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
 ## Spec Status (as of 2026-02-09)
 
@@ -117,7 +117,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ## 1) Product spec (build this)
 
 ### Product statement
-ListenLater turns **URLs and PDFs** into **audio episodes** and publishes them to a **private podcast RSS feed** that users can subscribe to in their favorite podcast app.
+ArticlePod turns **URLs and PDFs** into **audio episodes** and publishes them to a **private podcast RSS feed** that users can subscribe to in their favorite podcast app.
 
 > Note: Google Podcasts has been discontinued; we target Apple Podcasts and other RSS-capable podcast apps. (YouTube Music consumes podcasts differently and is out of scope.)  
 > For local-only demo, we validate RSS and playback via browser + curl; for Apple Podcasts integration you must run the server on a reachable host (Azure deployment or local tunnel).  

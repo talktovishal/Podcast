@@ -23,3 +23,4 @@ export * from "./logging/structured";
 export * from "./rss/buildFeed";
 export * from "./utils/hash";
 export * from "./utils/title";
+export * from "./config/brand";

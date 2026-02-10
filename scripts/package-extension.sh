@@ -72,7 +72,7 @@ else
 fi
 
 cat >"$DIST_DIR/README.txt" <<SUMMARY
-ListenLater Chrome extension package created.
+ArticlePod Chrome extension package created.
 
 Version: $manifest_version
 ZIP: $zip_path

@@ -9,5 +9,5 @@ This folder contains extraction and cleaning modules copied/adapted from:
 
 Notes:
 - `abogen` does not include direct URL article fetching/extraction.
-- ListenLater uses `@mozilla/readability` for article isolation, then applies
+- ArticlePod uses `@mozilla/readability` for article isolation, then applies
   the abogen-derived cleaners in this folder.

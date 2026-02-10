@@ -1,6 +1,6 @@
 # Environment Profiles
 
-ListenLater now uses profile-driven runtime contracts so local and Azure behavior stay aligned.
+ArticlePod now uses profile-driven runtime contracts so local and Azure behavior stay aligned.
 
 ## Profile selection
 - `RUNTIME_PROFILE=simple` -> SQLite + local object storage

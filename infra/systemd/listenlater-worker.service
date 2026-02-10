@@ -1,5 +1,5 @@
 [Unit]
-Description=ListenLater Worker
+Description=ArticlePod Worker
 After=network.target listenlater-python-tts.service
 Wants=network.target
 

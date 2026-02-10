@@ -8,7 +8,7 @@ print_usage() {
   cat <<'EOF'
 Usage: ./run.sh [--setup-only] [--force-install] [--profile simple|parity|azure]
 
-Starts the full local ListenLater stack (web + worker) with one command.
+Starts the full local ArticlePod stack (web + worker) with one command.
 
 Options:
   --setup-only    Run setup checks, then exit without starting dev servers.

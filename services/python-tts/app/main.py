@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="ListenLater Python TTS")
+app = FastAPI(title="ArticlePod Python TTS")
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROOT = Path(os.getenv("LOG_ROOT", str(Path.cwd().parents[1] / ".runtime" / "logs")))

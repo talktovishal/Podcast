@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { BRAND_NAME } from "@listenlater/core/src/config/brand";
 
 export const metadata: Metadata = {
-  title: "ListenLater",
+  title: BRAND_NAME,
   description: "Private RSS-first personal podcast feed"
 };
 

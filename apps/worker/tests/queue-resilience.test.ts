@@ -69,7 +69,7 @@ test("reclaims stale processing job and completes it", async () => {
 
   const user = await prisma.user.create({
     data: {
-      email: `stale-${uniq}@listenlater.local`,
+      email: `stale-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"
@@ -121,7 +121,7 @@ test("does not process failed job before nextRetryAt", async () => {
 
   const user = await prisma.user.create({
     data: {
-      email: `retry-future-${uniq}@listenlater.local`,
+      email: `retry-future-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"
@@ -167,7 +167,7 @@ test("processes retry-eligible failed job when nextRetryAt is due", async () => 
 
   const user = await prisma.user.create({
     data: {
-      email: `retry-due-${uniq}@listenlater.local`,
+      email: `retry-due-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"

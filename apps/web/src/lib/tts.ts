@@ -1,6 +1,7 @@
 import { mkdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  BRAND_NAME,
   AppError,
   KokoroTtsProvider,
   errorCodes,
@@ -15,7 +16,7 @@ const ENABLED_PROVIDER_ID: TtsProviderId = "kokoro";
 const PREVIEW_EXTENSION = "m4a";
 const PREVIEW_MIME_TYPE = "audio/mp4";
 const PREVIEW_SAMPLE_TEXT =
-  "Hello from ListenLater. This is a quick voice sample so you can choose the default narration style.";
+  `Hello from ${BRAND_NAME}. This is a quick voice sample so you can choose the default narration style.`;
 
 export type TtsSelection = {
   providerId: TtsProviderId;

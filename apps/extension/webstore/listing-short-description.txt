@@ -1,1 +1,1 @@
-Capture the current page and add it to your private ListenLater podcast feed.
+Capture the current page and add it to your private ArticlePod podcast feed.

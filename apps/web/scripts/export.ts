@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { buildRssXml } from "@listenlater/core";
+import { BRAND_NAME, buildRssXml } from "@listenlater/core";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
@@ -41,7 +41,7 @@ async function main() {
   }
 
   const rssXml = buildRssXml({
-    title: "ListenLater Export",
+    title: `${BRAND_NAME} Export`,
     description: "Exported private feed",
     link: env.appUrl,
     feedUrl: `${env.appUrl}/exports/rss.xml`,

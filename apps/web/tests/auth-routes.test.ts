@@ -107,7 +107,7 @@ test("extension connect-code validates request body", async () => {
 
   const user = await prisma.user.create({
     data: {
-      email: `connect-validate-${uniq}@listenlater.local`,
+      email: `connect-validate-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"
@@ -218,7 +218,7 @@ test("html snapshot validates payload and queues item for session user", async (
 
   const user = await prisma.user.create({
     data: {
-      email: `snapshot-${uniq}@listenlater.local`,
+      email: `snapshot-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"

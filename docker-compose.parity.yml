@@ -69,8 +69,8 @@ services:
       AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       PYTHON_TTS_URL: http://python-tts:8010
       PYTHON_TTS_TIMEOUT_MS: "120000"
-      DEMO_EMAIL: demo@listenlater.local
-      ADMIN_EMAIL: admin@listenlater.local
+      DEMO_EMAIL: demo@articlepod.local
+      ADMIN_EMAIL: admin@articlepod.local
       ADMIN_PASSWORD: admin-demo-password
     command: >
       sh -lc "npx pnpm --filter @listenlater/web run db:bootstrap &&
@@ -111,7 +111,7 @@ services:
       WORKER_POLL_MS: "2000"
       WORKER_STALE_PROCESSING_MS: "900000"
       WORKER_RETRY_POLL_MS: "5000"
-      DEMO_EMAIL: demo@listenlater.local
+      DEMO_EMAIL: demo@articlepod.local
     command: >
       sh -lc "npx pnpm --filter @listenlater/worker run dev"
 

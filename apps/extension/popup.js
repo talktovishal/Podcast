@@ -1,4 +1,9 @@
 const STORAGE_KEYS = {
+  serverUrl: "articlepod_server_url",
+  extensionToken: "articlepod_extension_token",
+  tokenExpiresAt: "articlepod_extension_token_expires_at"
+};
+const LEGACY_STORAGE_KEYS = {
   serverUrl: "listenlater_server_url",
   extensionToken: "listenlater_extension_token",
   tokenExpiresAt: "listenlater_extension_token_expires_at"
@@ -23,12 +28,19 @@ async function getStoredState() {
   const result = await chrome.storage.local.get([
     STORAGE_KEYS.serverUrl,
     STORAGE_KEYS.extensionToken,
-    STORAGE_KEYS.tokenExpiresAt
+    STORAGE_KEYS.tokenExpiresAt,
+    LEGACY_STORAGE_KEYS.serverUrl,
+    LEGACY_STORAGE_KEYS.extensionToken,
+    LEGACY_STORAGE_KEYS.tokenExpiresAt
   ]);
+  const serverUrl = result[STORAGE_KEYS.serverUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "http://localhost:3000";
+  const extensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
+  const tokenExpiresAt = result[STORAGE_KEYS.tokenExpiresAt] || result[LEGACY_STORAGE_KEYS.tokenExpiresAt] || "";
+
   return {
-    serverUrl: result[STORAGE_KEYS.serverUrl] || "http://localhost:3000",
-    extensionToken: result[STORAGE_KEYS.extensionToken] || "",
-    tokenExpiresAt: result[STORAGE_KEYS.tokenExpiresAt] || ""
+    serverUrl,
+    extensionToken,
+    tokenExpiresAt
   };
 }
 

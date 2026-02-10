@@ -1,5 +1,6 @@
 import { buildRssXml, hashIncomingToken } from "@listenlater/core";
 import { NextRequest, NextResponse } from "next/server";
+import { BRAND_NAME } from "@listenlater/core/src/config/brand";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
@@ -38,8 +39,8 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   });
 
   const xml = buildRssXml({
-    title: `${feed.user.name || feed.user.email} - ListenLater`,
-    description: "Private ListenLater feed",
+    title: `${feed.user.name || feed.user.email} - ${BRAND_NAME}`,
+    description: `Private ${BRAND_NAME} feed`,
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/${token}.xml`,
     language: "en-us",

@@ -40,7 +40,7 @@ function ensureDbBootstrap(): void {
 test("findOrCreateOAuthUser links identities by provider subject and email", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);
-  const email = `oauth-${uniq}@listenlater.local`;
+  const email = `oauth-${uniq}@articlepod.local`;
 
   const first = await findOrCreateOAuthUser({
     provider: "google",
@@ -85,7 +85,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
 
   const user = await prisma.user.create({
     data: {
-      email: `ext-${uniq}@listenlater.local`,
+      email: `ext-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
       ttsVoice: "af_heart"

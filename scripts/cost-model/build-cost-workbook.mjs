@@ -61,12 +61,12 @@ async function main() {
   const byName = Object.fromEntries(scenarios.map((entry) => [entry.scenarioName, entry]));
 
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = "ListenLater";
+  workbook.creator = "ArticlePod";
   workbook.created = new Date();
 
   const wsReadme = workbook.addWorksheet("README");
   wsReadme.columns = [{ width: 36 }, { width: 120 }];
-  wsReadme.addRow(["Workbook", "Azure Cost Model - ListenLater"]);
+  wsReadme.addRow(["Workbook", "Azure Cost Model - ArticlePod"]);
   wsReadme.addRow(["Generated", snapshot.generatedAt]);
   wsReadme.addRow(["Region", ARCH_BASELINE.region]);
   wsReadme.addRow(["Currency", snapshot.currency]);

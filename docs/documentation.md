@@ -1,7 +1,7 @@
 # Product Documentation
 
-## What ListenLater does
-ListenLater converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and publishes them through a private RSS feed.
+## What ArticlePod does
+ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and publishes them through a private RSS feed.
 
 ## User flow
 1. Sign in with local credentials (or OAuth when configured).
@@ -11,8 +11,8 @@ ListenLater converts URLs, PDFs, and Chrome-captured HTML snapshots into private
 
 ## Accounts
 Local defaults:
-- Demo account: `demo@listenlater.local` / `demo-password`
-- Admin account: `admin@listenlater.local` / `admin-demo-password`
+- Demo account: `demo@articlepod.local` / `demo-password`
+- Admin account: `admin@articlepod.local` / `admin-demo-password`
 
 ## Chrome extension
 - Source: `/Users/vishalchowdhary/Documents/Podcast/apps/extension`

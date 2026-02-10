@@ -1,10 +1,10 @@
 import { AppError, errorCodes } from "../errors/codes";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
+import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
 
 const FETCH_TIMEOUT_MS = 30_000;
-const SNAPSHOT_FALLBACK_URL = "https://snapshot.listenlater.local/";
 
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -130,7 +130,7 @@ export async function extractHtmlFromUrl(url: string): Promise<{ title: string; 
     response = await fetch(url, {
       method: "GET",
       headers: {
-        "user-agent": "ListenLaterBot/0.1 (+https://listenlater.local)"
+        "user-agent": BRAND_BOT_USER_AGENT
       },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
     });
@@ -157,7 +157,7 @@ export function extractHtmlSnapshot(input: { html: string; url?: string }): { ti
   try {
     return extractFromHtml({
       html: input.html,
-      sourceUrl: input.url || SNAPSHOT_FALLBACK_URL
+      sourceUrl: input.url || BRAND_SNAPSHOT_FALLBACK_URL
     });
   } catch (error) {
     if (error instanceof AppError) {

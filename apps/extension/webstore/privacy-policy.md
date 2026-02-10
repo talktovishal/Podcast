@@ -1,21 +1,21 @@
-# Privacy Policy — ListenLater Capture
+# Privacy Policy — ArticlePod Capture
 
-ListenLater Capture only collects data required to submit pages you explicitly choose to capture.
+ArticlePod Capture only collects data required to submit pages you explicitly choose to capture.
 
 ## Data processed
 - Current tab URL
 - Current tab title
 - Current tab HTML (`document.documentElement.outerHTML`) when you click **Capture Current Page**
 - Extension configuration data stored locally:
-  - ListenLater server URL
+  - ArticlePod server URL
   - Extension token
   - Token expiry timestamp
 
 ## Data use
-Captured data is sent to your configured ListenLater server to create podcast episodes in your own account.
+Captured data is sent to your configured ArticlePod server to create podcast episodes in your own account.
 
 ## Data sharing
-The extension does not sell data and does not share captured content with third parties outside your configured ListenLater backend.
+The extension does not sell data and does not share captured content with third parties outside your configured ArticlePod backend.
 
 ## Data storage
 Extension stores only minimal connection state in `chrome.storage.local`.

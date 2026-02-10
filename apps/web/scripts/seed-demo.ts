@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { KokoroTtsProvider, createSecretToken } from "@listenlater/core";
+import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@listenlater/core";
 import { hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
@@ -13,7 +13,7 @@ import { ensureAdminUser } from "../src/lib/user-bootstrap";
 const DEMO_EMAIL = env.demoEmail;
 const DEMO_PASSWORD = "demo-password";
 const DEMO_TEXT =
-  "Welcome to ListenLater. This starter episode proves the feed works before any API keys are configured.";
+  `Welcome to ${BRAND_NAME}. This starter episode proves the feed works before any API keys are configured.`;
 
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolveRun, rejectRun) => {
@@ -30,7 +30,7 @@ function run(cmd: string, args: string[]): Promise<void> {
 }
 
 async function renderStarterAudioBuffer(): Promise<Buffer> {
-  const tempDir = await mkdtemp(join(tmpdir(), "listenlater-seed-"));
+  const tempDir = await mkdtemp(join(tmpdir(), `${BRAND_SLUG}-seed-`));
   const m4aPath = join(tempDir, "starter.m4a");
   const aiffPath = join(tempDir, "starter.aiff");
 
@@ -126,7 +126,7 @@ async function main() {
   const existingStarter = await prisma.item.findFirst({
     where: {
       userId: user.id,
-      title: "Welcome to ListenLater"
+      title: `Welcome to ${BRAND_NAME}`
     },
     include: {
       episode: true
@@ -140,7 +140,7 @@ async function main() {
     const item = await prisma.item.create({
       data: {
         userId: user.id,
-        title: "Welcome to ListenLater",
+        title: `Welcome to ${BRAND_NAME}`,
         sourceType: "PDF",
         sourceFilePath: null,
         status: "READY",
@@ -157,7 +157,7 @@ async function main() {
       data: {
         itemId: item.id,
         guid: `episode-${item.id}`,
-        title: "Welcome to ListenLater",
+        title: `Welcome to ${BRAND_NAME}`,
         description: DEMO_TEXT,
         audioPath: relativePath,
         audioBytes: bytes,

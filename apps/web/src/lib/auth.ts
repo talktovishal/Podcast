@@ -9,7 +9,7 @@ const SESSION_COOKIE = "listenlater_session";
 const OAUTH_STATE_COOKIE_PREFIX = "listenlater_oauth_state";
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 10);
 const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 30);
-const OAUTH_PLACEHOLDER_DOMAIN = "oauth.listenlater.local";
+const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
 
 export type OAuthProvider = "google" | "apple";
 

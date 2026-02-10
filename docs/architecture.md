@@ -1,7 +1,7 @@
-# ListenLater Architecture
+# ArticlePod Architecture
 
 ## Overview
-ListenLater is an RSS-first ingestion and narration system with three runtime tiers:
+ArticlePod is an RSS-first ingestion and narration system with three runtime tiers:
 - `apps/web`: Next.js UI + API routes (auth, ingest, feed, media)
 - `apps/worker`: asynchronous extraction/TTS/publish pipeline
 - `services/python-tts`: self-hosted Kokoro inference service

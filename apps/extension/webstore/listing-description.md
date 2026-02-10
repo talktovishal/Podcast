@@ -1,12 +1,12 @@
-# ListenLater Capture
+# ArticlePod Capture
 
-Turn any page you are currently viewing into a private podcast episode in your ListenLater account.
+Turn any page you are currently viewing into a private podcast episode in your ArticlePod account.
 
 ## How it works
-1. Connect the extension with a one-time code from ListenLater web app.
+1. Connect the extension with a one-time code from ArticlePod web app.
 2. Click **Capture Current Page**.
 3. The extension sends the current page HTML snapshot to your account.
-4. ListenLater processes it and adds the episode to your private RSS feed.
+4. ArticlePod processes it and adds the episode to your private RSS feed.
 
 ## Why this is useful
 - Works for pages you can see in your browser session.
@@ -16,4 +16,4 @@ Turn any page you are currently viewing into a private podcast episode in your L
 ## Privacy and security
 - Extension auth uses scoped extension tokens.
 - Tokens can be rotated/revoked from the app workflow.
-- Captured pages are sent only to your configured ListenLater server URL.
+- Captured pages are sent only to your configured ArticlePod server URL.

@@ -41,7 +41,7 @@ test("media route supports HEAD and byte-range responses", async () => {
 
   const user = await prisma.user.create({
     data: {
-      email: `media-${uniq}@listenlater.local`,
+      email: `media-${uniq}@articlepod.local`,
       role: "USER"
     }
   });

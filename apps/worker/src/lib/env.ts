@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
+import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@listenlater/core";
 
 config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");
@@ -26,7 +27,7 @@ export const workerEnv = {
   databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), "../web/.data/db.sqlite")}`),
   storageBackend,
   storageRoot: process.env.STORAGE_ROOT ?? resolve(process.cwd(), "../web/.data/media"),
-  storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? "listenlater",
+  storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? BRAND_SLUG,
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageAccountUrl: process.env.AZURE_STORAGE_ACCOUNT_URL,
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
@@ -45,5 +46,5 @@ export const workerEnv = {
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
-  demoEmail: process.env.DEMO_EMAIL ?? "demo@listenlater.local"
+  demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL
 };

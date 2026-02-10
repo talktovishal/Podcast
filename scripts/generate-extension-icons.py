@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic PNG icons for the ListenLater extension.
+"""Generate deterministic PNG icons for the ArticlePod extension.
 
 Uses only Python stdlib so the script works on a fresh machine.
 """

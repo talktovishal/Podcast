@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BRAND_NAME } from "@listenlater/core/src/config/brand";
 
 type Mode = "login" | "signup";
 
@@ -87,7 +88,7 @@ export default function LoginPage() {
           <p className="inline-block rounded-full bg-[var(--accent-soft)] px-4 py-1 text-xs font-semibold text-[var(--accent)] sm:text-sm">
             RSS-First Personal Podcast Feed
           </p>
-          <h1 className="font-bold text-3xl leading-tight sm:text-5xl">ListenLater</h1>
+          <h1 className="font-bold text-3xl leading-tight sm:text-5xl">{BRAND_NAME}</h1>
           <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
             Turn URLs and PDFs into private podcast episodes, subscribe from your favorite app, and demo instantly with seeded content.
           </p>

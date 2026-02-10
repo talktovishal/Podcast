@@ -1,4 +1,4 @@
-# ListenLater
+# ArticlePod
 
 RSS-first personal podcast feed that converts URLs/PDFs/extension captures into private podcast episodes.
 
@@ -29,10 +29,10 @@ Azure profile env validation:
 ## Demo/admin accounts
 Seeded automatically by `run.sh`:
 - Demo user:
-  - email: `demo@listenlater.local`
+  - email: `demo@articlepod.local`
   - password: `demo-password`
 - Admin user:
-  - email: `admin@listenlater.local`
+  - email: `admin@articlepod.local`
   - password: `admin-demo-password`
 
 ## Extension packaging
