@@ -82,27 +82,48 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen py-5 sm:py-16">
-      <div className="container-shell grid items-start gap-6 md:grid-cols-[1.1fr_1fr] md:gap-8">
-        <section className="space-y-6">
-          <p className="inline-block rounded-full bg-[var(--accent-soft)] px-4 py-1 text-xs font-semibold text-[var(--accent)] sm:text-sm">
-            RSS-First Personal Podcast Feed
+    <main className="min-h-screen py-5 sm:py-10">
+      <div className="container-shell grid items-start gap-6 md:grid-cols-[1.15fr_1fr] md:gap-8">
+        <section className="space-y-5">
+          <p className="inline-block rounded-full border border-[#c5e8df] bg-[#e8f7f2] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
+            Private Article Podcasts
           </p>
-          <h1 className="font-bold text-3xl leading-tight sm:text-5xl">{BRAND_NAME}</h1>
+          <h1 className="max-w-xl font-bold text-3xl leading-tight sm:text-5xl">
+            {BRAND_NAME}
+            <span className="block text-[#246f62]">Read less. Listen more.</span>
+          </h1>
           <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
-            Turn URLs and PDFs into private podcast episodes, subscribe from your favorite app, and demo instantly with seeded content.
+            Save any article or PDF and turn it into a private podcast episode you can play in your favorite podcast app.
           </p>
-          <div className="card p-4 sm:p-6">
-            <h2 className="font-semibold">Demo-friendly defaults</h2>
-            <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>• Local TTS uses Kokoro-82M voices (via python-tts).</li>
-              <li>• Media endpoint supports <code>HEAD</code> and byte ranges.</li>
-              <li>• Feed token rotation invalidates old URLs.</li>
-            </ul>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="card border-[#d3e8e2] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">1. Save</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Paste a URL, upload a PDF, or capture directly from the Chrome extension.</p>
+            </article>
+            <article className="card border-[#d3e8e2] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">2. Process</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">ArticlePod extracts the useful content and generates clean narration audio.</p>
+            </article>
+            <article className="card border-[#d3e8e2] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">3. Listen</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Episodes appear in your private RSS feed and work in standard podcast players.</p>
+            </article>
+            <article className="relative overflow-hidden rounded-2xl border border-[#c3e8de] bg-[linear-gradient(140deg,#eaf7f3_0%,#ffffff_50%,#dff4ed_100%)] p-4">
+              <div className="absolute -right-7 -top-7 h-24 w-24 rounded-full bg-[#bfe8da]/50 blur-2xl" />
+              <p className="relative text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Why It Feels Fast</p>
+              <div className="relative mt-2 space-y-2 text-sm text-[var(--muted)]">
+                <p className="rounded-lg bg-white/90 px-2 py-1">Async processing pipeline</p>
+                <p className="rounded-lg bg-white/90 px-2 py-1">Podcast-compatible streaming</p>
+                <p className="rounded-lg bg-white/90 px-2 py-1">Simple playback + download</p>
+              </div>
+            </article>
           </div>
         </section>
 
-        <section className="card p-4 sm:p-6">
+        <section className="card border-[#cde5df] p-4 sm:p-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Welcome back</p>
+          <h2 className="mb-5 text-lg font-semibold sm:text-xl">Log in to your feed</h2>
           <div className="mb-5 flex gap-2">
             <button className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-[var(--ink)] text-white" : "bg-[var(--accent-soft)]"}`} onClick={() => setMode("login")}>
               Login
@@ -138,7 +159,7 @@ export default function LoginPage() {
             </button>
 
             <div className="pt-3">
-              <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted)]">OAuth</p>
+              <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted)]">Sign in with</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {googleConfigured ? (
                   <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/google/start">
