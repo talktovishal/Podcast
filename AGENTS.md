@@ -159,6 +159,16 @@ No hard-coded vendor logic scattered throughout the code.
 - Avoid scope creep.
 - After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
+- Docs Sync Gate (mandatory):
+  - If runtime behavior, API contracts, milestones, or architecture changes, update these in the same change set:
+    - `docs/Prompts.md`
+    - `docs/plans.md`
+    - impacted docs (`docs/architecture.md`, `docs/documentation.md`, `docs/implement.md`, `docs/env.md`, etc.)
+  - Do not leave docs drift for a follow-up commit.
+- Milestone Date Discipline (mandatory):
+  - Every milestone in `docs/plans.md` MUST include `target_finish`.
+  - `Done` milestones MUST include `completed_on` and evidence reference (best-effort commit/date trace).
+  - If evidence is uncertain, keep confidence notes in the reconciliation ledger.
 - If adding a dependency:
   - Explain why
   - Confirm license compatibility (avoid copyleft surprises)

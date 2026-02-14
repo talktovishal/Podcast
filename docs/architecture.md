@@ -29,6 +29,20 @@ The worker extraction adapter branches by source type:
 - PDF: uploaded bytes from artifact storage + text extraction
 - HTML snapshot: parse raw HTML directly, no server-side fetch
 
+## Extraction Artifact Plane (Current + Planned)
+Current behavior:
+- extraction pipeline focuses on producing cleaned narration text and diagnostics for worker execution.
+- source artifacts (uploads/snapshots) are stored as objects where needed for processing.
+
+Planned rollout (`M57`-`M64`):
+- introduce canonical artifact records for both raw-source and markdown derivatives.
+- persist dual artifacts in object storage during iteration phase:
+  - raw HTML/PDF artifact (time-bound retention target: 90 days)
+  - markdown artifact (durable, reusable for downstream workflows)
+- standardize metadata fields for artifact references:
+  - `kind`, `storageKey`, `contentType`, `bytes`, `expiresAt`, `createdAt`
+- transition narration input contract to markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
 2. Worker claims due jobs (`QUEUED` or retry-eligible `FAILED`).
@@ -54,6 +68,7 @@ Critical artifacts in object storage:
 - uploaded PDFs
 - generated episode audio
 - exported media copies
+- planned markdown artifacts and raw-source snapshots for extraction iteration
 
 ## Media delivery contract
 `/api/media/[...path]` is storage-backed and enforces podcast-compatible semantics:

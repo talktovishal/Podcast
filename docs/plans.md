@@ -8,10 +8,10 @@
 
 ## Spec Consistency Notes (Current)
 - `docs/Prompts.md` now includes a **"Verification Prompts"** section and status-tagged sections.
-- OAuth routes exist but still need production-hardening (identity-linking by provider subject, callback resilience, tests).
-- Chrome extension was previously listed as MVP non-goal and is now promoted to post-MVP planned milestones (M24-M28).
-- Post-M28 delivery milestones now split rollout into manageable slices (M29-M34) for quality, operations, and release readiness.
-- Durable Azure rollout direction is now locked for next wave (M35-M46): single VM compute + Azure PostgreSQL + Azure Blob, with Docker Compose parity and Bicep/azd IaC.
+- OAuth hardening (`M23`) and extension baseline (`M24`-`M27`) are complete; formal security/release sign-off (`M28`) remains in progress.
+- Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks; ongoing operations evidence continues through release gates.
+- Observability baseline (`M47`-`M50`, `M55`) is implemented; full exporter/dashboards/release gate completion (`M51`-`M56`) remains planned.
+- New markdown artifact track (`M57`-`M64`) is now scoped for dual artifact persistence and markdown-first extraction outputs.
 
 ## Requirement Coverage Snapshot
 
@@ -45,72 +45,109 @@
 | Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
 | Azure reproducible provisioning with IaC (`Bicep` + `azd`) | M43, M44 |
 | Backup/restore drill certification and evidence | M45, M46 |
+| Markdown-first extraction artifact persistence | M57, M58, M59, M60, M61, M62 |
+| Dual artifact policy (raw + markdown initially) | M57, M61 |
+| 90-day raw artifact retention lifecycle | M57, M61, M64 |
+| Markdown-derived TTS input contract | M62 |
 
 ## Milestone Status Snapshot
 
-| Milestone | Status |
-|---|---|
-| M00 | Done |
-| M01 | Done |
-| M02 | Done |
-| M03 | Done |
-| M04 | Done |
-| M05 | Done |
-| M06 | In Progress |
-| M07 | Done |
-| M08 | Done |
-| M09 | Done |
-| M10 | Done |
-| M11 | Done |
-| M12 | Done |
-| M13 | Done |
-| M14 | Done |
-| M15 | Done |
-| M16 | Done |
-| M17 | Done |
-| M18 | Done |
-| M19 | Planned |
-| M20 | In Progress |
-| M21 | In Progress |
-| M22 | Planned |
-| M23 | Done |
-| M24 | Done |
-| M25 | Done |
-| M26 | Done |
-| M27 | Done |
-| M28 | In Progress |
-| M29 | Planned |
-| M30 | Planned |
-| M31 | Planned |
-| M32 | Planned |
-| M33 | Planned |
-| M34 | Planned |
-| M35 | Done |
-| M36 | Done |
-| M37 | Done |
-| M38 | Done |
-| M39 | Done |
-| M40 | Done |
-| M41 | Done |
-| M42 | Done |
-| M43 | Done |
-| M44 | Done |
-| M45 | Done |
-| M46 | Done |
-| M47 | In Progress |
-| M48 | In Progress |
-| M49 | In Progress |
-| M50 | In Progress |
-| M51 | Planned |
-| M52 | Planned |
-| M53 | Planned |
-| M54 | Planned |
-| M55 | In Progress |
-| M56 | Planned |
+Milestone metadata contract:
+- `Status`: `Done | In Progress | Planned`
+- `Target Finish`: required for every milestone
+- `Completed On`: required for `Done` milestones
+- `Evidence`: required for `Done` milestones (best-effort commit/date reference)
+
+| Milestone | Status | Target Finish | Completed On | Evidence |
+|---|---|---|---|---|
+| M00 | Done | 2026-02-07 | 2026-02-07 | cd05000 (2026-02-07) |
+| M01 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M02 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M03 | Done | 2026-02-07 | 2026-02-07 | d6addf9 (2026-02-07) |
+| M04 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M05 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M06 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
+| M07 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M08 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M09 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M10 | Done | 2026-02-07 | 2026-02-07 | 2b7b28b (2026-02-07) |
+| M11 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M12 | Done | 2026-02-07 | 2026-02-07 | c18dcfd (2026-02-07) |
+| M13 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M14 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
+| M15 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
+| M16 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M17 | Done | 2026-02-07 | 2026-02-07 | 8923f21 (2026-02-07) |
+| M18 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
+| M19 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M20 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M21 | In Progress | 2026-02-28 |  |  |
+| M22 | Planned | 2026-03-14 |  |  |
+| M23 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
+| M24 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
+| M25 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
+| M26 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
+| M27 | Done | 2026-02-08 | 2026-02-08 | 86f1b7a (2026-02-08) |
+| M28 | In Progress | 2026-02-28 |  |  |
+| M29 | Planned | 2026-03-07 |  |  |
+| M30 | Planned | 2026-03-14 |  |  |
+| M31 | Planned | 2026-03-21 |  |  |
+| M32 | Planned | 2026-03-28 |  |  |
+| M33 | Planned | 2026-04-04 |  |  |
+| M34 | Planned | 2026-04-11 |  |  |
+| M35 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M36 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M37 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M38 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M39 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M40 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M41 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M42 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M43 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M44 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M45 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M46 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
+| M47 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
+| M48 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
+| M49 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
+| M50 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
+| M51 | Planned | 2026-04-18 |  |  |
+| M52 | Planned | 2026-04-25 |  |  |
+| M53 | Planned | 2026-05-02 |  |  |
+| M54 | Planned | 2026-05-09 |  |  |
+| M55 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
+| M56 | Planned | 2026-05-16 |  |  |
+| M57 | Planned | 2026-02-21 |  |  |
+| M58 | Planned | 2026-02-24 |  |  |
+| M59 | Planned | 2026-02-28 |  |  |
+| M60 | Planned | 2026-03-03 |  |  |
+| M61 | Planned | 2026-03-07 |  |  |
+| M62 | Planned | 2026-03-10 |  |  |
+| M63 | Planned | 2026-03-14 |  |  |
+| M64 | Planned | 2026-03-21 |  |  |
+
+### Status Reconciliation Ledger (2026-02-14)
+
+| Milestone | Previous | Corrected | Evidence | Confidence | Open Gap |
+|---|---|---|---|---|---|
+| M06 | In Progress | Done | `740f60c` + OAuth/auth tests | High | None |
+| M19 | Planned | Done | `1e69fda` + Dockerfiles + Azure docs | Medium | None |
+| M20 | In Progress | Done | CI workflow + license/check gates + verification prompts section | Medium | None |
+| M21 | In Progress | In Progress | Podcast contract script exists; external app smoke still required | High | Apple Podcasts + second app manual certification evidence pending |
+| M28 | In Progress | In Progress | Extension auth/snapshot tests present | Medium | Formal security checklist sign-off + release evidence pending |
+| M47 | In Progress | Done | `a2774bd` + log/error schema docs | High | None |
+| M48 | In Progress | Done | `a2774bd` + local JSONL log rotation config | High | None |
+| M49 | In Progress | Done | `a2774bd` + web/worker structured logger wiring | High | None |
+| M50 | In Progress | Done | `a2774bd` + python-tts correlation propagation | High | None |
+| M55 | In Progress | Done | `a2774bd` + `scripts/logs-triage.mjs` | High | None |
 
 ## Milestones
 
 ### M00 - Spec Lock and Acceptance Baseline
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: cd05000 (2026-02-07)
 - Scope:
   - Convert prompts/guardrails into an auditable checklist.
   - Define completion criteria and stop/go gate for implementation start.
@@ -123,6 +160,10 @@
   - Manual checklist review in `docs/plans.md`.
 
 ### M01 - Workspace Bootstrap and Command Contract
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Initialize pnpm workspace and root scripts.
   - Standardize script names: `dev`, `build`, `test`, `lint`, `typecheck`, `format`, `export`.
@@ -142,6 +183,10 @@
   - `pnpm test`
 
 ### M02 - Monorepo Skeleton and Interface Boundaries
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Create maintainable repo layout with strict package boundaries.
   - Define shared contracts in `packages/core`.
@@ -159,6 +204,10 @@
   - `pnpm -r test`
 
 ### M03 - Third-Party Reference Intake and Attribution
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: d6addf9 (2026-02-07)
 - Scope:
   - Add read-only upstream references (`abogen`, `postcast`) under `vendor/`.
   - Track copied ideas/code snippets with attribution.
@@ -174,6 +223,10 @@
   - `test -f docs/THIRD_PARTY.md`
 
 ### M04 - Environment and Runtime Profiles (Local + Azure-Ready)
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Define local defaults and cloud-compatible env contract.
   - Ensure no hardcoded local-only assumptions outside dev profile.
@@ -189,6 +242,10 @@
   - `pnpm run check:env`
 
 ### M05 - Database Schema and Migration Baseline
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Implement Prisma schema for users, auth, items, episodes, jobs, events, tokens.
   - Set SQLite local DB location to `apps/web/.data/db.sqlite`.
@@ -204,6 +261,10 @@
   - `pnpm --filter @listenlater/web test -- db`
 
 ### M06 - Authentication Surfaces (User + OAuth + Admin)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 740f60c (2026-02-08)
 - Scope:
   - Session auth for web users.
   - Google and Apple OAuth integration (env-gated).
@@ -220,6 +281,10 @@
   - `pnpm --filter @listenlater/web test -- auth`
 
 ### M07 - Feed Token, Media Token, and Read-Only Demo Access
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Implement private feed token issuance and rotation.
   - Implement media access control via tokenized URLs or signed URLs.
@@ -237,6 +302,10 @@
   - manual: old feed URL returns unauthorized/not found after rotation
 
 ### M08 - Ingestion APIs and Abuse Prevention
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Add URL submission and PDF upload endpoints.
   - Add Zod validation, file size/type checks, and per-user/per-IP rate limiting.
@@ -255,6 +324,10 @@
   - `pnpm test -- security`
 
 ### M09 - Job Engine, Async Pipeline, and Deterministic Event Log
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Implement worker loop: claim, process, retry, dead-letter/fail handling.
   - Enforce async-only conversion path; web only enqueues and displays state.
@@ -274,6 +347,10 @@
   - `pnpm --filter @listenlater/worker test -- idempotency`
 
 ### M10 - Content Extraction Adapters (HTML + PDF, OCR Unsupported)
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: 2b7b28b (2026-02-07)
 - Scope:
   - Implement Readability-based HTML extraction.
   - Implement text-based PDF extraction via pdfjs.
@@ -291,6 +368,10 @@
   - `pnpm test -- extraction-pdf`
 
 ### M11 - Normalization, Chunking, and Hash-Cache Determinism
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Normalize extracted text and split by sentence/paragraph constraints.
   - Persist chunk hashes for TTS cache reuse.
@@ -305,6 +386,10 @@
   - `pnpm test -- determinism`
 
 ### M12 - TTS Provider Layer (Kokoro-First + Optional Providers)
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: c18dcfd (2026-02-07)
 - Scope:
   - Define `TtsProvider.synthesizeToFile({ text, voice, format, outPath })`.
   - Implement Kokoro-backed local narration path through python-tts service.
@@ -325,6 +410,10 @@
   - `npm run test:tts:e2e`
 
 ### M13 - Storage Adapter and Artifact Lifecycle
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Implement local storage adapter for media outputs.
   - Define deterministic storage key format for audio/chunks/manifests.
@@ -342,6 +431,10 @@
   - `pnpm test -- deletion`
 
 ### M14 - Media Delivery Contract (`HEAD` + `Range`)
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: 9244702 (2026-02-07)
 - Scope:
   - Implement media endpoint with strict HTTP semantics for podcast clients.
   - Preserve range behavior if proxying through backend.
@@ -358,6 +451,10 @@
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M15 - Deterministic RSS Renderer and Private Feed Endpoint
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: 9244702 (2026-02-07)
 - Scope:
   - Build RSS 2.0 feed with iTunes namespace and deterministic ordering.
   - Ensure stable GUID and unique enclosure URL per episode item.
@@ -373,6 +470,10 @@
   - `pnpm test -- rss-snapshots`
 
 ### M16 - Web App UX and Admin Observability Module
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Implement `/login` and `/app` dashboard UX.
   - Implement URL/PDF forms, item status list, retry/delete actions.
@@ -393,6 +494,10 @@
   - `pnpm --filter @listenlater/web test -- admin`
 
 ### M17 - Demo Starter Content and Read-Only Demo Experience
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: 8923f21 (2026-02-07)
 - Scope:
   - Add sample PDF fixture, pre-generated audio, and seeded episode/feed entry.
   - Show demo banner when running with seeded data.
@@ -409,6 +514,10 @@
   - `pnpm test -- demo-seed`
 
 ### M18 - Export Pipeline and Deterministic Manifest
+- status: Done
+- target_finish: 2026-02-07
+- completed_on: 2026-02-07
+- evidence: be72a8d (2026-02-07)
 - Scope:
   - Implement `pnpm export` to write RSS, media files, and manifest JSON.
   - Ensure manifest ordering and fields are deterministic.
@@ -425,6 +534,10 @@
   - `pnpm test -- export`
 
 ### M19 - Azure Readiness and Deployment Documentation
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Containerize web and worker.
   - Document Azure resource map, env vars, and deployment steps.
@@ -442,6 +555,10 @@
   - `docker build -f Dockerfile.worker .`
 
 ### M20 - Automated Quality Gates and Spec-Drift Controls
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Add CI workflow for lint, typecheck, tests, build, snapshots.
   - Add dependency license gate to block AGPL/SSPL/NC.
@@ -463,6 +580,8 @@
   - `mypy services/python-tts` (if configured)
 
 ### M21 - Release Certification and Podcast Compatibility Gate
+- status: In Progress
+- target_finish: 2026-02-28
 - Scope:
   - Run final release checklist including podcast client compatibility checks.
   - Validate with manual app subscription tests on reachable host.
@@ -480,6 +599,8 @@
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M22 - Optional Phase 1.5: Multi-Part Episode Splitting for Long Inputs
+- status: Planned
+- target_finish: 2026-03-14
 - Scope:
   - Add deterministic segmentation for very long items into multiple podcast episodes/parts.
   - Preserve stable GUID scheme and ordering for part sequences.
@@ -494,6 +615,10 @@
   - `pnpm test -- rss`
 
 ### M23 - OAuth Hardening Completion (Google + Apple)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 740f60c (2026-02-08)
 - Scope:
   - Add provider config detection and explicit login UX gating.
   - Harden callback/state handling and user-safe error mapping.
@@ -516,6 +641,10 @@
   - auth integration tests with mocked provider flows
 
 ### M24 - Extension Auth Model (Login In Extension)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 740f60c (2026-02-08)
 - Scope:
   - Implement one-time connect-code mint endpoint (session-authenticated from web app).
   - Implement code exchange endpoint for extension-scoped token.
@@ -534,6 +663,10 @@
   - unauthorized/expired/replayed token tests
 
 ### M25 - HTML Snapshot Ingestion API
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 740f60c (2026-02-08)
 - Scope:
   - Add new source type `HTML_SNAPSHOT`.
   - Implement `POST /api/items/html-snapshot`.
@@ -555,6 +688,10 @@
   - regression tests for URL/PDF endpoints
 
 ### M26 - Worker Extraction Path for Snapshot Mode
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 740f60c (2026-02-08)
 - Scope:
   - Extend extraction adapter to support URL, PDF, and HTML snapshot source modes.
   - Reuse cleanup pipeline for deterministic output quality.
@@ -573,6 +710,10 @@
   - worker pipeline tests
 
 ### M27 - Chrome Extension (MV3) UX + Capture Flow
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 86f1b7a (2026-02-08)
 - Scope:
   - Build extension popup UX with connect status and submit action.
   - Capture `document.documentElement.outerHTML`, page URL, and title from active tab.
@@ -591,6 +732,8 @@
   - API contract tests for extension requests
 
 ### M28 - Security/Compliance + Demo Readiness for Extension
+- status: In Progress
+- target_finish: 2026-02-28
 - Scope:
   - Enforce user-visible-content-only policy for extension ingestion.
   - Minimize extension permissions and review abuse scenarios.
@@ -609,6 +752,8 @@
   - demo walkthrough including extension capture
 
 ### M29 - OAuth + Extension End-to-End Regression Matrix (CI)
+- status: Planned
+- target_finish: 2026-03-07
 - Scope:
   - Add dedicated integration test suites for OAuth callback flows and extension auth/token exchange flows.
   - Add HTML snapshot ingest integration tests to CI, including failure-path coverage.
@@ -630,6 +775,8 @@
   - `npm run build`
 
 ### M30 - Extension Onboarding + Recovery UX
+- status: Planned
+- target_finish: 2026-03-14
 - Scope:
   - Add in-app extension onboarding panel with connect status and reconnect guidance.
   - Improve extension popup states for disconnected/connected/submitting/failed.
@@ -649,6 +796,8 @@
   - manual onboarding smoke walkthrough
 
 ### M31 - Extraction Quality Guardrails for Noisy HTML
+- status: Planned
+- target_finish: 2026-03-21
 - Scope:
   - Build a fixture suite for noisy/authenticated-page HTML samples.
   - Add extraction quality assertions (boilerplate reduction, minimum useful text, heading/body coherence).
@@ -668,6 +817,8 @@
   - `npm run test -- worker`
 
 ### M32 - Operational Observability Baseline
+- status: Planned
+- target_finish: 2026-03-28
 - Scope:
   - Add service-level metrics for queue depth, job latency, retry rate, and failure codes.
   - Surface key health metrics and recent pipeline failures in admin dashboard.
@@ -687,6 +838,8 @@
   - manual admin observability walkthrough
 
 ### M33 - Release Certification Matrix (Apple + Secondary App)
+- status: Planned
+- target_finish: 2026-04-04
 - Scope:
   - Formalize release candidate checklist with automated + manual podcast compatibility checks.
   - Add reproducible Apple Podcasts + second-app subscription test protocol for reachable environments.
@@ -706,6 +859,8 @@
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M34 - Security + Data Lifecycle Hardening
+- status: Planned
+- target_finish: 2026-04-11
 - Scope:
   - Harden retention controls for demo-only extraction diagnostics and extension auth artifacts.
   - Add token rotation/revocation UX for extension access.
@@ -725,6 +880,10 @@
   - `npm run test -- extension-auth`
 
 ### M35 - Durable Azure Target Lock + Parity Contract
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Lock next-phase runtime target: single VM compute (`web`, `worker`, `python-tts`) + Azure PostgreSQL + Azure Blob.
   - Lock local parity strategy: Docker Compose profile that mirrors Azure dependencies.
@@ -742,6 +901,10 @@
   - `pnpm run check:env`
 
 ### M36 - Local Parity Compose Stack
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Create parity stack with `web`, `worker`, `python-tts`, `postgres`, and `azurite`.
   - Add parity startup and teardown scripts for repeatable local runs.
@@ -762,6 +925,10 @@
   - `docker compose -f docker-compose.parity.yml down`
 
 ### M37 - Env Contract Hardening (Simple vs Parity vs Azure)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Add strict, profile-aware env validation to prevent config drift.
   - Provide profile templates: `.env.simple.example`, `.env.parity.example`, `.env.azure.example`.
@@ -782,6 +949,10 @@
   - `node scripts/check-env.mjs --profile azure`
 
 ### M38 - PostgreSQL Migration Foundation
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Replace SQLite as durable system-of-record for parity/Azure tracks.
   - Introduce migration/import path for existing local SQLite datasets.
@@ -801,6 +972,10 @@
   - `pnpm --filter @listenlater/web test -- auth`
 
 ### M39 - Blob Storage Adapter (Uploads + Audio + Diagnostics Artifacts)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Implement Azure Blob storage adapter and wire it into upload/output paths.
   - Migrate artifact references from local filesystem assumptions to object keys.
@@ -820,6 +995,10 @@
   - `pnpm test -- worker`
 
 ### M40 - Media Proxy Contract with Blob Backend
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Preserve strict podcast streaming semantics while serving from Blob-backed artifacts.
   - Ensure `HEAD` and byte-range (`206`) behavior remains correct under proxy path.
@@ -838,6 +1017,10 @@
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M41 - Worker Artifact Flow Refactor (Blob-Native)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Refactor worker artifact handling to read/write durable storage keys instead of local paths.
   - Ensure URL, PDF, and HTML snapshot pipelines remain behaviorally equivalent.
@@ -856,6 +1039,10 @@
   - `pnpm test -- extension-auth`
 
 ### M42 - PostgreSQL Queue Resilience Hardening
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Harden DB queue with stale lock reclaim and retry scheduler loop (`nextRetryAt` semantics).
   - Add retry jitter and explicit idempotency guards for crash/restart scenarios.
@@ -874,6 +1061,10 @@
   - `pnpm --filter @listenlater/worker test -- crash-recovery`
 
 ### M43 - Azure IaC Baseline (`Bicep` + `azd`)
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Add reproducible infrastructure definitions for VM compute, PostgreSQL, Blob, networking, and secret wiring.
   - Add `azd` workflow for environment bootstrapping and configuration sync.
@@ -892,6 +1083,10 @@
   - scripted `az deployment group what-if`
 
 ### M44 - VM Runtime Deployment Automation
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Automate VM runtime provisioning for Node, Python, app services, and Kokoro model bootstrap.
   - Configure `systemd` units for `web`, `worker`, and `python-tts`.
@@ -911,6 +1106,10 @@
   - health endpoint checks post-reboot
 
 ### M45 - Durability Drill and Restore Certification
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Run controlled disaster drill: terminate VM compute, reprovision, reconnect to existing PostgreSQL/Blob, verify data integrity.
   - Capture evidence for user records, feed history, and playable media continuity.
@@ -929,6 +1128,10 @@
   - post-restore podcast contract checks
 
 ### M46 - Parity CI Matrix + Release Gate
+- status: Done
+- target_finish: 2026-02-08
+- completed_on: 2026-02-08
+- evidence: 1e69fda (2026-02-08)
 - Scope:
   - Add CI matrix for `simple` and `parity` profiles.
   - Add pre-deploy gate requiring parity pass, podcast contract pass, and smoke pass evidence.
@@ -1086,6 +1289,9 @@
 | Log volume growth increases cost/noise and hides real incidents | Medium | Medium | high ingestion with low signal quality | severity gates, log rotation, digest aggregation, 14-day retention | M48, M55 |
 | Secrets accidentally leak via logs during failures | Low | High | tokens/cookies visible in log bundles | centralized redaction and redaction tests before release gate | M49, M56 |
 | Azure alert fatigue from poor thresholds | Medium | Medium | repeated non-actionable alert fires | phase-in dashboards with tuned thresholds and runbook-linked alerts | M54 |
+| Markdown conversion quality drift (lost headings/lists) | Medium | Medium | markdown fixtures diverge from expected structure | fixture corpus + deterministic markdown snapshot tests | M59, M60, M64 |
+| Dual raw+markdown storage increases cost and retention risk | Medium | Medium | storage growth exceeds projection or stale raw artifacts persist | lifecycle metadata + scheduled purge + retention audits | M57, M61, M64 |
+| Markdown artifact exposure leaks sensitive extracted data | Low | High | unauthorized retrieval of extraction artifacts | strict auth checks + scoped diagnostics access + audit logging | M63, M64 |
 | Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
 
 ## 3-Minute Demo Script (Time-Boxed)
@@ -1204,6 +1410,10 @@
 ## Observability Track (M47-M56)
 
 ### M47 - Observability Contract and Error Taxonomy Lock
+- status: Done
+- target_finish: 2026-02-09
+- completed_on: 2026-02-09
+- evidence: a2774bd (2026-02-09)
 - Scope:
   - shared log schema (`ts`, `level`, `service`, `env`, `msg`, correlation keys, `error_code`, `support_id`)
   - consistent API error contract (`error_code`, `error_message`, `retry_recommended`, `support_id`)
@@ -1215,6 +1425,10 @@
   - schema is documented and runtime code emits/returns `support_id` on failures.
 
 ### M48 - Dedicated Local Log Storage + Rotation
+- status: Done
+- target_finish: 2026-02-09
+- completed_on: 2026-02-09
+- evidence: a2774bd (2026-02-09)
 - Scope:
   - dedicated root: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/`
   - per-service JSONL sinks with retention controls.
@@ -1226,6 +1440,10 @@
   - logs exist under predictable service paths and can be bundled with one command.
 
 ### M49 - Node Structured Logging Baseline (Web + Worker)
+- status: Done
+- target_finish: 2026-02-09
+- completed_on: 2026-02-09
+- evidence: a2774bd (2026-02-09)
 - Scope:
   - shared logger wiring for web + worker.
   - worker lifecycle logging and API error logging with support IDs.
@@ -1238,6 +1456,10 @@
   - correlated worker events + API failure logs exist in JSONL.
 
 ### M50 - Python TTS Structured Logging + Correlation
+- status: Done
+- target_finish: 2026-02-09
+- completed_on: 2026-02-09
+- evidence: a2774bd (2026-02-09)
 - Scope:
   - JSONL logging in python-tts service.
   - propagate/request correlation headers.
@@ -1248,6 +1470,8 @@
   - one failure can be traced across worker and python-tts logs via shared IDs.
 
 ### M51 - OpenTelemetry Instrumentation End-to-End
+- status: Planned
+- target_finish: 2026-04-18
 - Scope:
   - add OTel tracing in web/worker/python.
   - propagate W3C trace context.
@@ -1255,12 +1479,16 @@
   - planned; correlation header plumbing is already in place from M50.
 
 ### M52 - Metrics Layer (Service + Business KPIs)
+- status: Planned
+- target_finish: 2026-04-25
 - Scope:
   - emit request/job/TTS/storage KPIs for local + Azure.
 - Status notes:
   - planned; metric names and dashboards to be finalized with M53-M54.
 
 ### M53 - Azure Monitor + Log Analytics Wiring
+- status: Planned
+- target_finish: 2026-05-02
 - Scope:
   - wire OTel exporter config to Azure Monitor.
   - add query pack for top errors/latency/failure clusters.
@@ -1268,12 +1496,18 @@
   - planned; starter query snippets documented in `docs/operations.md`.
 
 ### M54 - Dashboards + Alerts
+- status: Planned
+- target_finish: 2026-05-09
 - Scope:
   - API, worker, TTS, and media contract dashboards + alert rules.
 - Status notes:
   - planned.
 
 ### M55 - Error Triage Loop Automation
+- status: Done
+- target_finish: 2026-02-09
+- completed_on: 2026-02-09
+- evidence: a2774bd (2026-02-09)
 - Scope:
   - recurring digest from log signatures.
 - Key files/modules:
@@ -1283,6 +1517,8 @@
   - ranked digest generated from latest JSONL logs.
 
 ### M56 - Observability Validation and Release Gate
+- status: Planned
+- target_finish: 2026-05-16
 - Scope:
   - verify redaction/correlation/logging via automated checks.
 - Key files/modules:
@@ -1290,3 +1526,124 @@
   - test suites in `packages/core/tests` and `apps/web/tests`
 - Acceptance:
   - observability verification command passes in CI/local.
+
+
+## Markdown Artifact Track (M57-M64)
+
+### M57 - Markdown Artifact Contract Lock
+- status: Planned
+- target_finish: 2026-02-21
+- Scope:
+  - Define canonical extraction artifact contract for URL, PDF, and HTML snapshot sources.
+  - Lock dual-save policy for initial phase: raw source artifact + markdown artifact.
+  - Lock retention policy: raw artifacts expire after 90 days, markdown retained.
+- Key files/modules:
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+- Acceptance criteria:
+  - Artifact contract and retention policy are explicit and consistent across spec docs.
+- Verification commands:
+  - manual cross-doc consistency review
+
+### M58 - Artifact Metadata Model + Storage References
+- status: Planned
+- target_finish: 2026-02-24
+- Scope:
+  - Add planned metadata model for extraction artifacts (kind, storage key, content type, bytes, expiry).
+  - Document migration away from large inline raw content blobs in DB rows.
+- Key files/modules:
+  - `docs/plans.md`
+  - `docs/architecture.md`
+- Acceptance criteria:
+  - Planned interface/type additions are documented and tied to milestones.
+- Verification commands:
+  - manual model walkthrough against current schema
+
+### M59 - HTML to Markdown Pipeline (Readability + Turndown + Abogen)
+- status: Planned
+- target_finish: 2026-02-28
+- Scope:
+  - Keep Readability + abogen cleanup as the primary content-quality path.
+  - Add markdown conversion stage for extracted article content.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/src/extract/abogen/*`
+- Acceptance criteria:
+  - HTML extraction emits markdown artifact with headings/lists preserved.
+- Verification commands:
+  - `npm run test -- extraction`
+
+### M60 - PDF to Markdown Pipeline (MarkItDown + pdfjs Fallback)
+- status: Planned
+- target_finish: 2026-03-03
+- Scope:
+  - Use MarkItDown as primary conversion path for structured PDF markdown.
+  - Keep current pdfjs-based extraction as deterministic fallback path.
+- Key files/modules:
+  - `packages/core/src/extract/pdf.ts`
+  - `services/python-tts/` (runtime dependency notes if needed)
+- Acceptance criteria:
+  - PDF extraction emits markdown output with fallback coverage and OCR-not-supported behavior preserved.
+- Verification commands:
+  - `npm run test -- extraction-pdf`
+
+### M61 - Dual Artifact Persistence + Retention Enforcement
+- status: Planned
+- target_finish: 2026-03-07
+- Scope:
+  - Persist both raw and markdown artifacts in object storage for initial iteration period.
+  - Enforce 90-day raw retention purge policy while retaining markdown.
+- Key files/modules:
+  - `packages/core/src/storage/*`
+  - `apps/worker/src/jobs/processItemJob.ts`
+- Acceptance criteria:
+  - Raw + markdown artifacts are persisted with lifecycle metadata and purge policy coverage.
+- Verification commands:
+  - `npm run test -- storage`
+
+### M62 - Markdown-Derived Narration Contract
+- status: Planned
+- target_finish: 2026-03-10
+- Scope:
+  - Define canonical TTS input as normalized narration text derived from markdown artifacts.
+  - Keep chunk/hash determinism and long-form handling unchanged from current expectations.
+- Key files/modules:
+  - `packages/core/src/chunking/*`
+  - `apps/worker/src/jobs/processItemJob.ts`
+- Acceptance criteria:
+  - Markdown-driven narration produces stable chunk hashes and non-regressed audio flow.
+- Verification commands:
+  - `npm run test -- chunking`
+  - `npm run test -- worker`
+
+### M63 - Markdown Diagnostics Access Surface
+- status: Planned
+- target_finish: 2026-03-14
+- Scope:
+  - Add controlled access to extracted markdown and extraction diagnostics for review workflows.
+  - Keep access gated and token-safe.
+- Key files/modules:
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/lib/dashboard.ts`
+- Acceptance criteria:
+  - Markdown diagnostics are inspectable in authorized flows without exposing secrets.
+- Verification commands:
+  - `npm run test -- admin`
+  - `npm run test -- auth`
+
+### M64 - Migration Backfill + Regression Certification
+- status: Planned
+- target_finish: 2026-03-21
+- Scope:
+  - Backfill existing items to markdown artifacts where possible.
+  - Validate no regressions for URL/PDF/HTML snapshot pipelines and podcast contracts.
+- Key files/modules:
+  - `scripts/*`
+  - `apps/worker/src/jobs/*`
+  - `scripts/verify_podcast_contract.sh`
+- Acceptance criteria:
+  - Backfill runbook exists; pipeline regressions are covered by tests and contract gates.
+- Verification commands:
+  - `npm run test`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`

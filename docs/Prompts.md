@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-02-09)
+## Spec Status (as of 2026-02-14)
 
-### Implemented (as of 2026-02-09)
+### Implemented (as of 2026-02-14)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -23,23 +23,29 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - object storage abstraction (`local`, `azure_blob`) wired into uploads/audio/media
   - SQLite export/import migration scripts for PostgreSQL transition
   - Bicep + azd infra baseline and VM deployment automation scripts.
+- Observability baseline milestones are implemented:
+  - shared error/log schema and support IDs
+  - local structured JSONL logs with rotation
+  - worker/python-tts correlation propagation
+  - log triage and diagnostics collection scripts.
+- Docs governance baseline is implemented:
+  - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
+  - status reconciliation ledger captures corrections with confidence notes.
 
 ### Next Milestones
-- Extension and auth hardening follow-ups:
-  - security/compliance hardening for authenticated page capture
-  - onboarding/reconnect UX polish
-  - CI regression matrix coverage for OAuth + extension flows.
-- Post-extension delivery wave (`M29`-`M34`):
-  - CI-gated OAuth + extension end-to-end regression matrix
-  - extension onboarding/recovery UX polish
-  - extraction quality guardrails for noisy/authenticated HTML
-  - operational observability + release certification checklist
-  - security/data lifecycle hardening for extension and demo diagnostics.
-- Durable Azure rollout wave (`M35`-`M46`):
-  - single-VM compute with self-hosted Kokoro runtime
-  - Azure PostgreSQL + Azure Blob durability
-  - Docker Compose parity profile for local/Azure dependency parity
-  - Bicep + azd reproducible provisioning and durability drill runbooks.
+- Remaining in-progress milestones:
+  - `M21`: external podcast client certification evidence (Apple Podcasts + second app)
+  - `M28`: extension security/compliance sign-off checklist and release evidence.
+- Remaining observability wave (`M51`-`M56`):
+  - full OpenTelemetry instrumentation/export
+  - Azure Monitor/Log Analytics wiring
+  - dashboards + alerts
+  - observability release gate automation.
+- Markdown artifact wave (`M57`-`M64`):
+  - dual artifact storage in object storage (raw + markdown, initial phase)
+  - markdown-first extraction outputs for HTML and PDF pipelines
+  - markdown-derived narration input contract
+  - raw artifact retention lifecycle (target: 90 days), markdown retained for reuse.
 
 ### Future / Optional
 - Long-form split episodes (Phase 1.5).
@@ -138,9 +144,9 @@ B) Ingest content
 
 C) Convert to audio (worker)
 - Worker extracts readable text:
-  - URL: Readability extraction
-  - PDF: pdfjs text extraction
-  - Copy leverage as much code as possible from https://github.com/denizsafak/abogen Keeping clear track of it. Maintain a documentation.
+  - URL: Readability extraction with abogen-derived cleanup.
+  - PDF: deterministic text extraction (current pdfjs path; markdown-first upgrade planned in M60).
+  - Reuse as much as possible from reputable upstream repos (abogen first) and keep attribution in docs.
 - Worker generates audio with a pluggable TTS provider:
   - default local provider: Kokoro via python-tts → AAC (`.m4a`) (see below)
   - optional local fallback: macOS `say`
@@ -189,20 +195,28 @@ H) Quality and engineering
   - media serving range requests (local mode)
 - License gate in CI: block AGPL / SSPL / NC.
 
+I) Extraction artifacts (near-term track)
+- Current: extraction outputs are optimized for pipeline narration and diagnostics.
+- Planned (`M57`-`M64`):
+  - persist raw source artifacts and markdown artifacts in object storage (initial dual-save phase)
+  - keep markdown as durable reusable artifact for downstream workflows
+  - apply retention lifecycle to raw artifacts (target 90 days).
+
 ### Explicit non-goals (MVP)
 - Native mobile app
 - Word-by-word highlighting in third-party podcast apps
 - Voice cloning
 
 ### Next Milestones (Post-MVP Phase 2)
-- OAuth hardening completion (Google + Apple):
-  - provider config detection and UX gating
-  - callback robustness, state handling, and error mapping
-  - provider subject identity strategy to avoid unsafe email-only account linking.
-- Chrome extension (MV3) for authenticated page capture:
-  - extension login/connect flow
-  - raw HTML snapshot submission endpoint
-  - worker extraction mode for HTML snapshots without backend refetch.
+- Complete remaining in-progress hardening:
+  - podcast app certification evidence (`M21`)
+  - extension security/compliance release sign-off (`M28`).
+- Complete observability rollout (`M51`-`M56`):
+  - OTel traces/metrics, Azure Monitor integration, alerts, release gates.
+- Markdown artifact rollout (`M57`-`M64`):
+  - HTML/PDF markdown output preservation with heading structure
+  - dual raw + markdown storage in object store
+  - markdown diagnostics surface and migration backfill.
 
 Policy for authenticated/paywalled pages:
 - Extension capture is allowed only for content already rendered to the logged-in user in the browser.

@@ -58,6 +58,17 @@ Current implementation:
 Planned next steps:
 - M51-M54 for full OTel export, Azure Monitor wiring, and dashboards/alerts.
 
+## Markdown Artifacts (Current vs Planned)
+Current:
+- extraction pipeline is optimized for narration readiness and diagnostics.
+- source submissions are processed through URL/PDF/HTML snapshot adapters and then chunked for TTS.
+
+Planned (`M57`-`M64`):
+- persist both raw source artifacts and markdown artifacts in object storage (initial dual-save phase).
+- retain markdown artifacts for future product workflows (summaries, reuse, export).
+- enforce retention lifecycle for raw artifacts (target 90 days).
+- provide controlled diagnostics access to markdown outputs for review/admin flows.
+
 ## OAuth setup
 Google + Apple setup guide:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`

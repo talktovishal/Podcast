@@ -20,6 +20,29 @@ Whenever runtime code changes land:
 2. Update milestone statuses in `/Users/vishalchowdhary/Documents/Podcast/docs/plans.md`.
 3. Add a concise summary + exact user prompt(s) in `/Users/vishalchowdhary/Documents/Podcast/docs/chat_log.md`.
 
+## Status maintenance workflow (mandatory)
+Use this for every milestone-sized change:
+1. Set milestone `status` in `docs/plans.md`:
+  - `Planned` -> not implemented yet.
+  - `In Progress` -> implementation started but acceptance not fully met.
+  - `Done` -> acceptance met and verification evidence captured.
+2. Maintain date/evidence metadata:
+  - Every milestone: `target_finish`.
+  - `Done` milestones: `completed_on` + evidence reference (commit/date best effort).
+3. Update reconciliation ledger for any corrected historical status:
+  - include previous state, corrected state, evidence, confidence, and open gaps.
+4. Keep cross-doc status in lock-step:
+  - update implemented/next/future sections in `docs/Prompts.md`.
+  - update architecture/ops/docs language if runtime behavior changed.
+
+## No-drift enforcement order
+Apply updates in this strict order to avoid drift:
+1. `docs/Prompts.md`
+2. `docs/plans.md`
+3. `docs/architecture.md`
+4. `docs/documentation.md`
+5. `docs/implement.md` / `docs/env.md` / other supporting docs
+
 ## Verification workflow
 Run these before each push:
 1. `npm run typecheck`
