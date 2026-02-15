@@ -143,8 +143,10 @@ If parity/azure runtime paths changed, also run:
   - `sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh`
 - Promote staged code to runtime path:
   - `sudo STAGING_DIR=/home/azureuser/listenlater /home/azureuser/listenlater/scripts/azure/promote-runtime.sh`
+  - preserves `services/python-tts/.venv` across syncs
 - Deploy runtime + services on VM:
   - `sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh`
+  - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
 - Configure ingress + TLS on VM:
   - `sudo PUBLIC_HOST=<vm-fqdn> /opt/listenlater/scripts/azure/configure-nginx.sh`
   - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/listenlater/scripts/azure/configure-tls.sh`

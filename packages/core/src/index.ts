@@ -11,6 +11,8 @@ export * from "./tts/openai";
 export * from "./tts/pythonService";
 export * from "./tts/kokoro";
 export * from "./tts/melo";
+export * from "./extract/html";
+export * from "./extract/pdf";
 export * from "./storage/localStorage";
 export * from "./storage/types";
 export * from "./storage/localObjectStorage";

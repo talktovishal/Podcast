@@ -103,6 +103,10 @@ sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh
 sudo systemctl status --no-pager listenlater-python-tts listenlater-web listenlater-worker
 ```
 
+Notes:
+- `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
+- `promote-runtime.sh` preserves `services/python-tts/.venv` so model assets are not dropped on every code sync.
+
 ## Configure ingress and TLS
 On VM:
 ```bash

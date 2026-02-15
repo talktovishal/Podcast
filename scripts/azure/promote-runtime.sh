@@ -22,7 +22,9 @@ if ! id -u "$APP_USER" >/dev/null 2>&1; then
 fi
 
 mkdir -p "$APP_DIR"
-rsync -az --delete "$STAGING_DIR"/ "$APP_DIR"/
+rsync -az --delete \
+  --exclude 'services/python-tts/.venv' \
+  "$STAGING_DIR"/ "$APP_DIR"/
 chown -R "$APP_USER":"$APP_GROUP" "$APP_DIR"
 
 echo "[promote-runtime] promoted ${STAGING_DIR} -> ${APP_DIR}"

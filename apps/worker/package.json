@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npm run prisma:generate && tsx watch src/index.ts",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
-    "start": "npm run prisma:generate && node dist/src/index.js",
+    "start": "npm run prisma:generate && tsx src/index.ts",
     "lint": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
     "typecheck": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
     "test": "DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npx pnpm --filter @listenlater/web run db:bootstrap && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite LISTENLATER_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
