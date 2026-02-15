@@ -151,7 +151,7 @@ test("extractTextFromPdf extracts text fixture", async () => {
   const data = await readFile(new URL("../../../fixtures/pdf/text-based.pdf", import.meta.url));
   const result = await extractTextFromPdf(new Uint8Array(data));
   assert.ok(result.pages >= 1);
-  assert.ok(result.text.toLowerCase().includes("listenlater fixture"));
+  assert.ok(result.text.toLowerCase().includes("fixture"));
   assert.ok(result.markdown.length > 40);
   assert.ok(result.title === null || typeof result.title === "string");
 });

@@ -6,9 +6,14 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-APP_USER="${APP_USER:-listenlater}"
-APP_GROUP="${APP_GROUP:-listenlater}"
-APP_HOME="/opt/listenlater"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
+APP_USER="${APP_USER:-$RUNTIME_APP_USER}"
+APP_GROUP="${APP_GROUP:-$RUNTIME_APP_GROUP}"
+APP_HOME="${APP_HOME:-$RUNTIME_APP_DIR}"
+ETC_DIR="${ETC_DIR:-$RUNTIME_ETC_DIR}"
 
 apt-get update
 apt-get install -y --no-install-recommends \
@@ -32,8 +37,8 @@ if ! id -u "$APP_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash -g "$APP_GROUP" "$APP_USER"
 fi
 
-mkdir -p "$APP_HOME" /etc/listenlater
-chown -R "$APP_USER":"$APP_GROUP" "$APP_HOME" /etc/listenlater
+mkdir -p "$APP_HOME" "$ETC_DIR"
+chown -R "$APP_USER":"$APP_GROUP" "$APP_HOME" "$ETC_DIR"
 
 if ! command -v node >/dev/null 2>&1; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash -

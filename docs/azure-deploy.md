@@ -66,11 +66,11 @@ This exports:
 Sync local repo to VM user-writable path:
 ```bash
 TARGET_HOST="$VM_IP" \
-TARGET_PATH="/home/azureuser/listenlater" \
+TARGET_PATH="/home/azureuser/articlepod" \
 TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
-`push-to-vm.sh` excludes app-local `.env` files so VM runtime config only comes from `/etc/listenlater/listenlater.env`.
+`push-to-vm.sh` excludes app-local `.env` files so VM runtime config only comes from `/etc/articlepod/articlepod.env`.
 
 ## VM bootstrap + promotion to runtime path
 SSH into VM:
@@ -80,13 +80,20 @@ ssh -i "$HOME/.ssh/articlepod_azure" azureuser@"$VM_IP"
 
 On VM:
 ```bash
-sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh
-sudo STAGING_DIR="/home/azureuser/listenlater" \
-  /home/azureuser/listenlater/scripts/azure/promote-runtime.sh
+sudo /home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh
+sudo STAGING_DIR="/home/azureuser/articlepod" \
+  /home/azureuser/articlepod/scripts/azure/promote-runtime.sh
 ```
 
+## One-time runtime naming migration (existing VMs only)
+If the VM was previously deployed with legacy runtime names, run this once:
+```bash
+sudo /home/azureuser/articlepod/scripts/azure/migrate-runtime-naming.sh
+```
+This migrates runtime identity to canonical `articlepod` names while preserving legacy aliases for compatibility.
+
 ## Render runtime env
-On VM, render `/etc/listenlater/listenlater.env`:
+On VM, render `/etc/articlepod/articlepod.env`:
 ```bash
 sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/articlepod?sslmode=require" \
   APP_URL="https://${VM_FQDN}" \
@@ -94,18 +101,18 @@ sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.
   AZURE_STORAGE_CONTAINER="articlepod" \
   AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
-  /opt/listenlater/scripts/azure/render-env.sh
+  /opt/articlepod/scripts/azure/render-env.sh
 ```
 Defaults now include VM-safe runtime paths:
-- `STORAGE_ROOT=/var/lib/listenlater/storage`
-- `MEDIA_ROOT=/var/lib/listenlater/media`
-- `UPLOAD_ROOT=/var/lib/listenlater/uploads`
+- `STORAGE_ROOT=/var/lib/articlepod/storage`
+- `MEDIA_ROOT=/var/lib/articlepod/media`
+- `UPLOAD_ROOT=/var/lib/articlepod/uploads`
 
 ## Deploy runtime + systemd services
 On VM:
 ```bash
-sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh
-sudo systemctl status --no-pager listenlater-python-tts listenlater-web listenlater-worker
+sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh
+sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod-worker
 ```
 
 Notes:
@@ -118,9 +125,9 @@ Notes:
 ## Configure ingress and TLS
 On VM:
 ```bash
-sudo PUBLIC_HOST="$VM_FQDN" /opt/listenlater/scripts/azure/configure-nginx.sh
+sudo PUBLIC_HOST="$VM_FQDN" /opt/articlepod/scripts/azure/configure-nginx.sh
 sudo PUBLIC_HOST="$VM_FQDN" LETSENCRYPT_EMAIL="<EMAIL>" \
-  /opt/listenlater/scripts/azure/configure-tls.sh
+  /opt/articlepod/scripts/azure/configure-tls.sh
 ```
 
 Verify health:
@@ -165,13 +172,13 @@ Equivalent step-by-step flow:
 From local repo:
 ```bash
 TARGET_HOST="$VM_IP" \
-TARGET_PATH="/home/azureuser/listenlater" \
+TARGET_PATH="/home/azureuser/articlepod" \
 TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
 
 On VM:
 ```bash
-sudo STAGING_DIR="/home/azureuser/listenlater" /opt/listenlater/scripts/azure/promote-runtime.sh
-sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh
+sudo STAGING_DIR="/home/azureuser/articlepod" /opt/articlepod/scripts/azure/promote-runtime.sh
+sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh
 ```

@@ -4,8 +4,8 @@ import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NextRequest } from "next/server";
-import { chunkText, sha256 } from "@listenlater/core";
-import { extractHtmlSnapshot } from "@listenlater/core/src/extract/html";
+import { chunkText, sha256 } from "@articlepod/core";
+import { extractHtmlSnapshot } from "@articlepod/core/src/extract/html";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
 import { POST as exchangePost } from "../src/app/api/auth/extension/exchange/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
@@ -18,14 +18,14 @@ import { processJob } from "../../worker/src/jobs/processItemJob";
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+  if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
     dbReady = true;
     return;
   }
 
   const here = fileURLToPath(new URL(".", import.meta.url));
   const repoRoot = resolve(here, "../../..");
-  const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "run", "db:bootstrap"], {
+  const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"], {
     cwd: repoRoot,
     encoding: "utf8"
   });
@@ -99,7 +99,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       },
       body: JSON.stringify({ label: "integration-test" })
     });
@@ -180,7 +180,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
 
     const refreshRequest = new NextRequest("http://localhost/api/seed-demo?refresh=items", {
       headers: {
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       }
     });
     const refreshResponse = await seedDemoGet(refreshRequest);

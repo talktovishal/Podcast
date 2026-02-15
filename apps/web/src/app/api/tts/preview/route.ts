@@ -1,4 +1,4 @@
-import { previewTtsSchema } from "@listenlater/core";
+import { previewTtsSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { getKokoroPreviewSampleText, synthesizePreviewDataUrl } from "@/lib/tts";

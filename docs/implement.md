@@ -124,9 +124,9 @@ If parity/azure runtime paths changed, also run:
 
 ## Migration helpers
 - SQLite export:
-  - `npx pnpm --filter @listenlater/web run db:export-json -- --out <file>`
+  - `npx pnpm --filter @articlepod/web run db:export-json -- --out <file>`
 - PostgreSQL import:
-  - `npx pnpm --filter @listenlater/web run db:import-json -- --in <file> --truncate`
+  - `npx pnpm --filter @articlepod/web run db:import-json -- --in <file> --truncate`
 - End-to-end migration helper:
   - `npm run db:migrate:sqlite-to-postgres -- --postgres-url "<DATABASE_URL>"`
 
@@ -140,18 +140,20 @@ If parity/azure runtime paths changed, also run:
 - Discover VM/Postgres/storage (+ optional firewall + connection string):
   - `./scripts/azure/discover-resources.sh --resource-group "<RG>" --open-firewall --print-connection-string`
 - Sync code to VM:
-  - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/listenlater TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/push-to-vm.sh`
+  - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/articlepod TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/push-to-vm.sh`
   - excludes app-local `.env` files from sync payload
 - Bootstrap VM:
-  - `sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh`
+  - `sudo /home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh`
+- One-time runtime naming migration for pre-rename VMs:
+  - `sudo /home/azureuser/articlepod/scripts/azure/migrate-runtime-naming.sh`
 - Promote staged code to runtime path:
-  - `sudo STAGING_DIR=/home/azureuser/listenlater /home/azureuser/listenlater/scripts/azure/promote-runtime.sh`
+  - `sudo STAGING_DIR=/home/azureuser/articlepod /home/azureuser/articlepod/scripts/azure/promote-runtime.sh`
   - preserves `services/python-tts/.venv` across syncs
   - preserves `.runtime/` and removes app-local runtime `.env` files
 - Deploy runtime + services on VM:
-  - `sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh`
+  - `sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh`
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
-  - ensures runtime directories (`/var/lib/listenlater/{storage,media,uploads}`) and precomputes Kokoro voice previews
+  - ensures runtime directories (`/var/lib/articlepod/{storage,media,uploads}`) and precomputes Kokoro voice previews
 - Configure ingress + TLS on VM:
-  - `sudo PUBLIC_HOST=<vm-fqdn> /opt/listenlater/scripts/azure/configure-nginx.sh`
-  - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/listenlater/scripts/azure/configure-tls.sh`
+  - `sudo PUBLIC_HOST=<vm-fqdn> /opt/articlepod/scripts/azure/configure-nginx.sh`
+  - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/articlepod/scripts/azure/configure-tls.sh`

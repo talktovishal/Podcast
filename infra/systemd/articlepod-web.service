@@ -1,0 +1,19 @@
+[Unit]
+Description=ArticlePod Web
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=articlepod
+Group=articlepod
+WorkingDirectory=/opt/articlepod
+EnvironmentFile=/etc/articlepod/articlepod.env
+ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run start'
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
+Alias=listenlater-web.service

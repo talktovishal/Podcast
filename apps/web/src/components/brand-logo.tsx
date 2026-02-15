@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BRAND_NAME } from "@listenlater/core/src/config/brand";
+import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 
 type BrandLogoProps = {
   href?: string;

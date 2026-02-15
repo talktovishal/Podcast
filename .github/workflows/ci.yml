@@ -26,6 +26,9 @@ jobs:
       - name: Environment check (simple)
         run: npm run check:env:simple
 
+      - name: Naming check
+        run: npm run naming:check
+
       - name: Typecheck
         run: npm run typecheck
 

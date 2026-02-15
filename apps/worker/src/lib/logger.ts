@@ -1,4 +1,4 @@
-import { createStructuredLogger } from "@listenlater/core";
+import { createStructuredLogger } from "@articlepod/core";
 import { workerEnv } from "./env.js";
 
 export const workerLogger = createStructuredLogger({

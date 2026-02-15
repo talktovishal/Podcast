@@ -1,4 +1,4 @@
-import { submitUrlSchema, validateFetchableUrl } from "@listenlater/core";
+import { submitUrlSchema, validateFetchableUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";

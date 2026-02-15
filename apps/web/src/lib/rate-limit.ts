@@ -1,4 +1,4 @@
-import { enforceRateLimit } from "@listenlater/core";
+import { enforceRateLimit } from "@articlepod/core";
 
 export function enforceSubmitRateLimits(userId: string, ip: string): void {
   enforceRateLimit(`submit:user:${userId}`, 20, 60_000);

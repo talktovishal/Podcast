@@ -36,11 +36,16 @@ async function getStoredState() {
   const serverUrl = result[STORAGE_KEYS.serverUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "http://localhost:3000";
   const extensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
   const tokenExpiresAt = result[STORAGE_KEYS.tokenExpiresAt] || result[LEGACY_STORAGE_KEYS.tokenExpiresAt] || "";
+  const usedLegacyKeys =
+    (!result[STORAGE_KEYS.serverUrl] && Boolean(result[LEGACY_STORAGE_KEYS.serverUrl])) ||
+    (!result[STORAGE_KEYS.extensionToken] && Boolean(result[LEGACY_STORAGE_KEYS.extensionToken])) ||
+    (!result[STORAGE_KEYS.tokenExpiresAt] && Boolean(result[LEGACY_STORAGE_KEYS.tokenExpiresAt]));
 
   return {
     serverUrl,
     extensionToken,
-    tokenExpiresAt
+    tokenExpiresAt,
+    usedLegacyKeys
   };
 }
 
@@ -50,6 +55,20 @@ async function setStoredState(nextState) {
 
 async function loadState() {
   const state = await getStoredState();
+
+  if (state.usedLegacyKeys) {
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.serverUrl]: state.serverUrl,
+      [STORAGE_KEYS.extensionToken]: state.extensionToken,
+      [STORAGE_KEYS.tokenExpiresAt]: state.tokenExpiresAt
+    });
+    await chrome.storage.local.remove([
+      LEGACY_STORAGE_KEYS.serverUrl,
+      LEGACY_STORAGE_KEYS.extensionToken,
+      LEGACY_STORAGE_KEYS.tokenExpiresAt
+    ]);
+  }
+
   els.serverUrl.value = state.serverUrl;
 
   if (state.extensionToken) {

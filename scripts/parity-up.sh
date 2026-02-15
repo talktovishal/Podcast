@@ -20,6 +20,11 @@ fi
 echo "[parity-up] validating parity environment..."
 node ./scripts/check-env.mjs --profile parity
 
+if [[ "${PARITY_PRESERVE_DATA:-0}" != "1" ]]; then
+  echo "[parity-up] resetting parity volumes (set PARITY_PRESERVE_DATA=1 to keep existing data)..."
+  docker compose -f docker-compose.parity.yml down -v --remove-orphans >/dev/null 2>&1 || true
+fi
+
 echo "[parity-up] starting docker compose parity stack..."
 docker compose -f docker-compose.parity.yml up -d --build
 

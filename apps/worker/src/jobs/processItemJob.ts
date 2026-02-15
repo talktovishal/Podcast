@@ -18,7 +18,7 @@ import {
   sha256,
   type TtsProviderId,
   validateFetchableUrl
-} from "@listenlater/core";
+} from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
@@ -200,7 +200,7 @@ async function synthesizeEpisodeAudio(
   const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
   const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
   const relativePath = normalizeStorageKey(join("items", itemId, `episode.${extension}`));
-  const tempDir = await mkdtemp(join(tmpdir(), "listenlater-worker-"));
+  const tempDir = await mkdtemp(join(tmpdir(), "articlepod-worker-"));
   const tempOutputPath = join(tempDir, `episode.${extension}`);
 
   try {

@@ -1,12 +1,14 @@
-import { createSecretToken, hashIncomingToken } from "@listenlater/core";
+import { AUTH_COOKIE_NAMES, createSecretToken, hashIncomingToken } from "@articlepod/core";
 import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
 import { env } from "./env";
 import { prisma } from "./prisma";
 
-const SESSION_COOKIE = "listenlater_session";
-const OAUTH_STATE_COOKIE_PREFIX = "listenlater_oauth_state";
+const SESSION_COOKIE = AUTH_COOKIE_NAMES.session;
+const LEGACY_SESSION_COOKIE = AUTH_COOKIE_NAMES.legacySession;
+const OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.oauthPrefix;
+const LEGACY_OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.legacyOauthPrefix;
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 10);
 const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 30);
 const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
@@ -49,8 +51,17 @@ function extensionTokenExpiryDate(): Date {
   return expires;
 }
 
-function oauthStateCookieName(provider: OAuthProvider): string {
-  return `${OAUTH_STATE_COOKIE_PREFIX}_${provider}`;
+function oauthStateCookieName(prefix: string, provider: OAuthProvider): string {
+  return `${prefix}_${provider}`;
+}
+
+function sessionTokenFromRequest(request: NextRequest): string | null {
+  return request.cookies.get(SESSION_COOKIE)?.value ?? request.cookies.get(LEGACY_SESSION_COOKIE)?.value ?? null;
+}
+
+async function sessionTokenFromCookieStore(): Promise<string | null> {
+  const cookieStore = await cookies();
+  return cookieStore.get(SESSION_COOKIE)?.value ?? cookieStore.get(LEGACY_SESSION_COOKIE)?.value ?? null;
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -104,16 +115,24 @@ export async function setSessionCookie(response: NextResponse, token: string): P
 }
 
 export function clearSessionCookie(response: NextResponse): void {
-  response.cookies.set({
-    name: SESSION_COOKIE,
+  const expiredCookie = {
     value: "",
     expires: new Date(0),
     path: "/"
+  } as const;
+
+  response.cookies.set({
+    name: SESSION_COOKIE,
+    ...expiredCookie
+  });
+  response.cookies.set({
+    name: LEGACY_SESSION_COOKIE,
+    ...expiredCookie
   });
 }
 
 export async function getAuthUserFromRequest(request: NextRequest): Promise<AuthUser | null> {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const token = sessionTokenFromRequest(request);
   if (!token) {
     return null;
   }
@@ -122,8 +141,7 @@ export async function getAuthUserFromRequest(request: NextRequest): Promise<Auth
 }
 
 export async function getAuthUserFromCookies(): Promise<AuthUser | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = await sessionTokenFromCookieStore();
   if (!token) {
     return null;
   }
@@ -228,7 +246,7 @@ export async function getUserByFeedToken(plain: string): Promise<AuthUser | null
 
 export function setOAuthStateCookie(response: NextResponse, provider: OAuthProvider, state: string): void {
   response.cookies.set({
-    name: oauthStateCookieName(provider),
+    name: oauthStateCookieName(OAUTH_STATE_COOKIE_PREFIX, provider),
     value: state,
     httpOnly: true,
     sameSite: "lax",
@@ -239,15 +257,27 @@ export function setOAuthStateCookie(response: NextResponse, provider: OAuthProvi
 }
 
 export function getOAuthStateFromRequest(request: NextRequest, provider: OAuthProvider): string | null {
-  return request.cookies.get(oauthStateCookieName(provider))?.value ?? null;
+  return (
+    request.cookies.get(oauthStateCookieName(OAUTH_STATE_COOKIE_PREFIX, provider))?.value ??
+    request.cookies.get(oauthStateCookieName(LEGACY_OAUTH_STATE_COOKIE_PREFIX, provider))?.value ??
+    null
+  );
 }
 
 export function clearOAuthStateCookie(response: NextResponse, provider: OAuthProvider): void {
-  response.cookies.set({
-    name: oauthStateCookieName(provider),
+  const expiredCookie = {
     value: "",
     expires: new Date(0),
     path: "/"
+  } as const;
+
+  response.cookies.set({
+    name: oauthStateCookieName(OAUTH_STATE_COOKIE_PREFIX, provider),
+    ...expiredCookie
+  });
+  response.cookies.set({
+    name: oauthStateCookieName(LEGACY_OAUTH_STATE_COOKIE_PREFIX, provider),
+    ...expiredCookie
   });
 }
 

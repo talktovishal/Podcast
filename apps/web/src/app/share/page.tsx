@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTtsCatalog, normalizeTtsSelection } from "@listenlater/core";
+import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
 import { getActiveFeedTokenForUser, getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";

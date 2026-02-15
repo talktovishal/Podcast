@@ -4,7 +4,7 @@ import {
   LocalObjectStorage,
   errorCodes,
   type ObjectStorage
-} from "@listenlater/core";
+} from "@articlepod/core";
 import { env } from "./env";
 
 let cachedStorage: ObjectStorage | null = null;

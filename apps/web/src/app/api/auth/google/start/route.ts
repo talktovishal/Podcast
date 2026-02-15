@@ -1,4 +1,4 @@
-import { makeToken } from "@listenlater/core";
+import { makeToken } from "@articlepod/core";
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { isOAuthProviderConfigured, setOAuthStateCookie } from "@/lib/auth";

@@ -9,7 +9,7 @@ UVICORN_BIN="${VENV_DIR}/bin/uvicorn"
 REQUIREMENTS_FILE="${SERVICE_DIR}/requirements.txt"
 PROVIDERS_FILE="${SERVICE_DIR}/requirements.providers.txt"
 TARGET_PYTHON="${PYTHON_TTS_PYTHON_VERSION:-3.11}"
-STAMP_FILE="${VENV_DIR}/.listenlater-python-tts-ready"
+STAMP_FILE="${VENV_DIR}/.articlepod-python-tts-ready"
 STAMP_VERSION="2"
 
 if [[ "${ENABLE_PYTHON_TTS_DEV:-1}" == "0" ]]; then

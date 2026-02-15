@@ -1,4 +1,4 @@
-import { extensionTokenExchangeSchema } from "@listenlater/core";
+import { extensionTokenExchangeSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeExtensionConnectCode } from "@/lib/auth";
 import { fromError } from "@/lib/http";

@@ -1,4 +1,4 @@
-import { getTtsCatalog, normalizeTtsSelection, updateTtsSettingsSchema } from "@listenlater/core";
+import { getTtsCatalog, normalizeTtsSelection, updateTtsSettingsSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";

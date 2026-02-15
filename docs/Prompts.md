@@ -361,7 +361,7 @@ Before marking any milestone complete, run and record the results for:
 - `npm run license:check`
 
 3. Podcast compatibility gate
-- Start web server (`npm run start --workspace @listenlater/web -- --hostname 127.0.0.1 --port 3000`)
+- Start web server (`npm run start --workspace @articlepod/web -- --hostname 127.0.0.1 --port 3000`)
 - Run:
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 

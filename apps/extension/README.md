@@ -19,7 +19,7 @@ npm run extension:package
 ```
 
 This generates:
-- `dist/extension/listenlater-capture-v<version>.zip` (upload this to Web Store)
+- `dist/extension/articlepod-capture-v<version>.zip` (upload this to Web Store)
 - `dist/extension/webstore/*` (listing metadata templates)
 - `dist/extension/README.txt` (quick checklist)
 

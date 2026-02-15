@@ -63,7 +63,7 @@ Recommended local-dev approach for Apple:
 1. In Apple Developer account, create/select:
 - An `App ID` with `Sign in with Apple` capability enabled.
 2. Create a `Services ID` (this becomes `APPLE_CLIENT_ID`):
-- Example format: `com.yourcompany.listenlater.web`
+- Example format: `com.yourcompany.articlepod.web`
 3. Configure Sign in with Apple for the Services ID:
 - Add your domain/subdomain.
 - Add Return URL:
@@ -85,7 +85,7 @@ Run this locally after exporting values:
 ```bash
 export APPLE_TEAM_ID="..."
 export APPLE_KEY_ID="..."
-export APPLE_CLIENT_ID="com.yourcompany.listenlater.web"
+export APPLE_CLIENT_ID="com.yourcompany.articlepod.web"
 export APPLE_P8_PATH="/absolute/path/AuthKey_XXXXXX.p8"
 
 node -e '

@@ -87,7 +87,7 @@ export class PythonModelTtsProvider implements TtsProvider {
   }
 
   async synthesizeToFile({ text, voice, format, outPath, headers }: SynthesizeInput): Promise<void> {
-    const workspace = await mkdtemp(join(tmpdir(), `listenlater-${this.providerId}-`));
+    const workspace = await mkdtemp(join(tmpdir(), `articlepod-${this.providerId}-`));
     const wavPath = join(workspace, "speech.wav");
     const ctx = getLogContext();
     const requestHeaders: Record<string, string> = {

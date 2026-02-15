@@ -14,7 +14,7 @@ function defaultDatabaseUrl(profile: "simple" | "parity" | "azure"): string {
   if (profile === "simple") {
     return `file:${resolve(process.cwd(), ".data/db.sqlite")}`;
   }
-  return "postgresql://listenlater:listenlater@127.0.0.1:5432/listenlater";
+  return "postgresql://articlepod:articlepod@127.0.0.1:5432/articlepod";
 }
 
 async function ensureSqlitePath(databaseUrl: string): Promise<void> {

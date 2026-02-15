@@ -27,7 +27,7 @@ if [[ "${attempt}" -gt "${MAX_ATTEMPTS}" ]]; then
   exit 0
 fi
 
-if npx pnpm --filter @listenlater/web run tts:precompute; then
+if npx pnpm --filter @articlepod/web run tts:precompute; then
   echo "[prewarm] Kokoro preview cache is ready."
 else
   echo "[prewarm] Kokoro preview precompute failed; app will lazily generate previews if needed."

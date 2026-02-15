@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/listenlater}"
-ENV_FILE="${ENV_FILE:-/etc/listenlater/listenlater.env}"
-APP_USER="${APP_USER:-listenlater}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
+APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
+ENV_FILE="${ENV_FILE:-$RUNTIME_ENV_FILE}"
+APP_USER="${APP_USER:-$RUNTIME_APP_USER}"
 APP_GROUP="${APP_GROUP:-$APP_USER}"
+
+PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
+WEB_SERVICE="$(runtime_service_name web)"
+WORKER_SERVICE="$(runtime_service_name worker)"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "Missing app directory: $APP_DIR"
@@ -143,7 +151,7 @@ PY
 }
 
 run_tts_preview_precompute() {
-  if ! run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run tts:precompute"; then
+  if ! run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run tts:precompute"; then
     echo "[deploy-vm-runtime] warning: tts preview precompute failed; previews will be generated on demand" >&2
   fi
 }
@@ -165,18 +173,18 @@ fi
 remove_app_local_env_files
 ensure_runtime_dirs
 run_app_cmd "npx pnpm install --frozen-lockfile"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/worker run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run build"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/worker run build"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run prisma:generate"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run prisma:generate"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run build"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run build"
 run_python_tts_setup
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run db:bootstrap"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run seed:demo"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run db:bootstrap"
+run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run seed:demo"
 
-sudo scripts/azure/install-systemd.sh
-sudo systemctl restart listenlater-python-tts.service
+sudo "$ROOT_DIR/scripts/azure/install-systemd.sh"
+sudo systemctl restart "$PYTHON_TTS_SERVICE"
 run_tts_preview_precompute
-sudo systemctl restart listenlater-web.service listenlater-worker.service
-sudo systemctl status --no-pager listenlater-python-tts.service listenlater-web.service listenlater-worker.service
+sudo systemctl restart "$WEB_SERVICE" "$WORKER_SERVICE"
+sudo systemctl status --no-pager "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
 
 echo "[deploy-vm-runtime] deployment complete"

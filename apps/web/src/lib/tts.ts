@@ -9,7 +9,7 @@ import {
   normalizeTtsSelection,
   type TtsProvider,
   type TtsProviderId
-} from "@listenlater/core";
+} from "@articlepod/core";
 import { env } from "./env";
 
 const ENABLED_PROVIDER_ID: TtsProviderId = "kokoro";

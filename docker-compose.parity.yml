@@ -1,25 +1,25 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: listenlater-postgres
+    container_name: articlepod-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: listenlater
-      POSTGRES_USER: listenlater
-      POSTGRES_PASSWORD: listenlater
+      POSTGRES_DB: articlepod
+      POSTGRES_USER: articlepod
+      POSTGRES_PASSWORD: articlepod
     ports:
       - "5432:5432"
     volumes:
       - postgres_parity_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U listenlater -d listenlater"]
+      test: ["CMD-SHELL", "pg_isready -U articlepod -d articlepod"]
       interval: 5s
       timeout: 5s
       retries: 20
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:3.33.0
-    container_name: listenlater-azurite
+    container_name: articlepod-azurite
     restart: unless-stopped
     command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck"
     ports:
@@ -36,7 +36,7 @@ services:
     build:
       context: .
       dockerfile: services/python-tts/Dockerfile
-    container_name: listenlater-python-tts
+    container_name: articlepod-python-tts
     restart: unless-stopped
     ports:
       - "8010:8010"
@@ -50,7 +50,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
-    container_name: listenlater-web
+    container_name: articlepod-web
     restart: unless-stopped
     depends_on:
       postgres:
@@ -61,10 +61,10 @@ services:
         condition: service_healthy
     environment:
       RUNTIME_PROFILE: parity
-      DATABASE_URL: postgresql://listenlater:listenlater@postgres:5432/listenlater
+      DATABASE_URL: postgresql://articlepod:articlepod@postgres:5432/articlepod
       APP_URL: http://localhost:3000
       STORAGE_BACKEND: azure_blob
-      AZURE_STORAGE_CONTAINER: listenlater
+      AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
       AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       PYTHON_TTS_URL: http://python-tts:8010
@@ -73,9 +73,9 @@ services:
       ADMIN_EMAIL: admin@articlepod.local
       ADMIN_PASSWORD: admin-demo-password
     command: >
-      sh -lc "npx pnpm --filter @listenlater/web run db:bootstrap &&
-      npx pnpm --filter @listenlater/web run seed:demo &&
-      npx pnpm --filter @listenlater/web run start"
+      sh -lc "npx pnpm --filter @articlepod/web run db:bootstrap &&
+      npx pnpm --filter @articlepod/web run seed:demo &&
+      npx pnpm --filter @articlepod/web run start"
     ports:
       - "3000:3000"
     healthcheck:
@@ -88,7 +88,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: listenlater-worker
+    container_name: articlepod-worker
     restart: unless-stopped
     depends_on:
       postgres:
@@ -101,9 +101,9 @@ services:
         condition: service_healthy
     environment:
       RUNTIME_PROFILE: parity
-      DATABASE_URL: postgresql://listenlater:listenlater@postgres:5432/listenlater
+      DATABASE_URL: postgresql://articlepod:articlepod@postgres:5432/articlepod
       STORAGE_BACKEND: azure_blob
-      AZURE_STORAGE_CONTAINER: listenlater
+      AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
       AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       PYTHON_TTS_URL: http://python-tts:8010
@@ -113,7 +113,7 @@ services:
       WORKER_RETRY_POLL_MS: "5000"
       DEMO_EMAIL: demo@articlepod.local
     command: >
-      sh -lc "npx pnpm --filter @listenlater/worker run dev"
+      sh -lc "npx pnpm --filter @articlepod/worker run dev"
 
 volumes:
   postgres_parity_data:

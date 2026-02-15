@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { AUTH_COOKIE_NAMES } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
@@ -19,14 +20,14 @@ import { getArtifactStorage } from "../src/lib/storage";
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+  if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
     dbReady = true;
     return;
   }
 
   const here = fileURLToPath(new URL(".", import.meta.url));
   const repoRoot = resolve(here, "../../..");
-  const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "run", "db:bootstrap"], {
+  const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"], {
     cwd: repoRoot,
     encoding: "utf8"
   });
@@ -124,7 +125,7 @@ test("extension connect-code validates request body", async () => {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       },
       body: JSON.stringify({ label: "x".repeat(81) })
     });
@@ -141,6 +142,48 @@ test("extension connect-code validates request body", async () => {
     assert.equal(payload.ok, false);
     assert.equal(payload.error_code, "INVALID_INPUT");
     assert.ok(payload.error_message.toLowerCase().includes("label"));
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("extension connect-code accepts legacy session cookie name", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `connect-legacy-cookie-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const sessionToken = await createSession(user.id);
+
+    const request = new NextRequest("http://localhost/api/auth/extension/connect-code", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: `${AUTH_COOKIE_NAMES.legacySession}=${sessionToken}`
+      },
+      body: JSON.stringify({ label: "legacy-cookie-test" })
+    });
+
+    const response = await connectCodePost(request);
+    assert.equal(response.status, 200);
+
+    const payload = (await response.json()) as {
+      ok: boolean;
+      connect_code: string;
+      expires_at: string;
+    };
+
+    assert.equal(payload.ok, true);
+    assert.ok(payload.connect_code.length >= 20);
+    assert.ok(payload.expires_at.length > 0);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
@@ -235,7 +278,7 @@ test("html snapshot validates payload and queues item for session user", async (
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       },
       body: JSON.stringify({
         url: "not-a-url",
@@ -274,7 +317,7 @@ test("html snapshot validates payload and queues item for session user", async (
       method: "POST",
       headers: {
         "content-type": "application/json",
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       },
       body: JSON.stringify({
         url: `https://example.com/session/${uniq}`,
@@ -352,7 +395,7 @@ test("item markdown route returns markdown for authorized owner", async () => {
     const sessionToken = await createSession(user.id);
     const request = new NextRequest(`http://localhost/api/items/${item.id}/markdown`, {
       headers: {
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       }
     });
 
@@ -395,7 +438,7 @@ test("extension token revoke route revokes active tokens", async () => {
     const request = new NextRequest("http://localhost/api/auth/extension/revoke", {
       method: "POST",
       headers: {
-        cookie: `listenlater_session=${sessionToken}`
+        cookie: `articlepod_session=${sessionToken}`
       }
     });
 

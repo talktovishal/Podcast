@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createSecretToken } from "@listenlater/core";
+import { createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET, HEAD } from "../src/app/api/media/[...path]/route";
 import { prisma } from "../src/lib/prisma";
@@ -12,14 +12,14 @@ import { getArtifactStorage } from "../src/lib/storage";
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+  if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
     dbReady = true;
     return;
   }
 
   const here = fileURLToPath(new URL(".", import.meta.url));
   const repoRoot = resolve(here, "../../..");
-  const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "run", "db:bootstrap"], {
+  const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"], {
     cwd: repoRoot,
     encoding: "utf8"
   });

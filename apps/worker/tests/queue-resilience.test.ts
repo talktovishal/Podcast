@@ -3,8 +3,8 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, sha256 } from "@listenlater/core";
-import { extractHtmlSnapshot } from "@listenlater/core/src/extract/html";
+import { chunkText, sha256 } from "@articlepod/core";
+import { extractHtmlSnapshot } from "@articlepod/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
 import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js";
@@ -12,14 +12,14 @@ import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js"
 let dbReady = false;
 
 function ensureDbBootstrap(): void {
-  if (dbReady || process.env.LISTENLATER_TEST_DB_READY === "1") {
+  if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
     dbReady = true;
     return;
   }
 
   const here = fileURLToPath(new URL(".", import.meta.url));
   const repoRoot = resolve(here, "../../..");
-  const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "run", "db:bootstrap"], {
+  const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"], {
     cwd: repoRoot,
     encoding: "utf8"
   });

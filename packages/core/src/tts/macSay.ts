@@ -24,7 +24,7 @@ export class MacSayTtsProvider implements TtsProvider {
   readonly outputFormat = "m4a" as const;
 
   async synthesizeToFile({ text, voice, format, outPath }: SynthesizeInput): Promise<void> {
-    const workspace = await mkdtemp(join(tmpdir(), "listenlater-tts-"));
+    const workspace = await mkdtemp(join(tmpdir(), "articlepod-tts-"));
     const intermediate = join(workspace, "speech.aiff");
 
     try {

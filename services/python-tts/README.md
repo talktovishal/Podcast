@@ -11,7 +11,7 @@ Current product behavior:
 ## Setup
 
 ```bash
-cd /path/to/listenlater
+cd /path/to/articlepod
 ./scripts/bootstrap-python-tts.sh
 ```
 
@@ -58,7 +58,7 @@ curl -sS -X POST "http://127.0.0.1:8010/v1/synthesize" \
 Run the real provider synthesis checks for both Kokoro and Melo:
 
 ```bash
-cd /path/to/listenlater
+cd /path/to/articlepod
 ./scripts/test-python-tts-e2e.sh
 ```
 

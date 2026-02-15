@@ -6,10 +6,14 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
 PUBLIC_HOST="${PUBLIC_HOST:-}"
 UPSTREAM_HOST="${UPSTREAM_HOST:-127.0.0.1}"
 UPSTREAM_PORT="${UPSTREAM_PORT:-3000}"
-SITE_NAME="${SITE_NAME:-listenlater}"
+SITE_NAME="${SITE_NAME:-$RUNTIME_SERVICE_PREFIX}"
 
 if [[ -z "$PUBLIC_HOST" ]]; then
   echo "Set PUBLIC_HOST (example: PUBLIC_HOST=articlepod-foo.centralus.cloudapp.azure.com)"
@@ -19,7 +23,7 @@ fi
 CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}.conf"
 ENABLED_PATH="/etc/nginx/sites-enabled/${SITE_NAME}.conf"
 
-cat > "$CONF_PATH" <<EOF
+cat > "$CONF_PATH" <<NGINX
 server {
     listen 80;
     listen [::]:80;
@@ -38,7 +42,7 @@ server {
         proxy_set_header Connection "upgrade";
     }
 }
-EOF
+NGINX
 
 ln -sf "$CONF_PATH" "$ENABLED_PATH"
 rm -f /etc/nginx/sites-enabled/default

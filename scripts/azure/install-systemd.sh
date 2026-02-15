@@ -7,12 +7,18 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 
-install -m 0644 "$ROOT_DIR/infra/systemd/listenlater-python-tts.service" /etc/systemd/system/listenlater-python-tts.service
-install -m 0644 "$ROOT_DIR/infra/systemd/listenlater-web.service" /etc/systemd/system/listenlater-web.service
-install -m 0644 "$ROOT_DIR/infra/systemd/listenlater-worker.service" /etc/systemd/system/listenlater-worker.service
+PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
+WEB_SERVICE="$(runtime_service_name web)"
+WORKER_SERVICE="$(runtime_service_name worker)"
+
+install -m 0644 "$ROOT_DIR/infra/systemd/${PYTHON_TTS_SERVICE}" "/etc/systemd/system/${PYTHON_TTS_SERVICE}"
+install -m 0644 "$ROOT_DIR/infra/systemd/${WEB_SERVICE}" "/etc/systemd/system/${WEB_SERVICE}"
+install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_SERVICE}" "/etc/systemd/system/${WORKER_SERVICE}"
 
 systemctl daemon-reload
-systemctl enable listenlater-python-tts.service listenlater-web.service listenlater-worker.service
+systemctl enable "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
 
 echo "[install-systemd] services installed and enabled"

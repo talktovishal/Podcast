@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { BRAND_NAME } from "@listenlater/core/src/config/brand";
+import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 
 export const metadata: Metadata = {
   title: BRAND_NAME,

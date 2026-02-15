@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 import { resolve } from "node:path";
-import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@listenlater/core";
+import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 
 config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");

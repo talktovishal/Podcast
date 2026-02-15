@@ -1,0 +1,16 @@
+# Paths where legacy listenlater references are intentionally retained for compatibility/history.
+apps/extension/popup.js
+apps/web/src/lib/auth.ts
+config/naming-legacy-allowlist.txt
+config/naming.json
+docs/chat_log.md
+docs/Prompts.md
+packages/core/src/config/brand.ts
+packages/core/src/config/naming.ts
+infra/systemd/articlepod-python-tts.service
+infra/systemd/articlepod-web.service
+infra/systemd/articlepod-worker.service
+scripts/azure/migrate-runtime-naming.sh
+scripts/azure/runtime-naming.sh
+scripts/naming/check.mjs
+scripts/naming/sync.mjs

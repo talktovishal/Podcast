@@ -41,7 +41,7 @@ npm run extension:package
 ```
 
 Output:
-- `dist/extension/listenlater-capture-v<version>.zip`
+- `dist/extension/articlepod-capture-v<version>.zip`
 
 ## Durable migration + ops helpers
 - SQLite -> PostgreSQL migration:
@@ -66,6 +66,12 @@ TARGET_HOST="<vm-ip-or-fqdn>" npm run azure:deploy:changes
 Script/catalog indexes:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/README.md`
 - `/Users/vishalchowdhary/Documents/Podcast/scripts/README.md`
+
+## Naming management
+- Sync generated naming constants:
+  - `npm run naming:sync`
+- Validate naming drift + legacy allowlist:
+  - `npm run naming:check`
 
 ## Validation gates
 - `npm run typecheck`

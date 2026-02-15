@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from "@listenlater/core";
+import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");

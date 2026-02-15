@@ -51,7 +51,7 @@ cp "$EXT_DIR/popup.js" "$PACKAGE_DIR/"
 cp "$EXT_DIR/popup.css" "$PACKAGE_DIR/"
 cp "$EXT_DIR/icons/"*.png "$PACKAGE_DIR/icons/"
 
-zip_path="$DIST_DIR/listenlater-capture-v${manifest_version}.zip"
+zip_path="$DIST_DIR/articlepod-capture-v${manifest_version}.zip"
 rm -f "$zip_path"
 (
   cd "$PACKAGE_DIR"
@@ -62,7 +62,7 @@ rm -rf "$METADATA_DIR"
 mkdir -p "$METADATA_DIR"
 cp "$EXT_DIR/webstore/"* "$METADATA_DIR/"
 
-checksum_file="$DIST_DIR/listenlater-capture-v${manifest_version}.sha256"
+checksum_file="$DIST_DIR/articlepod-capture-v${manifest_version}.sha256"
 if command -v shasum >/dev/null 2>&1; then
   shasum -a 256 "$zip_path" >"$checksum_file"
 elif command -v sha256sum >/dev/null 2>&1; then

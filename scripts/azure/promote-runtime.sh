@@ -6,10 +6,14 @@ if [[ "$(id -u)" -ne 0 ]]; then
   exit 1
 fi
 
-STAGING_DIR="${STAGING_DIR:-/home/azureuser/listenlater}"
-APP_DIR="${APP_DIR:-/opt/listenlater}"
-APP_USER="${APP_USER:-listenlater}"
-APP_GROUP="${APP_GROUP:-listenlater}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
+STAGING_DIR="${STAGING_DIR:-$RUNTIME_STAGING_DIR}"
+APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
+APP_USER="${APP_USER:-$RUNTIME_APP_USER}"
+APP_GROUP="${APP_GROUP:-$RUNTIME_APP_GROUP}"
 
 if [[ ! -d "$STAGING_DIR" ]]; then
   echo "Missing staging directory: $STAGING_DIR"
@@ -33,7 +37,7 @@ rsync -az --delete \
   --exclude 'services/python-tts/.env.*' \
   "$STAGING_DIR"/ "$APP_DIR"/
 
-# Runtime configuration comes from /etc/listenlater/listenlater.env.
+# Runtime configuration comes from the managed env file path.
 # Remove any accidentally synced app-local .env files to avoid path/config drift.
 rm -f \
   "$APP_DIR/apps/web/.env" \

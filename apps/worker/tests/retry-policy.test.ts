@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { errorCodes } from "@listenlater/core";
+import { errorCodes } from "@articlepod/core";
 import { shouldRecommendRetry } from "../src/jobs/processItemJob.js";
 
 test("marks ffmpeg merge failures as non-retryable", () => {

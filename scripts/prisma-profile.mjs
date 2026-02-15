@@ -28,7 +28,7 @@ const schemaPath = (() => {
 })();
 const finalArgs = hasSchemaArg ? args : [...args, "--schema", schemaPath];
 
-const result = spawnSync("npx", ["pnpm", "--filter", "@listenlater/web", "exec", "prisma", ...finalArgs], {
+const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "exec", "prisma", ...finalArgs], {
   cwd: repoRoot,
   stdio: "inherit",
   env: process.env

@@ -1,4 +1,4 @@
-import { rotateFeedTokenSchema } from "@listenlater/core";
+import { rotateFeedTokenSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest, rotateFeedToken } from "@/lib/auth";
 import { env } from "@/lib/env";

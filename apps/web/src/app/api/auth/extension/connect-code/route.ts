@@ -1,4 +1,4 @@
-import { extensionConnectCodeSchema } from "@listenlater/core";
+import { extensionConnectCodeSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { createExtensionConnectCodeForUser, getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";

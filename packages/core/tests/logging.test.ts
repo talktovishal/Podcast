@@ -17,7 +17,7 @@ test("redactAttributes redacts secrets", () => {
 });
 
 test("structured logger writes support_id for error logs", async () => {
-  const root = await mkdtemp(join(tmpdir(), "listenlater-log-test-"));
+  const root = await mkdtemp(join(tmpdir(), "articlepod-log-test-"));
   const logger = createStructuredLogger({
     service: "core-test",
     env: "test",

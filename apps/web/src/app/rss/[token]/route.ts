@@ -1,6 +1,6 @@
-import { buildRssXml, hashIncomingToken } from "@listenlater/core";
+import { buildRssXml, hashIncomingToken } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
-import { BRAND_NAME } from "@listenlater/core/src/config/brand";
+import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 

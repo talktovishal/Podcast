@@ -11,6 +11,12 @@
   - `TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh`
   - or `npm run azure:deploy:changes -- --host <vm-ip-or-fqdn>`
 
+## Naming
+- Sync generated naming constants:
+  - `npm run naming:sync`
+- Enforce naming drift + legacy allowlist:
+  - `npm run naming:check`
+
 ## Operations And Diagnostics
 - Pre-drill snapshot: `/Users/vishalchowdhary/Documents/Podcast/scripts/ops/pre-drill-snapshot.sh`
 - Restore verification: `/Users/vishalchowdhary/Documents/Podcast/scripts/ops/verify-restore.sh`

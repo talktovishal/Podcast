@@ -14,6 +14,7 @@
 - Azure runtime scripts now preserve python-tts virtualenv across promotions and auto-bootstrap missing language assets during VM deploy.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
+- Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
@@ -282,8 +283,8 @@ Milestone metadata contract:
   - Schema supports private feeds, token rotation, admin visibility, and idempotent job linkage.
   - Migrations are reproducible from clean state.
 - Verification commands:
-  - `pnpm --filter @listenlater/web prisma migrate dev`
-  - `pnpm --filter @listenlater/web test -- db`
+  - `pnpm --filter @articlepod/web prisma migrate dev`
+  - `pnpm --filter @articlepod/web test -- db`
 
 ### M06 - Authentication Surfaces (User + OAuth + Admin)
 - status: Done
@@ -303,7 +304,7 @@ Milestone metadata contract:
   - OAuth providers work when env vars are configured.
   - Admin routes are inaccessible to non-admin users.
 - Verification commands:
-  - `pnpm --filter @listenlater/web test -- auth`
+  - `pnpm --filter @articlepod/web test -- auth`
 
 ### M07 - Feed Token, Media Token, and Read-Only Demo Access
 - status: Done
@@ -323,7 +324,7 @@ Milestone metadata contract:
   - Tokens are never logged or leaked in client-visible errors.
   - Shared read-only mode cannot mutate items/settings.
 - Verification commands:
-  - `pnpm --filter @listenlater/web test -- tokens`
+  - `pnpm --filter @articlepod/web test -- tokens`
   - manual: old feed URL returns unauthorized/not found after rotation
 
 ### M08 - Ingestion APIs and Abuse Prevention
@@ -368,8 +369,8 @@ Milestone metadata contract:
   - Job events are deterministic and linked to `item_id`/`job_id`.
   - Structured logs include `item_id`/`job_id` and avoid dumping full extracted text bodies.
 - Verification commands:
-  - `pnpm --filter @listenlater/worker test -- jobs`
-  - `pnpm --filter @listenlater/worker test -- idempotency`
+  - `pnpm --filter @articlepod/worker test -- jobs`
+  - `pnpm --filter @articlepod/worker test -- idempotency`
 
 ### M10 - Content Extraction Adapters (HTML + PDF, OCR Unsupported)
 - status: Done
@@ -515,8 +516,8 @@ Milestone metadata contract:
   - Admin dashboard is presentation-ready and role-protected.
   - Delete item + delete account flows are available and functional.
 - Verification commands:
-  - `pnpm --filter @listenlater/web test -- ui`
-  - `pnpm --filter @listenlater/web test -- admin`
+  - `pnpm --filter @articlepod/web test -- ui`
+  - `pnpm --filter @articlepod/web test -- admin`
 
 ### M17 - Demo Starter Content and Read-Only Demo Experience
 - status: Done
@@ -1011,9 +1012,9 @@ Milestone metadata contract:
   - Migration/import preserves referential integrity.
   - Rollback path is documented and tested on fixture data.
 - Verification commands:
-  - `pnpm --filter @listenlater/web prisma migrate deploy`
-  - `pnpm --filter @listenlater/web test -- db`
-  - `pnpm --filter @listenlater/web test -- auth`
+  - `pnpm --filter @articlepod/web prisma migrate deploy`
+  - `pnpm --filter @articlepod/web test -- db`
+  - `pnpm --filter @articlepod/web test -- auth`
 
 ### M39 - Blob Storage Adapter (Uploads + Audio + Diagnostics Artifacts)
 - status: Done
@@ -1078,8 +1079,8 @@ Milestone metadata contract:
   - All ingest source types continue to process successfully.
   - Regression coverage confirms no behavioral break in existing flows.
 - Verification commands:
-  - `pnpm --filter @listenlater/worker test -- jobs`
-  - `pnpm --filter @listenlater/web test -- auth-routes`
+  - `pnpm --filter @articlepod/worker test -- jobs`
+  - `pnpm --filter @articlepod/web test -- auth-routes`
   - `pnpm test -- extension-auth`
 
 ### M42 - PostgreSQL Queue Resilience Hardening
@@ -1100,9 +1101,9 @@ Milestone metadata contract:
   - Retry behavior is predictable and deterministic.
   - Idempotency guarantees remain intact under recovery.
 - Verification commands:
-  - `pnpm --filter @listenlater/worker test -- idempotency`
-  - `pnpm --filter @listenlater/worker test -- retries`
-  - `pnpm --filter @listenlater/worker test -- crash-recovery`
+  - `pnpm --filter @articlepod/worker test -- idempotency`
+  - `pnpm --filter @articlepod/worker test -- retries`
+  - `pnpm --filter @articlepod/worker test -- crash-recovery`
 
 ### M43 - Azure IaC Baseline (`Bicep` + `azd`)
 - status: Done
@@ -1203,7 +1204,7 @@ Milestone metadata contract:
 
 ## Assumptions and Defaults
 - Package manager: `pnpm`.
-- Workspace package names will use `@listenlater/*`.
+- Workspace package names will use `@articlepod/*`.
 - Local demo audio format currently defaults to AAC/M4A (`audio/mp4`).
 - OAuth providers are optional at runtime and must not block local credential login.
 - Apple Podcasts verification requires a reachable host (Azure deployment or trusted tunnel).

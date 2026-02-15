@@ -1,6 +1,6 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { BRAND_NAME, buildRssXml } from "@listenlater/core";
+import { BRAND_NAME, buildRssXml } from "@articlepod/core";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";

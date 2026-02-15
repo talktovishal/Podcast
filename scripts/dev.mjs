@@ -13,15 +13,15 @@ function runOrFail(command, args) {
   }
 }
 
-runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'prisma:generate']);
-runOrFail('npx', ['pnpm', '--filter', '@listenlater/worker', 'run', 'prisma:generate']);
-runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'db:bootstrap']);
-runOrFail('npx', ['pnpm', '--filter', '@listenlater/web', 'run', 'seed:demo']);
+runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
+runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
+runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
+runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
 
 const commandNames = ['web', 'worker'];
 const commandList = [
-  'npm run dev --workspace @listenlater/web',
-  'npm run dev --workspace @listenlater/worker'
+  'npm run dev --workspace @articlepod/web',
+  'npm run dev --workspace @articlepod/worker'
 ];
 const prefixColors = ['green', 'blue'];
 

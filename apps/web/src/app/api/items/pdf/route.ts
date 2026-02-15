@@ -1,4 +1,4 @@
-import { makeToken, submitPdfSchema } from "@listenlater/core";
+import { makeToken, submitPdfSchema } from "@articlepod/core";
 import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";

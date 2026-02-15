@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@listenlater/core";
+import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@articlepod/core";
 import { hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";

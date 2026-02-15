@@ -8,7 +8,9 @@
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/discover-resources.sh`
 4. Bootstrap VM:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
-5. Render runtime env:
+5. Existing VM migration (if upgrading from legacy runtime names):
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/migrate-runtime-naming.sh`
+6. Render runtime env:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh`
 
 See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
@@ -29,5 +31,6 @@ What it runs:
 - Promote staged files only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
 - Deploy runtime only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
 - systemd install: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/install-systemd.sh`
+- runtime naming defaults: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/runtime-naming.sh`
 - Nginx config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
 - TLS config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`

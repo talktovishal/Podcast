@@ -4,23 +4,26 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
 print_usage() {
-  cat <<'EOF'
+  cat <<EOF
 Usage: ./scripts/azure/deploy-changes.sh --host <vm-ip-or-fqdn> [options]
 
 Deployment-only helper for an already-provisioned Azure VM.
 This script performs:
 1) local -> VM staging sync
-2) VM promote to /opt/listenlater
+2) VM promote to ${RUNTIME_APP_DIR}
 3) VM runtime deploy (build + service restart)
 
 Options:
   --host <value>         VM public IP or FQDN (required unless TARGET_HOST is set)
   --user <value>         SSH user (default: azureuser)
-  --path <value>         VM staging path (default: /home/<user>/listenlater)
+  --path <value>         VM staging path (default: ${RUNTIME_STAGING_DIR})
   --ssh-key <value>      SSH private key path (default: ~/.ssh/articlepod_azure)
   --ssh-port <value>     SSH port (default: 22)
-  --app-dir <value>      Runtime app dir on VM (default: /opt/listenlater)
+  --app-dir <value>      Runtime app dir on VM (default: ${RUNTIME_APP_DIR})
   --health-url <value>   Health endpoint to verify after deploy
   --skip-healthcheck     Skip post-deploy health validation
   -h, --help             Show this help message
@@ -32,10 +35,10 @@ EOF
 
 TARGET_HOST="${TARGET_HOST:-}"
 TARGET_USER="${TARGET_USER:-azureuser}"
-TARGET_PATH="${TARGET_PATH:-/home/${TARGET_USER}/listenlater}"
+TARGET_PATH="${TARGET_PATH:-$RUNTIME_STAGING_DIR}"
 TARGET_SSH_KEY="${TARGET_SSH_KEY:-$HOME/.ssh/articlepod_azure}"
 TARGET_PORT="${TARGET_PORT:-22}"
-APP_DIR="${APP_DIR:-/opt/listenlater}"
+APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
 HEALTH_URL="${HEALTH_URL:-}"
 HEALTH_URL_EXPLICIT=0
 SKIP_HEALTHCHECK=0

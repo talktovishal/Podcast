@@ -1,4 +1,4 @@
-import { hashIncomingToken } from "@listenlater/core";
+import { hashIncomingToken } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";

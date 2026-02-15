@@ -1,5 +1,5 @@
 {
-  "name": "@listenlater/web",
+  "name": "@articlepod/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "start": "npm run prisma:generate && next start",
     "lint": "npm run prisma:generate && next lint",
     "typecheck": "npm run prisma:generate && tsc --noEmit",
-    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npm run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite LISTENLATER_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
+    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npm run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
     "export": "tsx scripts/export.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "tts:precompute": "tsx scripts/precompute-tts-previews.ts",
@@ -24,7 +24,7 @@
     "prisma:migrate": "prisma migrate dev --name init"
   },
   "dependencies": {
-    "@listenlater/core": "workspace:*",
+    "@articlepod/core": "workspace:*",
     "@prisma/client": "6.2.1",
     "bcryptjs": "^2.4.3",
     "cookie": "^1.0.2",

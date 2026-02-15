@@ -20,8 +20,18 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="ArticlePod Python TTS")
 
+
+def _default_log_root() -> Path:
+    cwd = Path.cwd()
+    try:
+        project_root = cwd.parents[1]
+    except IndexError:
+        project_root = cwd
+    return project_root / ".runtime" / "logs"
+
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-LOG_ROOT = Path(os.getenv("LOG_ROOT", str(Path.cwd().parents[1] / ".runtime" / "logs")))
+LOG_ROOT = Path(os.getenv("LOG_ROOT", str(_default_log_root())))
 LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
 LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(1 * 1024 * 1024)))
 LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))

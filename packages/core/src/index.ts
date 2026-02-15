@@ -26,3 +26,4 @@ export * from "./rss/buildFeed";
 export * from "./utils/hash";
 export * from "./utils/title";
 export * from "./config/brand";
+export * from "./config/naming";

@@ -3,9 +3,9 @@ import {
   KokoroTtsProvider,
   type TtsProvider,
   type TtsProviderId
-} from "@listenlater/core";
+} from "@articlepod/core";
 import { workerEnv } from "./env.js";
-import { errorCodes } from "@listenlater/core";
+import { errorCodes } from "@articlepod/core";
 
 export function makeTtsProvider(selection: { providerId: TtsProviderId }): TtsProvider {
   if (selection.providerId !== "kokoro") {

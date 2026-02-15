@@ -1,5 +1,5 @@
-import { submitHtmlSnapshotSchema } from "@listenlater/core";
-import { makeToken } from "@listenlater/core";
+import { submitHtmlSnapshotSchema } from "@articlepod/core";
+import { makeToken } from "@articlepod/core";
 import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromExtensionTokenRequest, getAuthUserFromRequest } from "@/lib/auth";

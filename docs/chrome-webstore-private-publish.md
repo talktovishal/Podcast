@@ -10,7 +10,7 @@ npm run extension:package
 ```
 
 It produces:
-- `dist/extension/listenlater-capture-v<version>.zip` (extension package)
+- `dist/extension/articlepod-capture-v<version>.zip` (extension package)
 - `dist/extension/webstore/*` (listing text templates)
 - `dist/extension/README.txt` (quick checklist)
 
@@ -31,7 +31,7 @@ It produces:
 3. Create new item (or open existing item).
 
 4. Upload ZIP:
-- Use `dist/extension/listenlater-capture-v<version>.zip`
+- Use `dist/extension/articlepod-capture-v<version>.zip`
 
 5. Fill listing fields quickly using templates:
 - `dist/extension/webstore/listing-short-description.txt`

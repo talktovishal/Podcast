@@ -1,4 +1,4 @@
-import { AppError, withLogContext } from "@listenlater/core";
+import { AppError, withLogContext } from "@articlepod/core";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";

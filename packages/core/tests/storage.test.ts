@@ -7,7 +7,7 @@ import { AzureBlobObjectStorage } from "../src/storage/azureBlobStorage";
 import { LocalObjectStorage } from "../src/storage/localObjectStorage";
 
 test("LocalObjectStorage put/get/head/delete with ranges", async () => {
-  const root = await mkdtemp(join(tmpdir(), "listenlater-storage-test-"));
+  const root = await mkdtemp(join(tmpdir(), "articlepod-storage-test-"));
   const storage = new LocalObjectStorage(root);
   const key = "items/test/audio.mp3";
 
@@ -39,7 +39,7 @@ test("AzureBlobObjectStorage requires valid credentials", () => {
   assert.throws(
     () =>
       new AzureBlobObjectStorage({
-        container: "listenlater"
+        container: "articlepod"
       }),
     (error: unknown) => error instanceof Error && error.message.includes("requires either connection string")
   );

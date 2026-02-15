@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=scripts/azure/runtime-naming.sh
+source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+
 TARGET_HOST="${TARGET_HOST:-}"
 TARGET_USER="${TARGET_USER:-azureuser}"
-TARGET_PATH="${TARGET_PATH:-/home/${TARGET_USER}/listenlater}"
+TARGET_PATH="${TARGET_PATH:-$RUNTIME_STAGING_DIR}"
 TARGET_PORT="${TARGET_PORT:-22}"
 TARGET_SSH_KEY="${TARGET_SSH_KEY:-}"
 

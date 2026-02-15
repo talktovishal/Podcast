@@ -1,4 +1,4 @@
-import { createStructuredLogger } from "@listenlater/core";
+import { createStructuredLogger } from "@articlepod/core";
 import { env } from "@/lib/env";
 
 export const logger = createStructuredLogger({

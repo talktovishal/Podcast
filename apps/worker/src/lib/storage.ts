@@ -1,4 +1,4 @@
-import { AzureBlobObjectStorage, LocalObjectStorage, type ObjectStorage } from "@listenlater/core";
+import { AzureBlobObjectStorage, LocalObjectStorage, type ObjectStorage } from "@articlepod/core";
 import { workerEnv } from "./env.js";
 
 let cachedStorage: ObjectStorage | null = null;

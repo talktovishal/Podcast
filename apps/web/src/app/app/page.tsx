@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTtsCatalog, normalizeTtsSelection } from "@listenlater/core";
+import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";

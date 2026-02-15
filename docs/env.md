@@ -63,7 +63,8 @@ Recommended:
 - `LOG_RETENTION_DAYS` (default: `14`)
 - `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)
-- `LISTENLATER_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
+- `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
+- Legacy fallback: `LISTENLATER_CONSOLE_LOGS`
 
 ## Telemetry wiring (Azure + parity)
 - `OTEL_ENABLED` (`1` to enable OTel exporters when configured)

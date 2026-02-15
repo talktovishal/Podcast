@@ -138,7 +138,7 @@ export function createStructuredLogger(options: LoggerOptions): StructuredLogger
     await mkdir(dirname(filePath), { recursive: true });
     await appendFile(filePath, `${JSON.stringify(event)}\n`, "utf8");
     await rotateIfNeeded(filePath, maxBytes, maxFiles, retentionDays);
-    if (process.env.LISTENLATER_CONSOLE_LOGS === "1") {
+    if (process.env.ARTICLEPOD_CONSOLE_LOGS === "1" || process.env.LISTENLATER_CONSOLE_LOGS === "1") {
       const printable = `${event.ts} ${event.level} ${event.service} ${event.msg}`;
       // eslint-disable-next-line no-console
       console.log(printable);

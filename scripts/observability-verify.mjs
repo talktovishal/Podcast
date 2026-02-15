@@ -2,9 +2,9 @@
 import { execSync } from "node:child_process";
 
 const commands = [
-  "corepack pnpm --filter @listenlater/core test -- logging",
-  "corepack pnpm --filter @listenlater/web test -- observability",
-  "corepack pnpm --filter @listenlater/worker test -- queue",
+  "corepack pnpm --filter @articlepod/core test -- logging",
+  "corepack pnpm --filter @articlepod/web test -- observability",
+  "corepack pnpm --filter @articlepod/worker test -- queue",
 ];
 
 for (const cmd of commands) {

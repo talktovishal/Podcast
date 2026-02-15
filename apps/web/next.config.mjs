@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ["@listenlater/core"],
+  transpilePackages: ["@articlepod/core"],
   async rewrites() {
     return [
       {
