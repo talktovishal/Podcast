@@ -11,9 +11,9 @@ export default function PricingPage() {
           <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
             Pricing
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple tiers you can evolve over time</h1>
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Plans for instant episodes and ongoing briefings</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Start with clear packaging now. Fine-tune limits and monetization as usage grows.
+            Start with article podcasts today, then scale into daily and weekly intelligence digests with companion email reports.
           </p>
         </section>
 
@@ -25,7 +25,7 @@ export default function PricingPage() {
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
               <li>- Limited monthly episodes</li>
               <li>- URL and PDF ingestion</li>
-              <li>- Private RSS feed</li>
+              <li>- Private RSS feed access</li>
             </ul>
           </article>
 
@@ -35,9 +35,9 @@ export default function PricingPage() {
             <p className="mt-1 text-sm text-[var(--muted)]">For heavy personal learning workflows.</p>
             <p className="mt-3 text-2xl font-bold">$19/mo</p>
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-              <li>- Higher monthly limits</li>
+              <li>- Higher monthly ingest + episode limits</li>
               <li>- Chrome extension capture</li>
-              <li>- Priority processing</li>
+              <li>- Daily podcast + email briefing</li>
             </ul>
           </article>
 
@@ -47,14 +47,14 @@ export default function PricingPage() {
             <p className="mt-3 text-2xl font-bold">$79/mo</p>
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
               <li>- Shared administration</li>
-              <li>- Higher throughput quota</li>
-              <li>- Team support channel</li>
+              <li>- Weekly topic digest podcast</li>
+              <li>- Team email summary reports</li>
             </ul>
           </article>
         </section>
 
         <section className="mt-8 card p-5">
-          <h2 className="text-lg font-semibold">Model assumptions and margins</h2>
+          <h2 className="text-lg font-semibold">Capacity, cost, and margins</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Cost modeling uses your Azure baseline and configurable usage knobs (articles/day, average length, retries, VM count,
             egress, and reservations). See the{" "}

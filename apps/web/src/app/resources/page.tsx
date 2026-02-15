@@ -10,9 +10,9 @@ export default function ResourcesPage() {
           <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
             Resources
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Practical starter library</h1>
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Build your daily and weekly knowledge loop</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Everything needed to run, connect, and troubleshoot your setup.
+            Everything needed to run, configure, and scale instant episodes plus digest workflows.
           </p>
         </section>
 
@@ -22,6 +22,9 @@ export default function ResourcesPage() {
           </a>
           <a className="rounded-full border px-3 py-1.5 hover:bg-[#e8f5f0]" href="#cost-model">
             Cost model
+          </a>
+          <a className="rounded-full border px-3 py-1.5 hover:bg-[#e8f5f0]" href="#digest-design">
+            Digest design
           </a>
           <a className="rounded-full border px-3 py-1.5 hover:bg-[#e8f5f0]" href="#extension">
             Chrome extension
@@ -44,11 +47,22 @@ export default function ResourcesPage() {
         <section id="cost-model" className="mt-4 card p-5">
           <h2 className="text-lg font-semibold">Cost model</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Use the Azure cost model workbook to tune assumptions by users, articles/day, average length, retries, and VM count.
+            Use the Azure cost model workbook to tune assumptions by users, articles/day, average length, retries, digest cadence,
+            and VM count.
           </p>
           <p className="mt-2 text-sm text-[var(--muted)]">
             Reference file: `docs/azure-cost-model.md` and workbook output under `exports/costs/`.
           </p>
+        </section>
+
+        <section id="digest-design" className="mt-4 card p-5">
+          <h2 className="text-lg font-semibold">Digest design</h2>
+          <ul className="mt-2 space-y-1 text-sm text-[var(--muted)]">
+            <li>- Daily podcast: recap of what you discovered in the last 24 hours.</li>
+            <li>- Weekly podcast: topic-based breakdown of key shifts and themes.</li>
+            <li>- Companion email: reading-focused summary with source references.</li>
+            <li>- Long horizon: monthly/yearly recap potential as your archive grows.</li>
+          </ul>
         </section>
 
         <section id="extension" className="mt-4 card p-5">
@@ -70,6 +84,7 @@ export default function ResourcesPage() {
             <li>- If processing seems stuck, check worker and python-tts logs under `.runtime/logs/`.</li>
             <li>- If OAuth is unavailable, verify provider env vars and callback URLs.</li>
             <li>- If extension capture fails, reconnect token from dashboard and retry.</li>
+            <li>- If a digest output looks wrong, verify source URLs and extraction diagnostics.</li>
           </ul>
         </section>
 

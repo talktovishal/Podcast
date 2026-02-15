@@ -19,11 +19,13 @@ export const marketingBannedPhrases: ReadonlyArray<string> = [
 
 export const marketingCopy = {
   heroBadge: "Personalized Podcasts",
-  heroHeadline: "Stay on top of what you want to learn.",
-  heroSubheading: "Turn articles and PDFs into personalized podcast episodes and listen on your schedule.",
-  heroChips: ["Capture URL/PDF/extension", "Private RSS feed", "Daily to monthly summaries"],
-  heroSecondary: "One private feed. All your saved reading.",
-  ctaPrimary: "Get started",
+  heroHeadline: "Turn saved reading into daily and weekly intelligence.",
+  heroSubheading:
+    "ArticlePod converts what you discover into instant episodes, a daily recap podcast, and a weekly topic briefing.",
+  heroChips: ["Instant article podcasts", "Daily + weekly digest episodes", "Companion reading email"],
+  heroSecondary:
+    "As your library grows, unlock monthly and yearly trend recaps grounded in your own source articles.",
+  ctaPrimary: "Start your knowledge feed",
   ctaSecondary: "Open app"
 } as const;
 

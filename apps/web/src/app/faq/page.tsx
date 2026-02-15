@@ -7,6 +7,18 @@ const faqItems: ReadonlyArray<{ q: string; a: string }> = [
     a: "You can submit article URLs, upload text-based PDFs, and capture open pages with the Chrome extension."
   },
   {
+    q: "What does the daily podcast include?",
+    a: "The daily podcast is a recap of newly saved reading, designed for quick catch-up without losing source context."
+  },
+  {
+    q: "How is the weekly podcast different?",
+    a: "The weekly episode groups important developments by topic so you can hear trends instead of isolated articles."
+  },
+  {
+    q: "Do I also get a reading version?",
+    a: "Yes. Alongside podcast briefings, you receive a detailed email summary for reading-first workflows."
+  },
+  {
     q: "Is my feed private?",
     a: "Yes. Each account has a private feed token. Rotating the token invalidates previous feed URLs."
   },
@@ -21,6 +33,10 @@ const faqItems: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: "Why can processing take longer for large inputs?",
     a: "Long sources are synthesized in chunks to keep jobs resilient and recoverable."
+  },
+  {
+    q: "Can ArticlePod create long-term recaps?",
+    a: "Yes. As your archive grows, monthly and yearly recap workflows can summarize how themes changed over time."
   }
 ];
 
