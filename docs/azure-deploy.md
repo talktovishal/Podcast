@@ -70,6 +70,7 @@ TARGET_PATH="/home/azureuser/listenlater" \
 TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
+`push-to-vm.sh` excludes app-local `.env` files so VM runtime config only comes from `/etc/listenlater/listenlater.env`.
 
 ## VM bootstrap + promotion to runtime path
 SSH into VM:
@@ -95,6 +96,10 @@ sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
   /opt/listenlater/scripts/azure/render-env.sh
 ```
+Defaults now include VM-safe runtime paths:
+- `STORAGE_ROOT=/var/lib/listenlater/storage`
+- `MEDIA_ROOT=/var/lib/listenlater/media`
+- `UPLOAD_ROOT=/var/lib/listenlater/uploads`
 
 ## Deploy runtime + systemd services
 On VM:
@@ -105,7 +110,10 @@ sudo systemctl status --no-pager listenlater-python-tts listenlater-web listenla
 
 Notes:
 - `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
+- `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
+- `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
 - `promote-runtime.sh` preserves `services/python-tts/.venv` so model assets are not dropped on every code sync.
+- `promote-runtime.sh` preserves `.runtime/` and strips synced app-local `.env` files to avoid config/path drift across promotions.
 
 ## Configure ingress and TLS
 On VM:

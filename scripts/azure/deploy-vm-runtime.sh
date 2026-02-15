@@ -4,6 +4,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/listenlater}"
 ENV_FILE="${ENV_FILE:-/etc/listenlater/listenlater.env}"
 APP_USER="${APP_USER:-listenlater}"
+APP_GROUP="${APP_GROUP:-$APP_USER}"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "Missing app directory: $APP_DIR"
@@ -38,6 +39,47 @@ run_app_cmd() {
     cd "$APP_DIR"
     eval "$1"
   ' _ "$cmd"
+}
+
+read_env_value() {
+  local key="$1"
+  local line
+  line="$(grep -E "^${key}=" "$ENV_FILE" | tail -n 1 || true)"
+  if [[ -z "$line" ]]; then
+    return 1
+  fi
+  echo "${line#*=}"
+}
+
+remove_app_local_env_files() {
+  rm -f \
+    "$APP_DIR/apps/web/.env" \
+    "$APP_DIR/apps/worker/.env" \
+    "$APP_DIR/services/python-tts/.env"
+}
+
+ensure_runtime_dirs() {
+  local runtime_paths=()
+  local storage_root=""
+  local media_root=""
+  local upload_root=""
+
+  storage_root="$(read_env_value STORAGE_ROOT || true)"
+  media_root="$(read_env_value MEDIA_ROOT || true)"
+  upload_root="$(read_env_value UPLOAD_ROOT || true)"
+
+  [[ -n "$storage_root" ]] && runtime_paths+=("$storage_root")
+  [[ -n "$media_root" ]] && runtime_paths+=("$media_root")
+  [[ -n "$upload_root" ]] && runtime_paths+=("$upload_root")
+
+  if [[ "${#runtime_paths[@]}" -eq 0 ]]; then
+    return
+  fi
+
+  for path in "${runtime_paths[@]}"; do
+    mkdir -p "$path"
+  done
+  chown -R "$APP_USER":"$APP_GROUP" "${runtime_paths[@]}"
 }
 
 run_python_tts_setup() {
@@ -100,6 +142,12 @@ PY
   '
 }
 
+run_tts_preview_precompute() {
+  if ! run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run tts:precompute"; then
+    echo "[deploy-vm-runtime] warning: tts preview precompute failed; previews will be generated on demand" >&2
+  fi
+}
+
 if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
   set -euo pipefail
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -114,6 +162,8 @@ if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
   exit 1
 fi
 
+remove_app_local_env_files
+ensure_runtime_dirs
 run_app_cmd "npx pnpm install --frozen-lockfile"
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run prisma:generate"
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/worker run prisma:generate"
@@ -124,7 +174,9 @@ run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run db:boo
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @listenlater/web run seed:demo"
 
 sudo scripts/azure/install-systemd.sh
-sudo systemctl restart listenlater-python-tts.service listenlater-web.service listenlater-worker.service
+sudo systemctl restart listenlater-python-tts.service
+run_tts_preview_precompute
+sudo systemctl restart listenlater-web.service listenlater-worker.service
 sudo systemctl status --no-pager listenlater-python-tts.service listenlater-web.service listenlater-worker.service
 
 echo "[deploy-vm-runtime] deployment complete"

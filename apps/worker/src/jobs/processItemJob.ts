@@ -166,15 +166,28 @@ async function appendJobEvent(input: {
   retryRecommended?: boolean;
 }) {
   const payload = sanitizeLogPayload(input);
-  await prisma.jobEvent.create({
-    data: {
-      jobId: payload.jobId,
-      itemId: payload.itemId,
-      stage: payload.stage,
-      eventType: payload.eventType,
-      payloadJson: payload
+  try {
+    await prisma.jobEvent.create({
+      data: {
+        jobId: payload.jobId,
+        itemId: payload.itemId,
+        stage: payload.stage,
+        eventType: payload.eventType,
+        payloadJson: payload
+      }
+    });
+  } catch (error) {
+    if (isPrismaMissingEntityError(error)) {
+      await workerLogger.warn("Skipping job event persistence; job or item no longer exists", {
+        jobId: payload.jobId,
+        itemId: payload.itemId,
+        stage: payload.stage,
+        eventType: payload.eventType
+      });
+      return;
     }
-  });
+    throw error;
+  }
 }
 
 async function synthesizeEpisodeAudio(
@@ -456,6 +469,20 @@ function formatDiagnostic(error: unknown): string {
     return `${error.name}: ${error.message}`;
   }
   return String(error);
+}
+
+function isPrismaErrorCode(error: unknown, code: string): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof (error as { code?: unknown }).code === "string" &&
+      (error as { code: string }).code === code
+  );
+}
+
+function isPrismaMissingEntityError(error: unknown): boolean {
+  return isPrismaErrorCode(error, "P2003") || isPrismaErrorCode(error, "P2025");
 }
 
 function toSafeErrorMessage(input: unknown): string {

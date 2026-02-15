@@ -139,14 +139,17 @@ If parity/azure runtime paths changed, also run:
   - `./scripts/azure/discover-resources.sh --resource-group "<RG>" --open-firewall --print-connection-string`
 - Sync code to VM:
   - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/listenlater TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/push-to-vm.sh`
+  - excludes app-local `.env` files from sync payload
 - Bootstrap VM:
   - `sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh`
 - Promote staged code to runtime path:
   - `sudo STAGING_DIR=/home/azureuser/listenlater /home/azureuser/listenlater/scripts/azure/promote-runtime.sh`
   - preserves `services/python-tts/.venv` across syncs
+  - preserves `.runtime/` and removes app-local runtime `.env` files
 - Deploy runtime + services on VM:
   - `sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh`
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
+  - ensures runtime directories (`/var/lib/listenlater/{storage,media,uploads}`) and precomputes Kokoro voice previews
 - Configure ingress + TLS on VM:
   - `sudo PUBLIC_HOST=<vm-fqdn> /opt/listenlater/scripts/azure/configure-nginx.sh`
   - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/listenlater/scripts/azure/configure-tls.sh`

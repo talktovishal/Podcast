@@ -85,6 +85,12 @@ async function seedCacheForHtml(itemId: string, html: string, url: string): Prom
   return cacheKey;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolveSleep) => {
+    setTimeout(resolveSleep, ms);
+  });
+}
+
 test("reclaims stale processing job and completes it", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);
@@ -291,6 +297,73 @@ test("processes oversized snapshot when chunk cache is available", async () => {
     assert.ok(episode?.audioPath);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("does not crash when item is deleted while a job is processing", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-deleted-mid-flight`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `deleted-mid-flight-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const longHtml = `<html><body><article><h1>Delete Mid Flight</h1><p>${"Queue resilience text. ".repeat(18_000)}</p></article></body></html>`;
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Delete Mid Flight ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/delete-mid-flight/${uniq}`,
+      sourceHtml: longHtml,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED",
+      attempt: 0
+    }
+  });
+
+  try {
+    const processingPromise = processJob(job.id);
+
+    let claimed = false;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const current = await prisma.job.findUnique({
+        where: { id: job.id },
+        select: { status: true }
+      });
+      if (current?.status === "PROCESSING") {
+        claimed = true;
+        break;
+      }
+      await sleep(20);
+    }
+
+    assert.equal(claimed, true);
+
+    await prisma.item.delete({ where: { id: item.id } });
+
+    const processed = await processingPromise;
+    assert.equal(processed, false);
+
+    const remainingItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const remainingJob = await prisma.job.findUnique({ where: { id: job.id } });
+    assert.equal(remainingItem, null);
+    assert.equal(remainingJob, null);
+  } finally {
+    await prisma.user.deleteMany({ where: { id: user.id } });
   }
 });
 

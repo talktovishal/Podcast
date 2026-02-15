@@ -24,6 +24,14 @@ ssh "${SSH_ARGS[@]}" "$REMOTE" "mkdir -p '$TARGET_PATH'"
 rsync -az --delete \
   -e "ssh ${SSH_ARGS[*]}" \
   --exclude '.git' \
+  --exclude '.env' \
+  --exclude '.env.*' \
+  --exclude 'apps/web/.env' \
+  --exclude 'apps/web/.env.*' \
+  --exclude 'apps/worker/.env' \
+  --exclude 'apps/worker/.env.*' \
+  --exclude 'services/python-tts/.env' \
+  --exclude 'services/python-tts/.env.*' \
   --exclude 'node_modules' \
   --exclude '.venv' \
   --exclude 'services/python-tts/.venv' \
