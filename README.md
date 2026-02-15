@@ -3,12 +3,12 @@
 RSS-first personal podcast feed that converts URLs/PDFs/extension captures into private podcast episodes.
 
 ## Monorepo layout
-- `/Users/vishalchowdhary/Documents/Podcast/apps/web` - Next.js UI + API routes
-- `/Users/vishalchowdhary/Documents/Podcast/apps/worker` - async processing worker
-- `/Users/vishalchowdhary/Documents/Podcast/apps/extension` - standalone Chrome extension (MV3)
-- `/Users/vishalchowdhary/Documents/Podcast/packages/core` - shared extraction/RSS/storage/security logic
-- `/Users/vishalchowdhary/Documents/Podcast/services/python-tts` - local Kokoro service
-- `/Users/vishalchowdhary/Documents/Podcast/docs` - plans, architecture, deployment/runbooks
+- `apps/web` - Next.js UI + API routes
+- `apps/worker` - async processing worker
+- `apps/extension` - standalone Chrome extension (MV3)
+- `packages/core` - shared extraction/RSS/storage/security logic
+- `services/python-tts` - local Kokoro service
+- `docs` - plans, architecture, deployment/runbooks
 
 ## Quick start
 Simple local profile:
@@ -55,17 +55,23 @@ Output:
 
 ## Azure deployment
 See:
-- `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
-- `/Users/vishalchowdhary/Documents/Podcast/infra/README.md`
+- `docs/azure-deploy.md` - Initial provisioning and manual deployment
+- `docs/azure-ci-cd.md` - CI/CD automated deployment setup
+- `infra/README.md` - Infrastructure as Code (Bicep templates)
 
 Deploy-only (for local code changes to an existing VM):
 ```bash
 TARGET_HOST="<vm-ip-or-fqdn>" npm run azure:deploy:changes
 ```
 
+Automated CI/CD deployment:
+- Configure GitHub secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`)
+- Push with `[deploy]` tag or use workflow dispatch
+- See `docs/azure-ci-cd.md` for setup instructions
+
 Script/catalog indexes:
-- `/Users/vishalchowdhary/Documents/Podcast/docs/README.md`
-- `/Users/vishalchowdhary/Documents/Podcast/scripts/README.md`
+- `docs/README.md`
+- `scripts/README.md`
 
 ## Naming management
 - Sync generated naming constants:

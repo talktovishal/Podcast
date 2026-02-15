@@ -1,0 +1,103 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_healthcheck:
+        description: 'Skip health check after deployment'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npx pnpm install --frozen-lockfile
+
+      - name: Setup SSH key
+        env:
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+        run: |
+          if [ -z "$AZURE_SSH_KEY" ]; then
+            echo "::error::AZURE_SSH_KEY secret is not configured"
+            echo "Please configure the following secrets in your repository:"
+            echo "  - AZURE_SSH_KEY: SSH private key for VM access"
+            echo "  - AZURE_VM_HOST: VM IP address or FQDN"
+            echo "  - AZURE_VM_USER (optional): SSH user (default: azureuser)"
+            exit 1
+          fi
+          
+          mkdir -p ~/.ssh
+          echo "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
+          chmod 600 ~/.ssh/articlepod_azure
+          
+          # Add VM to known hosts to avoid interactive prompt
+          if [ -n "${{ secrets.AZURE_VM_HOST }}" ]; then
+            ssh-keyscan -H "${{ secrets.AZURE_VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          fi
+
+      - name: Deploy to Azure VM
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          TARGET_SSH_KEY: ~/.ssh/articlepod_azure
+        run: |
+          if [ -z "$TARGET_HOST" ]; then
+            echo "::error::AZURE_VM_HOST secret is not configured"
+            exit 1
+          fi
+          
+          echo "::group::Deploying to $TARGET_HOST"
+          
+          DEPLOY_ARGS="--host $TARGET_HOST --user $TARGET_USER --ssh-key $TARGET_SSH_KEY"
+          
+          if [ "${{ inputs.skip_healthcheck }}" == "true" ]; then
+            DEPLOY_ARGS="$DEPLOY_ARGS --skip-healthcheck"
+          fi
+          
+          ./scripts/azure/deploy-changes.sh $DEPLOY_ARGS
+          
+          echo "::endgroup::"
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployed to: \`${{ secrets.AZURE_VM_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Common issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- SSH key permissions" >> $GITHUB_STEP_SUMMARY
+          echo "- VM connectivity" >> $GITHUB_STEP_SUMMARY
+          echo "- Service restart failures" >> $GITHUB_STEP_SUMMARY
