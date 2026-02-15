@@ -25,6 +25,7 @@
     "parity:up": "./scripts/parity-up.sh",
     "parity:down": "./scripts/parity-down.sh",
     "parity:smoke": "./scripts/parity-smoke.sh",
+    "azure:deploy:changes": "./scripts/azure/deploy-changes.sh",
     "db:migrate:sqlite-to-postgres": "./scripts/migrate-sqlite-to-postgres.sh",
     "ops:pre-drill-snapshot": "./scripts/ops/pre-drill-snapshot.sh",
     "ops:verify-restore": "./scripts/ops/verify-restore.sh",

@@ -58,6 +58,15 @@ See:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
 - `/Users/vishalchowdhary/Documents/Podcast/infra/README.md`
 
+Deploy-only (for local code changes to an existing VM):
+```bash
+TARGET_HOST="<vm-ip-or-fqdn>" npm run azure:deploy:changes
+```
+
+Script/catalog indexes:
+- `/Users/vishalchowdhary/Documents/Podcast/docs/README.md`
+- `/Users/vishalchowdhary/Documents/Podcast/scripts/README.md`
+
 ## Validation gates
 - `npm run typecheck`
 - `npm run lint`

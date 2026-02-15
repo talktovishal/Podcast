@@ -1,0 +1,33 @@
+# Azure Scripts
+
+## First-Time Setup (Per Environment)
+1. Preflight local machine:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/preflight.sh`
+2. Provision infra (outside this folder, with `azd up`).
+3. Discover runtime resources:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/discover-resources.sh`
+4. Bootstrap VM:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
+5. Render runtime env:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh`
+
+See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
+
+## Daily Deploy (Code Changes Only)
+Single command:
+```bash
+TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
+```
+
+What it runs:
+1. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
+2. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
+3. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+
+## Individual Building Blocks
+- Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
+- Promote staged files only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
+- Deploy runtime only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+- systemd install: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/install-systemd.sh`
+- Nginx config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
+- TLS config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`

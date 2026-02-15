@@ -1,5 +1,9 @@
 # Product Documentation
 
+Related indexes:
+- Docs index: `/Users/vishalchowdhary/Documents/Podcast/docs/README.md`
+- Scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/README.md`
+
 ## What ArticlePod does
 ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and publishes them through a private RSS feed.
 

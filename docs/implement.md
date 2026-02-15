@@ -131,6 +131,8 @@ If parity/azure runtime paths changed, also run:
   - `npm run db:migrate:sqlite-to-postgres -- --postgres-url "<DATABASE_URL>"`
 
 ## Azure VM deployment helpers
+- Deploy local code changes to existing VM (sync + promote + deploy):
+  - `TARGET_HOST=<vm-ip-or-fqdn> TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/deploy-changes.sh`
 - Preflight (local):
   - `./scripts/azure/preflight.sh --subscription "<SUBSCRIPTION_ID_OR_NAME>"`
 - Provision infra:

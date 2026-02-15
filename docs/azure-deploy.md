@@ -155,6 +155,13 @@ Record evidence in:
 - `docs/release-checklist.md` release evidence template
 
 ## Ongoing deployment loop
+One-command deploy from local machine:
+```bash
+TARGET_HOST="$VM_IP" TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
+  ./scripts/azure/deploy-changes.sh
+```
+
+Equivalent step-by-step flow:
 From local repo:
 ```bash
 TARGET_HOST="$VM_IP" \
