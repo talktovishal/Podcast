@@ -10,6 +10,38 @@ function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function textToMarkdown(text: string, fallbackTitle: string | null): string {
+  const paragraphs = text
+    .split(/\n{2,}/g)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const markdownParts: string[] = [];
+  if (fallbackTitle?.trim()) {
+    markdownParts.push(`# ${fallbackTitle.trim()}`);
+  }
+
+  for (const paragraph of paragraphs) {
+    const singleLine = paragraph.replace(/\n+/g, " ").trim();
+    if (!singleLine) {
+      continue;
+    }
+
+    // Heuristic: short all-caps or title-case lines become headings.
+    const isShort = singleLine.length <= 90;
+    const isAllCaps = singleLine === singleLine.toUpperCase() && /[A-Z]/.test(singleLine);
+    const isLikelyHeading = isShort && (isAllCaps || /^[A-Z][\w\s,:-]{3,}$/.test(singleLine));
+    if (isLikelyHeading && !singleLine.startsWith("-") && !/^\d+[.)]/.test(singleLine)) {
+      markdownParts.push(`## ${singleLine}`);
+      continue;
+    }
+
+    markdownParts.push(singleLine);
+  }
+
+  return markdownParts.join("\n\n").trim();
+}
+
 function normalizePdfTitle(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -41,7 +73,12 @@ async function extractPdfTitle(doc: { getMetadata: () => Promise<unknown> }): Pr
   }
 }
 
-export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: string; pages: number; title: string | null }> {
+export async function extractTextFromPdf(data: Uint8Array): Promise<{
+  text: string;
+  markdown: string;
+  pages: number;
+  title: string | null;
+}> {
   const pdfjs = await loadPdfjs();
   const loadingTask = pdfjs.getDocument({ data });
   const doc = await loadingTask.promise;
@@ -69,5 +106,10 @@ export async function extractTextFromPdf(data: Uint8Array): Promise<{ text: stri
     );
   }
 
-  return { text, pages: doc.numPages, title: extractedTitle };
+  return {
+    text,
+    markdown: textToMarkdown(text, extractedTitle),
+    pages: doc.numPages,
+    title: extractedTitle
+  };
 }

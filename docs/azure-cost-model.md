@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-10T03:00:00.248Z**
+- Snapshot generated: **2026-02-15T00:29:43.234Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 

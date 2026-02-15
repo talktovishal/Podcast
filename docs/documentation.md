@@ -51,23 +51,19 @@ Current implementation:
 - structured JSONL runtime logs in `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`
 - support IDs included on API error payloads from shared error helper
 - correlation propagation from worker to python-tts (`traceparent`, request/job/item IDs)
+- admin observability dashboard includes backlog, processing latency, retryable failures, and top error codes
 - diagnostics scripts:
   - `npm run logs:collect`
   - `npm run logs:triage`
 
-Planned next steps:
-- M51-M54 for full OTel export, Azure Monitor wiring, and dashboards/alerts.
-
-## Markdown Artifacts (Current vs Planned)
-Current:
-- extraction pipeline is optimized for narration readiness and diagnostics.
-- source submissions are processed through URL/PDF/HTML snapshot adapters and then chunked for TTS.
-
-Planned (`M57`-`M64`):
-- persist both raw source artifacts and markdown artifacts in object storage (initial dual-save phase).
-- retain markdown artifacts for future product workflows (summaries, reuse, export).
-- enforce retention lifecycle for raw artifacts (target 90 days).
-- provide controlled diagnostics access to markdown outputs for review/admin flows.
+## Markdown Artifacts
+Current (`M57`-`M64` implemented):
+- URL/PDF/HTML snapshot extraction persists raw source artifacts and markdown artifacts in object storage.
+- markdown artifacts are retained for reuse and can be viewed through authorized dashboard/API flows.
+- raw artifacts use retention metadata (default target: 90 days), with purge tooling available:
+  - `npm run artifacts:purge`
+- migration helper to backfill markdown artifacts for ready legacy items:
+  - `npm run artifacts:backfill`
 
 ## OAuth setup
 Google + Apple setup guide:
@@ -79,3 +75,7 @@ OAuth buttons show unavailable until provider env vars are configured.
 - No OCR for scanned/image-heavy PDFs.
 - No voice cloning.
 - No native mobile app.
+
+## Release certification
+- Checklist: `/Users/vishalchowdhary/Documents/Podcast/docs/release-checklist.md`
+- Contract gate script: `/Users/vishalchowdhary/Documents/Podcast/scripts/verify_podcast_contract.sh`

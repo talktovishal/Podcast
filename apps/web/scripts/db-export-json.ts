@@ -39,6 +39,7 @@ async function main() {
     jobs: await prisma.job.findMany({ orderBy: { id: "asc" } }),
     jobEvents: await prisma.jobEvent.findMany({ orderBy: { id: "asc" } }),
     episodes: await prisma.episode.findMany({ orderBy: { id: "asc" } }),
+    itemArtifacts: await prisma.itemArtifact.findMany({ orderBy: { id: "asc" } }),
     chunkCaches: await prisma.chunkCache.findMany({ orderBy: { id: "asc" } }),
     demoExtractionTraces: await prisma.demoExtractionTrace.findMany({ orderBy: { id: "asc" } })
   };

@@ -10,7 +10,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
   }
 
-  const item = await prisma.item.findUnique({ where: { id: context.params.id }, include: { episode: true } });
+  const item = await prisma.item.findUnique({
+    where: { id: context.params.id },
+    include: { episode: true, artifacts: true }
+  });
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
   }
@@ -33,6 +36,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     } else {
       await storage.deleteObject(item.sourceFilePath);
     }
+  }
+
+  for (const artifact of item.artifacts) {
+    await storage.deleteObject(artifact.storageKey).catch(() => undefined);
   }
 
   return NextResponse.json({ ok: true });

@@ -452,6 +452,19 @@ export async function exchangeExtensionConnectCode(input: {
   return result;
 }
 
+export async function revokeExtensionTokensForUser(userId: string): Promise<number> {
+  const result = await prisma.extensionToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null
+    },
+    data: {
+      revokedAt: new Date()
+    }
+  });
+  return result.count;
+}
+
 export async function requestIpAddress(): Promise<string> {
   const headerStore = await headers();
   return headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";

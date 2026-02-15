@@ -31,6 +31,20 @@ type ExtractionLogEntry = {
   message: string;
   details?: Record<string, unknown>;
 };
+type SourceArtifact = {
+  kind: "RAW_HTML" | "RAW_PDF";
+  storageKey: string;
+  contentType: string;
+  bytes: Buffer;
+  expiresAt: Date | null;
+};
+type ExtractionResult = {
+  title: string;
+  text: string;
+  markdown: string;
+  sourceLabel: string;
+  sourceArtifact: SourceArtifact | null;
+};
 
 const DEMO_TRACE_LIMIT = 10;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
@@ -65,12 +79,37 @@ function appendExtractionLog(
   });
 }
 
+function retentionExpiryDate(days: number): Date {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+function markdownToNarrationText(markdown: string, fallbackText: string): string {
+  const stripped = markdown
+    .replace(/\r\n/g, "\n")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^>\s?/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+[.)]\s+/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  if (stripped.length < 120) {
+    return fallbackText.trim();
+  }
+  return stripped;
+}
+
 async function maybeStoreDemoExtractionTrace(input: {
   isDemoUser: boolean;
   userId: string;
   itemId: string;
   sourceLabel: string;
   extractedText: string;
+  extractedMarkdown?: string;
   logs: ExtractionLogEntry[];
 }) {
   if (!input.isDemoUser) {
@@ -82,6 +121,7 @@ async function maybeStoreDemoExtractionTrace(input: {
     update: {
       sourceLabel: input.sourceLabel,
       extractedText: input.extractedText,
+      extractedMarkdown: input.extractedMarkdown,
       extractionLogJson: input.logs as Prisma.InputJsonValue
     },
     create: {
@@ -89,6 +129,7 @@ async function maybeStoreDemoExtractionTrace(input: {
       itemId: input.itemId,
       sourceLabel: input.sourceLabel,
       extractedText: input.extractedText,
+      extractedMarkdown: input.extractedMarkdown,
       extractionLogJson: input.logs as Prisma.InputJsonValue
     }
   });
@@ -260,7 +301,7 @@ async function extractItemText(item: {
   sourceFilePath: string | null;
   sourceHtml: string | null;
   logs: ExtractionLogEntry[];
-}) {
+}): Promise<ExtractionResult> {
   if (item.sourceType === "URL") {
     if (!item.sourceUrl) {
       throw new AppError(errorCodes.INVALID_INPUT, "Missing source URL", 400);
@@ -280,36 +321,69 @@ async function extractItemText(item: {
       extractedTextLength: extracted.text.length
     });
 
-    return { title: extractedTitle, text: extracted.text, sourceLabel: item.sourceUrl };
+    return {
+      title: extractedTitle,
+      text: extracted.text,
+      markdown: extracted.markdown,
+      sourceLabel: item.sourceUrl,
+      sourceArtifact: {
+        kind: "RAW_HTML",
+        storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.html")),
+        contentType: "text/html; charset=utf-8",
+        bytes: Buffer.from(extracted.rawHtml, "utf8"),
+        expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
+      }
+    };
+  }
+
+  if (item.sourceType === "HTML_SNAPSHOT") {
+    let snapshotHtml = item.sourceHtml?.trim() ?? "";
+    if (!snapshotHtml && item.sourceFilePath) {
+      if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
+        snapshotHtml = (await readFile(item.sourceFilePath, "utf8")).trim();
+      } else {
+        const storageKey = normalizeStorageKey(item.sourceFilePath);
+        snapshotHtml = (await getArtifactStorage().getObject(storageKey)).toString("utf8").trim();
+      }
+    }
+
+    if (!snapshotHtml) {
+      throw new AppError(errorCodes.INVALID_INPUT, "Missing captured HTML snapshot", 400);
+    }
+
+    appendExtractionLog(item.logs, "extract:snapshot", "Parsing captured HTML snapshot", {
+      sourceUrl: item.sourceUrl || "about:blank",
+      htmlBytes: Buffer.byteLength(snapshotHtml, "utf8")
+    });
+    const extracted = extractHtmlSnapshot({
+      html: snapshotHtml,
+      url: item.sourceUrl || undefined
+    });
+    const extractedTitle = extracted.title ?? "";
+    appendExtractionLog(item.logs, "extract:snapshot", "Snapshot extraction complete", {
+      extractedTitleLength: extractedTitle.length,
+      extractedTextLength: extracted.text.length
+    });
+
+    return {
+      title: extractedTitle,
+      text: extracted.text,
+      markdown: extracted.markdown,
+      sourceLabel: item.sourceUrl || "Captured browser page",
+      sourceArtifact: {
+        kind: "RAW_HTML",
+        storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.html")),
+        contentType: "text/html; charset=utf-8",
+        bytes: Buffer.from(extracted.rawHtml, "utf8"),
+        expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
+      }
+    };
   }
 
   if (!item.sourceFilePath) {
-    if (item.sourceType === "HTML_SNAPSHOT") {
-      if (!item.sourceHtml?.trim()) {
-        throw new AppError(errorCodes.INVALID_INPUT, "Missing captured HTML snapshot", 400);
-      }
-
-      appendExtractionLog(item.logs, "extract:snapshot", "Parsing captured HTML snapshot", {
-        sourceUrl: item.sourceUrl || "about:blank",
-        htmlBytes: Buffer.byteLength(item.sourceHtml, "utf8")
-      });
-      const extracted = extractHtmlSnapshot({
-        html: item.sourceHtml,
-        url: item.sourceUrl || undefined
-      });
-      const extractedTitle = extracted.title ?? "";
-      appendExtractionLog(item.logs, "extract:snapshot", "Snapshot extraction complete", {
-        extractedTitleLength: extractedTitle.length,
-        extractedTextLength: extracted.text.length
-      });
-
-      return {
-        title: extractedTitle,
-        text: extracted.text,
-        sourceLabel: item.sourceUrl || "Captured browser page"
-      };
+    if (item.sourceType !== "PDF") {
+      throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
     }
-
     throw new AppError(errorCodes.INVALID_INPUT, "Missing source PDF path", 400);
   }
 
@@ -347,7 +421,15 @@ async function extractItemText(item: {
   return {
     title: extractedTitle,
     text: extracted.text,
-    sourceLabel: "Uploaded PDF"
+    markdown: extracted.markdown,
+    sourceLabel: "Uploaded PDF",
+    sourceArtifact: {
+      kind: "RAW_PDF",
+      storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.pdf")),
+      contentType: "application/pdf",
+      bytes: pdfData,
+      expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
+    }
   };
 }
 
@@ -563,8 +645,9 @@ export async function processJob(jobId: string): Promise<boolean> {
       ? item.sourceUrl || "URL source"
       : item.sourceType === "HTML_SNAPSHOT"
         ? item.sourceUrl || "Captured browser page"
-        : "Uploaded PDF";
+      : "Uploaded PDF";
   let extractedTextForDiagnostics = "";
+  let extractedMarkdownForDiagnostics = "";
 
   await withLogContext(
     {
@@ -613,15 +696,81 @@ export async function processJob(jobId: string): Promise<boolean> {
     });
     sourceLabelForDiagnostics = extraction.sourceLabel;
     extractedTextForDiagnostics = extraction.text;
+    extractedMarkdownForDiagnostics = extraction.markdown;
+
+    if (extraction.sourceArtifact) {
+      const storedRaw = await getArtifactStorage().putObject(extraction.sourceArtifact.storageKey, extraction.sourceArtifact.bytes, {
+        contentType: extraction.sourceArtifact.contentType
+      });
+      await prisma.itemArtifact.upsert({
+        where: {
+          itemId_kind: {
+            itemId: item.id,
+            kind: extraction.sourceArtifact.kind
+          }
+        },
+        update: {
+          storageKey: storedRaw.key,
+          contentType: extraction.sourceArtifact.contentType,
+          byteLength: storedRaw.bytes,
+          expiresAt: extraction.sourceArtifact.expiresAt
+        },
+        create: {
+          itemId: item.id,
+          kind: extraction.sourceArtifact.kind,
+          storageKey: storedRaw.key,
+          contentType: extraction.sourceArtifact.contentType,
+          byteLength: storedRaw.bytes,
+          expiresAt: extraction.sourceArtifact.expiresAt
+        }
+      });
+      appendExtractionLog(extractionLogs, "extract", "Source artifact persisted", {
+        kind: extraction.sourceArtifact.kind,
+        storageKey: storedRaw.key,
+        bytes: storedRaw.bytes
+      });
+    }
+
+    const markdownStorageKey = normalizeStorageKey(join("items", item.id, "artifacts", "source.md"));
+    const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(extraction.markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+    await prisma.itemArtifact.upsert({
+      where: {
+        itemId_kind: {
+          itemId: item.id,
+          kind: "MARKDOWN"
+        }
+      },
+      update: {
+        storageKey: markdownStored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: markdownStored.bytes,
+        expiresAt: null
+      },
+      create: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: markdownStored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: markdownStored.bytes,
+        expiresAt: null
+      }
+    });
+    appendExtractionLog(extractionLogs, "extract", "Markdown artifact persisted", {
+      storageKey: markdownStored.key,
+      bytes: markdownStored.bytes
+    });
 
     const userProvidedTitle = item.title?.trim() || "";
-    const resolvedTitle = userProvidedTitle || resolveEpisodeTitle(extraction.title, extraction.text);
+    const narrationText = markdownToNarrationText(extraction.markdown, extraction.text);
+    const resolvedTitle = userProvidedTitle || resolveEpisodeTitle(extraction.title, narrationText);
     appendExtractionLog(extractionLogs, "extract", "Title resolved", {
       usedUserProvidedTitle: Boolean(userProvidedTitle),
       resolvedTitle
     });
 
-    const chunks = chunkText(extraction.text, workerEnv.ttsChunkMaxChars);
+    const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
     }
@@ -716,7 +865,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         update: {
           guid,
           title: resolvedTitle,
-          description: extraction.text.slice(0, 400),
+          description: narrationText.slice(0, 400),
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
           mimeType: audio.mimeType,
@@ -726,7 +875,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           itemId: item.id,
           guid,
           title: resolvedTitle,
-          description: extraction.text.slice(0, 400),
+          description: narrationText.slice(0, 400),
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
           mimeType: audio.mimeType,
@@ -780,6 +929,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         itemId: item.id,
         sourceLabel: sourceLabelForDiagnostics,
         extractedText: extractedTextForDiagnostics,
+        extractedMarkdown: extractedMarkdownForDiagnostics,
         logs: extractionLogs
       });
     } catch {
@@ -891,6 +1041,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         itemId: item.id,
         sourceLabel: sourceLabelForDiagnostics,
         extractedText: extractedTextForDiagnostics,
+        extractedMarkdown: extractedMarkdownForDiagnostics,
         logs: extractionLogs
       });
     } catch {

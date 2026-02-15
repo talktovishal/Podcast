@@ -49,9 +49,26 @@ async function seedCacheForItem(itemId: string): Promise<string> {
   return seedCacheForHtml(itemId, SNAPSHOT_HTML, `https://example.com/${itemId}`);
 }
 
+function markdownToNarrationText(markdown: string, fallbackText: string): string {
+  const stripped = markdown
+    .replace(/\r\n/g, "\n")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/^>\s?/gm, "")
+    .replace(/^[-*+]\s+/gm, "")
+    .replace(/^\d+[.)]\s+/gm, "")
+    .replace(/[*_~]/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return stripped.length >= 120 ? stripped : fallbackText.trim();
+}
+
 async function seedCacheForHtml(itemId: string, html: string, url: string): Promise<string> {
   const extracted = extractHtmlSnapshot({ html, url });
-  const chunks = chunkText(extracted.text, workerEnv.ttsChunkMaxChars);
+  const narrationText = markdownToNarrationText(extracted.markdown, extracted.text);
+  const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
   const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
   await prisma.chunkCache.create({
@@ -111,10 +128,16 @@ test("reclaims stale processing job and completes it", async () => {
 
     const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
     const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const artifacts = await prisma.itemArtifact.findMany({
+      where: { itemId: item.id },
+      orderBy: { kind: "asc" }
+    });
 
     assert.equal(finishedJob?.status, "SUCCEEDED");
     assert.equal(finishedItem?.status, "READY");
     assert.equal(finishedItem?.sourceHtml, null);
+    assert.ok(artifacts.some((artifact) => artifact.kind === "RAW_HTML"));
+    assert.ok(artifacts.some((artifact) => artifact.kind === "MARKDOWN"));
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

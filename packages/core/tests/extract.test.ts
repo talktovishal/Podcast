@@ -19,6 +19,8 @@ test("extractHtmlFromUrl extracts fixture", async () => {
 
   const result = await extractHtmlFromUrl("https://example.com/article");
   assert.ok(result.text.length > 100);
+  assert.ok(result.markdown.length > 80);
+  assert.ok(result.rawHtml.includes("<html"));
   assert.ok(result.title.includes("Fixture"));
 
   globalThis.fetch = originalFetch;
@@ -57,6 +59,7 @@ test("extractHtmlFromUrl applies abogen cleaner pipeline", async () => {
 
   const result = await extractHtmlFromUrl("https://example.com/cleaner");
   assert.equal(result.title, "Cleaner Fixture");
+  assert.ok(result.markdown.length > 80);
   assert.ok(!result.text.toLowerCase().includes("image caption noise"));
   assert.ok(result.text.includes("1) First ordered item with stable wording."));
   assert.ok(!result.text.includes("Footnote marker gets stripped from text1"));
@@ -121,6 +124,7 @@ test("extractHtmlSnapshot extracts content without network fetch", async () => {
   });
 
   assert.ok(result.text.length > 100);
+  assert.ok(result.markdown.length > 80);
   assert.ok(result.title.length > 0);
   assert.equal(fetchCalls, 0);
 
@@ -148,6 +152,7 @@ test("extractTextFromPdf extracts text fixture", async () => {
   const result = await extractTextFromPdf(new Uint8Array(data));
   assert.ok(result.pages >= 1);
   assert.ok(result.text.toLowerCase().includes("listenlater fixture"));
+  assert.ok(result.markdown.length > 40);
   assert.ok(result.title === null || typeof result.title === "string");
 });
 

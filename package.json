@@ -28,6 +28,8 @@
     "db:migrate:sqlite-to-postgres": "./scripts/migrate-sqlite-to-postgres.sh",
     "ops:pre-drill-snapshot": "./scripts/ops/pre-drill-snapshot.sh",
     "ops:verify-restore": "./scripts/ops/verify-restore.sh",
+    "artifacts:backfill": "npx pnpm --filter @listenlater/web run artifacts:backfill",
+    "artifacts:purge": "npx pnpm --filter @listenlater/web run artifacts:purge",
     "extension:icons": "python3 scripts/generate-extension-icons.py",
     "extension:package": "./scripts/package-extension.sh",
     "logs:collect": "node scripts/logs-collect.mjs",

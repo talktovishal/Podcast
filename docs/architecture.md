@@ -13,6 +13,7 @@ Primary entities:
 - `Item` (source submission lifecycle)
 - `Job` + `JobEvent` (worker queue and deterministic events)
 - `Episode` (RSS/media metadata)
+- `ItemArtifact` (raw + markdown extraction artifact metadata)
 - `ChunkCache` (idempotent synthesis cache)
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
@@ -29,19 +30,15 @@ The worker extraction adapter branches by source type:
 - PDF: uploaded bytes from artifact storage + text extraction
 - HTML snapshot: parse raw HTML directly, no server-side fetch
 
-## Extraction Artifact Plane (Current + Planned)
-Current behavior:
-- extraction pipeline focuses on producing cleaned narration text and diagnostics for worker execution.
-- source artifacts (uploads/snapshots) are stored as objects where needed for processing.
-
-Planned rollout (`M57`-`M64`):
-- introduce canonical artifact records for both raw-source and markdown derivatives.
-- persist dual artifacts in object storage during iteration phase:
-  - raw HTML/PDF artifact (time-bound retention target: 90 days)
-  - markdown artifact (durable, reusable for downstream workflows)
-- standardize metadata fields for artifact references:
-  - `kind`, `storageKey`, `contentType`, `bytes`, `expiresAt`, `createdAt`
-- transition narration input contract to markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+## Extraction Artifact Plane
+Current behavior (`M57`-`M64` implemented):
+- extraction emits both narration text and markdown from HTML/PDF/snapshot sources.
+- worker persists dual artifacts in object storage:
+  - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
+  - markdown artifact (`MARKDOWN`) retained for downstream workflows
+- metadata is normalized via `ItemArtifact` records:
+  - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
+- narration input contract uses markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
@@ -68,7 +65,8 @@ Critical artifacts in object storage:
 - uploaded PDFs
 - generated episode audio
 - exported media copies
-- planned markdown artifacts and raw-source snapshots for extraction iteration
+- raw-source snapshots/artifacts (`RAW_HTML`, `RAW_PDF`) with retention policy
+- markdown artifacts (`MARKDOWN`) for diagnostics/reuse
 
 ## Media delivery contract
 `/api/media/[...path]` is storage-backed and enforces podcast-compatible semantics:

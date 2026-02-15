@@ -17,11 +17,13 @@
     "@mozilla/readability": "^0.6.0",
     "jsdom": "^25.0.1",
     "pdfjs-dist": "^4.10.38",
+    "turndown": "^7.2.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.10.2",
+    "@types/turndown": "^5.0.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }

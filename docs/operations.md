@@ -49,6 +49,21 @@ This verifies:
 ## Latest evidence
 - Pending first live Azure drill execution.
 
+## Extraction artifact lifecycle
+Backfill markdown artifacts for existing ready items:
+```bash
+npm run artifacts:backfill
+```
+
+Purge expired raw artifacts and stale extension auth artifacts:
+```bash
+npm run artifacts:purge
+```
+
+Default retention behavior:
+- `RAW_HTML` and `RAW_PDF` artifacts expire after `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default 90 days).
+- `MARKDOWN` artifacts are retained for downstream reuse unless item/account deletion removes them.
+
 ## Observability runbook
 Dedicated local log root:
 - `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`

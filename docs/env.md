@@ -56,6 +56,7 @@ Recommended:
 - `WORKER_POLL_MS`
 - `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
 - `WORKER_RETRY_POLL_MS`
+- `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`)

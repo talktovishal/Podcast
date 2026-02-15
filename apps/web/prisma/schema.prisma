@@ -84,10 +84,28 @@ model Item {
   jobs          Job[]
   jobEvents     JobEvent[]
   episode       Episode?
+  artifacts     ItemArtifact[]
   chunkCaches   ChunkCache[]
   demoExtractionTrace DemoExtractionTrace?
 
   @@index([userId, status])
+}
+
+model ItemArtifact {
+  id          String   @id @default(cuid())
+  itemId      String
+  kind        String
+  storageKey  String
+  contentType String
+  byteLength  Int
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, kind])
+  @@index([kind, createdAt])
+  @@index([expiresAt])
 }
 
 model OAuthIdentity {
@@ -207,6 +225,7 @@ model DemoExtractionTrace {
   itemId           String   @unique
   sourceLabel      String
   extractedText    String
+  extractedMarkdown String?
   extractionLogJson Json
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

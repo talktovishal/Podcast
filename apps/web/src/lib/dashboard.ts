@@ -53,6 +53,7 @@ export async function getDemoExtractionDiagnostics(userId: string, limit = 10): 
     errorMessage: trace.item.errorMessage,
     createdAt: trace.updatedAt.toISOString(),
     extractedText: trace.extractedText,
+    extractedMarkdown: trace.extractedMarkdown,
     logEntries: normalizeExtractionLogEntries(trace.extractionLogJson)
   }));
 }
@@ -72,24 +73,65 @@ export async function getUserTtsSettings(userId: string): Promise<{ providerId: 
 }
 
 export async function getAdminMetrics() {
-  const [activeUsers, totalItems, readyItems, failedItems, recentErrors, recentJobs] = await Promise.all([
+  const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentErrors, recentJobs] =
+    await Promise.all([
     prisma.user.count(),
     prisma.item.count(),
     prisma.item.count({ where: { status: "READY" } }),
     prisma.item.count({ where: { status: "FAILED" } }),
+    prisma.job.count({ where: { status: "QUEUED" } }),
+    prisma.job.count({ where: { status: "PROCESSING" } }),
+    prisma.job.count({
+      where: {
+        status: "FAILED",
+        nextRetryAt: {
+          lte: new Date()
+        }
+      }
+    }),
     prisma.jobEvent.findMany({
       where: { eventType: "error" },
       orderBy: { createdAt: "desc" },
-      take: 10
+      take: 20
     }),
     prisma.job.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { item: true } })
   ]);
+
+  const now = Date.now();
+  const queueAgeSamples = recentJobs
+    .filter((job) => job.status === "QUEUED")
+    .map((job) => Math.max(0, now - job.createdAt.getTime()));
+  const processingAgeSamples = recentJobs
+    .filter((job) => job.status === "PROCESSING")
+    .map((job) => Math.max(0, now - job.updatedAt.getTime()));
+  const avgQueueWaitMs =
+    queueAgeSamples.length > 0 ? Math.round(queueAgeSamples.reduce((sum, value) => sum + value, 0) / queueAgeSamples.length) : 0;
+  const avgProcessingAgeMs =
+    processingAgeSamples.length > 0
+      ? Math.round(processingAgeSamples.reduce((sum, value) => sum + value, 0) / processingAgeSamples.length)
+      : 0;
+  const topErrorCodes = new Map<string, number>();
+  for (const event of recentErrors) {
+    const payload = event.payloadJson as Record<string, unknown> | null;
+    const candidate = payload?.error_code ?? payload?.errorCode ?? payload?.code;
+    const code = typeof candidate === "string" && candidate.trim() ? candidate.trim() : "UNKNOWN";
+    topErrorCodes.set(code, (topErrorCodes.get(code) || 0) + 1);
+  }
 
   return {
     activeUsers,
     totalItems,
     readyItems,
     failedItems,
+    queuedJobs,
+    processingJobs,
+    retryableFailedJobs,
+    avgQueueWaitMs,
+    avgProcessingAgeMs,
+    topErrorCodes: Array.from(topErrorCodes.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([code, count]) => ({ code, count })),
     recentErrors,
     recentJobs
   };

@@ -211,7 +211,8 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     assert.ok(createdItem);
     assert.equal(createdItem?.userId, user.id);
     assert.equal(createdItem?.sourceType, "HTML_SNAPSHOT");
-    assert.ok(createdItem?.sourceHtml && createdItem.sourceHtml.length > 100);
+    assert.ok(createdItem?.sourceFilePath?.endsWith(".html"));
+    assert.equal(createdItem?.sourceHtml, null);
 
     const extracted = extractHtmlSnapshot({
       html,

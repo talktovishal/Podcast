@@ -20,6 +20,7 @@ type ExportBundle = {
     jobs: Array<Record<string, unknown>>;
     jobEvents: Array<Record<string, unknown>>;
     episodes: Array<Record<string, unknown>>;
+    itemArtifacts?: Array<Record<string, unknown>>;
     chunkCaches: Array<Record<string, unknown>>;
     demoExtractionTraces: Array<Record<string, unknown>>;
   };
@@ -65,6 +66,7 @@ function castJson(value: unknown): Prisma.InputJsonValue {
 async function maybeTruncateAll(): Promise<void> {
   await prisma.demoExtractionTrace.deleteMany();
   await prisma.chunkCache.deleteMany();
+  await prisma.itemArtifact.deleteMany();
   await prisma.jobEvent.deleteMany();
   await prisma.episode.deleteMany();
   await prisma.job.deleteMany();
@@ -203,6 +205,17 @@ async function main() {
         publishedAt: toDate(row.publishedAt),
         createdAt: toDate(row.createdAt)
       })) as Prisma.EpisodeCreateManyInput[]
+    });
+  }
+
+  const itemArtifacts = parsed.data.itemArtifacts ?? [];
+  if (itemArtifacts.length > 0) {
+    await prisma.itemArtifact.createMany({
+      data: itemArtifacts.map((row) => ({
+        ...row,
+        expiresAt: toDate(row.expiresAt),
+        createdAt: toDate(row.createdAt)
+      })) as Prisma.ItemArtifactCreateManyInput[]
     });
   }
 

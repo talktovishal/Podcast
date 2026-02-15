@@ -7,11 +7,14 @@ import { NextRequest } from "next/server";
 import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
 import { POST as exchangePost } from "../src/app/api/auth/extension/exchange/route";
+import { POST as extensionRevokePost } from "../src/app/api/auth/extension/revoke/route";
 import { GET as googleStartGet } from "../src/app/api/auth/google/start/route";
 import { GET as providersGet } from "../src/app/api/auth/providers/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
+import { GET as itemMarkdownGet } from "../src/app/api/items/[id]/markdown/route";
 import { createSession } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
+import { getArtifactStorage } from "../src/lib/storage";
 
 let dbReady = false;
 
@@ -298,8 +301,112 @@ test("html snapshot validates payload and queues item for session user", async (
     assert.equal(item?.userId, user.id);
     assert.equal(item?.sourceType, "HTML_SNAPSHOT");
     assert.equal(item?.status, "QUEUED");
-    assert.ok(item?.sourceHtml?.includes(`Unique marker ${uniq}`));
+    assert.ok(item?.sourceFilePath?.endsWith(".html"));
+    assert.equal(item?.sourceHtml, null);
     assert.equal(item?.sourceCapturedAt?.toISOString(), "2026-02-08T00:00:00.000Z");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("item markdown route returns markdown for authorized owner", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `markdown-owner-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const markdown = `# Fixture ${uniq}\n\nThis is a markdown artifact fixture.`;
+    const storageKey = `items/${uniq}/artifacts/source.md`;
+    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        sourceType: "URL",
+        sourceUrl: `https://example.com/${uniq}`,
+        status: "READY"
+      }
+    });
+
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+
+    const sessionToken = await createSession(user.id);
+    const request = new NextRequest(`http://localhost/api/items/${item.id}/markdown`, {
+      headers: {
+        cookie: `listenlater_session=${sessionToken}`
+      }
+    });
+
+    const response = await itemMarkdownGet(request, { params: { id: item.id } });
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as { ok: boolean; markdown: string };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.markdown, markdown);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("extension token revoke route revokes active tokens", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `revoke-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    await prisma.extensionToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: `hash-${uniq}`,
+        tokenValue: `value-${uniq}`,
+        label: "test-token",
+        scope: "ingest:html_snapshot",
+        expiresAt: new Date(Date.now() + 60_000)
+      }
+    });
+
+    const sessionToken = await createSession(user.id);
+    const request = new NextRequest("http://localhost/api/auth/extension/revoke", {
+      method: "POST",
+      headers: {
+        cookie: `listenlater_session=${sessionToken}`
+      }
+    });
+
+    const response = await extensionRevokePost(request);
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as { ok: boolean; revoked: number };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.revoked, 1);
+
+    const token = await prisma.extensionToken.findFirst({ where: { userId: user.id } });
+    assert.ok(token?.revokedAt instanceof Date);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

@@ -28,24 +28,19 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - local structured JSONL logs with rotation
   - worker/python-tts correlation propagation
   - log triage and diagnostics collection scripts.
+- Markdown artifact milestones (`M57`-`M64`) are implemented:
+  - HTML/PDF extraction emits markdown outputs alongside narration text.
+  - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + `MARKDOWN`) with lifecycle metadata.
+  - Narration input is derived from markdown normalization with deterministic chunking preserved.
+  - Markdown diagnostics/review surfaces are available in dashboard and API.
+  - Backfill + purge scripts enforce dual-save transition and raw artifact retention policy.
 - Docs governance baseline is implemented:
   - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
   - status reconciliation ledger captures corrections with confidence notes.
 
 ### Next Milestones
-- Remaining in-progress milestones:
-  - `M21`: external podcast client certification evidence (Apple Podcasts + second app)
-  - `M28`: extension security/compliance sign-off checklist and release evidence.
-- Remaining observability wave (`M51`-`M56`):
-  - full OpenTelemetry instrumentation/export
-  - Azure Monitor/Log Analytics wiring
-  - dashboards + alerts
-  - observability release gate automation.
-- Markdown artifact wave (`M57`-`M64`):
-  - dual artifact storage in object storage (raw + markdown, initial phase)
-  - markdown-first extraction outputs for HTML and PDF pipelines
-  - markdown-derived narration input contract
-  - raw artifact retention lifecycle (target: 90 days), markdown retained for reuse.
+- Current milestone set (`M00`-`M64`) is complete per `docs/plans.md`.
+- New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
 - Long-form split episodes (Phase 1.5).
@@ -145,7 +140,7 @@ B) Ingest content
 C) Convert to audio (worker)
 - Worker extracts readable text:
   - URL: Readability extraction with abogen-derived cleanup.
-  - PDF: deterministic text extraction (current pdfjs path; markdown-first upgrade planned in M60).
+  - PDF: deterministic text extraction (pdfjs path) with markdown output for downstream reuse.
   - Reuse as much as possible from reputable upstream repos (abogen first) and keep attribution in docs.
 - Worker generates audio with a pluggable TTS provider:
   - default local provider: Kokoro via python-tts → AAC (`.m4a`) (see below)
@@ -196,10 +191,9 @@ H) Quality and engineering
 - License gate in CI: block AGPL / SSPL / NC.
 
 I) Extraction artifacts (near-term track)
-- Current: extraction outputs are optimized for pipeline narration and diagnostics.
-- Planned (`M57`-`M64`):
-  - persist raw source artifacts and markdown artifacts in object storage (initial dual-save phase)
-  - keep markdown as durable reusable artifact for downstream workflows
+- Current (`M57`-`M64` implemented):
+  - persist raw source artifacts and markdown artifacts in object storage.
+  - keep markdown as durable reusable artifact for downstream workflows.
   - apply retention lifecycle to raw artifacts (target 90 days).
 
 ### Explicit non-goals (MVP)
@@ -208,15 +202,11 @@ I) Extraction artifacts (near-term track)
 - Voice cloning
 
 ### Next Milestones (Post-MVP Phase 2)
-- Complete remaining in-progress hardening:
-  - podcast app certification evidence (`M21`)
-  - extension security/compliance release sign-off (`M28`).
-- Complete observability rollout (`M51`-`M56`):
-  - OTel traces/metrics, Azure Monitor integration, alerts, release gates.
-- Markdown artifact rollout (`M57`-`M64`):
-  - HTML/PDF markdown output preservation with heading structure
-  - dual raw + markdown storage in object store
-  - markdown diagnostics surface and migration backfill.
+- Add net-new milestones only (do not reopen completed milestones).
+- Candidate future themes:
+  - long-form multi-part episode splitting
+  - richer managed observability exports/dashboards in Azure
+  - bookmarklet ingestion mode after extension baseline
 
 Policy for authenticated/paywalled pages:
 - Extension capture is allowed only for content already rendered to the logged-in user in the browser.

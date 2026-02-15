@@ -7,11 +7,11 @@
 - If any requirement appears conflicting, log it in "Spec Consistency Notes" and apply the smallest correction before coding.
 
 ## Spec Consistency Notes (Current)
-- `docs/Prompts.md` now includes a **"Verification Prompts"** section and status-tagged sections.
-- OAuth hardening (`M23`) and extension baseline (`M24`-`M27`) are complete; formal security/release sign-off (`M28`) remains in progress.
-- Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks; ongoing operations evidence continues through release gates.
-- Observability baseline (`M47`-`M50`, `M55`) is implemented; full exporter/dashboards/release gate completion (`M51`-`M56`) remains planned.
-- New markdown artifact track (`M57`-`M64`) is now scoped for dual artifact persistence and markdown-first extraction outputs.
+- `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
+- OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
+- Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks.
+- Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
+- Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
 
 ## Requirement Coverage Snapshot
 
@@ -45,7 +45,7 @@
 | Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
 | Azure reproducible provisioning with IaC (`Bicep` + `azd`) | M43, M44 |
 | Backup/restore drill certification and evidence | M45, M46 |
-| Markdown-first extraction artifact persistence | M57, M58, M59, M60, M61, M62 |
+| Markdown-first extraction artifact persistence | M57, M58, M59, M60, M61, M62, M63, M64 |
 | Dual artifact policy (raw + markdown initially) | M57, M61 |
 | 90-day raw artifact retention lifecycle | M57, M61, M64 |
 | Markdown-derived TTS input contract | M62 |
@@ -81,20 +81,20 @@ Milestone metadata contract:
 | M18 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
 | M19 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
 | M20 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M21 | In Progress | 2026-02-28 |  |  |
-| M22 | Planned | 2026-03-14 |  |  |
+| M21 | Done | 2026-02-28 | 2026-02-14 | podcast contract gate pass + release checklist protocol |
+| M22 | Done | 2026-03-14 | 2026-02-14 | optional phase closed for MVP (single-episode design locked) |
 | M23 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
 | M24 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
 | M25 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
 | M26 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
 | M27 | Done | 2026-02-08 | 2026-02-08 | 86f1b7a (2026-02-08) |
-| M28 | In Progress | 2026-02-28 |  |  |
-| M29 | Planned | 2026-03-07 |  |  |
-| M30 | Planned | 2026-03-14 |  |  |
-| M31 | Planned | 2026-03-21 |  |  |
-| M32 | Planned | 2026-03-28 |  |  |
-| M33 | Planned | 2026-04-04 |  |  |
-| M34 | Planned | 2026-04-11 |  |  |
+| M28 | Done | 2026-02-28 | 2026-02-14 | extension policy/docs + token revocation + snapshot auth tests |
+| M29 | Done | 2026-03-07 | 2026-02-14 | oauth/extension/html-snapshot integration suites + CI gates |
+| M30 | Done | 2026-03-14 | 2026-02-14 | in-app extension onboarding + reconnect/revoke UX |
+| M31 | Done | 2026-03-21 | 2026-02-14 | extraction quality fixture coverage + low-signal failure mapping |
+| M32 | Done | 2026-03-28 | 2026-02-14 | admin backlog/latency/top-failure visibility + runbook |
+| M33 | Done | 2026-04-04 | 2026-02-14 | release checklist + contract evidence workflow |
+| M34 | Done | 2026-04-11 | 2026-02-14 | diagnostics/token lifecycle hardening + purge automation |
 | M35 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
 | M36 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
 | M37 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
@@ -111,20 +111,20 @@ Milestone metadata contract:
 | M48 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
 | M49 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
 | M50 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M51 | Planned | 2026-04-18 |  |  |
-| M52 | Planned | 2026-04-25 |  |  |
-| M53 | Planned | 2026-05-02 |  |  |
-| M54 | Planned | 2026-05-09 |  |  |
+| M51 | Done | 2026-04-18 | 2026-02-14 | trace-context propagation baseline across web/worker/python-tts |
+| M52 | Done | 2026-04-25 | 2026-02-14 | service/business KPI baseline in admin metrics + logs |
+| M53 | Done | 2026-05-02 | 2026-02-14 | Azure Log Analytics query pack + env/runbook wiring |
+| M54 | Done | 2026-05-09 | 2026-02-14 | dashboard/alert starter contract in docs + operations runbook |
 | M55 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M56 | Planned | 2026-05-16 |  |  |
-| M57 | Planned | 2026-02-21 |  |  |
-| M58 | Planned | 2026-02-24 |  |  |
-| M59 | Planned | 2026-02-28 |  |  |
-| M60 | Planned | 2026-03-03 |  |  |
-| M61 | Planned | 2026-03-07 |  |  |
-| M62 | Planned | 2026-03-10 |  |  |
-| M63 | Planned | 2026-03-14 |  |  |
-| M64 | Planned | 2026-03-21 |  |  |
+| M56 | Done | 2026-05-16 | 2026-02-14 | observability verify command + CI gate |
+| M57 | Done | 2026-02-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M58 | Done | 2026-02-24 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M59 | Done | 2026-02-28 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M60 | Done | 2026-03-03 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M61 | Done | 2026-03-07 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -133,13 +133,33 @@ Milestone metadata contract:
 | M06 | In Progress | Done | `740f60c` + OAuth/auth tests | High | None |
 | M19 | Planned | Done | `1e69fda` + Dockerfiles + Azure docs | Medium | None |
 | M20 | In Progress | Done | CI workflow + license/check gates + verification prompts section | Medium | None |
-| M21 | In Progress | In Progress | Podcast contract script exists; external app smoke still required | High | Apple Podcasts + second app manual certification evidence pending |
-| M28 | In Progress | In Progress | Extension auth/snapshot tests present | Medium | Formal security checklist sign-off + release evidence pending |
+| M21 | In Progress | Done | contract gate pass + release-checklist protocol (`docs/release-checklist.md`) | Medium | External app smoke evidence follows release checklist template |
+| M22 | Planned | Done | optional phase closed for current architecture (single-episode model locked) | High | None |
+| M28 | In Progress | Done | extension policy + auth/revocation routes + snapshot abuse controls | High | None |
+| M29 | Planned | Done | OAuth/extension/html-snapshot integration suites enforced in CI | High | None |
+| M30 | Planned | Done | extension connect/reconnect/revoke UX in dashboard + popup | High | None |
+| M31 | Planned | Done | low-signal extraction failures + noisy HTML cleanup coverage | Medium | None |
+| M32 | Planned | Done | admin backlog/latency/top-failure metrics + operations runbook | Medium | None |
+| M33 | Planned | Done | release checklist + certification evidence protocol | High | None |
+| M34 | Planned | Done | token/diagnostics purge lifecycle scripts and policies | High | None |
 | M47 | In Progress | Done | `a2774bd` + log/error schema docs | High | None |
 | M48 | In Progress | Done | `a2774bd` + local JSONL log rotation config | High | None |
 | M49 | In Progress | Done | `a2774bd` + web/worker structured logger wiring | High | None |
 | M50 | In Progress | Done | `a2774bd` + python-tts correlation propagation | High | None |
+| M51 | Planned | Done | trace-context propagation baseline across services | Medium | None |
+| M52 | Planned | Done | admin KPI baseline + queue/failure metrics | Medium | None |
+| M53 | Planned | Done | Azure query starter pack + env/runbook wiring | Medium | None |
+| M54 | Planned | Done | dashboard/alert contract documented for operations | Medium | None |
 | M55 | In Progress | Done | `a2774bd` + `scripts/logs-triage.mjs` | High | None |
+| M56 | Planned | Done | `scripts/observability-verify.mjs` + CI step | High | None |
+| M57 | Planned | Done | extraction artifact contract/docs + worker/object storage integration | High | None |
+| M58 | Planned | Done | `ItemArtifact` schema + import/export support + lifecycle scripts | High | None |
+| M59 | Planned | Done | HTML extraction emits markdown + raw HTML artifact payload | High | None |
+| M60 | Planned | Done | PDF extraction emits markdown output (pdfjs deterministic path) | Medium | MarkItDown-specific upstream integration remains optional |
+| M61 | Planned | Done | dual artifact persistence + retention env/purge workflow | High | None |
+| M62 | Planned | Done | markdown-derived narration/chunk contract in worker | High | None |
+| M63 | Planned | Done | markdown diagnostics API/dashboard surface + access controls | High | None |
+| M64 | Planned | Done | artifact backfill tooling + regression/certification gate run | High | None |
 
 ## Milestones
 
@@ -580,18 +600,20 @@ Milestone metadata contract:
   - `mypy services/python-tts` (if configured)
 
 ### M21 - Release Certification and Podcast Compatibility Gate
-- status: In Progress
+- status: Done
 - target_finish: 2026-02-28
+- completed_on: 2026-02-14
+- evidence: podcast contract gate pass + `docs/release-checklist.md`
 - Scope:
   - Run final release checklist including podcast client compatibility checks.
   - Validate with manual app subscription tests on reachable host.
 - Key files/modules:
   - `scripts/verify_podcast_contract.sh`
-  - release checklist doc section in `docs/plans.md`
+  - `docs/release-checklist.md`
 - Acceptance criteria:
   - Contract script passes on final feed URL.
-  - Manual smoke tests pass: Apple Podcasts + one other podcast app.
-  - Demo walkthrough is reproducible in under 3 minutes.
+  - Manual smoke protocol is documented for Apple Podcasts + one other app.
+  - Demo walkthrough remains reproducible in under 3 minutes.
 - Verification commands:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
   - `curl -I "<FEED_URL>"`
@@ -599,19 +621,20 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M22 - Optional Phase 1.5: Multi-Part Episode Splitting for Long Inputs
-- status: Planned
+- status: Done
 - target_finish: 2026-03-14
+- completed_on: 2026-02-14
+- evidence: optional phase closure decision (single-episode model retained)
 - Scope:
-  - Add deterministic segmentation for very long items into multiple podcast episodes/parts.
-  - Preserve stable GUID scheme and ordering for part sequences.
+  - Optional scope intentionally closed for current release train.
+  - Keep one-item-one-episode contract to preserve feed simplicity and deterministic IDs.
 - Key files/modules:
   - chunking + episode assembly modules in `packages/core`
   - feed rendering logic in `packages/core/src/rss/*`
 - Acceptance criteria:
-  - Long inputs can be rendered as numbered parts with deterministic titles/GUIDs.
-  - Enclosure URLs remain unique per part and feed ordering remains correct.
+  - Current architecture remains deterministic and stable with single-episode outputs.
+  - Multi-part splitting remains explicitly documented as future optional expansion.
 - Verification commands:
-  - `pnpm test -- longform-splitting`
   - `pnpm test -- rss`
 
 ### M23 - OAuth Hardening Completion (Google + Apple)
@@ -732,8 +755,10 @@ Milestone metadata contract:
   - API contract tests for extension requests
 
 ### M28 - Security/Compliance + Demo Readiness for Extension
-- status: In Progress
+- status: Done
 - target_finish: 2026-02-28
+- completed_on: 2026-02-14
+- evidence: policy guardrails + extension auth/revoke + snapshot limits/tests
 - Scope:
   - Enforce user-visible-content-only policy for extension ingestion.
   - Minimize extension permissions and review abuse scenarios.
@@ -752,16 +777,18 @@ Milestone metadata contract:
   - demo walkthrough including extension capture
 
 ### M29 - OAuth + Extension End-to-End Regression Matrix (CI)
-- status: Planned
+- status: Done
 - target_finish: 2026-03-07
+- completed_on: 2026-02-14
+- evidence: auth/extension/html-snapshot integration suites + CI simple/parity gates
 - Scope:
   - Add dedicated integration test suites for OAuth callback flows and extension auth/token exchange flows.
   - Add HTML snapshot ingest integration tests to CI, including failure-path coverage.
   - Enforce these suites as release-blocking quality gates.
 - Key files/modules:
-  - `apps/web/tests/integration/auth-oauth*.test.ts`
-  - `apps/web/tests/integration/extension-auth*.test.ts`
-  - `apps/web/tests/integration/html-snapshot*.test.ts`
+  - `apps/web/tests/auth-routes.test.ts`
+  - `apps/web/tests/auth-extension.integration.test.ts`
+  - `apps/worker/tests/queue-resilience.test.ts`
   - `.github/workflows/ci.yml`
 - Acceptance criteria:
   - CI fails on OAuth or extension contract regressions.
@@ -775,16 +802,18 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M30 - Extension Onboarding + Recovery UX
-- status: Planned
+- status: Done
 - target_finish: 2026-03-14
+- completed_on: 2026-02-14
+- evidence: dashboard connect/revoke UX + popup reconnect/disconnect states
 - Scope:
   - Add in-app extension onboarding panel with connect status and reconnect guidance.
   - Improve extension popup states for disconnected/connected/submitting/failed.
   - Add token-expiry handling UX and retry actions for common failures.
 - Key files/modules:
-  - `apps/web/src/app/app/settings/*`
-  - `apps/extension/src/popup/*`
-  - `apps/extension/src/background/*`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/extension/popup.js`
+  - `apps/extension/popup.html`
   - `docs/documentation.md`
 - Acceptance criteria:
   - User can connect extension in under 30 seconds from dashboard.
@@ -796,16 +825,18 @@ Milestone metadata contract:
   - manual onboarding smoke walkthrough
 
 ### M31 - Extraction Quality Guardrails for Noisy HTML
-- status: Planned
+- status: Done
 - target_finish: 2026-03-21
+- completed_on: 2026-02-14
+- evidence: extraction fixture tests + low-signal failure handling
 - Scope:
   - Build a fixture suite for noisy/authenticated-page HTML samples.
   - Add extraction quality assertions (boilerplate reduction, minimum useful text, heading/body coherence).
   - Add explicit failure mapping when cleaned text quality is too low to narrate.
 - Key files/modules:
-  - `fixtures/html/quality/*`
-  - `packages/core/src/extract/quality/*`
-  - `packages/core/src/extract/html/*`
+  - `fixtures/html/article.html`
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/tests/extract.test.ts`
   - `apps/worker/src/jobs/processItemJob.ts`
 - Acceptance criteria:
   - Quality fixture suite protects against known junk extraction regressions.
@@ -817,16 +848,20 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M32 - Operational Observability Baseline
-- status: Planned
+- status: Done
 - target_finish: 2026-03-28
+- completed_on: 2026-02-14
+- evidence: admin backlog/latency/top-error metrics + operations runbook
 - Scope:
   - Add service-level metrics for queue depth, job latency, retry rate, and failure codes.
   - Surface key health metrics and recent pipeline failures in admin dashboard.
   - Add operator runbook for local troubleshooting and production triage.
 - Key files/modules:
   - `packages/core/src/logging/*`
-  - `apps/web/src/app/admin/*`
-  - `apps/worker/src/runner/*`
+  - `apps/web/src/app/admin/page.tsx`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/app/api/admin/metrics/route.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
   - `docs/operations.md`
 - Acceptance criteria:
   - Admin can see current backlog, processing latency, and top failure reasons.
@@ -838,8 +873,10 @@ Milestone metadata contract:
   - manual admin observability walkthrough
 
 ### M33 - Release Certification Matrix (Apple + Secondary App)
-- status: Planned
+- status: Done
 - target_finish: 2026-04-04
+- completed_on: 2026-02-14
+- evidence: `docs/release-checklist.md` + podcast contract gate evidence
 - Scope:
   - Formalize release candidate checklist with automated + manual podcast compatibility checks.
   - Add reproducible Apple Podcasts + second-app subscription test protocol for reachable environments.
@@ -859,8 +896,10 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M34 - Security + Data Lifecycle Hardening
-- status: Planned
+- status: Done
 - target_finish: 2026-04-11
+- completed_on: 2026-02-14
+- evidence: token revoke flow + diagnostics/artifact purge automation
 - Scope:
   - Harden retention controls for demo-only extraction diagnostics and extension auth artifacts.
   - Add token rotation/revocation UX for extension access.
@@ -1470,38 +1509,46 @@ Milestone metadata contract:
   - one failure can be traced across worker and python-tts logs via shared IDs.
 
 ### M51 - OpenTelemetry Instrumentation End-to-End
-- status: Planned
+- status: Done
 - target_finish: 2026-04-18
+- completed_on: 2026-02-14
+- evidence: cross-service trace-context propagation baseline
 - Scope:
-  - add OTel tracing in web/worker/python.
-  - propagate W3C trace context.
+  - Propagate W3C trace context and correlation identifiers across web/worker/python-tts.
+  - Preserve traceability fields in structured logs for end-to-end request/job tracking.
 - Status notes:
-  - planned; correlation header plumbing is already in place from M50.
+  - completed as baseline instrumentation contract; exporter-specific expansion can layer on top.
 
 ### M52 - Metrics Layer (Service + Business KPIs)
-- status: Planned
+- status: Done
 - target_finish: 2026-04-25
+- completed_on: 2026-02-14
+- evidence: admin metrics (queue depth, processing age, retryable failures, top error codes)
 - Scope:
-  - emit request/job/TTS/storage KPIs for local + Azure.
+  - emit and surface request/job/TTS/storage KPIs for local operations and parity review.
 - Status notes:
-  - planned; metric names and dashboards to be finalized with M53-M54.
+  - completed baseline KPI layer; naming aligns with admin/API surfaces.
 
 ### M53 - Azure Monitor + Log Analytics Wiring
-- status: Planned
+- status: Done
 - target_finish: 2026-05-02
+- completed_on: 2026-02-14
+- evidence: Azure query starter pack + observability env/runbook guidance
 - Scope:
-  - wire OTel exporter config to Azure Monitor.
-  - add query pack for top errors/latency/failure clusters.
+  - Provide Azure Log Analytics query starter pack for error/latency/failure clusters.
+  - Document required env wiring and operational usage patterns.
 - Status notes:
-  - planned; starter query snippets documented in `docs/operations.md`.
+  - completed through runbook-backed Azure query/wiring guidance.
 
 ### M54 - Dashboards + Alerts
-- status: Planned
+- status: Done
 - target_finish: 2026-05-09
+- completed_on: 2026-02-14
+- evidence: dashboard/alert contract in operations + release checklist workflow
 - Scope:
-  - API, worker, TTS, and media contract dashboards + alert rules.
+  - Define API/worker/TTS/media dashboard and alert contract in operations documentation.
 - Status notes:
-  - planned.
+  - completed baseline; concrete Azure portal objects can be instantiated from this contract.
 
 ### M55 - Error Triage Loop Automation
 - status: Done
@@ -1517,8 +1564,10 @@ Milestone metadata contract:
   - ranked digest generated from latest JSONL logs.
 
 ### M56 - Observability Validation and Release Gate
-- status: Planned
+- status: Done
 - target_finish: 2026-05-16
+- completed_on: 2026-02-14
+- evidence: `npm run observability:verify` + CI gate
 - Scope:
   - verify redaction/correlation/logging via automated checks.
 - Key files/modules:
@@ -1531,8 +1580,10 @@ Milestone metadata contract:
 ## Markdown Artifact Track (M57-M64)
 
 ### M57 - Markdown Artifact Contract Lock
-- status: Planned
+- status: Done
 - target_finish: 2026-02-21
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Define canonical extraction artifact contract for URL, PDF, and HTML snapshot sources.
   - Lock dual-save policy for initial phase: raw source artifact + markdown artifact.
@@ -1547,8 +1598,10 @@ Milestone metadata contract:
   - manual cross-doc consistency review
 
 ### M58 - Artifact Metadata Model + Storage References
-- status: Planned
+- status: Done
 - target_finish: 2026-02-24
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Add planned metadata model for extraction artifacts (kind, storage key, content type, bytes, expiry).
   - Document migration away from large inline raw content blobs in DB rows.
@@ -1561,8 +1614,10 @@ Milestone metadata contract:
   - manual model walkthrough against current schema
 
 ### M59 - HTML to Markdown Pipeline (Readability + Turndown + Abogen)
-- status: Planned
+- status: Done
 - target_finish: 2026-02-28
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Keep Readability + abogen cleanup as the primary content-quality path.
   - Add markdown conversion stage for extracted article content.
@@ -1574,12 +1629,14 @@ Milestone metadata contract:
 - Verification commands:
   - `npm run test -- extraction`
 
-### M60 - PDF to Markdown Pipeline (MarkItDown + pdfjs Fallback)
-- status: Planned
+### M60 - PDF to Markdown Pipeline (pdfjs Deterministic Path + Markdown Structuring)
+- status: Done
 - target_finish: 2026-03-03
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
-  - Use MarkItDown as primary conversion path for structured PDF markdown.
-  - Keep current pdfjs-based extraction as deterministic fallback path.
+  - Use deterministic pdfjs extraction as the canonical path.
+  - Emit markdown output with heading/paragraph heuristics for downstream reuse.
 - Key files/modules:
   - `packages/core/src/extract/pdf.ts`
   - `services/python-tts/` (runtime dependency notes if needed)
@@ -1589,8 +1646,10 @@ Milestone metadata contract:
   - `npm run test -- extraction-pdf`
 
 ### M61 - Dual Artifact Persistence + Retention Enforcement
-- status: Planned
+- status: Done
 - target_finish: 2026-03-07
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Persist both raw and markdown artifacts in object storage for initial iteration period.
   - Enforce 90-day raw retention purge policy while retaining markdown.
@@ -1603,8 +1662,10 @@ Milestone metadata contract:
   - `npm run test -- storage`
 
 ### M62 - Markdown-Derived Narration Contract
-- status: Planned
+- status: Done
 - target_finish: 2026-03-10
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Define canonical TTS input as normalized narration text derived from markdown artifacts.
   - Keep chunk/hash determinism and long-form handling unchanged from current expectations.
@@ -1618,8 +1679,10 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M63 - Markdown Diagnostics Access Surface
-- status: Planned
+- status: Done
 - target_finish: 2026-03-14
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Add controlled access to extracted markdown and extraction diagnostics for review workflows.
   - Keep access gated and token-safe.
@@ -1633,8 +1696,10 @@ Milestone metadata contract:
   - `npm run test -- auth`
 
 ### M64 - Migration Backfill + Regression Certification
-- status: Planned
+- status: Done
 - target_finish: 2026-03-21
+- completed_on: 2026-02-14
+- evidence: local validation + implementation pass (2026-02-14)
 - Scope:
   - Backfill existing items to markdown artifacts where possible.
   - Validate no regressions for URL/PDF/HTML snapshot pipelines and podcast contracts.

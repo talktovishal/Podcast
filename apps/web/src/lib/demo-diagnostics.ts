@@ -17,6 +17,7 @@ export type DemoExtractionDiagnostic = {
   errorMessage: string | null;
   createdAt: string;
   extractedText: string;
+  extractedMarkdown: string | null;
   logEntries: DemoExtractionLogEntry[];
 };
 

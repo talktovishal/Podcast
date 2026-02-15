@@ -1,6 +1,7 @@
 import { AppError, errorCodes } from "../errors/codes";
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
+import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
 
@@ -10,7 +11,30 @@ function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): { title: string; byline: string | null; text: string } {
+function normalizeMarkdown(markdown: string): string {
+  return markdown
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
+function htmlToMarkdown(html: string): string {
+  const turndown = new TurndownService({
+    headingStyle: "atx",
+    codeBlockStyle: "fenced",
+    bulletListMarker: "-"
+  });
+  turndown.keep(["table", "thead", "tbody", "tr", "th", "td"]);
+  return normalizeMarkdown(turndown.turndown(html));
+}
+
+function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
+  title: string;
+  byline: string | null;
+  text: string;
+  markdown: string;
+} {
   const dom = new JSDOM(html, { url: sourceUrl });
   try {
     const reader = new Readability(dom.window.document);
@@ -26,20 +50,26 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): { ti
       resolveTitleFromHtmlWithAbogenFallback(articleHtml, fallbackTitle) ||
       "Untitled";
     const text = extractNarrationTextFromHtml(articleHtml || html);
+    const markdown = htmlToMarkdown(articleHtml || html);
 
     return {
       title,
       byline: article.byline?.trim() || null,
-      text
+      text,
+      markdown
     };
   } finally {
     dom.window.close();
   }
 }
 
-function extractFromHtml(input: { html: string; sourceUrl: string }): { title: string; byline: string | null; text: string } {
+function extractFromHtml(input: {
+  html: string;
+  sourceUrl: string;
+}): { title: string; byline: string | null; text: string; markdown: string; rawHtml: string } {
   const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
   const text = normalizeExtracted(extracted.text);
+  const markdown = extracted.markdown && extracted.markdown.length >= 40 ? extracted.markdown : normalizeExtracted(text);
   if (text.length < 160) {
     throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
   }
@@ -47,7 +77,9 @@ function extractFromHtml(input: { html: string; sourceUrl: string }): { title: s
   return {
     title: extracted.title || "Untitled",
     byline: extracted.byline,
-    text
+    text,
+    markdown,
+    rawHtml: input.html
   };
 }
 
@@ -124,7 +156,13 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
   );
 }
 
-export async function extractHtmlFromUrl(url: string): Promise<{ title: string; text: string; byline?: string | null }> {
+export async function extractHtmlFromUrl(url: string): Promise<{
+  title: string;
+  text: string;
+  markdown: string;
+  rawHtml: string;
+  byline?: string | null;
+}> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -153,7 +191,10 @@ export async function extractHtmlFromUrl(url: string): Promise<{ title: string; 
   }
 }
 
-export function extractHtmlSnapshot(input: { html: string; url?: string }): { title: string; text: string; byline?: string | null } {
+export function extractHtmlSnapshot(input: {
+  html: string;
+  url?: string;
+}): { title: string; text: string; markdown: string; rawHtml: string; byline?: string | null } {
   try {
     return extractFromHtml({
       html: input.html,

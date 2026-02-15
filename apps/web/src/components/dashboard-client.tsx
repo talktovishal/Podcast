@@ -116,6 +116,7 @@ export function DashboardClient({
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const [extensionConnectCode, setExtensionConnectCode] = useState<string | null>(null);
   const [extensionCodeExpiresAt, setExtensionCodeExpiresAt] = useState<string | null>(null);
+  const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
 
   const newestFirst = useMemo(() => {
@@ -296,6 +297,26 @@ export function DashboardClient({
     }
   }
 
+  async function revokeExtensionTokens() {
+    setIsBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/auth/extension/revoke", {
+        method: "POST"
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not revoke extension tokens.");
+        return;
+      }
+      setStatusMessage(`Revoked ${json.revoked ?? 0} extension token(s). Reconnect extension to continue captures.`);
+      setExtensionConnectCode(null);
+      setExtensionCodeExpiresAt(null);
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   async function retryItem(id: string) {
     await fetch(`/api/items/${id}/retry`, { method: "POST" });
     await refreshItems();
@@ -304,6 +325,21 @@ export function DashboardClient({
   async function deleteItem(id: string) {
     await fetch(`/api/items/${id}`, { method: "DELETE" });
     await refreshItems();
+  }
+
+  async function viewMarkdown(itemId: string, title: string | null) {
+    setStatusMessage(null);
+    const response = await fetch(`/api/items/${itemId}/markdown`);
+    const json = await response.json();
+    if (!response.ok) {
+      setStatusMessage(json.error_message || "Markdown is not available yet.");
+      return;
+    }
+    setMarkdownPreview({
+      itemId,
+      title: title || "Untitled item",
+      content: json.markdown || ""
+    });
   }
 
   async function submitActiveSource() {
@@ -395,6 +431,9 @@ export function DashboardClient({
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={generateExtensionConnectCode} disabled={isBusy}>
               Generate connect code
+            </button>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={revokeExtensionTokens} disabled={isBusy}>
+              Revoke extension tokens
             </button>
             {extensionConnectCode ? (
               <button
@@ -643,6 +682,12 @@ export function DashboardClient({
 
                 {!readOnly ? (
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
+                    <button
+                      className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                      onClick={() => viewMarkdown(item.id, item.title)}
+                    >
+                      View markdown
+                    </button>
                     {showRetry ? (
                       <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
                         Retry
@@ -714,9 +759,38 @@ export function DashboardClient({
                     {diagnostic.extractedText || "(No extracted text captured.)"}
                   </pre>
                 </details>
+
+                <details className="mt-3 rounded-lg border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">Extracted markdown</summary>
+                  <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs">
+                    {diagnostic.extractedMarkdown || "(No markdown captured.)"}
+                  </pre>
+                </details>
               </article>
             ))}
           </div>
+        </section>
+      ) : null}
+
+      {markdownPreview ? (
+        <section className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold">Markdown preview: {markdownPreview.title}</h2>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+              <button
+                className="rounded-lg border px-3 py-2 text-xs"
+                onClick={() => navigator.clipboard.writeText(markdownPreview.content)}
+              >
+                Copy markdown
+              </button>
+              <button className="rounded-lg border px-3 py-2 text-xs" onClick={() => setMarkdownPreview(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+          <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs">
+            {markdownPreview.content || "(Markdown is empty.)"}
+          </pre>
         </section>
       ) : null}
     </div>

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-10T03:00:00.248Z",
+  "generatedAt": "2026-02-15T00:29:43.234Z",
   "region": "eastus",
   "currency": "USD",
   "prices": {
@@ -96,6 +96,7 @@
         "armRegionName": "eastus",
         "location": "US East",
         "effectiveStartDate": "2026-02-01T00:00:00Z",
+        "effectiveEndDate": "2026-02-28T23:59:00Z",
         "meterId": "61ef182d-49e6-58ea-86ec-a39857438de1",
         "meterName": "D4as v5 Spot",
         "productId": "DZH318Z08W0Q",

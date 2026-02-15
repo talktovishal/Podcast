@@ -108,6 +108,20 @@ If parity/azure runtime paths changed, also run:
 - implement `logs:triage` digest loop
 - make observability checks release-gating via `observability:verify`
 
+## M57-M64 implementation sequence (completed)
+1. M57/M58
+- lock dual-artifact contract (raw + markdown) and add `ItemArtifact` metadata model.
+
+2. M59/M60
+- extend HTML/PDF extraction outputs to emit markdown alongside narration text.
+
+3. M61/M62
+- persist raw + markdown artifacts in storage and shift narration input to markdown-derived normalization.
+
+4. M63/M64
+- expose markdown diagnostics in authorized app/API flows.
+- add artifact lifecycle scripts (`artifacts:backfill`, `artifacts:purge`) and regression verification.
+
 ## Migration helpers
 - SQLite export:
   - `npx pnpm --filter @listenlater/web run db:export-json -- --out <file>`
