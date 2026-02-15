@@ -1,7 +1,7 @@
 # Azure Deployment (Durable VM Topology)
 
 ## Target architecture
-- Compute: single Linux VM
+- Compute: single Linux VM running:
   - `web` (Next.js)
   - `worker` (queue processor)
   - `python-tts` (Kokoro service)
@@ -9,11 +9,23 @@
   - Azure PostgreSQL Flexible Server
   - Azure Blob Storage
 
-This is cost-first while preserving durability on VM loss.
+This keeps compute cost-first while preserving data and media durability on VM loss.
 
-## Infrastructure as code
-- Template: `/Users/vishalchowdhary/Documents/Podcast/infra/main.bicep`
-- azd project file: `/Users/vishalchowdhary/Documents/Podcast/azure.yaml`
+## Prerequisites (local)
+From repo root:
+```bash
+./scripts/azure/preflight.sh --subscription "<SUBSCRIPTION_ID_OR_NAME>"
+```
+
+The preflight script verifies:
+- `az`, `azd`, `rsync`, `ssh-keygen`
+- active Azure login
+- SSH key at `~/.ssh/articlepod_azure(.pub)` (creates if missing)
+
+## Infrastructure provisioning (IaC)
+Template inputs:
+- `infra/main.bicep`
+- `azure.yaml`
 
 Provision:
 ```bash
@@ -22,58 +34,123 @@ azd up
 azd env refresh
 ```
 
-Optional what-if review:
+Capture the resource group:
+```bash
+azd env get-values | rg "^AZURE_RESOURCE_GROUP="
+```
+
+Optional drift review:
 ```bash
 az deployment group what-if \
-  --resource-group <rg> \
+  --resource-group <resource-group> \
   --template-file infra/main.bicep \
   --parameters @infra/main.parameters.json
 ```
 
-## VM runtime bootstrap
-On VM (root):
+## Discover resources + open PostgreSQL firewall
 ```bash
-sudo /Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh
+RG="<AZURE_RESOURCE_GROUP>"
+eval "$(./scripts/azure/discover-resources.sh \
+  --resource-group "$RG" \
+  --open-firewall \
+  --print-connection-string)"
 ```
 
-Render env file:
+This exports:
+- `VM_NAME`, `VM_IP`, `VM_FQDN`
+- `PG_NAME`
+- `STORAGE_ACCOUNT`
+- `STORAGE_CONNECTION_STRING` (secret)
+
+## Sync code to VM (staging path)
+Sync local repo to VM user-writable path:
 ```bash
-sudo DATABASE_URL="postgresql://..." \
-  APP_URL="https://<domain>" \
+TARGET_HOST="$VM_IP" \
+TARGET_PATH="/home/azureuser/listenlater" \
+./scripts/azure/push-to-vm.sh
+```
+
+## VM bootstrap + promotion to runtime path
+SSH into VM:
+```bash
+ssh azureuser@"$VM_IP"
+```
+
+On VM:
+```bash
+sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh
+sudo STAGING_DIR="/home/azureuser/listenlater" \
+  /home/azureuser/listenlater/scripts/azure/promote-runtime.sh
+```
+
+## Render runtime env
+On VM, render `/etc/listenlater/listenlater.env`:
+```bash
+sudo DATABASE_URL="postgresql://listenlater_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/listenlater?sslmode=require" \
+  APP_URL="https://${VM_FQDN}" \
   STORAGE_BACKEND="azure_blob" \
   AZURE_STORAGE_CONTAINER="listenlater" \
-  AZURE_STORAGE_CONNECTION_STRING="..." \
+  AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
-  /Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh
+  /opt/listenlater/scripts/azure/render-env.sh
 ```
 
-## Deploy application runtime
-From local machine:
+## Deploy runtime + systemd services
+On VM:
 ```bash
-TARGET_HOST=<vm-ip> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh
+sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh
+sudo systemctl status --no-pager listenlater-python-tts listenlater-web listenlater-worker
 ```
 
-On VM (root):
+## Configure ingress and TLS
+On VM:
 ```bash
-sudo /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh
+sudo PUBLIC_HOST="$VM_FQDN" /opt/listenlater/scripts/azure/configure-nginx.sh
+sudo PUBLIC_HOST="$VM_FQDN" LETSENCRYPT_EMAIL="<EMAIL>" \
+  /opt/listenlater/scripts/azure/configure-tls.sh
 ```
 
-Service units installed:
-- `listenlater-python-tts.service`
-- `listenlater-web.service`
-- `listenlater-worker.service`
+Verify health:
+```bash
+curl -sf "https://${VM_FQDN}/api/health"
+```
 
 ## Post-deploy validation
-1. Check services:
-- `systemctl status listenlater-python-tts listenlater-web listenlater-worker`
+1. Log in on `https://${VM_FQDN}/app` and copy a real feed token.
+2. From local repo:
+```bash
+./scripts/verify_podcast_contract.sh "https://${VM_FQDN}/rss/<feed_token>.xml"
+```
+3. Confirm:
+- feed `HEAD` -> `200`
+- media `HEAD` -> `200`
+- media range `GET` -> `206 Partial Content`
 
-2. Check app health:
-- `curl -sf https://<domain>/api/health`
+## Durability drill evidence
+From local repo:
+```bash
+npm run ops:pre-drill-snapshot
+```
 
-3. Run podcast contract gate against live feed URL:
-- `./scripts/verify_podcast_contract.sh "https://<domain>/rss/<token>.xml"`
+Simulate VM loss/replacement, re-run deploy, then:
+```bash
+npm run ops:verify-restore
+```
 
-4. Run durability drill scripts:
-- `npm run ops:pre-drill-snapshot`
-- execute VM reprovision/failure simulation
-- `npm run ops:verify-restore`
+Record evidence in:
+- `docs/operations.md` signed durability drill template
+- `docs/release-checklist.md` release evidence template
+
+## Ongoing deployment loop
+From local repo:
+```bash
+TARGET_HOST="$VM_IP" \
+TARGET_PATH="/home/azureuser/listenlater" \
+./scripts/azure/push-to-vm.sh
+```
+
+On VM:
+```bash
+sudo STAGING_DIR="/home/azureuser/listenlater" /opt/listenlater/scripts/azure/promote-runtime.sh
+sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh
+```

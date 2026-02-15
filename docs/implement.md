@@ -131,11 +131,20 @@ If parity/azure runtime paths changed, also run:
   - `npm run db:migrate:sqlite-to-postgres -- --postgres-url "<DATABASE_URL>"`
 
 ## Azure VM deployment helpers
+- Preflight (local):
+  - `./scripts/azure/preflight.sh --subscription "<SUBSCRIPTION_ID_OR_NAME>"`
 - Provision infra:
   - `azd up`
-- Bootstrap VM:
-  - `sudo /Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
+- Discover VM/Postgres/storage (+ optional firewall + connection string):
+  - `./scripts/azure/discover-resources.sh --resource-group "<RG>" --open-firewall --print-connection-string`
 - Sync code to VM:
-  - `TARGET_HOST=<vm-ip> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
+  - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/listenlater ./scripts/azure/push-to-vm.sh`
+- Bootstrap VM:
+  - `sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh`
+- Promote staged code to runtime path:
+  - `sudo STAGING_DIR=/home/azureuser/listenlater /home/azureuser/listenlater/scripts/azure/promote-runtime.sh`
 - Deploy runtime + services on VM:
-  - `sudo /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+  - `sudo /opt/listenlater/scripts/azure/deploy-vm-runtime.sh`
+- Configure ingress + TLS on VM:
+  - `sudo PUBLIC_HOST=<vm-fqdn> /opt/listenlater/scripts/azure/configure-nginx.sh`
+  - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/listenlater/scripts/azure/configure-tls.sh`

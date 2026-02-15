@@ -43,6 +43,8 @@ Milestones `M35`-`M46` are implemented in repository assets:
 - queue resilience hardening and tests
 - Bicep + azd IaC baseline
 - VM deploy/systemd automation scripts
+- staged VM sync/promote deployment helpers (`scripts/azure/push-to-vm.sh`, `scripts/azure/promote-runtime.sh`)
+- ingress/TLS automation helpers (`scripts/azure/configure-nginx.sh`, `scripts/azure/configure-tls.sh`)
 - durability snapshot/restore drill scripts and operations runbook
 - CI matrix with simple + parity release gates
 

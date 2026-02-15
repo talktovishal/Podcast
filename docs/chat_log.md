@@ -662,3 +662,29 @@ This file tracks concise session summaries and the exact user prompts that guide
   - "PLEASE IMPLEMENT THIS PLAN: # Plan.md Expansion: Durable Azure + Local-Azure Parity Milestones"
   - "Are all the new sections completed, everything implemented?"
   - "Go ahead and please start working on them. I want you to finish the runtime implementation for all the new sections."
+
+## Entry 026
+- Date: 2026-02-15
+- Summary:
+  - Implemented Azure deployment runbook hardening for first-live rollout and repeatable updates.
+  - Deployment script changes:
+    - updated `scripts/azure/push-to-vm.sh` to default sync into VM staging path (`/home/<user>/listenlater`) and support SSH port override.
+    - updated `scripts/azure/bootstrap-vm.sh` to install `rsync` and harden user/group creation.
+    - added `scripts/azure/promote-runtime.sh` for root-owned promotion from staging path into `/opt/listenlater` with runtime ownership enforcement.
+    - added `scripts/azure/preflight.sh` to validate local CLI prerequisites, login state, subscription selection, and SSH key bootstrap.
+    - added `scripts/azure/discover-resources.sh` to resolve VM/PostgreSQL/storage resources, open PostgreSQL firewall to VM IP, and optionally emit storage connection string.
+    - added `scripts/azure/configure-nginx.sh` for HTTP ingress proxy to local app service.
+    - added `scripts/azure/configure-tls.sh` for Let’s Encrypt provisioning through nginx.
+  - Runbook/doc synchronization:
+    - rewrote `docs/azure-deploy.md` to use VM-local paths, staged sync/promote workflow, ingress/TLS automation, and post-deploy validation commands.
+    - updated `docs/implement.md` Azure helper section with new executable command flow.
+    - updated `docs/documentation.md`, `docs/Prompts.md`, `docs/plans.md`, and `infra/README.md` to reflect the current rollout contract.
+  - Validation completed:
+    - `bash -n scripts/azure/*.sh`
+    - `./scripts/azure/preflight.sh --no-create-key` (expected failure path when `az login` is not active)
+    - `npm run lint`
+    - `npm run test`
+    - `npm run build`
+    - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3011/rss/5OZV8xtOGO1yXGMRx01m_kc6eNSGlRYnyzyZJ8tcZYs.xml"` (PASS)
+- User prompts:
+  - "PLEASE IMPLEMENT THIS PLAN: # Azure Deployment Completion Plan (ArticlePod)"

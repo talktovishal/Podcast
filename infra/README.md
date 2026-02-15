@@ -28,3 +28,4 @@ az deployment group what-if \
 ## Notes
 - Keep secrets out of parameter files in source control; prefer `azd env set` or Key Vault-backed secret inputs.
 - The VM receives managed identity permissions to read/write blob objects in the storage account.
+- Deployment/runbook helpers live under `scripts/azure/` and are documented in `docs/azure-deploy.md`.

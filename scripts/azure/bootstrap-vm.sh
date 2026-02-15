@@ -16,6 +16,7 @@ apt-get install -y --no-install-recommends \
   curl \
   git \
   jq \
+  rsync \
   ffmpeg \
   nginx \
   python3 \
@@ -23,8 +24,12 @@ apt-get install -y --no-install-recommends \
   python3-pip \
   build-essential
 
+if ! getent group "$APP_GROUP" >/dev/null 2>&1; then
+  groupadd "$APP_GROUP"
+fi
+
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
-  useradd -m -s /bin/bash "$APP_USER"
+  useradd -m -s /bin/bash -g "$APP_GROUP" "$APP_USER"
 fi
 
 mkdir -p "$APP_HOME" /etc/listenlater

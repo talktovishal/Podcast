@@ -23,6 +23,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - object storage abstraction (`local`, `azure_blob`) wired into uploads/audio/media
   - SQLite export/import migration scripts for PostgreSQL transition
   - Bicep + azd infra baseline and VM deployment automation scripts.
+  - VM rollout runbook/scripts include staging sync -> runtime promotion and nginx/TLS automation.
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation
