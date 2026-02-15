@@ -155,7 +155,7 @@ Milestone metadata contract:
 | M57 | Planned | Done | extraction artifact contract/docs + worker/object storage integration | High | None |
 | M58 | Planned | Done | `ItemArtifact` schema + import/export support + lifecycle scripts | High | None |
 | M59 | Planned | Done | HTML extraction emits markdown + raw HTML artifact payload | High | None |
-| M60 | Planned | Done | PDF extraction emits markdown output (pdfjs deterministic path) | Medium | MarkItDown-specific upstream integration remains optional |
+| M60 | Planned | Done | PDF extraction emits markdown output (pdfjs deterministic path) | High | None |
 | M61 | Planned | Done | dual artifact persistence + retention env/purge workflow | High | None |
 | M62 | Planned | Done | markdown-derived narration/chunk contract in worker | High | None |
 | M63 | Planned | Done | markdown diagnostics API/dashboard surface + access controls | High | None |
