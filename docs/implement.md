@@ -138,7 +138,7 @@ If parity/azure runtime paths changed, also run:
 - Discover VM/Postgres/storage (+ optional firewall + connection string):
   - `./scripts/azure/discover-resources.sh --resource-group "<RG>" --open-firewall --print-connection-string`
 - Sync code to VM:
-  - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/listenlater ./scripts/azure/push-to-vm.sh`
+  - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/listenlater TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/push-to-vm.sh`
 - Bootstrap VM:
   - `sudo /home/azureuser/listenlater/scripts/azure/bootstrap-vm.sh`
 - Promote staged code to runtime path:

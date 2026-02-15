@@ -1,6 +1,6 @@
-name: listenlater
+name: articlepod
 metadata:
-  template: listenlater-azure-vm
+  template: articlepod-azure-vm
 infra:
   provider: bicep
   path: infra

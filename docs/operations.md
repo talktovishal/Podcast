@@ -47,7 +47,9 @@ This verifies:
 - Sign-off:
 
 ## Latest evidence
-- Pending first live Azure drill execution.
+- 2026-02-15: First live Azure deployment completed in `rg-articlepod-prod` with public HTTPS health check passing at `https://articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com/api/health`.
+- 2026-02-15: Podcast compatibility gate passed for live feed (`scripts/verify_podcast_contract.sh`) with feed/media `HEAD 200` and media range `206`.
+- Durability snapshot + VM replacement restore drill is still pending signed execution.
 
 ## Extraction artifact lifecycle
 Backfill markdown artifacts for existing ready items:

@@ -29,7 +29,7 @@ Template inputs:
 
 Provision:
 ```bash
-azd env new listenlater-prod
+azd env new articlepod-prod
 azd up
 azd env refresh
 ```
@@ -67,13 +67,14 @@ Sync local repo to VM user-writable path:
 ```bash
 TARGET_HOST="$VM_IP" \
 TARGET_PATH="/home/azureuser/listenlater" \
+TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
 
 ## VM bootstrap + promotion to runtime path
 SSH into VM:
 ```bash
-ssh azureuser@"$VM_IP"
+ssh -i "$HOME/.ssh/articlepod_azure" azureuser@"$VM_IP"
 ```
 
 On VM:
@@ -86,10 +87,10 @@ sudo STAGING_DIR="/home/azureuser/listenlater" \
 ## Render runtime env
 On VM, render `/etc/listenlater/listenlater.env`:
 ```bash
-sudo DATABASE_URL="postgresql://listenlater_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/listenlater?sslmode=require" \
+sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/articlepod?sslmode=require" \
   APP_URL="https://${VM_FQDN}" \
   STORAGE_BACKEND="azure_blob" \
-  AZURE_STORAGE_CONTAINER="listenlater" \
+  AZURE_STORAGE_CONTAINER="articlepod" \
   AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
   /opt/listenlater/scripts/azure/render-env.sh
@@ -146,6 +147,7 @@ From local repo:
 ```bash
 TARGET_HOST="$VM_IP" \
 TARGET_PATH="/home/azureuser/listenlater" \
+TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
 

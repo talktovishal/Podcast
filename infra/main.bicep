@@ -1,7 +1,7 @@
 targetScope = 'resourceGroup'
 
 @description('Resource prefix used for generated names.')
-param prefix string = 'listenlater'
+param prefix string = 'articlepod'
 
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
@@ -16,7 +16,7 @@ param adminUsername string = 'azureuser'
 param adminPublicKey string
 
 @description('PostgreSQL Flexible Server admin login.')
-param postgresAdminLogin string = 'listenlater_admin'
+param postgresAdminLogin string = 'articlepod_admin'
 
 @secure()
 @description('PostgreSQL Flexible Server admin password.')
@@ -36,7 +36,8 @@ var publicIpName = '${prefix}-pip'
 var nicName = '${prefix}-nic'
 var vmName = '${prefix}-vm'
 var postgresServerName = '${prefix}-pg-${uniqueString(resourceGroup().id)}'
-var blobContainerName = 'listenlater'
+var blobContainerName = 'articlepod'
+var databaseName = 'articlepod'
 
 resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: storageAccountName
@@ -90,7 +91,7 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview'
 }
 
 resource postgresDb 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-06-01-preview' = {
-  name: '${postgres.name}/listenlater'
+  name: '${postgres.name}/${databaseName}'
   properties: {
     charset: 'UTF8'
     collation: 'en_US.utf8'
@@ -273,4 +274,4 @@ output postgresServer string = postgres.name
 output postgresDatabase string = postgresDb.name
 output postgresHost string = '${postgres.name}.postgres.database.azure.com'
 output postgresAdminUser string = '${postgresAdminLogin}'
-output recommendedDatabaseUrl string = 'postgresql://${postgresAdminLogin}:${'<password>'}@${postgres.name}.postgres.database.azure.com:5432/listenlater?sslmode=require'
+output recommendedDatabaseUrl string = 'postgresql://${postgresAdminLogin}:${'<password>'}@${postgres.name}.postgres.database.azure.com:5432/${databaseName}?sslmode=require'

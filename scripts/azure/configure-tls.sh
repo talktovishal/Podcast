@@ -11,7 +11,7 @@ LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 VERIFY_HEALTH="${VERIFY_HEALTH:-1}"
 
 if [[ -z "$PUBLIC_HOST" ]]; then
-  echo "Set PUBLIC_HOST (example: PUBLIC_HOST=listenlater-foo.eastus.cloudapp.azure.com)"
+  echo "Set PUBLIC_HOST (example: PUBLIC_HOST=articlepod-foo.centralus.cloudapp.azure.com)"
   exit 1
 fi
 

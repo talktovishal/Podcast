@@ -12,7 +12,7 @@ This folder contains reproducible infrastructure templates for the durable Azure
 ## Provisioning
 
 ```bash
-azd env new listenlater-prod
+azd env new articlepod-prod
 azd up
 ```
 

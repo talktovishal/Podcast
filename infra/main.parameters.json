@@ -3,10 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "prefix": {
-      "value": "listenlater"
+      "value": "articlepod"
     },
     "location": {
-      "value": "eastus"
+      "value": "centralus"
     },
     "vmSize": {
       "value": "Standard_D4as_v5"
@@ -15,10 +15,10 @@
       "value": "azureuser"
     },
     "adminPublicKey": {
-      "value": "ssh-rsa REPLACE_WITH_YOUR_PUBLIC_KEY"
+      "value": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH+q9cpy7BBJhWLif+r7oZBSxBdavzZHR1KINyVJmjcf articlepod-azure"
     },
     "postgresAdminLogin": {
-      "value": "listenlater_admin"
+      "value": "articlepod_admin"
     },
     "postgresAdminPassword": {
       "value": "REPLACE_WITH_SECURE_PASSWORD"
