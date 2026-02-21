@@ -70,8 +70,8 @@ This flow works the same whether you are using the local development server or y
 
 1. Sign in to the ArticlePod web app at `/app`.
 
-2. Open **Settings → Chrome Extension** and click **Generate connect code**.
-   The code expires in a few minutes — copy it right away.
+2. Scroll down to the **Chrome Extension** section on the dashboard and click **Generate connect code**.
+   The code expires in a few minutes — copy it right away (use the **Copy code** button that appears).
 
 3. Click the ArticlePod Capture icon in your Chrome toolbar.
 
@@ -133,11 +133,10 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 
 The Chrome Web Store requires a publicly reachable privacy policy URL.
 
-Recommended approaches:
-- **Hosted on your ArticlePod deployment**: add a `/privacy` route that renders
-  `apps/extension/webstore/privacy-policy.md`.
+Recommended approach:
 - **GitHub Gist**: create a public gist, paste the contents of
-  `apps/extension/webstore/privacy-policy.md`, and use the raw URL.
+  `apps/extension/webstore/privacy-policy.md`, and use the raw URL (click **Raw** on the Gist
+  page to get a permanent `https://gist.githubusercontent.com/…/raw/…` URL).
 
 Copy the public URL — you will paste it in the listing form.
 
@@ -150,7 +149,7 @@ Suggested screenshots to take:
 2. The popup after a successful capture (showing the success message).
 
 > In Chrome, you can use DevTools → device toolbar (Ctrl+Shift+M / Cmd+Shift+M) set to a custom
-> 400×640 viewport, or take a full-screen shot and crop to 1280×800.
+> 640×400 viewport, or take a full-screen shot and crop to 1280×800.
 
 ### Upload and publish
 
@@ -170,12 +169,12 @@ Suggested screenshots to take:
 
 4. Fill in the listing fields using the pre-filled templates from `dist/extension/webstore/`:
 
-   | Store field | Template file |
-   |---|---|
-   | Short description | `listing-short-description.txt` |
-   | Detailed description | `listing-description.md` |
-   | Privacy policy URL | hosted URL from the prep step above |
-   | Release notes | `release-notes.md` |
+   | Store field | Template file | Note |
+   |---|---|---|
+   | Short description | `listing-short-description.txt` | Paste as-is |
+   | Detailed description | `listing-description.md` | Plain text only — remove the `#` headers and `**bold**` markers before pasting; the store does not render Markdown |
+   | Privacy policy URL | hosted URL from the prep step above | |
+   | Release notes | `release-notes.md` | Remove `#` headers before pasting |
 
 5. Upload your screenshots.
 

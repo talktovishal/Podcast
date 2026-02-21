@@ -30,8 +30,8 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 - Creating/updating the Web Store listing.
 - Choosing visibility (`Private`) and tester access.
 - **Screenshots**: at least 1 screenshot at 1280×800 or 640×400 — upload in the store listing form.
-- **Privacy policy URL**: host `apps/extension/webstore/privacy-policy.md` at a public URL (your
-  ArticlePod deployment or a public gist) and paste that URL in the store listing form.
+- **Privacy policy URL**: publish `apps/extension/webstore/privacy-policy.md` as a public GitHub
+  Gist and paste the raw URL in the store listing form.
 - **Broad host permissions justification**: the extension uses `http://*/*` and `https://*/*`
   because users configure their own ArticlePod server URL. When the store form asks for
   justification, enter: _"Users configure a custom ArticlePod server URL; the extension must be
@@ -62,10 +62,10 @@ npm run extension:validate
    - Use `dist/extension/articlepod-capture-v<version>.zip`
 
 7. Fill listing fields using templates from `dist/extension/webstore/`:
-   - Short description → `listing-short-description.txt`
-   - Description → `listing-description.md`
+   - Short description → `listing-short-description.txt` (paste as-is)
+   - Description → `listing-description.md` (remove `#` headers and `**bold**` markers — the store accepts plain text only)
    - Privacy policy → paste the hosted URL from step 3
-   - Release notes → `release-notes.md`
+   - Release notes → `release-notes.md` (remove `#` headers before pasting)
 
 8. Upload your screenshots.
 
