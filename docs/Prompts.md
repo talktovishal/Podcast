@@ -25,6 +25,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Bicep + azd infra baseline and VM deployment automation scripts.
   - VM rollout runbook/scripts include staging sync -> runtime promotion and nginx/TLS automation.
   - Deploy helper auto-runs VM bootstrap on first deploy when runtime user is missing.
+  - VM runtime deploy auto-recovers legacy env path (`/etc/listenlater/listenlater.env`) into canonical `/etc/articlepod/articlepod.env`.
+  - VM python-tts provisioning enforces CPU-only torch wheels with no pip cache to avoid disk exhaustion on standard VM sizes.
+  - VM runtime deploy now uses incremental patch defaults (dependency/python setup only when tracked inputs change) with a manual full-deploy override.
+  - systemd installer now reconciles stale `listenlater-*` unit files before enabling compatibility aliases.
+  - Deploy helper health checks now retry by default and only use `:3000` fallback for direct IP targets.
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation

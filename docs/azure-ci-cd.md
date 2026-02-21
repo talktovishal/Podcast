@@ -84,23 +84,25 @@ You can trigger deployment manually from GitHub:
 3. Click **Run workflow**
 4. Select branch `main`
 5. Optionally check "Skip health check" if needed
-6. Click **Run workflow** button
+6. Optionally check "Force full runtime setup" if you changed dependencies or python-tts requirements
+7. Click **Run workflow** button
 
 ## Deployment Process
 
 The workflow performs:
 
 1. ✅ Checks out your code
-2. ✅ Installs Node.js dependencies
-3. ✅ Validates `main` branch + required deploy settings
-4. ✅ Sets up SSH credentials with pinned host key verification
-5. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
-6. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
-7. ✅ Promotes code to runtime directory (`/opt/articlepod`)
-8. ✅ Builds applications (web, worker)
-9. ✅ Sets up Python TTS dependencies
-10. ✅ Restarts systemd services
-11. ✅ Runs health check (unless skipped)
+2. ✅ Validates `main` branch + required deploy settings
+3. ✅ Sets up SSH credentials with pinned host key verification
+4. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
+5. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
+6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
+7. ✅ Runs incremental runtime deploy on VM:
+   - `pnpm install` only when `pnpm-lock.yaml` changed
+   - python-tts setup only when requirements/assets changed
+   - demo seed once by default (`auto` mode)
+8. ✅ Restarts systemd services
+9. ✅ Runs health check (unless skipped)
 
 ## Monitoring Deployments
 
@@ -151,8 +153,31 @@ After each deployment, check the workflow summary for:
   - Ensure `sudo` works non-interactively for your VM user (`azureuser`)
   - Ensure staging path contains bootstrap script (`/home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh`)
 
+#### "Failed to enable unit: ... listenlater-*.service already exists"
+- **Current behavior**: `install-systemd.sh` now removes stale legacy unit files before enabling canonical `articlepod-*` units.
+- **If it still appears**:
+  - SSH to VM and remove stale units manually:
+    ```bash
+    sudo rm -f /etc/systemd/system/listenlater-web.service /etc/systemd/system/listenlater-worker.service /etc/systemd/system/listenlater-python-tts.service
+    sudo systemctl daemon-reload
+    ```
+  - Re-run deployment workflow.
+
+#### "Missing env file: /etc/articlepod/articlepod.env"
+- **Current behavior**: deploy auto-copies from legacy `/etc/listenlater/listenlater.env` when present.
+- **If it still appears**:
+  - Render canonical env on VM:
+    ```bash
+    sudo /opt/articlepod/scripts/azure/render-env.sh
+    ```
+  - Confirm file exists:
+    ```bash
+    ls -la /etc/articlepod/articlepod.env
+    ```
+
 #### Health check failures
 - **Solution**:
+  - Deploy helper already retries health checks (default: 15 attempts, 2s delay)
   - Check service status: `sudo systemctl status articlepod-web`
   - Review logs: `sudo journalctl -u articlepod-web -n 100`
   - Try manual deployment with `--skip-healthcheck` first
@@ -163,6 +188,18 @@ After each deployment, check the workflow summary for:
   - Check Node.js version on VM matches development
   - Verify disk space: `df -h`
   - Check for dependency issues in workflow logs
+  - If you changed dependencies, rerun workflow with **Force full runtime setup**
+
+#### "No space left on device" during python-tts setup
+- **Current behavior**: runtime deploy installs CPU-only torch wheels and disables pip cache to reduce disk usage.
+- **If it still appears**:
+  - SSH to VM and reclaim space:
+    ```bash
+    df -h
+    sudo apt-get clean
+    rm -rf ~/.cache/pip /home/articlepod/.cache/pip
+    ```
+  - Re-run deployment workflow.
 
 ## Manual Deployment (Local)
 
@@ -178,6 +215,14 @@ TARGET_HOST="<vm-ip>" \
 TARGET_USER="azureuser" \
 TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
 ./scripts/azure/deploy-changes.sh
+```
+
+Force a full runtime refresh from local:
+```bash
+TARGET_HOST="<vm-ip>" \
+TARGET_USER="azureuser" \
+TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
+./scripts/azure/deploy-changes.sh --full-deploy
 ```
 
 ## Security Notes

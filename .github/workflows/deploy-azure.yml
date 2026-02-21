@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      full_deploy:
+        description: 'Force full runtime setup (deps + python-tts + demo seed)'
+        required: false
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -35,17 +40,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: |
-          set -euo pipefail
-          corepack enable
-          pnpm install --frozen-lockfile
 
       - name: Validate deploy target
         env:
@@ -119,6 +113,13 @@ jobs:
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_healthcheck }}" = "true" ]; then
             DEPLOY_ARGS+=(--skip-healthcheck)
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_deploy }}" = "true" ]; then
+            DEPLOY_ARGS+=(--full-deploy)
+            echo "Deploy mode: full"
+          else
+            echo "Deploy mode: fast (incremental)"
           fi
 
           ./scripts/azure/deploy-changes.sh "${DEPLOY_ARGS[@]}"

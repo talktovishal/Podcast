@@ -28,6 +28,7 @@ fi
 mkdir -p "$APP_DIR"
 rsync -az --delete \
   --exclude '.runtime/' \
+  --exclude 'node_modules' \
   --exclude 'services/python-tts/.venv' \
   --exclude 'apps/web/.env' \
   --exclude 'apps/web/.env.*' \

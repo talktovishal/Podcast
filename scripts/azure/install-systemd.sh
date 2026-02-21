@@ -13,11 +13,28 @@ source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
 WEB_SERVICE="$(runtime_service_name web)"
 WORKER_SERVICE="$(runtime_service_name worker)"
+LEGACY_PYTHON_TTS_SERVICE="$(legacy_runtime_service_name python-tts)"
+LEGACY_WEB_SERVICE="$(legacy_runtime_service_name web)"
+LEGACY_WORKER_SERVICE="$(legacy_runtime_service_name worker)"
+
+cleanup_legacy_alias_conflicts() {
+  local service
+  local legacy_path
+
+  for service in "$LEGACY_PYTHON_TTS_SERVICE" "$LEGACY_WEB_SERVICE" "$LEGACY_WORKER_SERVICE"; do
+    legacy_path="/etc/systemd/system/${service}"
+    if [[ -e "$legacy_path" ]]; then
+      systemctl disable "$service" >/dev/null 2>&1 || true
+      rm -f "$legacy_path"
+    fi
+  done
+}
 
 install -m 0644 "$ROOT_DIR/infra/systemd/${PYTHON_TTS_SERVICE}" "/etc/systemd/system/${PYTHON_TTS_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${WEB_SERVICE}" "/etc/systemd/system/${WEB_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_SERVICE}" "/etc/systemd/system/${WORKER_SERVICE}"
 
+cleanup_legacy_alias_conflicts
 systemctl daemon-reload
 systemctl enable "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
 

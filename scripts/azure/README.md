@@ -21,6 +21,17 @@ Single command:
 TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
 ```
 
+Default deploy mode is incremental:
+- skips `pnpm install` when `pnpm-lock.yaml` is unchanged
+- skips python-tts package/model provisioning when requirements/assets are unchanged
+- runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
+- retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)
+
+Force a full runtime refresh:
+```bash
+TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh --full-deploy
+```
+
 What it runs:
 1. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
 2. Bootstrap guard (runs `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh` only if runtime user is missing on VM)

@@ -25,11 +25,16 @@ Options:
   --ssh-port <value>     SSH port (default: 22)
   --app-dir <value>      Runtime app dir on VM (default: ${RUNTIME_APP_DIR})
   --health-url <value>   Health endpoint to verify after deploy
+  --health-retries <n>   Health-check retry count (default: 15)
+  --health-delay <secs>  Delay between health retries (default: 2)
+  --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
+  --seed-mode <value>    Demo seed policy: auto|always|never (default: auto)
   --skip-healthcheck     Skip post-deploy health validation
   -h, --help             Show this help message
 
 Environment variable equivalents:
-  TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL
+  TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
+  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_DEMO_SEED_MODE
 EOF
 }
 
@@ -42,12 +47,35 @@ APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
 HEALTH_URL="${HEALTH_URL:-}"
 HEALTH_URL_EXPLICIT=0
 SKIP_HEALTHCHECK=0
+HEALTH_RETRIES="${HEALTH_RETRIES:-15}"
+HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
+DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
+DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
 
 is_ip_host() {
   local host="$1"
   # Treat raw IP literals (IPv4/IPv6) as non-TLS defaults.
   [[ "$host" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && return 0
   [[ "$host" =~ : ]] && return 0
+  return 1
+}
+
+check_health_with_retries() {
+  local url="$1"
+  local retries="$2"
+  local delay_secs="$3"
+  local attempt
+
+  for ((attempt = 1; attempt <= retries; attempt++)); do
+    if curl -fsS "$url"; then
+      return 0
+    fi
+    if (( attempt < retries )); then
+      echo "[deploy-changes] health check attempt ${attempt}/${retries} failed; retrying in ${delay_secs}s"
+      sleep "$delay_secs"
+    fi
+  done
+
   return 1
 }
 
@@ -82,6 +110,22 @@ while [[ $# -gt 0 ]]; do
       HEALTH_URL_EXPLICIT=1
       shift 2
       ;;
+    --health-retries)
+      HEALTH_RETRIES="${2:-}"
+      shift 2
+      ;;
+    --health-delay)
+      HEALTH_RETRY_DELAY="${2:-}"
+      shift 2
+      ;;
+    --full-deploy)
+      DEPLOY_FORCE_FULL=1
+      shift
+      ;;
+    --seed-mode)
+      DEPLOY_DEMO_SEED_MODE="${2:-}"
+      shift 2
+      ;;
     --skip-healthcheck)
       SKIP_HEALTHCHECK=1
       shift
@@ -108,6 +152,25 @@ if [[ -n "$TARGET_SSH_KEY" && ! -f "$TARGET_SSH_KEY" ]]; then
   exit 1
 fi
 
+if ! [[ "$HEALTH_RETRIES" =~ ^[0-9]+$ ]] || [[ "$HEALTH_RETRIES" -lt 1 ]]; then
+  echo "Invalid HEALTH_RETRIES: $HEALTH_RETRIES (expected positive integer)"
+  exit 2
+fi
+
+if ! [[ "$HEALTH_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+  echo "Invalid HEALTH_RETRY_DELAY: $HEALTH_RETRY_DELAY (expected non-negative integer)"
+  exit 2
+fi
+
+case "$DEPLOY_DEMO_SEED_MODE" in
+  auto|always|never)
+    ;;
+  *)
+    echo "Invalid seed mode: $DEPLOY_DEMO_SEED_MODE (expected auto|always|never)"
+    exit 2
+    ;;
+esac
+
 echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"
 TARGET_HOST="$TARGET_HOST" \
 TARGET_USER="$TARGET_USER" \
@@ -124,6 +187,7 @@ fi
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
+echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}"
 REMOTE_DEPLOY_SCRIPT=$(cat <<EOF
 set -euo pipefail
 if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
@@ -131,7 +195,7 @@ if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
   sudo '$TARGET_PATH/scripts/azure/bootstrap-vm.sh'
 fi
 sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
-sudo APP_DIR='$APP_DIR' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
 EOF
 )
 ssh "${SSH_ARGS[@]}" "$REMOTE" "$REMOTE_DEPLOY_SCRIPT"
@@ -150,16 +214,16 @@ if [[ -z "$HEALTH_URL" ]]; then
 fi
 
 echo "[deploy-changes] verifying health at ${HEALTH_URL}"
-if curl -fsS "$HEALTH_URL"; then
+if check_health_with_retries "$HEALTH_URL" "$HEALTH_RETRIES" "$HEALTH_RETRY_DELAY"; then
   echo
   echo "[deploy-changes] done"
   exit 0
 fi
 
-if [[ "$HEALTH_URL_EXPLICIT" == "0" ]]; then
+if [[ "$HEALTH_URL_EXPLICIT" == "0" ]] && is_ip_host "$TARGET_HOST"; then
   FALLBACK_URL="http://${TARGET_HOST}:3000/api/health"
   echo "[deploy-changes] primary health check failed, trying ${FALLBACK_URL}"
-  if curl -fsS "$FALLBACK_URL"; then
+  if check_health_with_retries "$FALLBACK_URL" "$HEALTH_RETRIES" "$HEALTH_RETRY_DELAY"; then
     echo
     echo "[deploy-changes] done (fallback health endpoint)"
     exit 0

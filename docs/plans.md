@@ -16,6 +16,11 @@
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
 - Azure deploy helper now auto-bootstraps first-run VMs when runtime user provisioning is missing during CI/CD rollout.
+- Azure runtime deploy now auto-recovers canonical env file from legacy `/etc/listenlater/listenlater.env` when present.
+- Azure python-tts provisioning now installs CPU-only torch wheels with pip cache disabled to prevent VM disk exhaustion during deploy.
+- Azure runtime deploy now supports incremental patch mode (skip unchanged pnpm/python setup, seed auto-once) with explicit full-deploy override.
+- Systemd install now removes stale legacy `listenlater-*` unit files before enabling compatibility aliases.
+- Deploy helper health checks now retry by default and avoid unreachable `:3000` fallback for FQDN targets.
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
