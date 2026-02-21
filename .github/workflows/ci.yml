@@ -1,9 +1,25 @@
 name: CI
 
+# validate-simple  — runs on every push and PR (fast: ~10-15 min)
+#   typecheck, lint, unit tests, build, license gate
+#
+# validate-parity  — full integration check (slow: ~30-45 min, includes Docker
+#   build of python-tts with ML packages). Runs only when needed:
+#     • every push to main
+#     • workflow_dispatch with run_parity: true
+#     • any PR that carries the "full-ci" label
+
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_parity:
+        description: "Run full parity check (Docker stack incl. python-tts)"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   validate-simple:
@@ -54,6 +70,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: validate-simple
     timeout-minutes: 45
+    # Run on main, manual dispatch (opt-in), or PRs labelled "full-ci"
+    if: |
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_parity == true) ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
     steps:
       - uses: actions/checkout@v4
 
