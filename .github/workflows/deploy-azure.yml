@@ -104,11 +104,16 @@ jobs:
         env:
           TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
           TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
-          TARGET_SSH_KEY: ~/.ssh/articlepod_azure
         run: |
           set -euo pipefail
 
           echo "::group::Deploying to $TARGET_HOST"
+          TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure"
+
+          if [ ! -f "$TARGET_SSH_KEY" ]; then
+            echo "::error::SSH key not found at $TARGET_SSH_KEY"
+            exit 1
+          fi
 
           DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY")
 
