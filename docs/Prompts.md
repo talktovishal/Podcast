@@ -24,6 +24,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - SQLite export/import migration scripts for PostgreSQL transition
   - Bicep + azd infra baseline and VM deployment automation scripts.
   - VM rollout runbook/scripts include staging sync -> runtime promotion and nginx/TLS automation.
+  - Deploy helper auto-runs VM bootstrap on first deploy when runtime user is missing.
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation

@@ -23,8 +23,9 @@ TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azu
 
 What it runs:
 1. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
-2. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
-3. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+2. Bootstrap guard (runs `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh` only if runtime user is missing on VM)
+3. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
+4. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
 
 ## Individual Building Blocks
 - Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`

@@ -95,11 +95,12 @@ The workflow performs:
 3. ✅ Validates `main` branch + required deploy settings
 4. ✅ Sets up SSH credentials with pinned host key verification
 5. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
-6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
-7. ✅ Builds applications (web, worker)
-8. ✅ Sets up Python TTS dependencies
-9. ✅ Restarts systemd services
-10. ✅ Runs health check (unless skipped)
+6. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
+7. ✅ Promotes code to runtime directory (`/opt/articlepod`)
+8. ✅ Builds applications (web, worker)
+9. ✅ Sets up Python TTS dependencies
+10. ✅ Restarts systemd services
+11. ✅ Runs health check (unless skipped)
 
 ## Monitoring Deployments
 
@@ -143,6 +144,12 @@ After each deployment, check the workflow summary for:
   - Check firewall allows SSH from GitHub IPs
   - Verify SSH key matches the one used during VM setup
   - Re-generate and update `AZURE_SSH_KNOWN_HOSTS` if VM host key changed
+
+#### "Missing runtime user 'articlepod'. Run bootstrap first."
+- **Current behavior**: this is auto-handled in `deploy-changes.sh` by running bootstrap once.
+- **If it still appears**:
+  - Ensure `sudo` works non-interactively for your VM user (`azureuser`)
+  - Ensure staging path contains bootstrap script (`/home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh`)
 
 #### Health check failures
 - **Solution**:

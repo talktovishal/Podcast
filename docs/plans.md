@@ -15,6 +15,7 @@
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
+- Azure deploy helper now auto-bootstraps first-run VMs when runtime user provisioning is missing during CI/CD rollout.
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.

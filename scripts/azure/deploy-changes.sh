@@ -124,7 +124,17 @@ fi
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
-ssh "${SSH_ARGS[@]}" "$REMOTE" "sudo STAGING_DIR='$TARGET_PATH' '$TARGET_PATH/scripts/azure/promote-runtime.sh' && sudo APP_DIR='$APP_DIR' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'"
+REMOTE_DEPLOY_SCRIPT=$(cat <<EOF
+set -euo pipefail
+if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
+  echo "[deploy-changes] runtime user '$RUNTIME_APP_USER' missing on VM; running bootstrap"
+  sudo '$TARGET_PATH/scripts/azure/bootstrap-vm.sh'
+fi
+sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
+sudo APP_DIR='$APP_DIR' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+EOF
+)
+ssh "${SSH_ARGS[@]}" "$REMOTE" "$REMOTE_DEPLOY_SCRIPT"
 
 if [[ "$SKIP_HEALTHCHECK" == "1" ]]; then
   echo "[deploy-changes] done (health check skipped)"
