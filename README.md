@@ -38,13 +38,18 @@ DEMO_PASSWORD="<choose a password>"
 - Demo user: email `demo@articlepod.local` — password from `DEMO_PASSWORD`
 - Admin user: email `admin@articlepod.local` — password from `ADMIN_PASSWORD`
 
-## Extension packaging
+## Extension
+
+Load locally or publish to the Chrome Web Store — see **[apps/extension/README.md](apps/extension/README.md)** for the full guide.
+
+Quick commands:
+
 ```bash
-npm run extension:package
+npm run extension:package   # build the ZIP + listing templates
+npm run extension:validate  # verify Chrome Web Store readiness
 ```
 
-Output:
-- `dist/extension/articlepod-capture-v<version>.zip`
+Output ZIP: `dist/extension/articlepod-capture-v<version>.zip`
 
 ## Durable migration + ops helpers
 - SQLite -> PostgreSQL migration:
