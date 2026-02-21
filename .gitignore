@@ -9,6 +9,8 @@ coverage
 .env
 .env.*
 !.env.example
+!.env.simple.example
+!.env.parity.example
 apps/web/.data
 apps/web/apps
 exports/*
