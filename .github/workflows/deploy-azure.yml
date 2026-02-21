@@ -16,14 +16,22 @@ on:
       - 'docs/**'
       - '.github/workflows/ci.yml'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-azure-main
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    environment: production
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,31 +40,66 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
 
       - name: Install dependencies
-        run: npx pnpm install --frozen-lockfile
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
 
-      - name: Setup SSH key
+      - name: Validate deploy target
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TARGET_HOST" ]; then
+            echo "::error::AZURE_VM_HOST secret is not configured"
+            exit 1
+          fi
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "::error::Deploy workflow must run from main branch"
+            exit 1
+          fi
+          if [ -z "$TARGET_USER" ]; then
+            echo "::error::AZURE_VM_USER resolved to empty value"
+            exit 1
+          fi
+
+      - name: Setup SSH credentials
         env:
           AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
         run: |
+          set -euo pipefail
           if [ -z "$AZURE_SSH_KEY" ]; then
             echo "::error::AZURE_SSH_KEY secret is not configured"
             echo "Please configure the following secrets in your repository:"
             echo "  - AZURE_SSH_KEY: SSH private key for VM access"
             echo "  - AZURE_VM_HOST: VM IP address or FQDN"
             echo "  - AZURE_VM_USER (optional): SSH user (default: azureuser)"
+            echo "  - AZURE_SSH_KNOWN_HOSTS: output of ssh-keyscan -H <host>"
             exit 1
           fi
-          
-          mkdir -p ~/.ssh
-          echo "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
-          chmod 600 ~/.ssh/articlepod_azure
-          
-          # Add VM to known hosts to avoid interactive prompt
-          if [ -n "${{ secrets.AZURE_VM_HOST }}" ]; then
-            ssh-keyscan -H "${{ secrets.AZURE_VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          if [ -z "$AZURE_SSH_KNOWN_HOSTS" ]; then
+            echo "::error::AZURE_SSH_KNOWN_HOSTS secret is not configured"
+            echo "Generate it with: ssh-keyscan -H <your-vm-host>"
+            exit 1
           fi
+
+          mkdir -p ~/.ssh
+          printf "%s\n" "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
+          chmod 600 ~/.ssh/articlepod_azure
+
+          if ! grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/articlepod_azure; then
+            echo "::error::AZURE_SSH_KEY does not look like an OpenSSH private key"
+            exit 1
+          fi
+
+          printf "%s\n" "$AZURE_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Deploy to Azure VM
         env:
@@ -64,21 +107,18 @@ jobs:
           TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
           TARGET_SSH_KEY: ~/.ssh/articlepod_azure
         run: |
-          if [ -z "$TARGET_HOST" ]; then
-            echo "::error::AZURE_VM_HOST secret is not configured"
-            exit 1
-          fi
-          
+          set -euo pipefail
+
           echo "::group::Deploying to $TARGET_HOST"
-          
-          DEPLOY_ARGS="--host $TARGET_HOST --user $TARGET_USER --ssh-key $TARGET_SSH_KEY"
-          
-          if [ "${{ inputs.skip_healthcheck }}" == "true" ]; then
-            DEPLOY_ARGS="$DEPLOY_ARGS --skip-healthcheck"
+
+          DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY")
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_healthcheck }}" = "true" ]; then
+            DEPLOY_ARGS+=(--skip-healthcheck)
           fi
-          
-          ./scripts/azure/deploy-changes.sh $DEPLOY_ARGS
-          
+
+          ./scripts/azure/deploy-changes.sh "${DEPLOY_ARGS[@]}"
+
           echo "::endgroup::"
 
       - name: Deployment summary

@@ -65,7 +65,7 @@ TARGET_HOST="<vm-ip-or-fqdn>" npm run azure:deploy:changes
 ```
 
 Automated CI/CD deployment:
-- Configure GitHub secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`)
+- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `AZURE_SSH_KNOWN_HOSTS`)
 - Push with `[deploy]` tag or use workflow dispatch
 - See `docs/azure-ci-cd.md` for setup instructions
 

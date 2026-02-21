@@ -12,12 +12,20 @@ The repository includes a GitHub Actions workflow (`.github/workflows/deploy-azu
 2. You must have:
    - VM IP address or FQDN
    - SSH private key for VM access (typically `~/.ssh/articlepod_azure`)
+   - SSH host key entry for your VM (`known_hosts` format)
 
 ## GitHub Secrets Configuration
 
-Configure the following secrets in your GitHub repository:
+Configure the following secrets in your GitHub **environment** (recommended) or repository:
 
-### Navigate to Settings > Secrets and Variables > Actions
+### Recommended secure path (production environment)
+
+1. Go to **Settings > Environments > New environment**
+2. Create environment: **`production`**
+3. Configure protection rules:
+   - Restrict deployments to branch `main`
+   - Require reviewer approval for deploys
+4. Add secrets under **Environment secrets**
 
 #### Required Secrets:
 
@@ -33,9 +41,21 @@ Configure the following secrets in your GitHub repository:
      ```
    - Copy the entire output including `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----`
 
-#### Optional Secrets:
+3. **`AZURE_SSH_KNOWN_HOSTS`**
+   - Description: Pinned SSH host key entry (known_hosts line)
+   - How to generate:
+     ```bash
+     ssh-keyscan -H <your-vm-host>
+     ```
+   - Example:
+     ```text
+     articlepod.eastus.cloudapp.azure.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...
+     ```
+   - Add the full output line as the secret value.
 
-3. **`AZURE_VM_USER`** (optional)
+#### Optional Secret:
+
+4. **`AZURE_VM_USER`** (optional)
    - Description: SSH username
    - Default: `azureuser`
    - Only set if you're using a different username
@@ -62,7 +82,7 @@ You can trigger deployment manually from GitHub:
 1. Go to **Actions** tab in your repository
 2. Select **Deploy to Azure** workflow
 3. Click **Run workflow**
-4. Select branch to deploy
+4. Select branch `main`
 5. Optionally check "Skip health check" if needed
 6. Click **Run workflow** button
 
@@ -72,13 +92,14 @@ The workflow performs:
 
 1. ✅ Checks out your code
 2. ✅ Installs Node.js dependencies
-3. ✅ Sets up SSH credentials
-4. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
-5. ✅ Promotes code to runtime directory (`/opt/articlepod`)
-6. ✅ Builds applications (web, worker)
-7. ✅ Sets up Python TTS dependencies
-8. ✅ Restarts systemd services
-9. ✅ Runs health check (unless skipped)
+3. ✅ Validates `main` branch + required deploy settings
+4. ✅ Sets up SSH credentials with pinned host key verification
+5. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
+6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
+7. ✅ Builds applications (web, worker)
+8. ✅ Sets up Python TTS dependencies
+9. ✅ Restarts systemd services
+10. ✅ Runs health check (unless skipped)
 
 ## Monitoring Deployments
 
@@ -102,16 +123,26 @@ After each deployment, check the workflow summary for:
 ### Common Issues
 
 #### "AZURE_SSH_KEY secret is not configured"
-- **Solution**: Add the `AZURE_SSH_KEY` secret in repository settings
+- **Solution**: Add the `AZURE_SSH_KEY` secret to the `production` environment secrets
 
 #### "AZURE_VM_HOST secret is not configured"
-- **Solution**: Add the `AZURE_VM_HOST` secret in repository settings
+- **Solution**: Add the `AZURE_VM_HOST` secret to the `production` environment secrets
+
+#### "AZURE_SSH_KNOWN_HOSTS secret is not configured"
+- **Solution**: Generate and add it:
+  ```bash
+  ssh-keyscan -H <your-vm-host>
+  ```
+
+#### "Deploy workflow must run from main branch"
+- **Solution**: Run the workflow for `main` only.
 
 #### SSH connection failures
 - **Solution**: 
   - Verify VM is running: `az vm get-instance-view`
   - Check firewall allows SSH from GitHub IPs
   - Verify SSH key matches the one used during VM setup
+  - Re-generate and update `AZURE_SSH_KNOWN_HOSTS` if VM host key changed
 
 #### Health check failures
 - **Solution**:
@@ -145,6 +176,7 @@ TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
 ## Security Notes
 
 - SSH private keys are stored as GitHub secrets (encrypted at rest)
+- SSH host verification uses pinned `known_hosts` data (no trust-on-first-use during deploy)
 - Keys are only accessible during workflow execution
 - Never commit SSH keys to the repository
 - Rotate keys periodically for security

@@ -61,14 +61,16 @@ For continuous deployment, set up GitHub Actions:
 
 ### One-Time Setup
 
-1. **Add GitHub Secrets** (Settings → Secrets and Variables → Actions):
+1. **Add GitHub Environment Secrets** (Settings → Environments → `production`):
    - `AZURE_VM_HOST`: Your VM IP or FQDN
    - `AZURE_SSH_KEY`: Content of `~/.ssh/articlepod_azure`
+   - `AZURE_SSH_KNOWN_HOSTS`: Output of `ssh-keyscan -H <your-vm-host>`
+   - `AZURE_VM_USER` (optional): defaults to `azureuser`
 
 2. **Deploy Options:**
 
    **A. Manual Deploy:**
-   - Go to Actions tab → "Deploy to Azure" → Run workflow
+   - Go to Actions tab → "Deploy to Azure" → Run workflow on `main`
    
    **B. Auto Deploy on Push:**
    - Commit with `[deploy]` in message: `git commit -m "Fix bug [deploy]"`
