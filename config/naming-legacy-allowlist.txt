@@ -3,7 +3,9 @@ apps/extension/popup.js
 apps/web/src/lib/auth.ts
 config/naming-legacy-allowlist.txt
 config/naming.json
-docs/chat_log.md
+logs/chat_log.md
+docs/azure-ci-cd.md
+docs/plans.md
 docs/Prompts.md
 packages/core/src/config/brand.ts
 packages/core/src/config/naming.ts

@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 function normalizeFeedToken(value: string): string {
-  return value.replace(/\\.xml$/i, "");
+  return value.replace(/\.xml$/i, "");
 }
 
 export async function GET(request: NextRequest, context: { params: { token: string } }) {

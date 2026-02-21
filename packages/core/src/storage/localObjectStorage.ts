@@ -1,9 +1,17 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import type { ObjectRange, ObjectStorage, PutObjectOptions, StoredObjectHead } from "./types";
 
 function normalizeKey(key: string): string {
   return key.replace(/^\/+/, "").replace(/\\/g, "/");
+}
+
+function assertPathContained(rootDir: string, resolvedPath: string, key: string): void {
+  const normalizedRoot = resolve(rootDir) + sep;
+  const normalizedResolved = resolve(resolvedPath);
+  if (normalizedResolved !== resolve(rootDir) && !normalizedResolved.startsWith(normalizedRoot)) {
+    throw new Error(`Storage path traversal attempt blocked: ${key}`);
+  }
 }
 
 function applyRange(data: Buffer, range?: ObjectRange): Buffer {
@@ -47,7 +55,9 @@ export class LocalObjectStorage implements ObjectStorage {
   constructor(private readonly rootDir: string) {}
 
   private resolvePath(key: string): string {
-    return join(this.rootDir, normalizeKey(key));
+    const resolved = join(this.rootDir, normalizeKey(key));
+    assertPathContained(this.rootDir, resolved, key);
+    return resolved;
   }
 
   async putObject(key: string, content: Buffer, options?: PutObjectOptions): Promise<StoredObjectHead> {

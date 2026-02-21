@@ -45,7 +45,11 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     return new NextResponse(null, { status: 401 });
   }
 
-  const key = context.params.path.join("/");
+  const rawKey = context.params.path.join("/");
+  if (rawKey.includes("..")) {
+    return new NextResponse(null, { status: 400 });
+  }
+  const key = rawKey;
 
   try {
     const storage = getArtifactStorage();
@@ -70,7 +74,11 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const key = context.params.path.join("/");
+  const rawKey = context.params.path.join("/");
+  if (rawKey.includes("..")) {
+    return new NextResponse("Bad Request", { status: 400 });
+  }
+  const key = rawKey;
 
   try {
     const storage = getArtifactStorage();

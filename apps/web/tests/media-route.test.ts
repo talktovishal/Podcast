@@ -110,3 +110,50 @@ test("media route supports HEAD and byte-range responses", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("media route rejects path traversal attempts", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-traversal-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  try {
+    const traversalPaths = [
+      ["items", "..", "..", "etc", "passwd"],
+      ["..", "etc", "shadow"],
+      ["valid", "path", "..", "..", "escape"]
+    ];
+
+    for (const pathSegments of traversalPaths) {
+      const getRequest = new NextRequest(
+        `http://localhost/api/media/${pathSegments.join("/")}?feed_token=${feedToken.plain}`
+      );
+      const getResponse = await GET(getRequest, { params: { path: pathSegments } });
+      assert.equal(getResponse.status, 400, `GET should reject traversal: ${pathSegments.join("/")}`);
+
+      const headRequest = new NextRequest(
+        `http://localhost/api/media/${pathSegments.join("/")}?feed_token=${feedToken.plain}`,
+        { method: "HEAD" }
+      );
+      const headResponse = await HEAD(headRequest, { params: { path: pathSegments } });
+      assert.equal(headResponse.status, 400, `HEAD should reject traversal: ${pathSegments.join("/")}`);
+    }
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

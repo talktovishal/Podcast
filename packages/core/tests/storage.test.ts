@@ -35,6 +35,30 @@ test("LocalObjectStorage put/get/head/delete with ranges", async () => {
   }
 });
 
+test("LocalObjectStorage blocks path traversal attempts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "articlepod-storage-test-"));
+  const storage = new LocalObjectStorage(root);
+
+  try {
+    await assert.rejects(
+      () => storage.getObject("../../etc/passwd"),
+      (error: unknown) => error instanceof Error && error.message.includes("path traversal")
+    );
+
+    await assert.rejects(
+      () => storage.putObject("../outside.txt", Buffer.from("bad"), {}),
+      (error: unknown) => error instanceof Error && error.message.includes("path traversal")
+    );
+
+    await assert.rejects(
+      () => storage.headObject("items/../../../etc/shadow"),
+      (error: unknown) => error instanceof Error && error.message.includes("path traversal")
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("AzureBlobObjectStorage requires valid credentials", () => {
   assert.throws(
     () =>

@@ -7,10 +7,9 @@ ArticlePod now uses profile-driven runtime contracts so local and Azure behavior
 - `RUNTIME_PROFILE=parity` -> PostgreSQL + Azurite (Blob API) + Docker Compose
 - `RUNTIME_PROFILE=azure` -> Azure PostgreSQL + Azure Blob + VM runtime
 
-Profile examples:
-- `/Users/vishalchowdhary/Documents/Podcast/.env.simple.example`
-- `/Users/vishalchowdhary/Documents/Podcast/.env.parity.example`
-- `/Users/vishalchowdhary/Documents/Podcast/.env.azure.example`
+Profile examples (copy to `.env` and fill in passwords):
+- `.env.simple.example`
+- `.env.parity.example`
 
 ## Required by profile
 
@@ -59,7 +58,7 @@ Recommended:
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 
 ## Observability and logging (all profiles)
-- `LOG_ROOT` (default: `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`)
+- `LOG_ROOT` (default: `.runtime/logs` relative to repo root)
 - `LOG_RETENTION_DAYS` (default: `14`)
 - `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)

@@ -50,6 +50,7 @@ export const env = {
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL,
+  demoPassword: process.env.DEMO_PASSWORD,
   adminEmail: process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL,
-  adminPassword: process.env.ADMIN_PASSWORD ?? "admin-demo-password"
+  adminPassword: process.env.ADMIN_PASSWORD
 };

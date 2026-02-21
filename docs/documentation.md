@@ -14,9 +14,9 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 4. Episode appears in recent items and private RSS feed.
 
 ## Accounts
-Local defaults:
-- Demo account: `demo@articlepod.local` / `demo-password`
-- Admin account: `admin@articlepod.local` / `admin-demo-password`
+Set passwords via environment variables before seeding (see `.env.example`):
+- Demo account: `demo@articlepod.local` — password from `DEMO_PASSWORD` env var
+- Admin account: `admin@articlepod.local` — password from `ADMIN_PASSWORD` env var
 
 ## Chrome extension
 - Source: `/Users/vishalchowdhary/Documents/Podcast/apps/extension`
