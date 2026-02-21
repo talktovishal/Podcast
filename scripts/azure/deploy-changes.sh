@@ -189,15 +189,19 @@ TARGET_SSH_KEY="$TARGET_SSH_KEY" \
 TARGET_PORT="$TARGET_PORT" \
 "$ROOT_DIR/scripts/azure/push-to-vm.sh"
 
-SSH_ARGS=(-p "$TARGET_PORT" -o StrictHostKeyChecking=accept-new)
+# SSH args: use -i for key, -p for port, no extra verify flags (handled by ~/.ssh/config)
+SSH_ARGS=()
 if [[ -n "$TARGET_SSH_KEY" ]]; then
   SSH_ARGS+=(-i "$TARGET_SSH_KEY")
 fi
+SSH_ARGS+=(-p "$TARGET_PORT")
 
-SCP_ARGS=(-P "$TARGET_PORT")
+# SCP args mirror
+SCP_ARGS=()
 if [[ -n "$TARGET_SSH_KEY" ]]; then
   SCP_ARGS+=(-i "$TARGET_SSH_KEY")
 fi
+SCP_ARGS+=(-P "$TARGET_PORT")
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 

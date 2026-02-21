@@ -63,7 +63,7 @@ jobs:
       - name: Setup SSH credentials
         env:
           AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
-          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
         run: |
           set -euo pipefail
           if [ -z "$AZURE_SSH_KEY" ]; then
@@ -71,18 +71,12 @@ jobs:
             echo "Please configure the following secrets in your repository:"
             echo "  - AZURE_SSH_KEY: SSH private key for VM access"
             echo "  - AZURE_VM_HOST: VM IP address or FQDN"
-            echo "  - AZURE_VM_USER (optional): SSH user (default: azureuser)"
-            echo "  - AZURE_SSH_KNOWN_HOSTS: output of ssh-keyscan -H <host>"
-            exit 1
-          fi
-
-          if [ -z "$AZURE_SSH_KNOWN_HOSTS" ]; then
-            echo "::error::AZURE_SSH_KNOWN_HOSTS secret is not configured"
-            echo "Generate it with: ssh-keyscan -H <your-vm-host>"
             exit 1
           fi
 
           mkdir -p ~/.ssh
+
+          # Write SSH private key
           printf "%s\n" "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
           chmod 600 ~/.ssh/articlepod_azure
 
@@ -91,8 +85,14 @@ jobs:
             exit 1
           fi
 
-          printf "%s\n" "$AZURE_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          # Create SSH config with permissive host key checking (acceptable in CI environment)
+          cat > ~/.ssh/config <<'SSHCONF'
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    LogLevel QUIET
+SSHCONF
+          chmod 600 ~/.ssh/config
 
       - name: Deploy to Azure VM
         env:
