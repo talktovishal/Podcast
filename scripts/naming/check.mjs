@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -39,52 +39,41 @@ const allowlist = new Set(
     .filter((line) => line && !line.startsWith("#"))
 );
 
-const rgResult = spawnSync(
-  "rg",
-  [
-  "-n",
-  "--hidden",
-  "--glob",
-  "!.git",
-  "--glob",
-  "!node_modules/**",
-  "--glob",
-  "!.runtime/**",
-  "--glob",
-  "!dist/**",
-  "(listenlater|@listenlater/)",
-  "."
-  ],
-  {
-    cwd: repoRoot,
-    stdio: "pipe",
-    encoding: "utf8"
-  }
-);
+const SKIP_DIRS = new Set([".git", "node_modules", ".runtime", "dist"]);
+const LEGACY_PATTERN = /(listenlater|@listenlater\/)/;
 
-if (rgResult.status !== 0 && rgResult.status !== 1) {
-  const stderr = rgResult.stderr?.trim();
-  const stdout = rgResult.stdout?.trim();
-  if (stderr) {
-    console.error(stderr);
+function* walkFiles(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP_DIRS.has(entry.name)) {
+      continue;
+    }
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      yield* walkFiles(fullPath);
+    } else if (entry.isFile()) {
+      yield fullPath;
+    }
   }
-  if (stdout) {
-    console.error(stdout);
-  }
-  process.exit(rgResult.status ?? 1);
 }
 
-const rgOutput = rgResult.stdout ?? "";
-
 const violations = [];
-for (const line of rgOutput.split(/\r?\n/)) {
-  if (!line.trim()) {
+for (const filePath of walkFiles(repoRoot)) {
+  const normalized = relative(repoRoot, filePath);
+  if (allowlist.has(normalized)) {
     continue;
   }
-  const [path] = line.split(":", 2);
-  const normalized = relative(repoRoot, resolve(repoRoot, path));
-  if (!allowlist.has(normalized)) {
-    violations.push(line);
+  let content;
+  try {
+    content = readFileSync(filePath, "utf8");
+  } catch {
+    // skip binary / unreadable files
+    continue;
+  }
+  const lines = content.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (LEGACY_PATTERN.test(lines[i])) {
+      violations.push(`${normalized}:${i + 1}:${lines[i]}`);
+    }
   }
 }
 
