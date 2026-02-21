@@ -27,13 +27,16 @@ Azure profile env validation:
 ```
 
 ## Demo/admin accounts
-Seeded automatically by `run.sh`:
-- Demo user:
-  - email: `demo@articlepod.local`
-  - password: `demo-password`
-- Admin user:
-  - email: `admin@articlepod.local`
-  - password: `admin-demo-password`
+Seeded automatically by `run.sh`. Passwords are set via environment variables — do not hardcode them.
+
+Before running, add these to your `.env` file (copy from `.env.example`):
+```
+ADMIN_PASSWORD="<choose a strong password>"
+DEMO_PASSWORD="<choose a password>"
+```
+
+- Demo user: email `demo@articlepod.local` — password from `DEMO_PASSWORD`
+- Admin user: email `admin@articlepod.local` — password from `ADMIN_PASSWORD`
 
 ## Extension packaging
 ```bash

@@ -71,7 +71,7 @@ services:
       PYTHON_TTS_TIMEOUT_MS: "120000"
       DEMO_EMAIL: demo@articlepod.local
       ADMIN_EMAIL: admin@articlepod.local
-      ADMIN_PASSWORD: admin-demo-password
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     command: >
       sh -lc "npx pnpm --filter @articlepod/web run db:bootstrap &&
       npx pnpm --filter @articlepod/web run seed:demo &&

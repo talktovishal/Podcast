@@ -1,13 +1,13 @@
 import { hashPassword } from "./auth";
 import { env } from "./env";
-import { logger } from "./logger";
 import { prisma } from "./prisma";
 
-const DEFAULT_ADMIN_PASSWORD = "admin-demo-password";
-
 export async function ensureAdminUser(): Promise<void> {
-  if (process.env.NODE_ENV === "production" && env.adminPassword === DEFAULT_ADMIN_PASSWORD) {
-    void logger.warn("SECURITY: ADMIN_PASSWORD is not set. The admin account is using the default insecure password. Set ADMIN_PASSWORD in your environment.");
+  if (!env.adminPassword) {
+    throw new Error(
+      "ADMIN_PASSWORD environment variable is required but not set. " +
+      "Add it to your .env file or deployment environment before starting the server."
+    );
   }
 
   const existing = await prisma.user.findUnique({ where: { email: env.adminEmail } });

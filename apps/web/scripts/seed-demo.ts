@@ -11,7 +11,15 @@ import { getArtifactStorage, normalizeStorageKey } from "../src/lib/storage";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
 
 const DEMO_EMAIL = env.demoEmail;
-const DEMO_PASSWORD = "demo-password";
+
+if (!env.demoPassword) {
+  console.error(
+    "Error: DEMO_PASSWORD environment variable is required but not set.\n" +
+    "Add it to your .env file before running the seed script."
+  );
+  process.exit(1);
+}
+const DEMO_PASSWORD = env.demoPassword;
 const DEMO_TEXT =
   `Welcome to ${BRAND_NAME}. This starter episode proves the feed works before any API keys are configured.`;
 
