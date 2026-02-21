@@ -217,7 +217,7 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
 
   RUNTIME_ENV_DIR="$(dirname "$RUNTIME_ENV_FILE")"
   ssh "${SSH_ARGS[@]}" "$REMOTE" \
-    "sudo mkdir -p '$RUNTIME_ENV_DIR' && sudo mv '$REMOTE_TEMP' '$RUNTIME_ENV_FILE' && sudo chmod 600 '$RUNTIME_ENV_FILE'"
+    "sudo mkdir -p '$RUNTIME_ENV_DIR' && sudo mv '$REMOTE_TEMP' '$RUNTIME_ENV_FILE' && sudo chown root:$RUNTIME_APP_GROUP '$RUNTIME_ENV_FILE' && sudo chmod 640 '$RUNTIME_ENV_FILE'"
   echo "[deploy-changes] uploaded env file to $RUNTIME_ENV_FILE"
 fi
 
