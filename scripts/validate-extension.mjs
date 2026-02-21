@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, "..");
 const EXT_DIR = path.join(ROOT, "apps", "extension");
 const DIST_DIR = path.join(ROOT, "dist", "extension");
 
-const REQUIRED_FILES = ["manifest.json", "popup.html", "popup.js", "popup.css"];
+const REQUIRED_FILES = ["manifest.json", "popup.html", "runtime-config.js", "popup.js", "popup.css"];
 const REQUIRED_ICONS = [16, 32, 48, 128];
 
 // Chrome Web Store caps short description at 132 chars.
@@ -116,7 +116,7 @@ if (manifest) {
   if (broad.length > 0) {
     warn(
       `host_permissions includes broad patterns (${broad.join(", ")}). ` +
-        'Chrome Web Store review will ask you to justify this — "users configure their own server URL" is the correct answer.'
+        "Chrome Web Store review will ask you to justify this based on your configured private/public deployment targets."
     );
   } else {
     pass("host_permissions are scoped");

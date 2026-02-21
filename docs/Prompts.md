@@ -17,6 +17,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - raw HTML snapshot ingest endpoint
   - worker extraction path for `HTML_SNAPSHOT`
   - standalone MV3 extension package under `apps/extension`.
+  - popup now uses packaged runtime server configuration (no user-entered server URL) with connected/capture state cues.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)

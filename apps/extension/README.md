@@ -23,7 +23,7 @@ A Manifest V3 Chrome extension that captures the current browser tab and adds it
 | Node.js ≥ 18 + npm | For the packaging and validation scripts |
 | Python 3 | For icon generation (`generate-extension-icons.py`) |
 | Chrome browser | Developer mode for local unpacked loading |
-| ArticlePod server running | Local (`http://localhost:3000`) or your deployed URL |
+| ArticlePod server running | Local or deployed URL configured in `apps/extension/runtime-config.js` |
 
 ---
 
@@ -62,6 +62,18 @@ No Chrome Web Store account required.
 
 > **Tip:** Pin the extension to your toolbar by clicking the puzzle-piece icon in Chrome and pinning ArticlePod Capture.
 
+### Server target configuration (no popup URL field)
+
+The popup no longer asks users to type a server URL.
+Server targets are configured in:
+
+`apps/extension/runtime-config.js`
+
+Default behavior:
+- `localServerUrl` points to `http://localhost:3000`
+- optional `privateStoreServerUrl` / `publicStoreServerUrl` can be set for store deployments
+- optional `byExtensionId` maps extension IDs to `private` or `public` target channel
+
 ---
 
 ## Connecting to your ArticlePod server
@@ -76,13 +88,11 @@ This flow works the same whether you are using the local development server or y
 3. Click the ArticlePod Capture icon in your Chrome toolbar.
 
 4. In the popup:
-   - **Server URL**: enter your server address.
-     - Local dev: `http://localhost:3000`
-     - Deployed: `https://your-articlepod-domain.com`
-   - **One-time connect code**: paste the code from step 2.
+   - Paste the **One-time connect code** from step 2.
    - Click **Connect**.
 
-5. The popup shows **"Connected. Token expires: …"** — you are ready.
+5. The popup switches to **Configured** state (blue) and shows **"Connected. Token expires: …"**.
+   The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
    The page is queued immediately; refresh your ArticlePod dashboard to see it.
@@ -145,8 +155,8 @@ Copy the public URL — you will paste it in the listing form.
 The store requires at least **one screenshot** at exactly **1280×800 or 640×400** pixels.
 
 Suggested screenshots to take:
-1. The popup in its unconnected state (showing the connect form).
-2. The popup after a successful capture (showing the success message).
+1. The popup in its unconfigured state (white, connect-code visible).
+2. The popup in configured state (blue) after a successful capture.
 
 > In Chrome, you can use DevTools → device toolbar (Ctrl+Shift+M / Cmd+Shift+M) set to a custom
 > 640×400 viewport, or take a full-screen shot and crop to 1280×800.
@@ -180,7 +190,7 @@ Suggested screenshots to take:
 
 6. In the **Justify your permissions** field (shown because of the broad `host_permissions`), enter:
 
-   > Users configure a custom ArticlePod server URL; the extension must be able to reach any HTTP or HTTPS origin they configure.
+   > The extension supports local, private-test, and public ArticlePod deployments via packaged runtime configuration, so it must reach configured HTTP/HTTPS origins.
 
 7. Set visibility and distribution:
    - **Visibility**: `Private`
@@ -231,4 +241,3 @@ The extension communicates with these ArticlePod API endpoints:
 
 Authentication uses a scoped **extension token** (Bearer) obtained during the connect flow.
 Tokens can be rotated or revoked from the web app at any time.
-

@@ -11,22 +11,18 @@
       <h1>ArticlePod Capture</h1>
       <p class="muted">Connect once, then capture the current tab into your podcast queue.</p>
 
-      <label>
-        <span>Server URL</span>
-        <input id="server-url" type="url" placeholder="http://localhost:3000" />
-      </label>
+      <p id="connection-state" class="state-pill">Not configured</p>
 
-      <label>
-        <span>One-time connect code</span>
-        <input id="connect-code" type="text" placeholder="Paste code from /app" />
-      </label>
-
-      <div class="row">
+      <section id="connect-section" class="connect-section">
+        <label>
+          <span>One-time connect code</span>
+          <input id="connect-code" type="text" placeholder="Paste code from /app" />
+        </label>
         <button id="connect-btn" type="button">Connect</button>
-        <button id="disconnect-btn" type="button" class="secondary">Disconnect</button>
-      </div>
+      </section>
 
-      <div class="row">
+      <div class="row actions">
+        <button id="disconnect-btn" type="button" class="secondary">Disconnect</button>
         <button id="capture-btn" type="button" class="primary">Capture Current Page</button>
       </div>
 
@@ -34,6 +30,7 @@
       <p id="status" class="status"></p>
     </main>
 
+    <script src="runtime-config.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

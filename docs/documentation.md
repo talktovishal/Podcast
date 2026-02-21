@@ -25,7 +25,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 
 Connect flow:
 1. In `/app`, generate one-time extension connect code.
-2. Paste code in extension popup and connect.
+2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
 3. Capture current page; item is enqueued to your account feed.
 
 ## Feed and media

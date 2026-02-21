@@ -10,6 +10,7 @@ METADATA_DIR="$DIST_DIR/webstore"
 required_files=(
   "$EXT_DIR/manifest.json"
   "$EXT_DIR/popup.html"
+  "$EXT_DIR/runtime-config.js"
   "$EXT_DIR/popup.js"
   "$EXT_DIR/popup.css"
 )
@@ -47,6 +48,7 @@ mkdir -p "$PACKAGE_DIR/icons"
 
 cp "$EXT_DIR/manifest.json" "$PACKAGE_DIR/"
 cp "$EXT_DIR/popup.html" "$PACKAGE_DIR/"
+cp "$EXT_DIR/runtime-config.js" "$PACKAGE_DIR/"
 cp "$EXT_DIR/popup.js" "$PACKAGE_DIR/"
 cp "$EXT_DIR/popup.css" "$PACKAGE_DIR/"
 cp "$EXT_DIR/icons/"*.png "$PACKAGE_DIR/icons/"
