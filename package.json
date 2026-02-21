@@ -35,6 +35,7 @@
     "artifacts:purge": "npx pnpm --filter @articlepod/web run artifacts:purge",
     "extension:icons": "python3 scripts/generate-extension-icons.py",
     "extension:package": "./scripts/package-extension.sh",
+    "extension:validate": "node scripts/validate-extension.mjs --zip",
     "logs:collect": "node scripts/logs-collect.mjs",
     "logs:triage": "node scripts/logs-triage.mjs",
     "observability:verify": "node scripts/observability-verify.mjs",
