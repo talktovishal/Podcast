@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthUserFromCookies } from "@/lib/auth";
 import { getAdminMetrics } from "@/lib/dashboard";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false }
+};
 
 function formatDurationMs(ms: number): string {
   if (!ms || ms < 1000) {

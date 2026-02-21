@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
 import { marketingCopy } from "@/lib/marketing-content";
+
+export const metadata: Metadata = {
+  title: "Product",
+  description:
+    "ArticlePod converts articles and PDFs into instant episodes, daily recap podcasts, and weekly topic briefings — with companion email summaries.",
+  alternates: { canonical: "/product" }
+};
 
 export default function ProductPage() {
   return (

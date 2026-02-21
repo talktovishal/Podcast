@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
+
+export const metadata: Metadata = {
+  title: "FAQ",
+  description:
+    "Answers to common questions about ArticlePod — article-to-podcast conversion, daily briefings, privacy, supported podcast apps, and more.",
+  alternates: { canonical: "/faq" }
+};
 
 const faqItems: ReadonlyArray<{ q: string; a: string }> = [
   {
