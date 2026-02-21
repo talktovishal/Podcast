@@ -104,16 +104,19 @@ async function main() {
   await ensureDataDirs();
   await ensureAdminUser();
 
+  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
   let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
   if (!user) {
     user = await prisma.user.create({
       data: {
         email: DEMO_EMAIL,
         name: "Demo Listener",
-        passwordHash: await hashPassword(DEMO_PASSWORD),
+        passwordHash: demoPasswordHash,
         role: "USER"
       }
     });
+  } else {
+    await prisma.user.update({ where: { email: DEMO_EMAIL }, data: { passwordHash: demoPasswordHash } });
   }
 
   const activeFeed = await prisma.feedToken.findFirst({ where: { userId: user.id, active: true } });

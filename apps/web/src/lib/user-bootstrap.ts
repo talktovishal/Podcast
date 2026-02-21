@@ -10,12 +10,13 @@ export async function ensureAdminUser(): Promise<void> {
     );
   }
 
+  const passwordHash = await hashPassword(env.adminPassword);
   const existing = await prisma.user.findUnique({ where: { email: env.adminEmail } });
   if (existing) {
+    await prisma.user.update({ where: { email: env.adminEmail }, data: { passwordHash } });
     return;
   }
 
-  const passwordHash = await hashPassword(env.adminPassword);
   await prisma.user.create({
     data: {
       email: env.adminEmail,
