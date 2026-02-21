@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Learn how ArticlePod helps you move from isolated reading to a consistent knowledge loop with instant episodes, daily and weekly briefings.",
+  alternates: { canonical: "/about" }
+};
 
 export default function AboutPage() {
   return (

@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
+
+export const metadata: Metadata = {
+  title: "Resources",
+  description:
+    "Set up the ArticlePod Chrome extension to capture articles in one click. Step-by-step connection guide and quick troubleshooting tips.",
+  alternates: { canonical: "/resources" }
+};
 
 export default function ResourcesPage() {
   return (

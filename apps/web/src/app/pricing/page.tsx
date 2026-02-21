@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "Plans for instant article podcasts and ongoing daily and weekly intelligence digests. Start free with the Starter plan and scale into Pro or Team.",
+  alternates: { canonical: "/pricing" }
+};
 
 export default function PricingPage() {
   return (

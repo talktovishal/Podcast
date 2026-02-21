@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
@@ -8,6 +9,10 @@ import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false }
+};
 
 export default async function AppDashboardPage() {
   const user = await getAuthUserFromCookies();
