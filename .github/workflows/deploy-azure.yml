@@ -86,12 +86,12 @@ jobs:
           fi
 
           # Create SSH config with permissive host key checking (acceptable in CI environment)
-          cat > ~/.ssh/config <<'SSHCONF'
-Host *
-    StrictHostKeyChecking no
-    UserKnownHostsFile=/dev/null
-    LogLevel QUIET
-SSHCONF
+          {
+            echo "Host *"
+            echo "    StrictHostKeyChecking no"
+            echo "    UserKnownHostsFile=/dev/null"
+            echo "    LogLevel QUIET"
+          } > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
       - name: Deploy to Azure VM
