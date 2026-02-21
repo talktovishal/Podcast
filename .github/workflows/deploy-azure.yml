@@ -118,7 +118,7 @@ jobs:
             exit 1
           fi
 
-          DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY" --render-env)
+          DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY" --render-env --seed-mode always)
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_healthcheck }}" = "true" ]; then
             DEPLOY_ARGS+=(--skip-healthcheck)
