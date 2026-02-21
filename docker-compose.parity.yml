@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: articlepod
       POSTGRES_USER: articlepod
-      POSTGRES_PASSWORD: articlepod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-articlepod}
     ports:
       - "5432:5432"
     volumes:
@@ -61,7 +61,7 @@ services:
         condition: service_healthy
     environment:
       RUNTIME_PROFILE: parity
-      DATABASE_URL: postgresql://articlepod:articlepod@postgres:5432/articlepod
+      DATABASE_URL: postgresql://articlepod:${POSTGRES_PASSWORD:-articlepod}@postgres:5432/articlepod
       APP_URL: http://localhost:3000
       STORAGE_BACKEND: azure_blob
       AZURE_STORAGE_CONTAINER: articlepod
@@ -69,8 +69,9 @@ services:
       AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       PYTHON_TTS_URL: http://python-tts:8010
       PYTHON_TTS_TIMEOUT_MS: "120000"
-      DEMO_EMAIL: demo@articlepod.local
-      ADMIN_EMAIL: admin@articlepod.local
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@articlepod.local}
+      DEMO_PASSWORD: ${DEMO_PASSWORD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@articlepod.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     command: >
       sh -lc "npx pnpm --filter @articlepod/web run db:bootstrap &&
@@ -101,7 +102,7 @@ services:
         condition: service_healthy
     environment:
       RUNTIME_PROFILE: parity
-      DATABASE_URL: postgresql://articlepod:articlepod@postgres:5432/articlepod
+      DATABASE_URL: postgresql://articlepod:${POSTGRES_PASSWORD:-articlepod}@postgres:5432/articlepod
       STORAGE_BACKEND: azure_blob
       AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
@@ -111,7 +112,7 @@ services:
       WORKER_POLL_MS: "2000"
       WORKER_STALE_PROCESSING_MS: "900000"
       WORKER_RETRY_POLL_MS: "5000"
-      DEMO_EMAIL: demo@articlepod.local
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@articlepod.local}
     command: >
       sh -lc "npx pnpm --filter @articlepod/worker run dev"
 

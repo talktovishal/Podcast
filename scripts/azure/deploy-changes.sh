@@ -28,13 +28,18 @@ Options:
   --health-retries <n>   Health-check retry count (default: 15)
   --health-delay <secs>  Delay between health retries (default: 2)
   --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
+  --render-env           Generate and upload runtime env file to VM before deploying
   --seed-mode <value>    Demo seed policy: auto|always|never (default: auto)
   --skip-healthcheck     Skip post-deploy health validation
   -h, --help             Show this help message
 
 Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
-  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_DEMO_SEED_MODE
+  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE
+
+When --render-env is used, the following env vars are forwarded to render-env.sh:
+  DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
+  AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, ADMIN_PASSWORD, DEMO_PASSWORD
 EOF
 }
 
@@ -50,6 +55,7 @@ SKIP_HEALTHCHECK=0
 HEALTH_RETRIES="${HEALTH_RETRIES:-15}"
 HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
+DEPLOY_RENDER_ENV="${DEPLOY_RENDER_ENV:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
 
 is_ip_host() {
@@ -122,6 +128,10 @@ while [[ $# -gt 0 ]]; do
       DEPLOY_FORCE_FULL=1
       shift
       ;;
+    --render-env)
+      DEPLOY_RENDER_ENV=1
+      shift
+      ;;
     --seed-mode)
       DEPLOY_DEMO_SEED_MODE="${2:-}"
       shift 2
@@ -184,7 +194,28 @@ if [[ -n "$TARGET_SSH_KEY" ]]; then
   SSH_ARGS+=(-i "$TARGET_SSH_KEY")
 fi
 
+SCP_ARGS=(-P "$TARGET_PORT")
+if [[ -n "$TARGET_SSH_KEY" ]]; then
+  SCP_ARGS+=(-i "$TARGET_SSH_KEY")
+fi
+
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
+
+# --- Render and upload runtime env file if requested ---
+if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
+  echo "[deploy-changes] rendering runtime env file locally and uploading to VM"
+  RENDER_ENV_TEMP="$(mktemp)"
+  OUT_FILE="$RENDER_ENV_TEMP" "$ROOT_DIR/scripts/azure/render-env.sh"
+
+  REMOTE_TEMP="/tmp/articlepod-env-upload-$$"
+  scp "${SCP_ARGS[@]}" "$RENDER_ENV_TEMP" "${REMOTE}:${REMOTE_TEMP}"
+  rm -f "$RENDER_ENV_TEMP"
+
+  RUNTIME_ENV_DIR="$(dirname "$RUNTIME_ENV_FILE")"
+  ssh "${SSH_ARGS[@]}" "$REMOTE" \
+    "sudo mkdir -p '$RUNTIME_ENV_DIR' && sudo mv '$REMOTE_TEMP' '$RUNTIME_ENV_FILE' && sudo chmod 600 '$RUNTIME_ENV_FILE'"
+  echo "[deploy-changes] uploaded env file to $RUNTIME_ENV_FILE"
+fi
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
 echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}"

@@ -98,6 +98,15 @@ jobs:
         env:
           TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
           TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          # App secrets forwarded to render-env.sh on the VM
+          DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
+          APP_URL: ${{ secrets.APP_URL }}
+          STORAGE_BACKEND: azure_blob
+          AZURE_STORAGE_CONTAINER: ${{ secrets.APP_AZURE_STORAGE_CONTAINER || 'articlepod' }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.APP_AZURE_STORAGE_CONNECTION_STRING }}
+          PYTHON_TTS_URL: http://127.0.0.1:8010
+          ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
+          DEMO_PASSWORD: ${{ secrets.APP_DEMO_PASSWORD }}
         run: |
           set -euo pipefail
 
@@ -109,7 +118,7 @@ jobs:
             exit 1
           fi
 
-          DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY")
+          DEPLOY_ARGS=(--host "$TARGET_HOST" --user "$TARGET_USER" --ssh-key "$TARGET_SSH_KEY" --render-env)
 
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_healthcheck }}" = "true" ]; then
             DEPLOY_ARGS+=(--skip-healthcheck)

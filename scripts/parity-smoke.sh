@@ -18,7 +18,7 @@ fi
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:3000}"
 DEMO_EMAIL="${DEMO_EMAIL:-demo@articlepod.local}"
-DEMO_PASSWORD="${DEMO_PASSWORD:-demo-password}"
+DEMO_PASSWORD="${DEMO_PASSWORD:?"DEMO_PASSWORD env var is required"}"
 
 COOKIE_JAR="$(mktemp)"
 cleanup() {
