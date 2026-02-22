@@ -57,7 +57,15 @@ export async function GET(request: NextRequest) {
     return redirectWithError("google_token", true);
   }
 
-  let profile: { email?: string; name?: string; sub?: string } | null = null;
+  let profile: {
+    email?: string;
+    email_verified?: boolean;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+    picture?: string;
+    sub?: string;
+  } | null = null;
   try {
     const profileResp = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
       headers: {
@@ -68,7 +76,15 @@ export async function GET(request: NextRequest) {
     if (!profileResp.ok) {
       return redirectWithError("google_profile", true);
     }
-    profile = (await profileResp.json()) as { email?: string; name?: string; sub?: string };
+    profile = (await profileResp.json()) as {
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+      sub?: string;
+    };
   } catch {
     return redirectWithError("google_profile", true);
   }
@@ -77,11 +93,16 @@ export async function GET(request: NextRequest) {
     return redirectWithError("google_sub", true);
   }
 
+  const profileName =
+    profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(" ") || null;
+  const profileEmail = profile.email_verified === false ? null : profile.email;
+
   const user = await findOrCreateOAuthUser({
     provider: "google",
     providerUserId: profile.sub,
-    email: profile.email,
-    name: profile.name
+    email: profileEmail,
+    name: profileName,
+    pictureUrl: profile.picture
   });
 
   await ensureUserFeedToken(user.id);
