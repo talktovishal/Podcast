@@ -12,6 +12,7 @@ model User {
   email        String      @unique
   passwordHash String?
   name         String?
+  avatarUrl    String?
   role         String      @default("USER")
   ttsProvider  String      @default("kokoro")
   ttsVoice     String      @default("af_heart")

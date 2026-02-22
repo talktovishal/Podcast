@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     return redirectWithError("google_token", true);
   }
 
-  let profile: { email?: string; name?: string; sub?: string } | null = null;
+  let profile: { email?: string; name?: string; sub?: string; picture?: string } | null = null;
   try {
     const profileResp = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
       headers: {
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     if (!profileResp.ok) {
       return redirectWithError("google_profile", true);
     }
-    profile = (await profileResp.json()) as { email?: string; name?: string; sub?: string };
+    profile = (await profileResp.json()) as { email?: string; name?: string; sub?: string; picture?: string };
   } catch {
     return redirectWithError("google_profile", true);
   }
@@ -81,7 +81,8 @@ export async function GET(request: NextRequest) {
     provider: "google",
     providerUserId: profile.sub,
     email: profile.email,
-    name: profile.name
+    name: profile.name,
+    avatarUrl: profile.picture
   });
 
   await ensureUserFeedToken(user.id);
