@@ -79,6 +79,47 @@ test("findOrCreateOAuthUser links identities by provider subject and email", asy
   await prisma.user.delete({ where: { id: first.id } });
 });
 
+test("findOrCreateOAuthUser stores and updates pictureUrl", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const email = `pic-${uniq}@articlepod.local`;
+  const pictureUrl = `https://lh3.googleusercontent.com/a/test-${uniq}`;
+
+  const created = await findOrCreateOAuthUser({
+    provider: "google",
+    providerUserId: `gp-${uniq}`,
+    email,
+    name: "Picture User",
+    pictureUrl
+  });
+
+  assert.equal(created.pictureUrl, pictureUrl);
+
+  const updatedUrl = `https://lh3.googleusercontent.com/a/updated-${uniq}`;
+  const updated = await findOrCreateOAuthUser({
+    provider: "google",
+    providerUserId: `gp-${uniq}`,
+    email,
+    name: "Picture User",
+    pictureUrl: updatedUrl
+  });
+
+  assert.equal(updated.id, created.id);
+  assert.equal(updated.pictureUrl, updatedUrl);
+
+  const noPicture = await findOrCreateOAuthUser({
+    provider: "google",
+    providerUserId: `gp-${uniq}`,
+    email,
+    name: "Picture User"
+  });
+
+  assert.equal(noPicture.id, created.id);
+  assert.equal(noPicture.pictureUrl, updatedUrl);
+
+  await prisma.user.delete({ where: { id: created.id } });
+});
+
 test("extension connect + html snapshot submission reaches user feed", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);

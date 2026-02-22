@@ -19,6 +19,7 @@ export type AuthUser = {
   id: string;
   email: string;
   name: string | null;
+  pictureUrl: string | null;
   role: "USER" | "ADMIN";
 };
 
@@ -26,11 +27,12 @@ function normalizeRole(role: string): "USER" | "ADMIN" {
   return role === "ADMIN" ? "ADMIN" : "USER";
 }
 
-function authUserFromDbUser(user: { id: string; email: string; name: string | null; role: string }): AuthUser {
+function authUserFromDbUser(user: { id: string; email: string; name: string | null; pictureUrl?: string | null; role: string }): AuthUser {
   return {
     id: user.id,
     email: user.email,
     name: user.name,
+    pictureUrl: user.pictureUrl ?? null,
     role: normalizeRole(user.role)
   };
 }
@@ -310,7 +312,8 @@ export async function findOrCreateOAuthUser(input: {
   providerUserId: string;
   email?: string | null;
   name?: string | null;
-}): Promise<{ id: string; email: string; name: string | null; role: string }> {
+  pictureUrl?: string | null;
+}): Promise<{ id: string; email: string; name: string | null; pictureUrl: string | null; role: string }> {
   const normalizedEmail = normalizeOAuthEmail(input.email);
 
   return prisma.$transaction(async (tx) => {
@@ -327,12 +330,15 @@ export async function findOrCreateOAuthUser(input: {
     });
 
     if (existingIdentity) {
-      const updateData: { name?: string; email?: string } = {};
+      const updateData: { name?: string; email?: string; pictureUrl?: string } = {};
       if (input.name?.trim()) {
         updateData.name = input.name.trim();
       }
       if (normalizedEmail && existingIdentity.user.email.endsWith(`@${OAUTH_PLACEHOLDER_DOMAIN}`)) {
         updateData.email = normalizedEmail;
+      }
+      if (input.pictureUrl?.trim()) {
+        updateData.pictureUrl = input.pictureUrl.trim();
       }
 
       const user =
@@ -352,6 +358,7 @@ export async function findOrCreateOAuthUser(input: {
         data: {
           email: normalizedEmail ?? fallbackOAuthEmail(input.provider, input.providerUserId),
           name: input.name?.trim() || null,
+          pictureUrl: input.pictureUrl?.trim() || null,
           role: "USER"
         }
       }));

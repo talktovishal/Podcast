@@ -74,8 +74,21 @@ export async function GET(request: NextRequest) {
 
   const payload = parseJwtPayload(tokenData.id_token);
   const providerUserId = typeof payload?.sub === "string" ? payload.sub : null;
-  const email = typeof payload?.email === "string" ? payload.email : null;
-  const name = typeof payload?.name === "string" ? payload.name : null;
+  const rawEmail = typeof payload?.email === "string" ? payload.email : null;
+  const emailVerified = payload?.email_verified;
+  // Apple's email_verified can be true, false, "true", "false", or absent.
+  // When absent/undefined the email is considered verified (Apple default).
+  const profileEmail = emailVerified === "false" || emailVerified === false ? null : rawEmail;
+
+  // Apple sends the user's name in the id_token `name` claim (as a string or object)
+  // but only on the first authorization. On repeat logins it may be absent.
+  let profileName: string | null = null;
+  if (typeof payload?.name === "string" && payload.name.trim()) {
+    profileName = payload.name.trim();
+  } else if (payload?.name && typeof payload.name === "object") {
+    const nameObj = payload.name as { firstName?: string; lastName?: string };
+    profileName = [nameObj.firstName?.trim(), nameObj.lastName?.trim()].filter(Boolean).join(" ") || null;
+  }
 
   if (!providerUserId) {
     return redirectWithError("apple_sub", true);
@@ -84,8 +97,8 @@ export async function GET(request: NextRequest) {
   const user = await findOrCreateOAuthUser({
     provider: "apple",
     providerUserId,
-    email,
-    name
+    email: profileEmail,
+    name: profileName
   });
 
   await ensureUserFeedToken(user.id);

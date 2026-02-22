@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
@@ -38,9 +39,21 @@ export default async function AppDashboardPage() {
     <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
         <header className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div>
-            <p className="text-sm text-[var(--muted)]">Signed in as</p>
-            <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+          <div className="flex items-center gap-3">
+            {user.pictureUrl ? (
+              <Image
+                src={user.pictureUrl}
+                alt=""
+                width={40}
+                height={40}
+                className="rounded-full"
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
+            <div>
+              <p className="text-sm text-[var(--muted)]">Signed in as</p>
+              <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+            </div>
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
