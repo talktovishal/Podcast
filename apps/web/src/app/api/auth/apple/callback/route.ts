@@ -76,6 +76,8 @@ export async function GET(request: NextRequest) {
   const providerUserId = typeof payload?.sub === "string" ? payload.sub : null;
   const rawEmail = typeof payload?.email === "string" ? payload.email : null;
   const emailVerified = payload?.email_verified;
+  // Apple's email_verified can be true, false, "true", "false", or absent.
+  // When absent/undefined the email is considered verified (Apple default).
   const profileEmail = emailVerified === "false" || emailVerified === false ? null : rawEmail;
 
   // Apple sends the user's name in the id_token `name` claim (as a string or object)
@@ -85,7 +87,7 @@ export async function GET(request: NextRequest) {
     profileName = payload.name.trim();
   } else if (payload?.name && typeof payload.name === "object") {
     const nameObj = payload.name as { firstName?: string; lastName?: string };
-    profileName = [nameObj.firstName, nameObj.lastName].filter(Boolean).join(" ") || null;
+    profileName = [nameObj.firstName?.trim(), nameObj.lastName?.trim()].filter(Boolean).join(" ") || null;
   }
 
   if (!providerUserId) {

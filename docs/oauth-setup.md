@@ -29,8 +29,8 @@ with each provider and add credentials to your `.env` file.
 |------|---------|
 | Running app | `./run.sh` or `pnpm --filter @articlepod/web dev` |
 | `APP_URL` | Defaults to `http://localhost:3000`. Set in `.env` if using a different host or tunnel. |
-| Google Cloud account | Free — [console.cloud.google.com](https://console.cloud.google.com) |
-| Apple Developer account | Requires paid membership ($99/yr) — [developer.apple.com](https://developer.apple.com) |
+| Google Cloud account | Free — [console.cloud.google.com](https://console.cloud.google.com/) |
+| Apple Developer account | Requires paid membership ($99/yr) — [developer.apple.com](https://developer.apple.com/) |
 
 **Callback URLs** (register these with each provider):
 
