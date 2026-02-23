@@ -11,7 +11,7 @@
     "typecheck": "npm run prisma:generate && tsc --noEmit",
     "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npm run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
     "export": "tsx scripts/export.ts",
-    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo": "tsx --env-file=../../.env scripts/seed-demo.ts",
     "tts:precompute": "tsx scripts/precompute-tts-previews.ts",
     "db:bootstrap": "tsx scripts/bootstrap-db.ts",
     "db:export-json": "tsx scripts/db-export-json.ts",
