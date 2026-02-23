@@ -63,6 +63,7 @@ type Props = {
   ttsCatalog: TtsCatalog;
   ttsAvailability: TtsAvailability;
   readOnly?: boolean;
+  viewMode?: "workspace" | "settings";
   initialDemoDiagnostics?: DemoExtractionDiagnostic[];
   initialItems: DashboardItem[];
 };
@@ -100,6 +101,7 @@ export function DashboardClient({
   ttsCatalog,
   ttsAvailability,
   readOnly = false,
+  viewMode = "workspace",
   initialDemoDiagnostics = [],
   initialItems
 }: Props) {
@@ -118,6 +120,12 @@ export function DashboardClient({
   const [extensionCodeExpiresAt, setExtensionCodeExpiresAt] = useState<string | null>(null);
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const isSettingsView = viewMode === "settings";
+  const showFeedSection = readOnly || isSettingsView;
+  const showSettingsSection = !readOnly && isSettingsView;
+  const showSubmissionSection = !readOnly && !isSettingsView;
+  const showItemsSection = !isSettingsView;
+  const showDiagnosticsSection = !readOnly && isDemoAccount && !isSettingsView;
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -157,7 +165,7 @@ export function DashboardClient({
   }, [isDemoAccount]);
 
   useEffect(() => {
-    if (readOnly) {
+    if (readOnly || !showItemsSection) {
       return;
     }
 
@@ -169,7 +177,7 @@ export function DashboardClient({
     return () => {
       window.clearInterval(interval);
     };
-  }, [inProgressCount, readOnly, refreshItems]);
+  }, [inProgressCount, readOnly, refreshItems, showItemsSection]);
 
   async function submitUrl() {
     if (!urlInput) return;
@@ -402,27 +410,29 @@ export function DashboardClient({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <section className="card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <p className="text-sm text-[var(--muted)]">Private feed URL</p>
-          <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{feedUrl}</code>
-          <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={() => navigator.clipboard.writeText(feedUrl)}>
-            Copy
-          </button>
-          {!readOnly ? (
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
-              Rotate token
+      {showFeedSection ? (
+        <section className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <p className="text-sm text-[var(--muted)]">Private feed URL</p>
+            <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{feedUrl}</code>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={() => navigator.clipboard.writeText(feedUrl)}>
+              Copy
             </button>
-          ) : null}
-          {!readOnly ? (
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
-              Create read-only link
-            </button>
-          ) : null}
-        </div>
-      </section>
+            {!readOnly ? (
+              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
+                Rotate token
+              </button>
+            ) : null}
+            {!readOnly ? (
+              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
+                Create read-only link
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
-      {!readOnly ? (
+      {showSettingsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
@@ -456,7 +466,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {!readOnly ? (
+      {showSettingsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Voice Settings</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Choose your default Kokoro voice for new episodes.</p>
@@ -512,7 +522,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {!readOnly ? (
+      {showSubmissionSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Add New Episode</h2>
 
@@ -619,92 +629,94 @@ export function DashboardClient({
       ) : null}
 
       {statusMessage ? <p className="text-sm text-[var(--muted)]">{statusMessage}</p> : null}
-      {inProgressCount > 0 ? (
+      {showItemsSection && inProgressCount > 0 ? (
         <p className="rounded-lg border border-[#fce8b2] bg-[#fff6d9] px-3 py-2 text-sm text-[#6f5200]">
           Processing in progress for {inProgressCount} item{inProgressCount === 1 ? "" : "s"}. This list refreshes automatically.
         </p>
       ) : null}
 
-      <section className="card p-4 sm:p-5">
-        <h2 className="mb-4 text-lg font-semibold">Recent items</h2>
+      {showItemsSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="mb-4 text-lg font-semibold">Recent items</h2>
 
-        <div className="space-y-3">
-          {newestFirst.length === 0 ? (
-            <p className="text-sm text-[var(--muted)]">No items yet. Submit a URL or upload a PDF.</p>
-          ) : null}
+          <div className="space-y-3">
+            {newestFirst.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No items yet. Submit a URL or upload a PDF.</p>
+            ) : null}
 
-          {newestFirst.map((item) => {
-            const badgeClass = item.status.toLowerCase();
-            const statusText = item.status.toUpperCase();
-            const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
-            const helpText = statusHelpText(item.status, item.errorMessage);
-            const showRetry = statusText === "FAILED";
+            {newestFirst.map((item) => {
+              const badgeClass = item.status.toLowerCase();
+              const statusText = item.status.toUpperCase();
+              const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
+              const helpText = statusHelpText(item.status, item.errorMessage);
+              const showRetry = statusText === "FAILED";
 
-            return (
-              <article key={item.id} className="rounded-xl border p-3 sm:p-4">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className={`badge ${badgeClass}`}>{item.status.toLowerCase()}</span>
-                  <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{sourceTypeBadgeLabel(item.sourceType)}</span>
-                  <span className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</span>
-                </div>
+              return (
+                <article key={item.id} className="rounded-xl border p-3 sm:p-4">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className={`badge ${badgeClass}`}>{item.status.toLowerCase()}</span>
+                    <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{sourceTypeBadgeLabel(item.sourceType)}</span>
+                    <span className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</span>
+                  </div>
 
-                <h3 className="break-words font-semibold">{item.title || "Untitled item"}</h3>
-                <p className="mt-1 break-words text-xs text-[var(--muted)]">
-                  {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
-                    item.sourceUrl ? (
-                      <>
-                        Source:{" "}
-                        {item.sourceType === "HTML_SNAPSHOT" ? "Captured via Chrome extension from " : ""}
-                        <a className="break-all underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
-                          {item.sourceUrl}
-                        </a>
-                      </>
+                  <h3 className="break-words font-semibold">{item.title || "Untitled item"}</h3>
+                  <p className="mt-1 break-words text-xs text-[var(--muted)]">
+                    {item.sourceType === "URL" || item.sourceType === "HTML_SNAPSHOT" ? (
+                      item.sourceUrl ? (
+                        <>
+                          Source:{" "}
+                          {item.sourceType === "HTML_SNAPSHOT" ? "Captured via Chrome extension from " : ""}
+                          <a className="break-all underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
+                            {item.sourceUrl}
+                          </a>
+                        </>
+                      ) : (
+                        `Source: ${sourceFallbackLabel(item.sourceType)}`
+                      )
                     ) : (
-                      `Source: ${sourceFallbackLabel(item.sourceType)}`
-                    )
-                  ) : (
-                    "Source: Uploaded PDF"
-                  )}
-                </p>
-                {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
-                {item.errorMessage && statusText === "FAILED" ? (
-                  <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p>
-                ) : null}
+                      "Source: Uploaded PDF"
+                    )}
+                  </p>
+                  {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
+                  {item.errorMessage && statusText === "FAILED" ? (
+                    <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p>
+                  ) : null}
 
-                {mediaUrl ? (
-                  <div className="mt-3 space-y-2">
-                    <audio controls className="w-full" preload="none" src={mediaUrl} />
-                    <a className="text-sm underline" href={mediaUrl}>
-                      Download
-                    </a>
-                  </div>
-                ) : null}
+                  {mediaUrl ? (
+                    <div className="mt-3 space-y-2">
+                      <audio controls className="w-full" preload="none" src={mediaUrl} />
+                      <a className="text-sm underline" href={mediaUrl}>
+                        Download
+                      </a>
+                    </div>
+                  ) : null}
 
-                {!readOnly ? (
-                  <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
-                    <button
-                      className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
-                      onClick={() => viewMarkdown(item.id, item.title)}
-                    >
-                      View markdown
-                    </button>
-                    {showRetry ? (
-                      <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
-                        Retry
+                  {!readOnly ? (
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
+                      <button
+                        className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                        onClick={() => viewMarkdown(item.id, item.title)}
+                      >
+                        View markdown
                       </button>
-                    ) : null}
-                    <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
-                      Delete
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-      </section>
+                      {showRetry ? (
+                        <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
+                          Retry
+                        </button>
+                      ) : null}
+                      <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
-      {!readOnly && isDemoAccount ? (
+      {showDiagnosticsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="mb-2 text-lg font-semibold">Demo extraction diagnostics</h2>
           <p className="mb-4 text-sm text-[var(--muted)]">Last 10 runs only. Older diagnostics are pruned automatically.</p>
@@ -772,7 +784,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {markdownPreview ? (
+      {showItemsSection && markdownPreview ? (
         <section className="card p-4 sm:p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold">Markdown preview: {markdownPreview.title}</h2>

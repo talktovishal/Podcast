@@ -165,12 +165,16 @@ D) Podcast RSS feed
 
 E) Web UI (polished)
 - `/login`: signup/login
-- `/app` dashboard:
-  - shows RSS feed URL + copy button
+- `/app` episodes workspace:
+  - signed-in header with compact RSS feed URL visibility
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
+- `/app/settings`:
+  - full private feed controls (copy, rotate token, create read-only share link)
+  - Chrome extension connect/revoke controls
+  - voice settings (preview + save default)
 - Strong empty states, toasts, clear failure messages, modern UI.
 
 F) Admin Module

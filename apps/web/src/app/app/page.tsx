@@ -33,6 +33,7 @@ export default async function AppDashboardPage() {
     voice: ttsSettings.voice
   });
   const ttsCatalog = getTtsCatalog();
+  const feedUrl = `${env.appUrl}/rss/${feedToken}.xml`;
 
   return (
     <main className="py-5 sm:py-8">
@@ -41,9 +42,14 @@ export default async function AppDashboardPage() {
           <div>
             <p className="text-sm text-[var(--muted)]">Signed in as</p>
             <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+            <p className="mt-2 text-xs text-[var(--muted)]">Private feed URL</p>
+            <code className="mt-1 block max-w-full overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{feedUrl}</code>
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <Link className="rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white" href="/app/settings">
+              Settings
+            </Link>
             {user.role === "ADMIN" ? (
               <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/admin">
                 Admin
@@ -62,7 +68,8 @@ export default async function AppDashboardPage() {
         </section>
 
         <DashboardClient
-          feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
+          viewMode="workspace"
+          feedUrl={feedUrl}
           feedToken={feedToken}
           isDemoAccount={isDemoUser}
           initialTtsSelection={normalizedSelection}

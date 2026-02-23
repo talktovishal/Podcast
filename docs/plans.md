@@ -25,6 +25,7 @@
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
+- Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
 
 ## Requirement Coverage Snapshot
 
@@ -1354,7 +1355,7 @@ Milestone metadata contract:
 
 ### 00:20-00:45 - Show Immediate Value
 1. Show starter episode already present and playable.
-2. Highlight private feed URL and copy button.
+2. Highlight private feed URL in the signed-in header, then open `/app/settings` for copy/rotation controls.
 
 ### 00:45-01:15 - Verify Feed
 1. Open `/rss/<feed_token>.xml`.
