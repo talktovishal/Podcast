@@ -140,7 +140,7 @@ Milestone metadata contract:
 | M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M65 | Done | 2026-02-25 | 2026-02-25 | ingress/tls automation scripts + CI wiring (2026-02-25) |
+| M65 | Done | 2026-02-25 | 2026-02-25 | a485766 (2026-02-25) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1734,7 +1734,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-02-25
 - completed_on: 2026-02-25
-- evidence: ingress/tls automation scripts + CI wiring (2026-02-25)
+- evidence: a485766 (2026-02-25)
 - Scope:
   - Add canonical-domain ingress/TLS automation into Azure deploy flow.
   - Enforce `articlepod.com` as canonical host with `www.articlepod.com` redirect.
