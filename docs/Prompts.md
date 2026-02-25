@@ -31,6 +31,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - VM runtime deploy now uses incremental patch defaults (dependency/python setup only when tracked inputs change) with a manual full-deploy override.
   - systemd installer now reconciles stale `listenlater-*` unit files before enabling compatibility aliases.
   - Deploy helper health checks now retry by default and only use `:3000` fallback for direct IP targets.
+  - Deploy helper now supports automated canonical-domain ingress/TLS reconciliation (`CANONICAL_HOST` + `HOST_ALIASES` + `LETSENCRYPT_EMAIL`) on each deploy.
+  - nginx/TLS automation now enforces canonical-domain redirects (`www` -> apex) and SAN certificates for both hosts.
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation
@@ -47,7 +49,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - status reconciliation ledger captures corrections with confidence notes.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M64`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M65`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

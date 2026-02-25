@@ -62,6 +62,23 @@ This exports:
 - `STORAGE_ACCOUNT`
 - `STORAGE_CONNECTION_STRING` (secret)
 
+## Domain + DNS (production)
+For canonical production URLs, use:
+- apex canonical host: `articlepod.com`
+- alias host: `www.articlepod.com` (redirected to apex)
+
+At your registrar/DNS provider:
+- `A` record: `articlepod.com` -> `<VM_IP>`
+- `CNAME`: `www` -> `articlepod.com`
+- TTL during cutover: `300` seconds (raise later after verification)
+
+Pre-check from local machine:
+```bash
+dig +short articlepod.com
+dig +short www.articlepod.com
+```
+Both should resolve to your VM endpoint before TLS automation.
+
 ## Sync code to VM (staging path)
 Sync local repo to VM user-writable path:
 ```bash
@@ -96,7 +113,7 @@ This migrates runtime identity to canonical `articlepod` names while preserving 
 On VM, render `/etc/articlepod/articlepod.env`:
 ```bash
 sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/articlepod?sslmode=require" \
-  APP_URL="https://${VM_FQDN}" \
+  APP_URL="https://articlepod.com" \
   STORAGE_BACKEND="azure_blob" \
   AZURE_STORAGE_CONTAINER="articlepod" \
   AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
@@ -125,21 +142,29 @@ Notes:
 ## Configure ingress and TLS
 On VM:
 ```bash
-sudo PUBLIC_HOST="$VM_FQDN" /opt/articlepod/scripts/azure/configure-nginx.sh
-sudo PUBLIC_HOST="$VM_FQDN" LETSENCRYPT_EMAIL="<EMAIL>" \
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" \
+  /opt/articlepod/scripts/azure/configure-nginx.sh
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" LETSENCRYPT_EMAIL="<EMAIL>" \
   /opt/articlepod/scripts/azure/configure-tls.sh
 ```
 
 Verify health:
 ```bash
-curl -sf "https://${VM_FQDN}/api/health"
+curl -sf "https://articlepod.com/api/health"
 ```
 
+Verify redirects:
+```bash
+curl -I "http://www.articlepod.com/api/health"
+curl -I "https://www.articlepod.com/api/health"
+```
+Expected: `301` redirect to `https://articlepod.com/...`.
+
 ## Post-deploy validation
-1. Log in on `https://${VM_FQDN}/app` and copy a real feed token.
+1. Log in on `https://articlepod.com/app` and copy a real feed token.
 2. From local repo:
 ```bash
-./scripts/verify_podcast_contract.sh "https://${VM_FQDN}/rss/<feed_token>.xml"
+./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"
 ```
 3. Confirm:
 - feed `HEAD` -> `200`
@@ -164,7 +189,12 @@ Record evidence in:
 ## Ongoing deployment loop
 One-command deploy from local machine:
 ```bash
-TARGET_HOST="$VM_IP" TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
+TARGET_HOST="$VM_IP" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<EMAIL>" \
+APP_URL="https://articlepod.com" \
+TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
   ./scripts/azure/deploy-changes.sh
 ```
 
@@ -181,4 +211,6 @@ On VM:
 ```bash
 sudo STAGING_DIR="/home/azureuser/articlepod" /opt/articlepod/scripts/azure/promote-runtime.sh
 sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" /opt/articlepod/scripts/azure/configure-nginx.sh
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" LETSENCRYPT_EMAIL="<EMAIL>" /opt/articlepod/scripts/azure/configure-tls.sh
 ```

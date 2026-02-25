@@ -24,6 +24,7 @@
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
+- Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
 
@@ -139,6 +140,7 @@ Milestone metadata contract:
 | M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
+| M65 | Done | 2026-02-25 | 2026-02-25 | ingress/tls automation scripts + CI wiring (2026-02-25) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1345,6 +1347,7 @@ Milestone metadata contract:
 | Markdown conversion quality drift (lost headings/lists) | Medium | Medium | markdown fixtures diverge from expected structure | fixture corpus + deterministic markdown snapshot tests | M59, M60, M64 |
 | Dual raw+markdown storage increases cost and retention risk | Medium | Medium | storage growth exceeds projection or stale raw artifacts persist | lifecycle metadata + scheduled purge + retention audits | M57, M61, M64 |
 | Markdown artifact exposure leaks sensitive extracted data | Low | High | unauthorized retrieval of extraction artifacts | strict auth checks + scoped diagnostics access + audit logging | M63, M64 |
+| Domain/TLS drift causes broken canonical URLs or cert failures | Medium | High | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65 |
 | Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
 
 ## 3-Minute Demo Script (Time-Boxed)
@@ -1726,3 +1729,35 @@ Milestone metadata contract:
 - Verification commands:
   - `npm run test`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M65 - Canonical Domain + TLS Deploy Automation
+- status: Done
+- target_finish: 2026-02-25
+- completed_on: 2026-02-25
+- evidence: ingress/tls automation scripts + CI wiring (2026-02-25)
+- Scope:
+  - Add canonical-domain ingress/TLS automation into Azure deploy flow.
+  - Enforce `articlepod.com` as canonical host with `www.articlepod.com` redirect.
+  - Ensure certbot provisions SAN certificate coverage for canonical + alias hosts.
+  - Ensure deploy-time validation keeps `APP_URL` aligned with canonical host for RSS/media URLs.
+- Key files/modules:
+  - `scripts/azure/configure-nginx.sh`
+  - `scripts/azure/configure-tls.sh`
+  - `scripts/azure/deploy-changes.sh`
+  - `.github/workflows/deploy-azure.yml`
+  - `docs/azure-deploy.md`
+  - `docs/azure-ci-cd.md`
+  - `scripts/azure/README.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - Deploy helper can configure nginx for canonical + alias hosts with deterministic redirects.
+  - TLS helper requests/renews cert for both hosts and re-applies canonical redirects.
+  - CI deploy flow forwards canonical host, alias list, and Let’s Encrypt email.
+  - Health checks default to canonical host when configured.
+- Verification commands:
+  - `bash -n scripts/azure/configure-nginx.sh scripts/azure/configure-tls.sh scripts/azure/deploy-changes.sh`
+  - `./scripts/azure/deploy-changes.sh --help`
+  - `curl -I http://www.articlepod.com/api/health` (expect `301` to apex)
+  - `curl -I https://www.articlepod.com/api/health` (expect `301` to apex)
+  - `curl -I https://articlepod.com/api/health` (expect `200`)
+  - `./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"`

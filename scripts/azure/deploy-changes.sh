@@ -29,18 +29,55 @@ Options:
   --health-delay <secs>  Delay between health retries (default: 2)
   --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
   --render-env           Generate and upload runtime env file to VM before deploying
+  --canonical-host <h>   Canonical public host for ingress/TLS (default: host from APP_URL)
+  --host-aliases <list>  Comma-separated alias hosts redirected to canonical host
+  --letsencrypt-email <e> Email used for certbot when ingress/TLS automation is enabled
+  --configure-ingress    Configure nginx + TLS on VM after runtime deploy (default: enabled)
+  --skip-configure-ingress
+                         Skip nginx/TLS automation for this deploy
   --seed-mode <value>    Demo seed policy: auto|always|never (default: auto)
   --skip-healthcheck     Skip post-deploy health validation
   -h, --help             Show this help message
 
 Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
-  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE
+  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE,
+  CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
   AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, ADMIN_PASSWORD, DEMO_PASSWORD
 EOF
+}
+
+derive_host_from_url() {
+  local raw_url="$1"
+  if [[ -z "$raw_url" ]]; then
+    return 0
+  fi
+  local without_scheme="$raw_url"
+  without_scheme="${without_scheme#*://}"
+  without_scheme="${without_scheme%%/*}"
+  without_scheme="${without_scheme%%\?*}"
+  without_scheme="${without_scheme%%\#*}"
+  without_scheme="${without_scheme##*@}"
+  without_scheme="${without_scheme%%:*}"
+  printf '%s' "$without_scheme"
+}
+
+parse_bool() {
+  local raw="$1"
+  case "$raw" in
+    1|true|TRUE|yes|YES)
+      echo "1"
+      ;;
+    0|false|FALSE|no|NO)
+      echo "0"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 TARGET_HOST="${TARGET_HOST:-}"
@@ -57,6 +94,10 @@ HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_RENDER_ENV="${DEPLOY_RENDER_ENV:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
+CANONICAL_HOST="${CANONICAL_HOST:-}"
+HOST_ALIASES="${HOST_ALIASES:-${APP_DOMAIN_ALIASES:-}}"
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
+DEPLOY_CONFIGURE_INGRESS="${DEPLOY_CONFIGURE_INGRESS:-1}"
 
 is_ip_host() {
   local host="$1"
@@ -132,6 +173,26 @@ while [[ $# -gt 0 ]]; do
       DEPLOY_RENDER_ENV=1
       shift
       ;;
+    --canonical-host)
+      CANONICAL_HOST="${2:-}"
+      shift 2
+      ;;
+    --host-aliases)
+      HOST_ALIASES="${2:-}"
+      shift 2
+      ;;
+    --letsencrypt-email)
+      LETSENCRYPT_EMAIL="${2:-}"
+      shift 2
+      ;;
+    --configure-ingress)
+      DEPLOY_CONFIGURE_INGRESS=1
+      shift
+      ;;
+    --skip-configure-ingress)
+      DEPLOY_CONFIGURE_INGRESS=0
+      shift
+      ;;
     --seed-mode)
       DEPLOY_DEMO_SEED_MODE="${2:-}"
       shift 2
@@ -172,6 +233,11 @@ if ! [[ "$HEALTH_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
+if ! DEPLOY_CONFIGURE_INGRESS="$(parse_bool "$DEPLOY_CONFIGURE_INGRESS")"; then
+  echo "Invalid DEPLOY_CONFIGURE_INGRESS: $DEPLOY_CONFIGURE_INGRESS (expected 1|0|true|false|yes|no)"
+  exit 2
+fi
+
 case "$DEPLOY_DEMO_SEED_MODE" in
   auto|always|never)
     ;;
@@ -180,6 +246,33 @@ case "$DEPLOY_DEMO_SEED_MODE" in
     exit 2
     ;;
 esac
+
+if [[ -z "$CANONICAL_HOST" ]]; then
+  CANONICAL_HOST="$(derive_host_from_url "${APP_URL:-}")"
+fi
+
+if [[ "$DEPLOY_CONFIGURE_INGRESS" == "1" ]]; then
+  if [[ -z "$CANONICAL_HOST" ]]; then
+    echo "Missing canonical host. Set CANONICAL_HOST or APP_URL when ingress automation is enabled."
+    exit 2
+  fi
+  if is_ip_host "$CANONICAL_HOST"; then
+    echo "CANONICAL_HOST must be a DNS hostname (not an IP) for certbot: $CANONICAL_HOST"
+    exit 2
+  fi
+  if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
+    echo "Missing LETSENCRYPT_EMAIL while ingress automation is enabled."
+    exit 2
+  fi
+fi
+
+if [[ "$DEPLOY_RENDER_ENV" == "1" && -n "${APP_URL:-}" && -n "$CANONICAL_HOST" ]]; then
+  APP_URL_HOST="$(derive_host_from_url "$APP_URL")"
+  if [[ -n "$APP_URL_HOST" && "$APP_URL_HOST" != "$CANONICAL_HOST" ]]; then
+    echo "APP_URL host ($APP_URL_HOST) does not match CANONICAL_HOST ($CANONICAL_HOST)."
+    exit 2
+  fi
+fi
 
 echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"
 TARGET_HOST="$TARGET_HOST" \
@@ -222,7 +315,23 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
 fi
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
-echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}"
+echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}, ingress=${DEPLOY_CONFIGURE_INGRESS}"
+
+CANONICAL_HOST_Q="$(printf '%q' "$CANONICAL_HOST")"
+HOST_ALIASES_Q="$(printf '%q' "$HOST_ALIASES")"
+LETSENCRYPT_EMAIL_Q="$(printf '%q' "$LETSENCRYPT_EMAIL")"
+
+REMOTE_INGRESS_SCRIPT=""
+if [[ "$DEPLOY_CONFIGURE_INGRESS" == "1" ]]; then
+  REMOTE_INGRESS_SCRIPT=$(cat <<EOF
+echo "[deploy-changes] configuring nginx ingress for canonical host '${CANONICAL_HOST}'"
+sudo CANONICAL_HOST=${CANONICAL_HOST_Q} HOST_ALIASES=${HOST_ALIASES_Q} '$APP_DIR/scripts/azure/configure-nginx.sh'
+echo "[deploy-changes] configuring TLS certificate + redirects for '${CANONICAL_HOST}'"
+sudo CANONICAL_HOST=${CANONICAL_HOST_Q} HOST_ALIASES=${HOST_ALIASES_Q} LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL_Q} '$APP_DIR/scripts/azure/configure-tls.sh'
+EOF
+)
+fi
+
 REMOTE_DEPLOY_SCRIPT=$(cat <<EOF
 set -euo pipefail
 if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
@@ -231,6 +340,7 @@ if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
 fi
 sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
 sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+${REMOTE_INGRESS_SCRIPT}
 EOF
 )
 ssh "${SSH_ARGS[@]}" "$REMOTE" "$REMOTE_DEPLOY_SCRIPT"
@@ -241,7 +351,9 @@ if [[ "$SKIP_HEALTHCHECK" == "1" ]]; then
 fi
 
 if [[ -z "$HEALTH_URL" ]]; then
-  if is_ip_host "$TARGET_HOST"; then
+  if [[ -n "$CANONICAL_HOST" ]] && ! is_ip_host "$CANONICAL_HOST"; then
+    HEALTH_URL="https://${CANONICAL_HOST}/api/health"
+  elif is_ip_host "$TARGET_HOST"; then
     HEALTH_URL="http://${TARGET_HOST}:3000/api/health"
   else
     HEALTH_URL="https://${TARGET_HOST}/api/health"

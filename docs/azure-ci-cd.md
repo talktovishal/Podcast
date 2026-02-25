@@ -53,9 +53,20 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
      ```
    - Add the full output line as the secret value.
 
+4. **`APP_URL`**
+   - Description: Canonical public app URL used for RSS/media URL generation.
+   - Required value (production): `https://articlepod.com`
+
+5. **`LETSENCRYPT_EMAIL`**
+   - Description: Contact email used for automated Let’s Encrypt certificate issuance.
+
+6. **`APP_DOMAIN_ALIASES`**
+   - Description: Comma-separated alias domains redirected to canonical host.
+   - Recommended value: `www.articlepod.com`
+
 #### Optional Secret:
 
-4. **`AZURE_VM_USER`** (optional)
+7. **`AZURE_VM_USER`** (optional)
    - Description: SSH username
    - Default: `azureuser`
    - Only set if you're using a different username
@@ -101,8 +112,10 @@ The workflow performs:
    - `pnpm install` only when `pnpm-lock.yaml` changed
    - python-tts setup only when requirements/assets changed
    - demo seed once by default (`auto` mode)
-8. ✅ Restarts systemd services
-9. ✅ Runs health check (unless skipped)
+8. ✅ Configures nginx ingress for canonical host + alias redirects
+9. ✅ Provisions/renews Let’s Encrypt certificates (SAN cert includes canonical + aliases)
+10. ✅ Restarts systemd services
+11. ✅ Runs health check against canonical host (unless skipped)
 
 ## Monitoring Deployments
 
@@ -136,6 +149,16 @@ After each deployment, check the workflow summary for:
   ```bash
   ssh-keyscan -H <your-vm-host>
   ```
+
+#### "APP_URL must be set to https://articlepod.com"
+- **Solution**: Set `APP_URL` environment secret to exactly:
+  ```text
+  https://articlepod.com
+  ```
+
+#### "Missing LETSENCRYPT_EMAIL while ingress automation is enabled"
+- **Solution**: Add `LETSENCRYPT_EMAIL` as an environment secret.
+- Ensure DNS for `articlepod.com` and `www.articlepod.com` already points to the VM before deploy.
 
 #### "Deploy workflow must run from main branch"
 - **Solution**: Run the workflow for `main` only.
@@ -206,7 +229,12 @@ After each deployment, check the workflow summary for:
 If you prefer to deploy from your local machine:
 
 ```bash
-TARGET_HOST="<your-vm-ip-or-fqdn>" npm run azure:deploy:changes
+TARGET_HOST="<your-vm-ip-or-fqdn>" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
+npm run azure:deploy:changes
 ```
 
 Or with all options:
@@ -214,6 +242,10 @@ Or with all options:
 TARGET_HOST="<vm-ip>" \
 TARGET_USER="azureuser" \
 TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
 ./scripts/azure/deploy-changes.sh
 ```
 
@@ -222,6 +254,10 @@ Force a full runtime refresh from local:
 TARGET_HOST="<vm-ip>" \
 TARGET_USER="azureuser" \
 TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
 ./scripts/azure/deploy-changes.sh --full-deploy
 ```
 

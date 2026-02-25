@@ -41,6 +41,13 @@ Recommended:
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
 
+Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
+- `CANONICAL_HOST` (defaults from `APP_URL` host when set)
+- `HOST_ALIASES` (comma-separated alias hosts, example: `www.articlepod.com`)
+- `LETSENCRYPT_EMAIL`
+- `DEPLOY_CONFIGURE_INGRESS` (`1` by default; set `0` to skip ingress/TLS automation)
+- `APP_DOMAIN_ALIASES` (alias helper for CI; maps to `HOST_ALIASES` when unset)
+
 ## Shared auth/admin
 - `DEMO_EMAIL`
 - `ADMIN_EMAIL`

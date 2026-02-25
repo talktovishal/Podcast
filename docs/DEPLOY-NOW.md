@@ -8,14 +8,29 @@ If you already have your Azure VM set up and SSH access, deploy immediately:
 
 ```bash
 # Replace <your-vm-ip-or-fqdn> with your actual VM address
-TARGET_HOST="<your-vm-ip-or-fqdn>" npm run azure:deploy:changes
+TARGET_HOST="<your-vm-ip-or-fqdn>" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
+npm run azure:deploy:changes
 ```
 
 **Example:**
 ```bash
-TARGET_HOST="20.123.45.67" npm run azure:deploy:changes
+TARGET_HOST="20.123.45.67" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="ops@example.com" \
+APP_URL="https://articlepod.com" \
+npm run azure:deploy:changes
 # or
-TARGET_HOST="articlepod.eastus.cloudapp.azure.com" npm run azure:deploy:changes
+TARGET_HOST="articlepod.eastus.cloudapp.azure.com" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="ops@example.com" \
+APP_URL="https://articlepod.com" \
+npm run azure:deploy:changes
 ```
 
 ### With Custom SSH Key or User
@@ -24,6 +39,10 @@ TARGET_HOST="articlepod.eastus.cloudapp.azure.com" npm run azure:deploy:changes
 TARGET_HOST="<vm-host>" \
 TARGET_USER="azureuser" \
 TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
 ./scripts/azure/deploy-changes.sh
 ```
 
@@ -33,8 +52,10 @@ TARGET_SSH_KEY="~/.ssh/articlepod_azure" \
 2. 🔄 Promotes code to runtime directory (`/opt/articlepod`)
 3. 📦 Installs dependencies and builds applications
 4. 🔧 Sets up Python TTS service
-5. 🔄 Restarts all services (web, worker, python-tts)
-6. ✅ Runs health check
+5. 🌐 Configures nginx ingress + canonical redirect (`www` -> apex)
+6. 🔐 Provisions/renews Let's Encrypt TLS cert for canonical + alias domains
+7. 🔄 Restarts all services (web, worker, python-tts)
+8. ✅ Runs health check
 
 ### Expected Output
 
@@ -50,7 +71,9 @@ sending incremental file list
 ● articlepod-python-tts.service - loaded active running
 ● articlepod-web.service - loaded active running
 ● articlepod-worker.service - loaded active running
-[deploy-changes] verifying health at https://<VM_HOST>/api/health
+[deploy-changes] configuring nginx ingress for canonical host 'articlepod.com'
+[deploy-changes] configuring TLS certificate + redirects for 'articlepod.com'
+[deploy-changes] verifying health at https://articlepod.com/api/health
 {"status":"ok"}
 [deploy-changes] done
 ```
@@ -66,6 +89,9 @@ For continuous deployment, set up GitHub Actions:
    - `AZURE_SSH_KEY`: Content of `~/.ssh/articlepod_azure`
    - `AZURE_SSH_KNOWN_HOSTS`: Output of `ssh-keyscan -H <your-vm-host>`
    - `AZURE_VM_USER` (optional): defaults to `azureuser`
+   - `APP_URL`: `https://articlepod.com`
+   - `APP_DOMAIN_ALIASES`: `www.articlepod.com`
+   - `LETSENCRYPT_EMAIL`: certificate contact email
 
 2. **Deploy Options:**
 
@@ -92,6 +118,10 @@ ls -la ~/.ssh/articlepod_azure
 ```bash
 # Set the environment variable
 export TARGET_HOST="your-vm-ip"
+export CANONICAL_HOST="articlepod.com"
+export HOST_ALIASES="www.articlepod.com"
+export LETSENCRYPT_EMAIL="ops@example.com"
+export APP_URL="https://articlepod.com"
 npm run azure:deploy:changes
 ```
 

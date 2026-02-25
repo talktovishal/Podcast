@@ -132,7 +132,7 @@ If parity/azure runtime paths changed, also run:
 
 ## Azure VM deployment helpers
 - Deploy local code changes to existing VM (sync + promote + deploy):
-  - `TARGET_HOST=<vm-ip-or-fqdn> TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/deploy-changes.sh`
+  - `TARGET_HOST=<vm-ip-or-fqdn> CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> APP_URL=https://articlepod.com TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/deploy-changes.sh`
 - Preflight (local):
   - `./scripts/azure/preflight.sh --subscription "<SUBSCRIPTION_ID_OR_NAME>"`
 - Provision infra:
@@ -155,5 +155,5 @@ If parity/azure runtime paths changed, also run:
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
   - ensures runtime directories (`/var/lib/articlepod/{storage,media,uploads}`) and precomputes Kokoro voice previews
 - Configure ingress + TLS on VM:
-  - `sudo PUBLIC_HOST=<vm-fqdn> /opt/articlepod/scripts/azure/configure-nginx.sh`
-  - `sudo PUBLIC_HOST=<vm-fqdn> LETSENCRYPT_EMAIL=<email> /opt/articlepod/scripts/azure/configure-tls.sh`
+  - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com /opt/articlepod/scripts/azure/configure-nginx.sh`
+  - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> /opt/articlepod/scripts/azure/configure-tls.sh`

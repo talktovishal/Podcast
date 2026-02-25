@@ -18,7 +18,12 @@ See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
 ## Daily Deploy (Code Changes Only)
 Single command:
 ```bash
-TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
+TARGET_HOST=<vm-ip-or-fqdn> \
+CANONICAL_HOST=articlepod.com \
+HOST_ALIASES=www.articlepod.com \
+LETSENCRYPT_EMAIL=<email> \
+APP_URL=https://articlepod.com \
+/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
 ```
 
 Default deploy mode is incremental:
@@ -26,10 +31,16 @@ Default deploy mode is incremental:
 - skips python-tts package/model provisioning when requirements/assets are unchanged
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
 - retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)
+- configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
 
 Force a full runtime refresh:
 ```bash
-TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh --full-deploy
+TARGET_HOST=<vm-ip-or-fqdn> \
+CANONICAL_HOST=articlepod.com \
+HOST_ALIASES=www.articlepod.com \
+LETSENCRYPT_EMAIL=<email> \
+APP_URL=https://articlepod.com \
+/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh --full-deploy
 ```
 
 What it runs:
@@ -37,6 +48,14 @@ What it runs:
 2. Bootstrap guard (runs `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh` only if runtime user is missing on VM)
 3. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
 4. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+5. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
+6. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`
+
+### Domain/TLS deploy variables
+- `CANONICAL_HOST`: required when ingress automation is enabled (defaults from `APP_URL` host if present).
+- `HOST_ALIASES`: optional comma-separated aliases redirected to canonical host.
+- `LETSENCRYPT_EMAIL`: required when ingress automation is enabled.
+- `DEPLOY_CONFIGURE_INGRESS`: set `0` to skip nginx/TLS automation for a deploy.
 
 ## Individual Building Blocks
 - Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`

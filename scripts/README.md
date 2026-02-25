@@ -8,8 +8,8 @@
 ## Azure
 - Azure scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/README.md`
 - Deploy local changes to existing VM:
-  - `TARGET_HOST=<vm-ip-or-fqdn> /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh`
-  - or `npm run azure:deploy:changes -- --host <vm-ip-or-fqdn>`
+  - `TARGET_HOST=<vm-ip-or-fqdn> CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> APP_URL=https://articlepod.com /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh`
+  - or `TARGET_HOST=<vm-ip-or-fqdn> CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> APP_URL=https://articlepod.com npm run azure:deploy:changes`
 
 ## Naming
 - Sync generated naming constants:

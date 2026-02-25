@@ -69,11 +69,16 @@ See:
 
 Deploy-only (for local code changes to an existing VM):
 ```bash
-TARGET_HOST="<vm-ip-or-fqdn>" npm run azure:deploy:changes
+TARGET_HOST="<vm-ip-or-fqdn>" \
+CANONICAL_HOST="articlepod.com" \
+HOST_ALIASES="www.articlepod.com" \
+LETSENCRYPT_EMAIL="<email>" \
+APP_URL="https://articlepod.com" \
+npm run azure:deploy:changes
 ```
 
 Automated CI/CD deployment:
-- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `AZURE_SSH_KNOWN_HOSTS`)
+- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `AZURE_SSH_KNOWN_HOSTS`, `APP_URL`, `APP_DOMAIN_ALIASES`, `LETSENCRYPT_EMAIL`)
 - Push with `[deploy]` tag or use workflow dispatch
 - See `docs/azure-ci-cd.md` for setup instructions
 
