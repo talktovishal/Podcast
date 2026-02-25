@@ -32,6 +32,8 @@ Default deploy mode is incremental:
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
 - retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)
 - configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
+- auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
+- removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives
 
 Force a full runtime refresh:
 ```bash

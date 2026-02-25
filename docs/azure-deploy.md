@@ -148,6 +148,10 @@ sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" LETSENCRY
   /opt/articlepod/scripts/azure/configure-tls.sh
 ```
 
+Notes:
+- `configure-nginx.sh` now self-heals `server_names_hash_*` sizing only when `nginx -t` reports `could not build server_names_hash`, by applying idempotent tuning in `/etc/nginx/nginx.conf`.
+- Legacy managed hash files (`/etc/nginx/conf.d/<site>-server-names.conf`) are removed during reconfiguration to avoid duplicate directive failures with certbot-managed nginx restarts.
+
 Verify health:
 ```bash
 curl -sf "https://articlepod.com/api/health"
@@ -159,6 +163,13 @@ curl -I "http://www.articlepod.com/api/health"
 curl -I "https://www.articlepod.com/api/health"
 ```
 Expected: `301` redirect to `https://articlepod.com/...`.
+
+Verify certificate SAN coverage:
+```bash
+echo | openssl s_client -servername articlepod.com -connect articlepod.com:443 2>/dev/null \
+  | openssl x509 -noout -ext subjectAltName
+```
+Expected SAN entries include both `DNS:articlepod.com` and `DNS:www.articlepod.com`.
 
 ## Post-deploy validation
 1. Log in on `https://articlepod.com/app` and copy a real feed token.

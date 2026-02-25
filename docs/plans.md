@@ -25,6 +25,7 @@
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
+- M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
 
@@ -140,7 +141,7 @@ Milestone metadata contract:
 | M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M65 | Done | 2026-02-25 | 2026-02-25 | a485766 (2026-02-25) |
+| M65 | Done | 2026-02-25 | 2026-02-25 | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1734,7 +1735,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-02-25
 - completed_on: 2026-02-25
-- evidence: a485766 (2026-02-25)
+- evidence: a485766 + 2aa2722 + workflow 22389243416 (2026-02-25)
 - Scope:
   - Add canonical-domain ingress/TLS automation into Azure deploy flow.
   - Enforce `articlepod.com` as canonical host with `www.articlepod.com` redirect.
@@ -1754,10 +1755,12 @@ Milestone metadata contract:
   - TLS helper requests/renews cert for both hosts and re-applies canonical redirects.
   - CI deploy flow forwards canonical host, alias list, and Let’s Encrypt email.
   - Health checks default to canonical host when configured.
+  - nginx hash-size fallback remains certbot-compatible on repeat deploys (no duplicate directive failure).
 - Verification commands:
   - `bash -n scripts/azure/configure-nginx.sh scripts/azure/configure-tls.sh scripts/azure/deploy-changes.sh`
   - `./scripts/azure/deploy-changes.sh --help`
   - `curl -I http://www.articlepod.com/api/health` (expect `301` to apex)
   - `curl -I https://www.articlepod.com/api/health` (expect `301` to apex)
   - `curl -I https://articlepod.com/api/health` (expect `200`)
+  - `echo | openssl s_client -servername articlepod.com -connect articlepod.com:443 2>/dev/null | openssl x509 -noout -ext subjectAltName`
   - `./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"`

@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-02-14)
+## Spec Status (as of 2026-02-25)
 
-### Implemented (as of 2026-02-14)
+### Implemented (as of 2026-02-25)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -33,6 +33,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Deploy helper health checks now retry by default and only use `:3000` fallback for direct IP targets.
   - Deploy helper now supports automated canonical-domain ingress/TLS reconciliation (`CANONICAL_HOST` + `HOST_ALIASES` + `LETSENCRYPT_EMAIL`) on each deploy.
   - nginx/TLS automation now enforces canonical-domain redirects (`www` -> apex) and SAN certificates for both hosts.
+  - nginx ingress automation now applies idempotent `server_names_hash_*` fallback tuning in `nginx.conf` only when needed, preventing certbot duplicate-directive failures on reruns.
+  - Canonical-domain GitHub deploy validation passed end-to-end on `2026-02-25` (`Deploy to Azure` run `22389243416`), including apex health, `www` redirects, TLS SAN coverage, and podcast contract checks.
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation

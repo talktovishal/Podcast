@@ -76,9 +76,10 @@ LETSENCRYPT_EMAIL="<email>" \
 APP_URL="https://articlepod.com" \
 npm run azure:deploy:changes
 ```
+The ingress automation self-heals nginx server-name hash sizing issues and preserves certbot-compatible nginx reload behavior on repeated deploys.
 
 Automated CI/CD deployment:
-- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `AZURE_SSH_KNOWN_HOSTS`, `APP_URL`, `APP_DOMAIN_ALIASES`, `LETSENCRYPT_EMAIL`)
+- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `APP_URL`, `APP_DOMAIN_ALIASES`, `LETSENCRYPT_EMAIL`)
 - Push with `[deploy]` tag or use workflow dispatch
 - See `docs/azure-ci-cd.md` for setup instructions
 

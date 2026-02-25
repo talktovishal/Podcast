@@ -87,7 +87,6 @@ For continuous deployment, set up GitHub Actions:
 1. **Add GitHub Environment Secrets** (Settings → Environments → `production`):
    - `AZURE_VM_HOST`: Your VM IP or FQDN
    - `AZURE_SSH_KEY`: Content of `~/.ssh/articlepod_azure`
-   - `AZURE_SSH_KNOWN_HOSTS`: Output of `ssh-keyscan -H <your-vm-host>`
    - `AZURE_VM_USER` (optional): defaults to `azureuser`
    - `APP_URL`: `https://articlepod.com`
    - `APP_DOMAIN_ALIASES`: `www.articlepod.com`
@@ -133,6 +132,15 @@ npm run azure:deploy:changes
 # Then SSH to VM and check services manually
 ssh -i ~/.ssh/articlepod_azure azureuser@<vm-ip>
 sudo systemctl status articlepod-web articlepod-worker articlepod-python-tts
+```
+
+### "could not build server_names_hash..." or "directive is duplicate"
+```bash
+# On VM, clear legacy managed hash file and re-run ingress + TLS config
+ssh -i ~/.ssh/articlepod_azure azureuser@<vm-ip>
+sudo rm -f /etc/nginx/conf.d/articlepod-server-names.conf
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" /opt/articlepod/scripts/azure/configure-nginx.sh
+sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" LETSENCRYPT_EMAIL="<email>" /opt/articlepod/scripts/azure/configure-tls.sh
 ```
 
 ### "Permission denied (publickey)"

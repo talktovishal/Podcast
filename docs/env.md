@@ -33,7 +33,7 @@ Recommended:
 
 ### `azure`
 - `DATABASE_URL` (Azure PostgreSQL URL)
-- `APP_URL` (public HTTPS URL)
+- `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
 - `AZURE_STORAGE_CONTAINER`
 - One of:

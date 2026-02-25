@@ -12,7 +12,6 @@ The repository includes a GitHub Actions workflow (`.github/workflows/deploy-azu
 2. You must have:
    - VM IP address or FQDN
    - SSH private key for VM access (typically `~/.ssh/articlepod_azure`)
-   - SSH host key entry for your VM (`known_hosts` format)
 
 ## GitHub Secrets Configuration
 
@@ -41,32 +40,20 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
      ```
    - Copy the entire output including `-----BEGIN OPENSSH PRIVATE KEY-----` and `-----END OPENSSH PRIVATE KEY-----`
 
-3. **`AZURE_SSH_KNOWN_HOSTS`**
-   - Description: Pinned SSH host key entry (known_hosts line)
-   - How to generate:
-     ```bash
-     ssh-keyscan -H <your-vm-host>
-     ```
-   - Example:
-     ```text
-     articlepod.eastus.cloudapp.azure.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI...
-     ```
-   - Add the full output line as the secret value.
-
-4. **`APP_URL`**
+3. **`APP_URL`**
    - Description: Canonical public app URL used for RSS/media URL generation.
    - Required value (production): `https://articlepod.com`
 
-5. **`LETSENCRYPT_EMAIL`**
+4. **`LETSENCRYPT_EMAIL`**
    - Description: Contact email used for automated Let’s Encrypt certificate issuance.
 
-6. **`APP_DOMAIN_ALIASES`**
+5. **`APP_DOMAIN_ALIASES`**
    - Description: Comma-separated alias domains redirected to canonical host.
    - Recommended value: `www.articlepod.com`
 
 #### Optional Secret:
 
-7. **`AZURE_VM_USER`** (optional)
+6. **`AZURE_VM_USER`** (optional)
    - Description: SSH username
    - Default: `azureuser`
    - Only set if you're using a different username
@@ -104,7 +91,7 @@ The workflow performs:
 
 1. ✅ Checks out your code
 2. ✅ Validates `main` branch + required deploy settings
-3. ✅ Sets up SSH credentials with pinned host key verification
+3. ✅ Sets up SSH credentials for CI deploy access
 4. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
 5. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
 6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
@@ -113,6 +100,7 @@ The workflow performs:
    - python-tts setup only when requirements/assets changed
    - demo seed once by default (`auto` mode)
 8. ✅ Configures nginx ingress for canonical host + alias redirects
+   - auto-tunes `server_names_hash_*` in `/etc/nginx/nginx.conf` only when nginx reports hash-size insufficiency
 9. ✅ Provisions/renews Let’s Encrypt certificates (SAN cert includes canonical + aliases)
 10. ✅ Restarts systemd services
 11. ✅ Runs health check against canonical host (unless skipped)
@@ -144,12 +132,6 @@ After each deployment, check the workflow summary for:
 #### "AZURE_VM_HOST secret is not configured"
 - **Solution**: Add the `AZURE_VM_HOST` secret to the `production` environment secrets
 
-#### "AZURE_SSH_KNOWN_HOSTS secret is not configured"
-- **Solution**: Generate and add it:
-  ```bash
-  ssh-keyscan -H <your-vm-host>
-  ```
-
 #### "APP_URL must be set to https://articlepod.com"
 - **Solution**: Set `APP_URL` environment secret to exactly:
   ```text
@@ -160,6 +142,26 @@ After each deployment, check the workflow summary for:
 - **Solution**: Add `LETSENCRYPT_EMAIL` as an environment secret.
 - Ensure DNS for `articlepod.com` and `www.articlepod.com` already points to the VM before deploy.
 
+#### "could not build server_names_hash, you should increase server_names_hash_bucket_size"
+- **Current behavior**: `configure-nginx.sh` auto-applies idempotent hash-size tuning in `/etc/nginx/nginx.conf` and retries nginx validation.
+- **If it still appears**:
+  - Check for custom nginx snippets overriding `http` block settings.
+  - Validate config directly on VM:
+    ```bash
+    sudo nginx -t
+    ```
+
+#### "`server_names_hash_bucket_size` directive is duplicate"
+- **Current behavior**: deploy automation removes legacy `/etc/nginx/conf.d/<site>-server-names.conf` during reconfigure.
+- **If it still appears**:
+  - Remove stale managed file and reload:
+    ```bash
+    sudo rm -f /etc/nginx/conf.d/articlepod-server-names.conf
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+  - Re-run deployment workflow.
+
 #### "Deploy workflow must run from main branch"
 - **Solution**: Run the workflow for `main` only.
 
@@ -168,7 +170,6 @@ After each deployment, check the workflow summary for:
   - Verify VM is running: `az vm get-instance-view`
   - Check firewall allows SSH from GitHub IPs
   - Verify SSH key matches the one used during VM setup
-  - Re-generate and update `AZURE_SSH_KNOWN_HOSTS` if VM host key changed
 
 #### "Missing runtime user 'articlepod'. Run bootstrap first."
 - **Current behavior**: this is auto-handled in `deploy-changes.sh` by running bootstrap once.
@@ -264,7 +265,7 @@ APP_URL="https://articlepod.com" \
 ## Security Notes
 
 - SSH private keys are stored as GitHub secrets (encrypted at rest)
-- SSH host verification uses pinned `known_hosts` data (no trust-on-first-use during deploy)
+- Current CI workflow sets `StrictHostKeyChecking no` for non-interactive deploy reliability; if you need strict host verification, update `.github/workflows/deploy-azure.yml` accordingly.
 - Keys are only accessible during workflow execution
 - Never commit SSH keys to the repository
 - Rotate keys periodically for security
