@@ -91,12 +91,39 @@ fi
 CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}.conf"
 ENABLED_PATH="/etc/nginx/sites-enabled/${SITE_NAME}.conf"
 HASH_TUNING_PATH="/etc/nginx/conf.d/${SITE_NAME}-server-names.conf"
+NGINX_MAIN_CONF="/etc/nginx/nginx.conf"
 
-cat > "$HASH_TUNING_PATH" <<NGINX
-# managed by scripts/azure/configure-nginx.sh
-server_names_hash_bucket_size 128;
-server_names_hash_max_size 1024;
-NGINX
+ensure_main_hash_setting() {
+  local key="$1"
+  local value="$2"
+  local temp_path
+  temp_path="$(mktemp)"
+
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]+[0-9]+;" "$NGINX_MAIN_CONF"; then
+    awk -v key="$key" -v value="$value" '
+      $0 ~ "^[[:space:]]*" key "[[:space:]]+[0-9]+;" {
+        if (!updated) {
+          print "    " key " " value ";"
+          updated=1
+        }
+        next
+      }
+      { print }
+    ' "$NGINX_MAIN_CONF" > "$temp_path"
+  else
+    awk -v key="$key" -v value="$value" '
+      {
+        print
+        if (!inserted && $0 ~ /^[[:space:]]*http[[:space:]]*\{[[:space:]]*$/) {
+          print "    " key " " value ";"
+          inserted=1
+        }
+      }
+    ' "$NGINX_MAIN_CONF" > "$temp_path"
+  fi
+
+  mv "$temp_path" "$NGINX_MAIN_CONF"
+}
 
 cat > "$CONF_PATH" <<NGINX
 # managed by scripts/azure/configure-nginx.sh
@@ -193,8 +220,21 @@ fi
 
 ln -sf "$CONF_PATH" "$ENABLED_PATH"
 rm -f /etc/nginx/sites-enabled/default
+rm -f "$HASH_TUNING_PATH"
 
-nginx -t
+nginx_test_output=""
+if ! nginx_test_output="$(nginx -t 2>&1)"; then
+  if [[ "$nginx_test_output" == *"could not build server_names_hash"* ]]; then
+    echo "[configure-nginx] server_names_hash too small; applying fallback tuning in ${NGINX_MAIN_CONF}"
+    ensure_main_hash_setting "server_names_hash_bucket_size" "128"
+    ensure_main_hash_setting "server_names_hash_max_size" "1024"
+    nginx -t
+  else
+    printf '%s\n' "$nginx_test_output"
+    exit 1
+  fi
+fi
+
 systemctl enable nginx
 systemctl restart nginx
 
