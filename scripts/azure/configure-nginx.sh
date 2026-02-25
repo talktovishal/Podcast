@@ -90,6 +90,13 @@ fi
 
 CONF_PATH="/etc/nginx/sites-available/${SITE_NAME}.conf"
 ENABLED_PATH="/etc/nginx/sites-enabled/${SITE_NAME}.conf"
+HASH_TUNING_PATH="/etc/nginx/conf.d/${SITE_NAME}-server-names.conf"
+
+cat > "$HASH_TUNING_PATH" <<NGINX
+# managed by scripts/azure/configure-nginx.sh
+server_names_hash_bucket_size 128;
+server_names_hash_max_size 1024;
+NGINX
 
 cat > "$CONF_PATH" <<NGINX
 # managed by scripts/azure/configure-nginx.sh
