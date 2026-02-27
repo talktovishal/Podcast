@@ -109,6 +109,8 @@ jobs:
           PYTHON_TTS_URL: http://127.0.0.1:8010
           ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
           DEMO_PASSWORD: ${{ secrets.APP_DEMO_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.APP_GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.APP_GOOGLE_CLIENT_SECRET }}
         run: |
           set -euo pipefail
 
