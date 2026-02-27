@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
 
 function normalizeFeedToken(value: string): string {
   return value.replace(/\.xml$/i, "");
@@ -38,6 +39,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/digest/${token}.xml`,
     language: "en-us",
+    imageUrl: absoluteBrandAssetUrl(env.appUrl, BRAND_PODCAST_COVER_PATH),
     episodes: episodes.map((episode) => ({
       guid: episode.guid,
       title: episode.title,

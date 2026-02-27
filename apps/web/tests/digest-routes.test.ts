@@ -247,6 +247,9 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     const xml = await rssResponse.text();
     assert.equal(xml.includes("Weekly Digest"), true);
     assert.equal(xml.includes("/api/digest-media/"), true);
+    assert.equal(xml.includes("<itunes:image "), true);
+    assert.equal(xml.includes("<image>"), true);
+    assert.equal(xml.includes("/brand/podcast-cover-1400.png"), true);
 
     const headResponse = await digestMediaHead(
       new NextRequest(

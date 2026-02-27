@@ -67,9 +67,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - digest media route enforces `HEAD` + byte-range `206` semantics for podcast app compatibility.
   - settings UI adds digest feed controls, cadence/length controls, and recent digest run history.
   - internal scheduler tick endpoint is bearer-secret protected for Azure/GCP cron triggers.
+- Branding surface consistency track (`M80`) is implemented:
+  - deterministic brain icon generator now produces extension icons, web favicon/apple icon, and shared brand artwork.
+  - web metadata + web manifest now use explicit branded icon assets.
+  - main and digest RSS feeds now include both `<itunes:image>` and channel `<image>` blocks for podcast app artwork.
+  - podcast contract checker now validates artwork tags and artwork URL reachability.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M79`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M80`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

@@ -26,6 +26,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 ## Chrome extension
 - Source: `/Users/vishalchowdhary/Documents/Podcast/apps/extension`
 - Package command: `npm run extension:package`
+- Icon generation command: `npm run extension:icons`
 - Local load: `chrome://extensions` -> Developer mode -> Load unpacked
 
 Connect flow:
@@ -39,6 +40,7 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
+- Feed and digest RSS include both `<itunes:image>` and channel `<image>` artwork tags, pointing to branded podcast cover art.
 
 ## Digest settings
 Available in `/app/settings`:

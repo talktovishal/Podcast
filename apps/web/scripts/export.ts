@@ -4,6 +4,7 @@ import { BRAND_NAME, buildRssXml } from "@articlepod/core";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
+import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "../src/lib/brand-assets";
 
 async function main() {
   const outputRoot = resolve(process.cwd(), "../../exports");
@@ -46,6 +47,7 @@ async function main() {
     link: env.appUrl,
     feedUrl: `${env.appUrl}/exports/rss.xml`,
     language: "en-us",
+    imageUrl: absoluteBrandAssetUrl(env.appUrl, BRAND_PODCAST_COVER_PATH),
     episodes: episodes.map((episode) => ({
       guid: episode.guid,
       title: episode.title,

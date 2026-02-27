@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
+import {
+  BRAND_APPLE_ICON_PATH,
+  BRAND_FAVICON_PATH,
+  BRAND_ICON_192_PATH,
+  BRAND_ICON_512_PATH,
+  BRAND_MANIFEST_PATH,
+  BRAND_PODCAST_COVER_PATH
+} from "@/lib/brand-assets";
 
 const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 const siteDescription =
@@ -25,6 +33,16 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: BRAND_NAME }],
   creator: BRAND_NAME,
+  manifest: BRAND_MANIFEST_PATH,
+  icons: {
+    icon: [
+      { url: BRAND_FAVICON_PATH, type: "image/x-icon" },
+      { url: BRAND_ICON_192_PATH, sizes: "192x192", type: "image/png" },
+      { url: BRAND_ICON_512_PATH, sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: BRAND_APPLE_ICON_PATH, sizes: "180x180", type: "image/png" }],
+    shortcut: [BRAND_FAVICON_PATH]
+  },
   robots: {
     index: true,
     follow: true,
@@ -36,13 +54,13 @@ export const metadata: Metadata = {
     title: BRAND_NAME,
     description: siteDescription,
     url: appUrl,
-    images: [{ url: "/brand/articlepod-mark.svg", alt: `${BRAND_NAME} logo` }]
+    images: [{ url: BRAND_PODCAST_COVER_PATH, alt: `${BRAND_NAME} cover art` }]
   },
   twitter: {
     card: "summary",
     title: BRAND_NAME,
     description: siteDescription,
-    images: ["/brand/articlepod-mark.svg"]
+    images: [BRAND_PODCAST_COVER_PATH]
   }
 };
 

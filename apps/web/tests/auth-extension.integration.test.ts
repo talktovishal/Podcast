@@ -258,6 +258,9 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     assert.ok(feedXml.includes("<item>"));
     assert.ok(feedXml.includes("Captured"));
     assert.ok(feedXml.includes("episode-"));
+    assert.ok(feedXml.includes("<itunes:image "));
+    assert.ok(feedXml.includes("<image>"));
+    assert.ok(feedXml.includes("/brand/podcast-cover-1400.png"));
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

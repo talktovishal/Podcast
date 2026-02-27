@@ -43,6 +43,10 @@
   - separate private digest RSS token/route and digest media range/HEAD delivery path.
   - worker-side digest scheduler + idempotent run processing (summary artifacts + optional podcast + stub email).
   - bearer-protected internal tick endpoint for external cron orchestration.
+- Brand surface consistency track (`M80`) is implemented:
+  - unified brain icon assets generated from one deterministic script for extension + web.
+  - feed and digest RSS now publish explicit artwork tags (`itunes:image` + channel `image`).
+  - podcast contract checks now validate artwork presence and artwork URL availability.
 
 ## Requirement Coverage Snapshot
 
@@ -83,6 +87,7 @@
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
+| Unified branding icons + podcast artwork consistency | M80 |
 
 ## Milestone Status Snapshot
 
@@ -174,6 +179,7 @@ Milestone metadata contract:
 | M77 | Done | 2026-03-07 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M78 | Done | 2026-03-08 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -2096,3 +2102,37 @@ Milestone metadata contract:
   - Docs reflect digest data model, scheduler contract, feed/media endpoints, env vars, and runbook commands.
 - Verification commands:
   - Manual cross-doc consistency pass.
+
+### M80 - Brain Icon Consistency Pass (Web + Extension + RSS)
+- status: Done
+- target_finish: 2026-03-10
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Replace mixed icon surfaces with one deterministic brain-brand asset family.
+  - Wire branded artwork into web metadata, app manifest, and both main/digest RSS feeds.
+  - Extend podcast contract verification to enforce artwork tags and reachable artwork URL.
+- Key files/modules:
+  - `scripts/generate-extension-icons.py`
+  - `apps/extension/manifest.json`
+  - `apps/web/src/app/layout.tsx`
+  - `apps/web/src/app/manifest.ts`
+  - `apps/web/src/lib/brand-assets.ts`
+  - `apps/web/src/components/brand-logo.tsx`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/scripts/export.ts`
+  - `packages/core/src/rss/buildFeed.ts`
+  - `scripts/verify_podcast_contract.sh`
+- Acceptance criteria:
+  - Browser/favicon, web app logo, extension icons, and RSS artwork all use the same brain mark family.
+  - RSS output emits both `<itunes:image>` and `<image><url|title|link>` when feed artwork is configured.
+  - Podcast contract gate fails if artwork tags are missing or artwork URL is unreachable.
+- Verification commands:
+  - `corepack pnpm run extension:icons`
+  - `corepack pnpm run extension:validate`
+  - `corepack pnpm run lint`
+  - `corepack pnpm run test`
+  - `corepack pnpm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+  - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`

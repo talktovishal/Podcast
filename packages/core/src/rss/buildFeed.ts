@@ -83,7 +83,16 @@ export function buildRssXml(input: FeedInput): string {
     })
     .join("\n");
 
-  const imageXml = input.imageUrl ? `\n    <itunes:image href=\"${escapeXml(input.imageUrl)}\" />` : "";
+  const imageXml = input.imageUrl
+    ? [
+        `    <itunes:image href=\"${escapeXml(input.imageUrl)}\" />`,
+        "    <image>",
+        `      <url>${escapeXml(input.imageUrl)}</url>`,
+        `      <title>${escapeXml(input.title)}</title>`,
+        `      <link>${escapeXml(input.link)}</link>`,
+        "    </image>"
+      ]
+    : [];
 
   return [
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
@@ -95,7 +104,8 @@ export function buildRssXml(input: FeedInput): string {
     `    <language>${escapeXml(input.language)}</language>`,
     `    <atom:link href=\"${escapeXml(input.feedUrl)}\" rel=\"self\" type=\"application/rss+xml\" xmlns:atom=\"http://www.w3.org/2005/Atom\" />`,
     `    <itunes:author>${escapeXml(input.title)}</itunes:author>`,
-    `    <itunes:summary>${escapeXml(input.description)}</itunes:summary>${imageXml}`,
+    `    <itunes:summary>${escapeXml(input.description)}</itunes:summary>`,
+    ...imageXml,
     items,
     "  </channel>",
     "</rss>"

@@ -29,7 +29,7 @@ if ! grep -q 'xmlns:itunes=' "$tmp"; then
   exit 1
 fi
 
-MP3_URL="$(python3 - "$tmp" <<'PY'
+parse_result="$(python3 - "$tmp" <<'PY'
 import email.utils
 import sys
 import xml.etree.ElementTree as ET
@@ -61,6 +61,7 @@ seen_guids: set[str] = set()
 seen_enclosures: set[str] = set()
 first_enclosure = ""
 previous_date = None
+itunes_ns = "{http://www.itunes.com/dtds/podcast-1.0.dtd}"
 
 for index, item in enumerate(items, start=1):
     guid = (item.findtext("guid") or "").strip()
@@ -103,16 +104,47 @@ for index, item in enumerate(items, start=1):
     if not first_enclosure:
         first_enclosure = url
 
+itunes_image = channel.find(f"{itunes_ns}image")
+if itunes_image is None:
+    fail("Channel is missing <itunes:image>")
+
+itunes_href = (itunes_image.attrib.get("href") or "").strip()
+if not itunes_href:
+    fail("<itunes:image> missing href")
+
+image = channel.find("image")
+if image is None:
+    fail("Channel is missing <image>")
+
+image_url = (image.findtext("url") or "").strip()
+image_title = (image.findtext("title") or "").strip()
+image_link = (image.findtext("link") or "").strip()
+if not image_url:
+    fail("<image><url> is missing")
+if not image_title:
+    fail("<image><title> is missing")
+if not image_link:
+    fail("<image><link> is missing")
+
 print(first_enclosure)
+print(itunes_href)
 PY
 )"
+
+MP3_URL="$(printf '%s\n' "$parse_result" | sed -n '1p')"
+ARTWORK_URL="$(printf '%s\n' "$parse_result" | sed -n '2p')"
 
 if [[ -z "$MP3_URL" ]]; then
   echo "FAIL: No enclosure URL found after RSS validation"
   exit 1
 fi
+if [[ -z "$ARTWORK_URL" ]]; then
+  echo "FAIL: No artwork URL found after RSS validation"
+  exit 1
+fi
 
 echo "MP3_URL: $MP3_URL"
+echo "ARTWORK_URL: $ARTWORK_URL"
 
 echo "== Checking MP3 HEAD =="
 mp3_head_code="$(curl -s -o /dev/null -w "%{http_code}" -I "$MP3_URL")"
@@ -127,6 +159,14 @@ range_code="$(curl -s -o /dev/null -w "%{http_code}" -H "Range: bytes=0-1" "$MP3
 echo "MP3 Range status: $range_code"
 if [[ "$range_code" != "206" ]]; then
   echo "FAIL: Expected 206 for Range request, got $range_code"
+  exit 1
+fi
+
+echo "== Checking artwork HEAD =="
+artwork_head_code="$(curl -s -o /dev/null -w "%{http_code}" -I "$ARTWORK_URL")"
+echo "Artwork HEAD status: $artwork_head_code"
+if [[ "$artwork_head_code" -lt 200 || "$artwork_head_code" -ge 400 ]]; then
+  echo "FAIL: Artwork HEAD request failed"
   exit 1
 fi
 
