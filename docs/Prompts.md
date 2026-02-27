@@ -59,9 +59,17 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin dashboard includes user-level quota controls (`paid` toggle + extra submission credits)
+- Digest automation track (`M72`-`M79`) is implemented:
+  - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
+  - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).
+  - worker digest scheduler + run processor with markdown-source aggregation and idempotent period keys.
+  - digest summary provider abstraction (stub + proxy-ready call shape) and stub email sender contract.
+  - digest media route enforces `HEAD` + byte-range `206` semantics for podcast app compatibility.
+  - settings UI adds digest feed controls, cadence/length controls, and recent digest run history.
+  - internal scheduler tick endpoint is bearer-secret protected for Azure/GCP cron triggers.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M71`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M79`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

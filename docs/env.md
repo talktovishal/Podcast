@@ -65,6 +65,16 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `WORKER_RETRY_POLL_MS`
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 
+## Digest controls
+- `DIGEST_INTERNAL_SCHEDULER_ENABLED` (`1` default; set `0` to rely only on external tick calls)
+- `DIGEST_SCHEDULER_TICK_MS` (default `60000`)
+- `DIGEST_SCHEDULER_SECRET` (required to authorize `POST /api/internal/digests/tick`)
+- `DIGEST_RUN_MAX_RETRY_ATTEMPTS` (default `3`)
+- `DIGEST_SUMMARY_PROVIDER` (`stub` default, `proxy` supported)
+- `DIGEST_SUMMARY_PROXY_URL` (required when `DIGEST_SUMMARY_PROVIDER=proxy`)
+- `DIGEST_SUMMARY_TIMEOUT_MS` (default `30000`)
+- `DIGEST_EMAIL_PROVIDER` (`stub` default)
+
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `.runtime/logs` relative to repo root)
 - `LOG_RETENTION_DAYS` (default: `14`)

@@ -66,6 +66,25 @@ Default retention behavior:
 - `RAW_HTML` and `RAW_PDF` artifacts expire after `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default 90 days).
 - `MARKDOWN` artifacts are retained for downstream reuse unless item/account deletion removes them.
 
+## Digest automation runbook
+Digest scheduler trigger (external cron/automation):
+```bash
+curl -X POST "$APP_URL/api/internal/digests/tick" \
+  -H "authorization: Bearer $DIGEST_SCHEDULER_SECRET" \
+  -H "content-type: application/json" \
+  -d '{"forceNow": true, "requestedBy": "ops-manual"}'
+```
+
+Digest outputs:
+- summary artifact key: `digests/<userId>/<cadence>/<periodKey>/summary.md`
+- stub email artifact key: `digests/<userId>/<cadence>/<periodKey>/email.md`
+- digest audio key: `digests/<userId>/<cadence>/<periodKey>/episode.<ext>`
+
+Digest compatibility checks:
+```bash
+./scripts/verify_podcast_contract.sh "http://127.0.0.1:4100/rss/digest/<digest_token>.xml"
+```
+
 ## Observability runbook
 Dedicated local log root:
 - `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`

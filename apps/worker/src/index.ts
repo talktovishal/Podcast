@@ -1,11 +1,29 @@
 import { workerEnv } from "./lib/env.js";
 import { prisma } from "./lib/prisma.js";
 import { processNextQueuedJob } from "./jobs/processItemJob.js";
+import { processNextQueuedDigestRun } from "./jobs/processDigestRunJob.js";
+import { hasPendingDigestSchedulerTick, scheduleDigestRuns } from "./jobs/scheduleDigestRuns.js";
 import { workerLogger } from "./lib/logger.js";
 
+let lastDigestSchedulerTickAt = 0;
+
 async function loop() {
-  const processed = await processNextQueuedJob();
-  if (!processed) {
+  const processedItem = await processNextQueuedJob();
+  if (processedItem) {
+    return;
+  }
+
+  const now = Date.now();
+  const internalSchedulerDue =
+    workerEnv.digestInternalSchedulerEnabled && now - lastDigestSchedulerTickAt >= workerEnv.digestSchedulerTickMs;
+  const externalTickDue = !internalSchedulerDue && (await hasPendingDigestSchedulerTick());
+  if (internalSchedulerDue || externalTickDue) {
+    await scheduleDigestRuns(false);
+    lastDigestSchedulerTickAt = now;
+  }
+
+  const processedDigest = await processNextQueuedDigestRun();
+  if (!processedDigest) {
     await new Promise((resolve) => setTimeout(resolve, workerEnv.pollMs));
   }
 }
@@ -14,6 +32,8 @@ async function main() {
   await workerLogger.info("Worker starting", {
     pollMs: workerEnv.pollMs,
     retryPollMs: workerEnv.retryPollMs,
+    digestInternalSchedulerEnabled: workerEnv.digestInternalSchedulerEnabled,
+    digestSchedulerTickMs: workerEnv.digestSchedulerTickMs,
     runtimeProfile: workerEnv.runtimeProfile
   });
 

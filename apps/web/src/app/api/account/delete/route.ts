@@ -10,10 +10,25 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
   }
 
-  const items = await prisma.item.findMany({
-    where: { userId: user.id },
-    include: { episode: true, artifacts: true }
-  });
+  const [items, digestRuns, digestEpisodes] = await Promise.all([
+    prisma.item.findMany({
+      where: { userId: user.id },
+      include: { episode: true, artifacts: true }
+    }),
+    prisma.digestRun.findMany({
+      where: { userId: user.id },
+      select: {
+        summaryStorageKey: true,
+        emailStorageKey: true
+      }
+    }),
+    prisma.digestEpisode.findMany({
+      where: { userId: user.id },
+      select: {
+        audioPath: true
+      }
+    })
+  ]);
 
   await prisma.user.delete({ where: { id: user.id } });
   const storage = getArtifactStorage();
@@ -36,6 +51,19 @@ export async function DELETE(request: NextRequest) {
     for (const artifact of item.artifacts) {
       await storage.deleteObject(artifact.storageKey).catch(() => undefined);
     }
+  }
+
+  for (const run of digestRuns) {
+    if (run.summaryStorageKey) {
+      await storage.deleteObject(run.summaryStorageKey).catch(() => undefined);
+    }
+    if (run.emailStorageKey) {
+      await storage.deleteObject(run.emailStorageKey).catch(() => undefined);
+    }
+  }
+
+  for (const episode of digestEpisodes) {
+    await storage.deleteObject(episode.audioPath).catch(() => undefined);
   }
 
   const response = NextResponse.json({ ok: true });

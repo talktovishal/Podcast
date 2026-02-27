@@ -62,11 +62,79 @@ type SubmissionQuotaSnapshot = {
   remainingFreeSubmissions: number | null;
 };
 
+type DigestSettings = {
+  timezone: string;
+  dailyEmailEnabled: boolean;
+  dailyPodcastEnabled: boolean;
+  dailyHour: number;
+  dailyMinute: number;
+  dailyLengthMinutes: 5 | 15 | 30;
+  weeklyEmailEnabled: boolean;
+  weeklyPodcastEnabled: boolean;
+  weeklyDayOfWeek: number;
+  weeklyHour: number;
+  weeklyMinute: number;
+  weeklyLengthMinutes: 5 | 15 | 30;
+};
+
+type DigestRun = {
+  id: string;
+  cadence: string;
+  periodKey: string;
+  status: string;
+  sourceItemCount: number;
+  scheduledFor: string;
+  windowStart: string;
+  windowEnd: string;
+  emailEnabled: boolean;
+  emailStatus: string | null;
+  podcastEnabled: boolean;
+  podcastStatus: string | null;
+};
+
+const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
+  { label: "Sunday", value: 0 },
+  { label: "Monday", value: 1 },
+  { label: "Tuesday", value: 2 },
+  { label: "Wednesday", value: 3 },
+  { label: "Thursday", value: 4 },
+  { label: "Friday", value: 5 },
+  { label: "Saturday", value: 6 }
+];
+
+const LENGTH_OPTIONS: ReadonlyArray<5 | 15 | 30> = [5, 15, 30];
+
+function defaultTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+const DEFAULT_DIGEST_SETTINGS: DigestSettings = {
+  timezone: defaultTimezone(),
+  dailyEmailEnabled: false,
+  dailyPodcastEnabled: false,
+  dailyHour: 16,
+  dailyMinute: 0,
+  dailyLengthMinutes: 5,
+  weeklyEmailEnabled: true,
+  weeklyPodcastEnabled: true,
+  weeklyDayOfWeek: 5,
+  weeklyHour: 16,
+  weeklyMinute: 0,
+  weeklyLengthMinutes: 15
+};
+
 type Props = {
   feedUrl: string;
   feedToken: string;
+  digestFeedUrl?: string;
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
+  initialDigestSettings?: DigestSettings;
+  initialDigestRuns?: DigestRun[];
   initialTtsSelection: {
     providerId: string;
     voice: string;
@@ -107,8 +175,11 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
 export function DashboardClient({
   feedUrl,
   feedToken,
+  digestFeedUrl = "",
   isDemoAccount = false,
   initialSubmissionQuota = null,
+  initialDigestSettings = DEFAULT_DIGEST_SETTINGS,
+  initialDigestRuns = [],
   initialTtsSelection,
   ttsCatalog,
   ttsAvailability,
@@ -126,7 +197,10 @@ export function DashboardClient({
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [isDigestBusy, setIsDigestBusy] = useState(false);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
+  const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
+  const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const [extensionConnectCode, setExtensionConnectCode] = useState<string | null>(null);
@@ -178,6 +252,19 @@ export function DashboardClient({
       setDemoDiagnostics(payload.extractionDiagnostics);
     }
   }, [isDemoAccount]);
+
+  const refreshDigestRuns = useCallback(async () => {
+    const response = await fetch("/api/digest/runs?limit=20", {
+      cache: "no-store"
+    });
+    if (!response.ok) {
+      return;
+    }
+    const payload = (await response.json()) as {
+      runs?: DigestRun[];
+    };
+    setDigestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+  }, []);
 
   useEffect(() => {
     if (readOnly || !showItemsSection) {
@@ -283,6 +370,28 @@ export function DashboardClient({
     }
   }
 
+  async function rotateDigestToken() {
+    setIsDigestBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/digest-feed-token/rotate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: "manual rotation" })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Digest token rotation failed.");
+        return;
+      }
+
+      setStatusMessage(`Digest feed token rotated. New URL: ${json.feed_url}`);
+      window.location.reload();
+    } finally {
+      setIsDigestBusy(false);
+    }
+  }
+
   async function createShareLink() {
     const response = await fetch("/api/share/create", { method: "POST" });
     const json = await response.json();
@@ -374,6 +483,30 @@ export function DashboardClient({
     await submitPdf();
   }
 
+  async function saveDigestSettings() {
+    setIsDigestBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/digest/settings", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify(digestSettings)
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not save digest settings.");
+        return;
+      }
+      setDigestSettings(json.settings as DigestSettings);
+      setStatusMessage("Digest settings saved.");
+      await refreshDigestRuns();
+    } finally {
+      setIsDigestBusy(false);
+    }
+  }
+
   async function saveTtsSettings() {
     setIsTtsBusy(true);
     setStatusMessage(null);
@@ -443,6 +576,230 @@ export function DashboardClient({
                 Create read-only link
               </button>
             ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {showSettingsSection ? (
+        <section className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <p className="text-sm text-[var(--muted)]">Digest feed URL</p>
+            <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{digestFeedUrl}</code>
+            <button
+              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+              onClick={() => navigator.clipboard.writeText(digestFeedUrl)}
+              disabled={!digestFeedUrl}
+            >
+              Copy
+            </button>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
+              Rotate digest token
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {showSettingsSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Digest Settings</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Configure daily and weekly summary email/podcast generation.</p>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Timezone (IANA)</span>
+              <input
+                className="w-full rounded-lg border px-3 py-2"
+                value={digestSettings.timezone}
+                onChange={(event) => setDigestSettings((current) => ({ ...current, timezone: event.target.value.trim() }))}
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 rounded-lg border p-3">
+            <h3 className="text-sm font-semibold">Daily digest</h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={digestSettings.dailyEmailEnabled}
+                  onChange={(event) => setDigestSettings((current) => ({ ...current, dailyEmailEnabled: event.target.checked }))}
+                />
+                Daily email
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={digestSettings.dailyPodcastEnabled}
+                  onChange={(event) => setDigestSettings((current) => ({ ...current, dailyPodcastEnabled: event.target.checked }))}
+                />
+                Daily podcast
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Hour</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={digestSettings.dailyHour}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({ ...current, dailyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Minute</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={digestSettings.dailyMinute}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({ ...current, dailyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Podcast length</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={digestSettings.dailyLengthMinutes}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({
+                      ...current,
+                      dailyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
+                    }))
+                  }
+                >
+                  {LENGTH_OPTIONS.map((value) => (
+                    <option key={`daily-${value}`} value={value}>
+                      {value} minutes
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border p-3">
+            <h3 className="text-sm font-semibold">Weekly digest</h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={digestSettings.weeklyEmailEnabled}
+                  onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyEmailEnabled: event.target.checked }))}
+                />
+                Weekly email
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={digestSettings.weeklyPodcastEnabled}
+                  onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyPodcastEnabled: event.target.checked }))}
+                />
+                Weekly podcast
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Day</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={digestSettings.weeklyDayOfWeek}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({ ...current, weeklyDayOfWeek: Number.parseInt(event.target.value, 10) || 0 }))
+                  }
+                >
+                  {WEEKDAY_OPTIONS.map((option) => (
+                    <option key={`weekly-day-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Hour</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={digestSettings.weeklyHour}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({ ...current, weeklyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Minute</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={digestSettings.weeklyMinute}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({ ...current, weeklyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                  }
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block">Podcast length</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={digestSettings.weeklyLengthMinutes}
+                  onChange={(event) =>
+                    setDigestSettings((current) => ({
+                      ...current,
+                      weeklyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
+                    }))
+                  }
+                >
+                  {LENGTH_OPTIONS.map((value) => (
+                    <option key={`weekly-${value}`} value={value}>
+                      {value} minutes
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <button
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+              disabled={isDigestBusy}
+              onClick={saveDigestSettings}
+            >
+              Save digest settings
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {showSettingsSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Recent Digest Runs</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Daily and weekly summary generation history.</p>
+
+          <div className="mt-3 space-y-2">
+            {digestRuns.length === 0 ? <p className="text-sm text-[var(--muted)]">No digest runs yet.</p> : null}
+            {digestRuns.map((run) => (
+              <article key={run.id} className="rounded-lg border p-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className={`badge ${run.status.toLowerCase()}`}>{run.status.toLowerCase()}</span>
+                  <span className="rounded bg-slate-100 px-2 py-0.5 uppercase">{run.cadence.toLowerCase()}</span>
+                  <span className="text-[var(--muted)]">period {run.periodKey}</span>
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Window: {new Date(run.windowStart).toLocaleString()} - {new Date(run.windowEnd).toLocaleString()}
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Sources: {run.sourceItemCount} · Email: {run.emailEnabled ? run.emailStatus || "queued" : "off"} · Podcast:{" "}
+                  {run.podcastEnabled ? run.podcastStatus || "queued" : "off"}
+                </p>
+              </article>
+            ))}
           </div>
         </section>
       ) : null}

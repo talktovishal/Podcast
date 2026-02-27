@@ -18,6 +18,10 @@ Primary entities:
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
 - `DemoExtractionTrace` (demo-only extraction diagnostics, last 10)
+- `UserDigestSettings` (per-user digest cadence/length/timezone defaults)
+- `DigestFeedToken` (private digest RSS access token with rotation)
+- `DigestRun` + `DigestEpisode` (daily/weekly digest execution state + published digest audio metadata)
+- `DigestSchedulerTick` (external scheduler signal queue)
 
 Monetization/quota fields on `User`:
 - `isPaid` (paid accounts are unrestricted)
@@ -58,6 +62,16 @@ Current behavior (`M57`-`M64` implemented):
 6. Worker writes final audio artifact to object storage and upserts `Episode`.
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
 
+## Digest automation pipeline (`M72`-`M79`)
+1. User configures digest preferences in `/app/settings` (daily/weekly email + podcast, timezone, schedule, target length).
+2. Worker scheduler pass evaluates due windows from `UserDigestSettings`.
+3. Scheduler enqueues idempotent `DigestRun` rows keyed by `(userId, cadence, periodKey)`.
+4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
+5. Summary provider adapter generates digest markdown/text (stub provider default; proxy-ready contract for OpenAI/Gemini style backends).
+6. Processor persists summary/email artifacts to object storage; email sender adapter records stub delivery status.
+7. When enabled, processor synthesizes digest audio with existing TTS selection and upserts `DigestEpisode`.
+8. Digest RSS route renders separate digest feed using `DigestFeedToken`; media served via digest media range route.
+
 ## Admin analytics pipeline (`M66`-`M70`)
 Event sources:
 - web auth: `USER_SIGNUP`, `USER_LOGIN`
@@ -92,7 +106,7 @@ Critical artifacts in object storage:
 - markdown artifacts (`MARKDOWN`) for diagnostics/reuse
 
 ## Media delivery contract
-`/api/media/[...path]` is storage-backed and enforces podcast-compatible semantics:
+`/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
 - token authorization via active feed token
 - `HEAD` with accurate `Content-Length`
 - `GET` with byte-range `206 Partial Content`

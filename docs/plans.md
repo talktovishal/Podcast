@@ -38,6 +38,11 @@
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
+- Digest automation controls (`M72`-`M79`) are implemented:
+  - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
+  - separate private digest RSS token/route and digest media range/HEAD delivery path.
+  - worker-side digest scheduler + idempotent run processing (summary artifacts + optional podcast + stub email).
+  - bearer-protected internal tick endpoint for external cron orchestration.
 
 ## Requirement Coverage Snapshot
 
@@ -77,6 +82,7 @@
 | Markdown-derived TTS input contract | M62 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
+| Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
 
 ## Milestone Status Snapshot
 
@@ -160,6 +166,14 @@ Milestone metadata contract:
 | M69 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M70 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M71 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M72 | Done | 2026-03-02 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M73 | Done | 2026-03-03 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M74 | Done | 2026-03-04 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M75 | Done | 2026-03-05 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M76 | Done | 2026-03-06 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M77 | Done | 2026-03-07 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M78 | Done | 2026-03-08 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1926,3 +1940,159 @@ Milestone metadata contract:
   - `corepack pnpm --filter @articlepod/web run export`
   - `npm run license:check`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M72 - Digest Data Model + Core Contracts
+- status: Done
+- target_finish: 2026-03-02
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add digest entities (`UserDigestSettings`, `DigestFeedToken`, `DigestRun`, `DigestEpisode`, `DigestSchedulerTick`) to SQLite + PostgreSQL Prisma schemas.
+  - Add shared digest schemas/types (`DigestCadence`, length buckets, digest settings update schema, scheduler tick schema).
+  - Add digest core utilities (target-word mapping, schedule helpers, summary/email provider interfaces).
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/digest/*`
+- Acceptance criteria:
+  - DB bootstrap succeeds with new digest models.
+  - Digest schedule + summary contracts are importable in web and worker.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run test --workspace @articlepod/core`
+
+### M73 - Digest Settings APIs + Digest Feed Token Controls
+- status: Done
+- target_finish: 2026-03-03
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add digest settings read/write APIs.
+  - Add digest feed token rotation API and auth helpers.
+  - Add digest run history API.
+- Key files/modules:
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/app/api/digest/settings/route.ts`
+  - `apps/web/src/app/api/digest/runs/route.ts`
+  - `apps/web/src/app/api/digest-feed-token/rotate/route.ts`
+- Acceptance criteria:
+  - Authenticated users can persist timezone/cadence/length settings.
+  - Digest feed token rotation invalidates old token and returns new digest feed URL.
+- Verification commands:
+  - `npm run test --workspace @articlepod/web -- digest-routes`
+
+### M74 - Digest Scheduler Pass + External Tick Signal
+- status: Done
+- target_finish: 2026-03-04
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add worker digest scheduler pass for due daily/weekly windows.
+  - Enforce latest-window-only catch-up behavior.
+  - Add bearer-protected internal tick API to signal scheduler runs from external cron.
+- Key files/modules:
+  - `apps/worker/src/jobs/scheduleDigestRuns.ts`
+  - `apps/worker/src/index.ts`
+  - `apps/web/src/app/api/internal/digests/tick/route.ts`
+- Acceptance criteria:
+  - Due digest runs are enqueued idempotently per `(userId,cadence,periodKey)`.
+  - Unauthorized tick calls are rejected.
+- Verification commands:
+  - `npm run test --workspace @articlepod/worker -- digest-jobs`
+  - `npm run test --workspace @articlepod/web -- digest-routes`
+
+### M75 - Digest Run Processor (Summary + Stub Email + Optional Podcast)
+- status: Done
+- target_finish: 2026-03-05
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Process digest runs asynchronously: collect markdown artifacts, summarize, persist summary/email artifacts, and optionally synthesize digest audio.
+  - Add summary provider factory (stub/proxy-ready) and digest email sender stub.
+- Key files/modules:
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/lib/summary.ts`
+  - `apps/worker/src/lib/digest-email.ts`
+- Acceptance criteria:
+  - No-source windows become `SKIPPED`.
+  - Success path stores summary + stub email status.
+  - Failures mark run `FAILED` with retry scheduling.
+- Verification commands:
+  - `npm run test --workspace @articlepod/worker -- digest-jobs`
+
+### M76 - Separate Digest RSS + Digest Media Route Contract
+- status: Done
+- target_finish: 2026-03-06
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add separate digest feed route (`/rss/digest/[token]`).
+  - Add digest media route with token auth + `HEAD` + byte-range `206`.
+- Key files/modules:
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
+- Acceptance criteria:
+  - Digest feed renders valid RSS 2.0 with iTunes namespace.
+  - Digest media responses satisfy podcast client range semantics.
+- Verification commands:
+  - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
+
+### M77 - Settings UX for Digest Controls + Run History
+- status: Done
+- target_finish: 2026-03-07
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add digest feed copy/rotate controls in settings.
+  - Add daily/weekly digest settings form (timezone, cadence toggles, schedule, length).
+  - Add recent digest run history panel in settings.
+- Key files/modules:
+  - `apps/web/src/app/app/settings/page.tsx`
+  - `apps/web/src/components/dashboard-client.tsx`
+- Acceptance criteria:
+  - Users can update digest settings and view digest run status from `/app/settings`.
+  - `/app` workspace stays focused on source submission items.
+- Verification commands:
+  - `npm run build`
+  - `npm run test --workspace @articlepod/web -- app-dashboard-layout`
+
+### M78 - Digest Test Expansion + Contract Gates
+- status: Done
+- target_finish: 2026-03-08
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add core/web/worker digest tests (scheduling, API auth, run processing, RSS/media range checks).
+  - Run contract gates for both main and digest feeds.
+- Key files/modules:
+  - `packages/core/tests/digest.test.ts`
+  - `apps/web/tests/digest-routes.test.ts`
+  - `apps/worker/tests/digest-jobs.test.ts`
+- Acceptance criteria:
+  - Digest test suites pass in local CI profile.
+  - Main and digest podcast contract scripts both pass.
+- Verification commands:
+  - `npm run test`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+  - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
+
+### M79 - Docs Sync for Digest Track
+- status: Done
+- target_finish: 2026-03-09
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Sync prompts/plans/architecture/documentation/env/operations/implement docs to digest implementation.
+- Key files/modules:
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `docs/operations.md`
+  - `docs/implement.md`
+- Acceptance criteria:
+  - Docs reflect digest data model, scheduler contract, feed/media endpoints, env vars, and runbook commands.
+- Verification commands:
+  - Manual cross-doc consistency pass.

@@ -72,6 +72,31 @@ export async function getUserTtsSettings(userId: string): Promise<{ providerId: 
   };
 }
 
+export async function getUserDigestSettings(userId: string) {
+  return prisma.userDigestSettings.findUnique({
+    where: { userId }
+  });
+}
+
+export async function getRecentDigestRuns(userId: string, limit = 20) {
+  return prisma.digestRun.findMany({
+    where: { userId },
+    orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
+    take: Math.max(1, Math.min(limit, 50)),
+    include: {
+      episode: {
+        select: {
+          id: true,
+          audioPath: true,
+          audioBytes: true,
+          mimeType: true,
+          publishedAt: true
+        }
+      }
+    }
+  });
+}
+
 export async function getAdminMetrics() {
   const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentErrors, recentJobs] =
     await Promise.all([

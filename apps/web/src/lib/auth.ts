@@ -1,4 +1,4 @@
-import { AUTH_COOKIE_NAMES, createSecretToken, hashIncomingToken } from "@articlepod/core";
+import { AUTH_COOKIE_NAMES, computeNextDailyRunAt, computeNextWeeklyRunAt, createSecretToken, hashIncomingToken } from "@articlepod/core";
 import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
@@ -90,6 +90,66 @@ export async function ensureUserFeedToken(userId: string): Promise<string> {
     }
   });
   return token.plain;
+}
+
+export async function ensureUserDigestFeedToken(userId: string): Promise<string> {
+  const active = await prisma.digestFeedToken.findFirst({ where: { userId, active: true } });
+  if (active) {
+    return active.tokenValue;
+  }
+
+  const token = createSecretToken();
+  await prisma.digestFeedToken.create({
+    data: {
+      userId,
+      tokenValue: token.plain,
+      tokenHash: token.hash,
+      active: true
+    }
+  });
+  return token.plain;
+}
+
+export async function ensureUserDigestSettings(userId: string) {
+  const existing = await prisma.userDigestSettings.findUnique({
+    where: { userId }
+  });
+  if (existing) {
+    return existing;
+  }
+
+  const now = new Date();
+  const timezone = "UTC";
+  return prisma.userDigestSettings.create({
+    data: {
+      userId,
+      timezone,
+      dailyEmailEnabled: false,
+      dailyPodcastEnabled: false,
+      dailyHour: 16,
+      dailyMinute: 0,
+      dailyLengthMinutes: 5,
+      dailyNextRunAt: computeNextDailyRunAt({
+        now,
+        timezone,
+        dailyHour: 16,
+        dailyMinute: 0
+      }),
+      weeklyEmailEnabled: true,
+      weeklyPodcastEnabled: true,
+      weeklyDayOfWeek: 5,
+      weeklyHour: 16,
+      weeklyMinute: 0,
+      weeklyLengthMinutes: 15,
+      weeklyNextRunAt: computeNextWeeklyRunAt({
+        now,
+        timezone,
+        weeklyDayOfWeek: 5,
+        weeklyHour: 16,
+        weeklyMinute: 0
+      })
+    }
+  });
 }
 
 export async function createSession(
@@ -218,6 +278,28 @@ export async function rotateFeedToken(userId: string): Promise<string> {
   return token.plain;
 }
 
+export async function rotateDigestFeedToken(userId: string): Promise<string> {
+  const oldTokens = await prisma.digestFeedToken.findMany({ where: { userId, active: true } });
+  if (oldTokens.length > 0) {
+    await prisma.digestFeedToken.updateMany({
+      where: { userId, active: true },
+      data: { active: false, rotatedAt: new Date() }
+    });
+  }
+
+  const token = createSecretToken();
+  await prisma.digestFeedToken.create({
+    data: {
+      userId,
+      tokenValue: token.plain,
+      tokenHash: token.hash,
+      active: true
+    }
+  });
+
+  return token.plain;
+}
+
 export async function createShareToken(userId: string, expiresAt?: Date): Promise<string> {
   const token = createSecretToken();
   await prisma.shareToken.create({
@@ -253,6 +335,20 @@ export async function getUserByShareToken(plain: string): Promise<AuthUser | nul
 export async function getUserByFeedToken(plain: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(plain);
   const feedToken = await prisma.feedToken.findFirst({
+    where: { tokenHash, active: true },
+    include: { user: true }
+  });
+
+  if (!feedToken) {
+    return null;
+  }
+
+  return authUserFromDbUser(feedToken.user);
+}
+
+export async function getUserByDigestFeedToken(plain: string): Promise<AuthUser | null> {
+  const tokenHash = hashIncomingToken(plain);
+  const feedToken = await prisma.digestFeedToken.findFirst({
     where: { tokenHash, active: true },
     include: { user: true }
   });

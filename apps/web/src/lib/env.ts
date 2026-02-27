@@ -56,6 +56,7 @@ export const env = {
   appleClientId: process.env.APPLE_CLIENT_ID,
   appleClientSecret: process.env.APPLE_CLIENT_SECRET,
   openAiApiKey: process.env.OPENAI_API_KEY,
+  digestSchedulerSecret: process.env.DIGEST_SCHEDULER_SECRET ?? "",
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL,

@@ -122,6 +122,23 @@ If parity/azure runtime paths changed, also run:
 - expose markdown diagnostics in authorized app/API flows.
 - add artifact lifecycle scripts (`artifacts:backfill`, `artifacts:purge`) and regression verification.
 
+## M72-M79 implementation sequence (completed)
+1. M72/M73
+- add digest Prisma models + shared digest schemas/types.
+- add digest settings/feed-token APIs and auth helpers.
+
+2. M74/M75
+- add worker digest scheduler and idempotent run enqueue contract.
+- process digest runs (summary provider adapter, stub email sender, optional digest TTS episode).
+
+3. M76/M77
+- add separate digest RSS + digest media routes (`HEAD`/`Range` compliant).
+- extend `/app/settings` with digest controls and recent run history panel.
+
+4. M78/M79
+- expand core/web/worker tests for digest behavior.
+- run podcast contract gates for main + digest feeds and sync docs.
+
 ## Migration helpers
 - SQLite export:
   - `npx pnpm --filter @articlepod/web run db:export-json -- --out <file>`

@@ -15,6 +15,24 @@ export type UserRole = (typeof userRoleValues)[number];
 export const episodeFormatValues = ["audio/mpeg", "audio/mp4"] as const;
 export type EpisodeFormat = (typeof episodeFormatValues)[number];
 
+export const digestCadenceValues = ["DAILY", "WEEKLY"] as const;
+export type DigestCadence = (typeof digestCadenceValues)[number];
+
+export const digestLengthMinutesValues = [5, 15, 30] as const;
+export type DigestLengthMinutes = (typeof digestLengthMinutesValues)[number];
+
+export const digestRunStatusValues = ["QUEUED", "PROCESSING", "SUCCEEDED", "FAILED", "SKIPPED"] as const;
+export type DigestRunStatus = (typeof digestRunStatusValues)[number];
+
+export const digestEmailStatusValues = ["STUB_STORED", "SENT", "FAILED", "SKIPPED"] as const;
+export type DigestEmailStatus = (typeof digestEmailStatusValues)[number];
+
+export const digestPodcastStatusValues = ["SUCCEEDED", "FAILED", "SKIPPED"] as const;
+export type DigestPodcastStatus = (typeof digestPodcastStatusValues)[number];
+
+export const digestDayOfWeekValues = [0, 1, 2, 3, 4, 5, 6] as const;
+export type DigestDayOfWeek = (typeof digestDayOfWeekValues)[number];
+
 export const submitUrlSchema = z.object({
   url: z.string().url(),
   title: z.string().trim().min(1).max(200).optional(),
@@ -50,11 +68,55 @@ export const updateTtsSettingsSchema = z.object({
   voice: z.string().trim().min(1).max(80)
 });
 
+function isValidIanaTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const digestLengthSchema = z.union([z.literal(5), z.literal(15), z.literal(30)]);
+
+export const updateDigestSettingsSchema = z.object({
+  timezone: z.string().trim().min(1).max(80).refine((value) => isValidIanaTimezone(value), "Invalid IANA timezone."),
+  dailyEmailEnabled: z.boolean(),
+  dailyPodcastEnabled: z.boolean(),
+  dailyHour: z.number().int().min(0).max(23),
+  dailyMinute: z.number().int().min(0).max(59),
+  dailyLengthMinutes: digestLengthSchema,
+  weeklyEmailEnabled: z.boolean(),
+  weeklyPodcastEnabled: z.boolean(),
+  weeklyDayOfWeek: z.number().int().min(0).max(6),
+  weeklyHour: z.number().int().min(0).max(23),
+  weeklyMinute: z.number().int().min(0).max(59),
+  weeklyLengthMinutes: digestLengthSchema
+});
+
+export const digestSchedulerTickSchema = z.object({
+  forceNow: z.boolean().optional().default(false),
+  requestedBy: z.string().trim().max(80).optional()
+});
+
 export const previewTtsSchema = z.object({
   providerId: z.string().trim().min(1).max(40).optional(),
   voice: z.string().trim().min(1).max(80),
   text: z.string().trim().min(1).max(400).optional()
 });
+
+export function digestTargetWords(minutes: DigestLengthMinutes): number {
+  switch (minutes) {
+    case 5:
+      return 700;
+    case 15:
+      return 2_100;
+    case 30:
+      return 4_200;
+    default:
+      return 2_100;
+  }
+}
 
 export type SubmitUrlInput = z.infer<typeof submitUrlSchema>;
 export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
@@ -63,3 +125,5 @@ export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchem
 export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;
 export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;
 export type PreviewTtsInput = z.infer<typeof previewTtsSchema>;
+export type UpdateDigestSettingsInput = z.infer<typeof updateDigestSettingsSchema>;
+export type DigestSchedulerTickInput = z.infer<typeof digestSchedulerTickSchema>;

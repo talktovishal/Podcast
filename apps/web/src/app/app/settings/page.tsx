@@ -5,8 +5,8 @@ import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";
-import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
-import { getUserTtsSettings } from "@/lib/dashboard";
+import { ensureUserDigestFeedToken, ensureUserDigestSettings, ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
+import { getRecentDigestRuns, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
@@ -20,8 +20,11 @@ export default async function AppSettingsPage() {
     redirect("/login");
   }
 
-  const [feedToken, ttsSettings, ttsAvailability] = await Promise.all([
+  const [feedToken, digestFeedToken, digestSettings, digestRuns, ttsSettings, ttsAvailability] = await Promise.all([
     ensureUserFeedToken(user.id),
+    ensureUserDigestFeedToken(user.id),
+    ensureUserDigestSettings(user.id),
+    getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability()
   ]);
@@ -31,6 +34,7 @@ export default async function AppSettingsPage() {
   });
   const ttsCatalog = getTtsCatalog();
   const feedUrl = `${env.appUrl}/rss/${feedToken}.xml`;
+  const digestFeedUrl = `${env.appUrl}/rss/digest/${digestFeedToken}.xml`;
 
   return (
     <main className="py-5 sm:py-8">
@@ -39,7 +43,7 @@ export default async function AppSettingsPage() {
           <div>
             <p className="text-sm text-[var(--muted)]">Account settings</p>
             <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">Manage feed access, extension auth, and default voice.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">Manage feed access, digest settings, extension auth, and default voice.</p>
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
@@ -60,6 +64,35 @@ export default async function AppSettingsPage() {
           viewMode="settings"
           feedUrl={feedUrl}
           feedToken={feedToken}
+          digestFeedUrl={digestFeedUrl}
+          initialDigestSettings={{
+            timezone: digestSettings.timezone,
+            dailyEmailEnabled: digestSettings.dailyEmailEnabled,
+            dailyPodcastEnabled: digestSettings.dailyPodcastEnabled,
+            dailyHour: digestSettings.dailyHour,
+            dailyMinute: digestSettings.dailyMinute,
+            dailyLengthMinutes: digestSettings.dailyLengthMinutes as 5 | 15 | 30,
+            weeklyEmailEnabled: digestSettings.weeklyEmailEnabled,
+            weeklyPodcastEnabled: digestSettings.weeklyPodcastEnabled,
+            weeklyDayOfWeek: digestSettings.weeklyDayOfWeek,
+            weeklyHour: digestSettings.weeklyHour,
+            weeklyMinute: digestSettings.weeklyMinute,
+            weeklyLengthMinutes: digestSettings.weeklyLengthMinutes as 5 | 15 | 30
+          }}
+          initialDigestRuns={digestRuns.map((run) => ({
+            id: run.id,
+            cadence: run.cadence,
+            periodKey: run.periodKey,
+            status: run.status,
+            sourceItemCount: run.sourceItemCount,
+            scheduledFor: run.scheduledFor.toISOString(),
+            windowStart: run.windowStart.toISOString(),
+            windowEnd: run.windowEnd.toISOString(),
+            emailEnabled: run.emailEnabled,
+            emailStatus: run.emailStatus,
+            podcastEnabled: run.podcastEnabled,
+            podcastStatus: run.podcastStatus
+          }))}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}

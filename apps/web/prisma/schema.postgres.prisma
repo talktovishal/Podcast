@@ -30,6 +30,10 @@ model User {
   extensionTokens ExtensionToken[]
   demoExtractionTraces DemoExtractionTrace[]
   analyticsEvents AnalyticsEvent[]
+  digestSettings UserDigestSettings?
+  digestFeedTokens DigestFeedToken[]
+  digestRuns      DigestRun[]
+  digestEpisodes  DigestEpisode[]
 }
 
 model Session {
@@ -294,4 +298,113 @@ model AnalyticsCoverage {
   notes           String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model UserDigestSettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  timezone            String   @default("UTC")
+  dailyEmailEnabled   Boolean  @default(false)
+  dailyPodcastEnabled Boolean  @default(false)
+  dailyHour           Int      @default(16)
+  dailyMinute         Int      @default(0)
+  dailyLengthMinutes  Int      @default(5)
+  dailyNextRunAt      DateTime?
+  weeklyEmailEnabled  Boolean  @default(true)
+  weeklyPodcastEnabled Boolean @default(true)
+  weeklyDayOfWeek     Int      @default(5)
+  weeklyHour          Int      @default(16)
+  weeklyMinute        Int      @default(0)
+  weeklyLengthMinutes Int      @default(15)
+  weeklyNextRunAt     DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([dailyNextRunAt])
+  @@index([weeklyNextRunAt])
+}
+
+model DigestFeedToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenValue String   @unique
+  tokenHash  String   @unique
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  rotatedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
+}
+
+model DigestRun {
+  id                  String   @id @default(cuid())
+  userId              String
+  cadence             String
+  periodKey           String
+  windowStart         DateTime
+  windowEnd           DateTime
+  scheduledFor        DateTime
+  status              String   @default("QUEUED")
+  attempt             Int      @default(0)
+  lockedAt            DateTime?
+  nextRetryAt         DateTime?
+  targetLengthMinutes Int
+  sourceItemCount     Int      @default(0)
+  summaryStorageKey   String?
+  summaryBytes        Int?
+  emailEnabled        Boolean  @default(false)
+  emailStatus         String?
+  emailSubject        String?
+  emailStorageKey     String?
+  emailError          String?
+  podcastEnabled      Boolean  @default(false)
+  podcastStatus       String?
+  podcastError        String?
+  errorCode           String?
+  errorMessage        String?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episode DigestEpisode?
+
+  @@unique([userId, cadence, periodKey])
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
+  @@index([userId, createdAt])
+}
+
+model DigestEpisode {
+  id         String   @id @default(cuid())
+  digestRunId String  @unique
+  userId     String
+  guid       String   @unique
+  title      String
+  description String
+  audioPath  String
+  audioBytes Int
+  mimeType   String
+  publishedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  digestRun DigestRun @relation(fields: [digestRunId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, publishedAt])
+}
+
+model DigestSchedulerTick {
+  id          String   @id @default(cuid())
+  requestedAt DateTime @default(now())
+  requestedBy String
+  forceNow    Boolean  @default(false)
+  processedAt DateTime?
+
+  @@index([processedAt, requestedAt])
+  @@index([requestedAt])
 }

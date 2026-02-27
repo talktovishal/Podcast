@@ -12,6 +12,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 2. Submit URL, upload PDF, or capture page from Chrome extension.
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
+5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
 
 ## Accounts
 Set passwords via environment variables before seeding (see `.env.example`):
@@ -34,8 +35,29 @@ Connect flow:
 
 ## Feed and media
 - Feed URL: `/rss/<feed_token>.xml`
+- Digest feed URL: `/rss/digest/<digest_feed_token>.xml`
 - Media URL: `/api/media/...`
+- Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
+
+## Digest settings
+Available in `/app/settings`:
+- timezone-aware digest schedule controls:
+  - daily: on/off for email + podcast, hour/minute, target length (5/15/30)
+  - weekly: on/off for email + podcast, weekday/hour/minute, target length (5/15/30)
+- separate digest feed controls:
+  - copy digest feed URL
+  - rotate digest feed token
+- recent digest run history (status/source-count/email/podcast outcomes)
+
+Digest APIs:
+- `GET /api/digest/settings`
+- `POST /api/digest/settings`
+- `GET /api/digest/runs`
+- `POST /api/digest-feed-token/rotate`
+
+Scheduler trigger API (internal automation):
+- `POST /api/internal/digests/tick` (Bearer secret protected via `DIGEST_SCHEDULER_SECRET`)
 
 ## Runtime profiles
 - `simple`: local SQLite + local object storage

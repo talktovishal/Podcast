@@ -191,16 +191,17 @@ async function appendJobEvent(input: {
   }
 }
 
-async function synthesizeEpisodeAudio(
+export async function synthesizeEpisodeAudio(
   itemId: string,
   chunks: { text: string }[],
   selection: { providerId: TtsProviderId; voice: string },
-  onProgress?: (current: number, total: number) => Promise<void> | void
+  onProgress?: (current: number, total: number) => Promise<void> | void,
+  outputKey?: string
 ): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
   const provider = makeTtsProvider({ providerId: selection.providerId });
   const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
   const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
-  const relativePath = normalizeStorageKey(join("items", itemId, `episode.${extension}`));
+  const relativePath = normalizeStorageKey(outputKey || join("items", itemId, `episode.${extension}`));
   const tempDir = await mkdtemp(join(tmpdir(), "articlepod-worker-"));
   const tempOutputPath = join(tempDir, `episode.${extension}`);
 
