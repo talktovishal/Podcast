@@ -2,6 +2,8 @@ import { AUTH_COOKIE_NAMES, createSecretToken, hashIncomingToken } from "@articl
 import bcrypt from "bcryptjs";
 import { cookies, headers } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
+import type { AnalyticsAuthMethod } from "@articlepod/core";
+import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { prisma } from "./prisma";
 
@@ -90,13 +92,31 @@ export async function ensureUserFeedToken(userId: string): Promise<string> {
   return token.plain;
 }
 
-export async function createSession(userId: string): Promise<string> {
+export async function createSession(
+  userId: string,
+  options?: {
+    authMethod?: AnalyticsAuthMethod;
+  }
+): Promise<string> {
   const token = createSecretToken();
-  await prisma.session.create({
+  const session = await prisma.session.create({
     data: {
       userId,
       tokenHash: token.hash,
       expiresAt: sessionExpiryDate()
+    }
+  });
+  const profile = await resolveUserAnalyticsProfile(userId);
+  await recordAnalyticsEventBestEffort({
+    eventType: "USER_LOGIN",
+    userId,
+    dedupeKey: `user_login:session:${session.id}`,
+    authMethod: options?.authMethod ?? profile.authMethod,
+    segmentAuth: profile.segmentAuth,
+    userRole: profile.userRole,
+    occurredAt: session.createdAt,
+    metadata: {
+      session_id: session.id
     }
   });
   return token.plain;
@@ -310,7 +330,7 @@ export async function findOrCreateOAuthUser(input: {
   providerUserId: string;
   email?: string | null;
   name?: string | null;
-}): Promise<{ id: string; email: string; name: string | null; role: string }> {
+}): Promise<{ user: { id: string; email: string; name: string | null; role: string }; created: boolean }> {
   const normalizedEmail = normalizeOAuthEmail(input.email);
 
   return prisma.$transaction(async (tx) => {
@@ -342,7 +362,10 @@ export async function findOrCreateOAuthUser(input: {
               data: updateData
             })
           : existingIdentity.user;
-      return user;
+      return {
+        user,
+        created: false
+      };
     }
 
     const userByEmail = normalizedEmail ? await tx.user.findUnique({ where: { email: normalizedEmail } }) : null;
@@ -365,7 +388,10 @@ export async function findOrCreateOAuthUser(input: {
       }
     });
 
-    return user;
+    return {
+      user,
+      created: !userByEmail
+    };
   });
 }
 

@@ -56,8 +56,10 @@ test("findOrCreateOAuthUser links identities by provider subject and email", asy
     name: "OAuth Updated"
   });
 
-  assert.equal(again.id, first.id);
-  assert.equal(again.name, "OAuth Updated");
+  assert.equal(again.user.id, first.user.id);
+  assert.equal(again.user.name, "OAuth Updated");
+  assert.equal(first.created, true);
+  assert.equal(again.created, false);
 
   const secondProvider = await findOrCreateOAuthUser({
     provider: "apple",
@@ -66,17 +68,17 @@ test("findOrCreateOAuthUser links identities by provider subject and email", asy
     name: "OAuth Apple"
   });
 
-  assert.equal(secondProvider.id, first.id);
+  assert.equal(secondProvider.user.id, first.user.id);
 
   const identities = await prisma.oAuthIdentity.findMany({
     where: {
-      userId: first.id
+      userId: first.user.id
     }
   });
 
   assert.equal(identities.length, 2);
 
-  await prisma.user.delete({ where: { id: first.id } });
+  await prisma.user.delete({ where: { id: first.user.id } });
 });
 
 test("extension connect + html snapshot submission reaches user feed", async () => {

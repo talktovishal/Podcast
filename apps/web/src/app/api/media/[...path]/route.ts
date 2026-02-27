@@ -1,5 +1,6 @@
 import { hashIncomingToken } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
+import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 
@@ -13,14 +14,14 @@ function contentTypeForPath(path: string): string {
   return "audio/mp4";
 }
 
-async function validateToken(feedToken: string | null): Promise<boolean> {
+async function validateToken(feedToken: string | null): Promise<{ userId: string } | null> {
   if (!feedToken) {
-    return false;
+    return null;
   }
 
   const tokenHash = hashIncomingToken(feedToken);
-  const found = await prisma.feedToken.findFirst({ where: { tokenHash, active: true }, select: { id: true } });
-  return Boolean(found);
+  const found = await prisma.feedToken.findFirst({ where: { tokenHash, active: true }, select: { userId: true } });
+  return found ? { userId: found.userId } : null;
 }
 
 function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
@@ -40,8 +41,8 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
 }
 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
-  const valid = await validateToken(request.nextUrl.searchParams.get("feed_token"));
-  if (!valid) {
+  const auth = await validateToken(request.nextUrl.searchParams.get("feed_token"));
+  if (!auth) {
     return new NextResponse(null, { status: 401 });
   }
 
@@ -69,8 +70,8 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
 }
 
 export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
-  const valid = await validateToken(request.nextUrl.searchParams.get("feed_token"));
-  if (!valid) {
+  const auth = await validateToken(request.nextUrl.searchParams.get("feed_token"));
+  if (!auth) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -86,9 +87,62 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     const size = head.bytes;
     const mimeType = head.contentType || contentTypeForPath(key);
     const range = request.headers.get("range");
+    const now = new Date();
+    const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
+    const maybeLogPlayback = async (isPlaybackLike: boolean): Promise<void> => {
+      if (!isPlaybackLike) {
+        return;
+      }
+      const profile = await resolveUserAnalyticsProfile(auth.userId);
+      const dedupeSource = maybeEpisodeId || key;
+      let sourceType: "URL" | "PDF" | "HTML_SNAPSHOT" | null = null;
+      let itemId: string | null = null;
+
+      if (maybeEpisodeId) {
+        const episode = await prisma.episode.findFirst({
+          where: {
+            id: maybeEpisodeId,
+            item: {
+              userId: auth.userId
+            }
+          },
+          select: {
+            itemId: true,
+            item: {
+              select: {
+                sourceType: true
+              }
+            }
+          }
+        });
+        itemId = episode?.itemId ?? null;
+        const candidate = episode?.item.sourceType;
+        if (candidate === "URL" || candidate === "PDF" || candidate === "HTML_SNAPSHOT") {
+          sourceType = candidate;
+        }
+      }
+
+      await recordAnalyticsEventBestEffort({
+        eventType: "PLAYBACK_STARTED",
+        userId: auth.userId,
+        itemId,
+        sourceType,
+        authMethod: profile.authMethod,
+        segmentAuth: profile.segmentAuth,
+        userRole: profile.userRole,
+        dedupeKey: `playback:${auth.userId}:${dedupeSource}:${now.toISOString().slice(0, 10)}`,
+        occurredAt: now,
+        metadata: {
+          range,
+          media_key: key,
+          episode_id: maybeEpisodeId
+        }
+      });
+    };
 
     if (!range) {
       const full = await storage.getObject(key);
+      void maybeLogPlayback(true).catch(() => undefined);
       return new NextResponse(new Uint8Array(full), {
         status: 200,
         headers: {
@@ -112,6 +166,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     const { start, end } = parsedRange;
     const chunk = await storage.getObject(key, { start, end });
     const chunkSize = chunk.byteLength;
+    void maybeLogPlayback(start <= 1).catch(() => undefined);
 
     return new NextResponse(new Uint8Array(chunk), {
       status: 206,

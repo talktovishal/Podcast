@@ -18,6 +18,9 @@ Primary entities:
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
 - `DemoExtractionTrace` (demo-only extraction diagnostics, last 10)
+- `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
+- `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
+- `AnalyticsCoverage` (metric coverage/backfill metadata, including forward-only metrics)
 
 ## Ingestion sources
 `Item.sourceType` supports:
@@ -48,6 +51,20 @@ Current behavior (`M57`-`M64` implemented):
 5. Worker resolves TTS selection and uses chunk cache when available.
 6. Worker writes final audio artifact to object storage and upserts `Episode`.
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
+
+## Admin analytics pipeline (`M66`-`M70`)
+Event sources:
+- web auth: `USER_SIGNUP`, `USER_LOGIN`
+- ingest paths: `ITEM_SUBMITTED`
+- worker completion: `ITEM_READY`, `ITEM_FAILED` (+ queue/processing duration metadata)
+- media route: `PLAYBACK_STARTED` (deduped by user + media + day)
+
+Storage/query model:
+- write path records raw `AnalyticsEvent` rows plus `AnalyticsDailyRollup` updates.
+- analytics APIs compute KPI/retention from indexed raw events with rollups available for additive trend acceleration.
+- `AnalyticsCoverage` surfaces historical/backfill confidence:
+  - signups/logins/submissions/ready/failed can be backfilled
+  - playback starts are forward-only from instrumentation start date.
 
 Queue resilience:
 - stale `PROCESSING` reclaim (`lockedAt` timeout)

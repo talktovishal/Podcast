@@ -33,6 +33,7 @@
     "ops:verify-restore": "./scripts/ops/verify-restore.sh",
     "artifacts:backfill": "npx pnpm --filter @articlepod/web run artifacts:backfill",
     "artifacts:purge": "npx pnpm --filter @articlepod/web run artifacts:purge",
+    "analytics:backfill": "npx pnpm --filter @articlepod/web run analytics:backfill",
     "extension:icons": "python3 scripts/generate-extension-icons.py",
     "extension:package": "./scripts/package-extension.sh",
     "extension:validate": "node scripts/validate-extension.mjs --zip",

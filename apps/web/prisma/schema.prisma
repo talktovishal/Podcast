@@ -13,6 +13,9 @@ model User {
   passwordHash String?
   name         String?
   role         String      @default("USER")
+  isPaid       Boolean     @default(false)
+  submissionCount Int      @default(0)
+  extraSubmissionCredits Int @default(0)
   ttsProvider  String      @default("kokoro")
   ttsVoice     String      @default("af_heart")
   createdAt    DateTime    @default(now())
@@ -26,6 +29,7 @@ model User {
   extensionConnectCodes ExtensionConnectCode[]
   extensionTokens ExtensionToken[]
   demoExtractionTraces DemoExtractionTrace[]
+  analyticsEvents AnalyticsEvent[]
 }
 
 model Session {
@@ -87,6 +91,7 @@ model Item {
   artifacts     ItemArtifact[]
   chunkCaches   ChunkCache[]
   demoExtractionTrace DemoExtractionTrace?
+  analyticsEvents AnalyticsEvent[]
 
   @@index([userId, status])
 }
@@ -234,4 +239,59 @@ model DemoExtractionTrace {
   item             Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([userId, updatedAt])
+}
+
+model AnalyticsEvent {
+  id            String   @id @default(cuid())
+  eventType     String
+  occurredAt    DateTime
+  day           String
+  userId        String?
+  itemId        String?
+  sourceType    String?
+  authMethod    String?
+  userRole      String?
+  segmentAuth   String?
+  metadataJson  Json?
+  dedupeKey     String   @unique
+  createdAt     DateTime @default(now())
+
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt, eventType])
+  @@index([day, eventType])
+  @@index([userId, day])
+  @@index([itemId, day])
+}
+
+model AnalyticsDailyRollup {
+  id                          String   @id @default(cuid())
+  day                         String
+  segmentKey                  String
+  signups                     Int      @default(0)
+  logins                      Int      @default(0)
+  submissions                 Int      @default(0)
+  ready                       Int      @default(0)
+  failed                      Int      @default(0)
+  playbackStarts              Int      @default(0)
+  processingDurationMsTotal   Int      @default(0)
+  processingDurationSamples   Int      @default(0)
+  queueWaitDurationMsTotal    Int      @default(0)
+  queueWaitDurationSamples    Int      @default(0)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@unique([day, segmentKey])
+  @@index([day])
+}
+
+model AnalyticsCoverage {
+  id              String   @id @default(cuid())
+  metricKey       String   @unique
+  coverageStartAt DateTime
+  isBackfilled    Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

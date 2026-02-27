@@ -7,6 +7,7 @@ import {
   setSessionCookie,
   verifyPassword
 } from "@/lib/auth";
+import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { fromError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { ensureAdminUser } from "@/lib/user-bootstrap";
@@ -49,6 +50,18 @@ export async function POST(request: NextRequest) {
       });
 
       await ensureUserFeedToken(user.id);
+      await recordAnalyticsEventBestEffort({
+        eventType: "USER_SIGNUP",
+        userId: user.id,
+        dedupeKey: `user_signup:${user.id}`,
+        authMethod: "LOCAL",
+        segmentAuth: "LOCAL_ONLY",
+        userRole: "USER",
+        occurredAt: user.createdAt,
+        metadata: {
+          email_domain: user.email.split("@")[1] || null
+        }
+      });
     }
 
     if (!user || !user.passwordHash) {
@@ -74,7 +87,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sessionToken = await createSession(user.id);
+    const sessionToken = await createSession(user.id, { authMethod: "LOCAL" });
 
     const response = NextResponse.json({ ok: true, role: user.role });
     await setSessionCookie(response, sessionToken);

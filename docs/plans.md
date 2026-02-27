@@ -28,6 +28,12 @@
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
+- Admin analytics track (`M66`-`M70`) is implemented:
+  - analytics event/rollup/coverage schema
+  - instrumentation for signup/login/submit/ready/fail/playback
+  - role-gated analytics APIs + CSV exports
+  - tabbed investor+ops admin dashboard with masked-by-default user table
+  - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
 
 ## Requirement Coverage Snapshot
 
@@ -65,6 +71,7 @@
 | Dual artifact policy (raw + markdown initially) | M57, M61 |
 | 90-day raw artifact retention lifecycle | M57, M61, M64 |
 | Markdown-derived TTS input contract | M62 |
+| Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 
 ## Milestone Status Snapshot
 
@@ -142,6 +149,11 @@ Milestone metadata contract:
 | M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
 | M65 | Done | 2026-02-25 | 2026-02-25 | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25) |
+| M66 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M67 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M68 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M69 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M70 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1346,6 +1358,7 @@ Milestone metadata contract:
 | Secrets accidentally leak via logs during failures | Low | High | tokens/cookies visible in log bundles | centralized redaction and redaction tests before release gate | M49, M56 |
 | Azure alert fatigue from poor thresholds | Medium | Medium | repeated non-actionable alert fires | phase-in dashboards with tuned thresholds and runbook-linked alerts | M54 |
 | Markdown conversion quality drift (lost headings/lists) | Medium | Medium | markdown fixtures diverge from expected structure | fixture corpus + deterministic markdown snapshot tests | M59, M60, M64 |
+| Analytics KPI trust issues from missing historical playback data | Medium | Medium | investor metrics appear inconsistent across time windows | hybrid backfill with explicit coverage labels + forward-only playback notation | M67, M68, M69 |
 | Dual raw+markdown storage increases cost and retention risk | Medium | Medium | storage growth exceeds projection or stale raw artifacts persist | lifecycle metadata + scheduled purge + retention audits | M57, M61, M64 |
 | Markdown artifact exposure leaks sensitive extracted data | Low | High | unauthorized retrieval of extraction artifacts | strict auth checks + scoped diagnostics access + audit logging | M63, M64 |
 | Domain/TLS drift causes broken canonical URLs or cert failures | Medium | High | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65 |
@@ -1764,3 +1777,114 @@ Milestone metadata contract:
   - `curl -I https://articlepod.com/api/health` (expect `200`)
   - `echo | openssl s_client -servername articlepod.com -connect articlepod.com:443 2>/dev/null | openssl x509 -noout -ext subjectAltName`
   - `./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"`
+
+### M66 - Analytics Event Foundation
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add analytics persistence models and shared event contracts.
+  - Add event instrumentation for auth, ingestion, worker outcomes, and playback starts.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/admin-analytics/events.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/worker/src/lib/analytics.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+- Acceptance criteria:
+  - Analytics events are persisted with dedupe keys and role/auth/source dimensions.
+  - Daily rollups update on write.
+  - Playback starts are deduped per user/media/day.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run test -- admin-analytics`
+
+### M67 - Analytics Backfill + Coverage Labels
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add idempotent analytics backfill script for signups/logins/submissions/ready/failed.
+  - Track metric coverage metadata and mark playback as forward-only.
+- Key files/modules:
+  - `apps/web/scripts/backfill-admin-analytics.ts`
+  - `apps/web/package.json`
+  - `package.json`
+- Acceptance criteria:
+  - Backfill is rerunnable and dedupe-safe.
+  - Coverage metadata is queryable by analytics APIs.
+- Verification commands:
+  - `npm run analytics:backfill`
+  - `npm run test -- admin-analytics`
+
+### M68 - Admin Analytics APIs + CSV Exports
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add role-gated summary/timeseries/retention/users analytics APIs.
+  - Add CSV export endpoint for summary, timeseries, and users datasets.
+- Key files/modules:
+  - `apps/web/src/app/api/admin/analytics/summary/route.ts`
+  - `apps/web/src/app/api/admin/analytics/timeseries/route.ts`
+  - `apps/web/src/app/api/admin/analytics/retention/route.ts`
+  - `apps/web/src/app/api/admin/analytics/users/route.ts`
+  - `apps/web/src/app/api/admin/analytics/export/route.ts`
+  - `apps/web/src/lib/admin-analytics/service.ts`
+  - `apps/web/src/lib/admin-analytics/csv.ts`
+- Acceptance criteria:
+  - APIs enforce admin-only access and filter/pagination behavior.
+  - CSV downloads return deterministic headers and values.
+- Verification commands:
+  - `npm run test -- admin-analytics`
+  - `npm run lint`
+
+### M69 - Tabbed Admin Dashboard UI
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Replace single-view admin page with tabbed analytics UX.
+  - Add global filters, CSV export action, and users table with PII masking toggle.
+- Key files/modules:
+  - `apps/web/src/app/admin/page.tsx`
+  - `apps/web/src/components/admin-analytics-dashboard.tsx`
+- Acceptance criteria:
+  - Admin sees investor + growth + engagement + reliability + users tabs.
+  - Default window is last 30 days.
+  - PII is masked by default and reveal is explicit.
+- Verification commands:
+  - `npm run test -- admin-dashboard-layout`
+  - `npm run build`
+
+### M70 - KPI Validation + Docs/Runbook Sync
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Add analytics API/instrumentation tests and keep docs synced with new contracts.
+  - Refresh prompts/plans/architecture/documentation/operations text for analytics track.
+- Key files/modules:
+  - `apps/web/tests/admin-analytics.test.ts`
+  - `apps/web/tests/admin-dashboard-layout.test.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Tests cover route authorization, dedupe semantics, masked users, CSV export.
+  - Docs describe analytics data model, runbook commands, and dashboard behavior.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`

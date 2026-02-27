@@ -20,6 +20,7 @@
     "ops:verify-restore": "tsx scripts/ops-verify-restore.ts",
     "artifacts:backfill": "tsx scripts/backfill-markdown-artifacts.ts",
     "artifacts:purge": "tsx scripts/purge-expired-artifacts.ts",
+    "analytics:backfill": "tsx scripts/backfill-admin-analytics.ts",
     "prisma:generate": "node ../../scripts/prisma-profile.mjs generate",
     "prisma:migrate": "prisma migrate dev --name init"
   },

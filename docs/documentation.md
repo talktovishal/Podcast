@@ -57,7 +57,20 @@ Current implementation:
 - structured JSONL runtime logs in `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`
 - support IDs included on API error payloads from shared error helper
 - correlation propagation from worker to python-tts (`traceparent`, request/job/item IDs)
-- admin observability dashboard includes backlog, processing latency, retryable failures, and top error codes
+- admin analytics dashboard includes tabbed investor + operations views:
+  - Investor Summary (acquisition/activation/MAU/readiness/power users/at-risk)
+  - Growth & Activation (trend + conversion metrics)
+  - Engagement & Retention (DAU/WAU/MAU + cohort retention)
+  - Reliability (queue/retry/latency/error diagnostics)
+  - Users (PII-masked by default with admin reveal option)
+- admin analytics API surfaces:
+  - `/api/admin/analytics/summary`
+  - `/api/admin/analytics/timeseries`
+  - `/api/admin/analytics/retention`
+  - `/api/admin/analytics/users`
+  - `/api/admin/analytics/export`
+- analytics backfill/coverage command:
+  - `npm run analytics:backfill`
 - diagnostics scripts:
   - `npm run logs:collect`
   - `npm run logs:triage`

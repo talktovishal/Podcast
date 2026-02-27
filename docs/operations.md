@@ -84,6 +84,20 @@ npm run logs:triage
 Output:
 - `/Users/vishalchowdhary/Documents/Podcast/exports/diagnostics/error-digest.md`
 
+## Admin analytics runbook
+Backfill admin analytics events/rollups/coverage:
+```bash
+npm run analytics:backfill
+```
+
+Export admin analytics datasets (role-gated APIs):
+- summary CSV:
+  - `/api/admin/analytics/export?dataset=summary`
+- timeseries CSV:
+  - `/api/admin/analytics/export?dataset=timeseries`
+- users CSV (PII masked by default):
+  - `/api/admin/analytics/export?dataset=users&pii=0`
+
 ## Alert query starter pack (Azure Log Analytics / Kusto)
 - Top error codes:
   - `AppTraces | where SeverityLevel >= 3 | summarize count() by tostring(Properties.error_code) | top 20 by count_`

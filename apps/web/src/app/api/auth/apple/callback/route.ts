@@ -8,6 +8,7 @@ import {
   isOAuthProviderConfigured,
   setSessionCookie
 } from "@/lib/auth";
+import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
 
 function parseJwtPayload(idToken: string): Record<string, unknown> | null {
@@ -81,15 +82,30 @@ export async function GET(request: NextRequest) {
     return redirectWithError("apple_sub", true);
   }
 
-  const user = await findOrCreateOAuthUser({
+  const oauthResult = await findOrCreateOAuthUser({
     provider: "apple",
     providerUserId,
     email,
     name
   });
+  const user = oauthResult.user;
 
   await ensureUserFeedToken(user.id);
-  const sessionToken = await createSession(user.id);
+  if (oauthResult.created) {
+    await recordAnalyticsEventBestEffort({
+      eventType: "USER_SIGNUP",
+      userId: user.id,
+      dedupeKey: `user_signup:${user.id}`,
+      authMethod: "APPLE",
+      segmentAuth: "OAUTH_LINKED",
+      userRole: user.role === "ADMIN" ? "ADMIN" : "USER",
+      occurredAt: new Date(),
+      metadata: {
+        provider: "apple"
+      }
+    });
+  }
+  const sessionToken = await createSession(user.id, { authMethod: "APPLE" });
 
   const response = NextResponse.redirect(`${env.appUrl}/app`);
   clearOAuthStateCookie(response, "apple");

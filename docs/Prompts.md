@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-02-25)
+## Spec Status (as of 2026-02-27)
 
-### Implemented (as of 2026-02-25)
+### Implemented (as of 2026-02-27)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -49,9 +49,15 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Docs governance baseline is implemented:
   - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
   - status reconciliation ledger captures corrections with confidence notes.
+- Admin analytics track (`M66`-`M70`) is implemented:
+  - role-gated tabbed admin dashboard (`Investor Summary`, `Growth & Activation`, `Engagement & Retention`, `Reliability`, `Users`).
+  - analytics event + daily rollup storage (`AnalyticsEvent`, `AnalyticsDailyRollup`, `AnalyticsCoverage`).
+  - event instrumentation for signup/login/submit/ready/fail/playback.
+  - KPI/retention/users APIs and CSV export endpoints.
+  - hybrid analytics backfill script with coverage metadata (`npm run analytics:backfill`).
 
 ### Next Milestones
-- Current milestone set (`M00`-`M65`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M70`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
@@ -183,12 +189,22 @@ E) Web UI (polished)
 
 F) Admin Module
 - Secure admin login with a predefined administrator account.
-- Centralized admin dashboard providing critical system insights:
-  - Active user count
-  - Job execution status (successes and failures)
-  - Error logs and diagnostic information
-- Enables efficient monitoring, debugging, and continuous system improvement.
-- Presentation-ready dashboard that clearly demonstrates system usage, value, and impact to stakeholders.
+- Role-gated, tabbed admin analytics dashboard with:
+  - Investor Summary
+  - Growth & Activation
+  - Engagement & Retention
+  - Reliability
+  - Users
+- Consumer KPI coverage:
+  - acquisition, activation, engagement, retention, reliability, investor callouts
+- Global filters:
+  - time window (`7d`, `30d`, `90d`, custom)
+  - source (`URL`, `PDF`, `HTML_SNAPSHOT`, all)
+  - auth (`LOCAL`, `OAUTH_LINKED`, `GOOGLE`, `APPLE`, all)
+  - role (`USER`, `ADMIN`, all)
+- User analytics table masks PII by default, with admin-only reveal toggle.
+- CSV export endpoints for summary, timeseries, and users datasets.
+- Enables monitoring, debugging, and investor-facing storytelling with clear usage metrics.
 
 G) Export
 - `pnpm export` writes:
@@ -383,6 +399,7 @@ Before marking any milestone complete, run and record the results for:
 4. Demo flow gate
 - Confirm seeded demo user can login and see starter item.
 - Confirm starter item plays in browser and seek works.
-- Confirm admin dashboard loads and shows metrics.
+- Confirm tabbed admin dashboard loads and shows investor + reliability + users metrics.
+- Confirm CSV export works from admin dashboard.
 
 If any gate fails, fix and re-run all impacted gates before committing.

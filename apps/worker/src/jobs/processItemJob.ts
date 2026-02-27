@@ -24,6 +24,7 @@ import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
 import { workerLogger } from "../lib/logger.js";
+import { recordWorkerAnalyticsEventBestEffort } from "../lib/analytics.js";
 
 type WorkerStage = "extract" | "tts" | "persist" | "job";
 type ExtractionLogEntry = {
@@ -664,6 +665,8 @@ export async function processJob(jobId: string): Promise<boolean> {
   }
 
   const item = claimResult.item;
+  const lockedAtMs = claimResult.lockedAt?.getTime() ?? claimResult.updatedAt.getTime();
+  const queueWaitMs = Math.max(0, lockedAtMs - claimResult.createdAt.getTime());
   const traceId = generateTraceId();
   const spanId = generateSpanId();
   const extractionLogs: ExtractionLogEntry[] = [];
@@ -964,6 +967,24 @@ export async function processJob(jobId: string): Promise<boolean> {
       // Demo diagnostics are best-effort and should not fail the job.
     }
 
+    const completionAt = new Date();
+    const processingDurationMs = Math.max(0, completionAt.getTime() - lockedAtMs);
+    const sourceType =
+      item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT" ? item.sourceType : "URL";
+    await recordWorkerAnalyticsEventBestEffort({
+      eventType: "ITEM_READY",
+      userId: item.userId,
+      itemId: item.id,
+      sourceType,
+      dedupeKey: `item_ready:${item.id}`,
+      occurredAt: completionAt,
+      metadata: {
+        queue_wait_ms: queueWaitMs,
+        processing_duration_ms: processingDurationMs,
+        job_id: claimResult.id
+      }
+    });
+
     return true;
       }
     );
@@ -1075,6 +1096,26 @@ export async function processJob(jobId: string): Promise<boolean> {
     } catch {
       // Demo diagnostics are best-effort and should not fail the job.
     }
+
+    const completionAt = new Date();
+    const processingDurationMs = Math.max(0, completionAt.getTime() - lockedAtMs);
+    const sourceType =
+      item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT" ? item.sourceType : "URL";
+    await recordWorkerAnalyticsEventBestEffort({
+      eventType: "ITEM_FAILED",
+      userId: item.userId,
+      itemId: item.id,
+      sourceType,
+      dedupeKey: `item_failed:${item.id}`,
+      occurredAt: completionAt,
+      metadata: {
+        queue_wait_ms: queueWaitMs,
+        processing_duration_ms: processingDurationMs,
+        error_code: err.code,
+        retry_recommended: retryRecommended,
+        job_id: claimResult.id
+      }
+    });
 
     return false;
   }

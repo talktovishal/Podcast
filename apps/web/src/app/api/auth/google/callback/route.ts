@@ -8,6 +8,7 @@ import {
   isOAuthProviderConfigured,
   setSessionCookie
 } from "@/lib/auth";
+import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
 
 function redirectWithError(code: string, clearState = false) {
@@ -77,15 +78,30 @@ export async function GET(request: NextRequest) {
     return redirectWithError("google_sub", true);
   }
 
-  const user = await findOrCreateOAuthUser({
+  const oauthResult = await findOrCreateOAuthUser({
     provider: "google",
     providerUserId: profile.sub,
     email: profile.email,
     name: profile.name
   });
+  const user = oauthResult.user;
 
   await ensureUserFeedToken(user.id);
-  const sessionToken = await createSession(user.id);
+  if (oauthResult.created) {
+    await recordAnalyticsEventBestEffort({
+      eventType: "USER_SIGNUP",
+      userId: user.id,
+      dedupeKey: `user_signup:${user.id}`,
+      authMethod: "GOOGLE",
+      segmentAuth: "OAUTH_LINKED",
+      userRole: user.role === "ADMIN" ? "ADMIN" : "USER",
+      occurredAt: new Date(),
+      metadata: {
+        provider: "google"
+      }
+    });
+  }
+  const sessionToken = await createSession(user.id, { authMethod: "GOOGLE" });
 
   const response = NextResponse.redirect(`${env.appUrl}/app`);
   clearOAuthStateCookie(response, "google");
