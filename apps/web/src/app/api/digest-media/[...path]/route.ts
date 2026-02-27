@@ -29,9 +29,24 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
     return null;
   }
 
-  const start = match[1] ? Number(match[1]) : 0;
-  const end = match[2] ? Number(match[2]) : size - 1;
+  const startPart = match[1];
+  const endPart = match[2];
 
+  if (!startPart && !endPart) {
+    return null;
+  }
+
+  if (!startPart) {
+    const suffixLength = Number(endPart);
+    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
+      return null;
+    }
+    const start = suffixLength >= size ? 0 : size - suffixLength;
+    return { start, end: size - 1 };
+  }
+
+  const start = Number(startPart);
+  const end = endPart ? Number(endPart) : size - 1;
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
     return null;
   }

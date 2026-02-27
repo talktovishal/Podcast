@@ -274,6 +274,21 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     );
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
+
+    const suffixRangeResponse = await digestMediaGet(
+      new NextRequest(
+        `http://localhost/api/digest-media/${audioKey}?digest_feed_token=${encodeURIComponent(token)}&deid=${encodeURIComponent(episode.id)}`,
+        {
+          headers: {
+            range: "bytes=-4"
+          }
+        }
+      ),
+      { params: { path: audioKey.split("/") } }
+    );
+    assert.equal(suffixRangeResponse.status, 206);
+    assert.equal(suffixRangeResponse.headers.get("content-range"), "bytes 12-15/16");
+    assert.equal(Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8"), "cdef");
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

@@ -90,6 +90,18 @@ test("media route supports HEAD and byte-range responses", async () => {
     const rangeBody = Buffer.from(await rangeResponse.arrayBuffer()).toString("utf8");
     assert.equal(rangeBody, "2345");
 
+    const suffixRangeRequest = new NextRequest(`http://localhost/api/media/${key}?feed_token=${feedToken.plain}`, {
+      method: "GET",
+      headers: {
+        range: "bytes=-4"
+      }
+    });
+    const suffixRangeResponse = await GET(suffixRangeRequest, { params: { path: key.split("/") } });
+    assert.equal(suffixRangeResponse.status, 206);
+    assert.equal(suffixRangeResponse.headers.get("content-range"), `bytes 6-9/${payload.byteLength}`);
+    const suffixRangeBody = Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8");
+    assert.equal(suffixRangeBody, "6789");
+
     const invalidRangeRequest = new NextRequest(`http://localhost/api/media/${key}?feed_token=${feedToken.plain}`, {
       method: "GET",
       headers: {
@@ -99,6 +111,15 @@ test("media route supports HEAD and byte-range responses", async () => {
 
     const invalidRangeResponse = await GET(invalidRangeRequest, { params: { path: key.split("/") } });
     assert.equal(invalidRangeResponse.status, 416);
+
+    const invalidSuffixRangeRequest = new NextRequest(`http://localhost/api/media/${key}?feed_token=${feedToken.plain}`, {
+      method: "GET",
+      headers: {
+        range: "bytes=-0"
+      }
+    });
+    const invalidSuffixRangeResponse = await GET(invalidSuffixRangeRequest, { params: { path: key.split("/") } });
+    assert.equal(invalidSuffixRangeResponse.status, 416);
 
     const unauthorizedRequest = new NextRequest(`http://localhost/api/media/${key}?feed_token=bad-token`, {
       method: "GET"
