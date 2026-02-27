@@ -34,6 +34,10 @@
   - role-gated analytics APIs + CSV exports
   - tabbed investor+ops admin dashboard with masked-by-default user table
   - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
+- Submission monetization controls (`M71`) are implemented:
+  - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
+  - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
+  - admin dashboard can mark paid users and grant extra submission credits per user
 
 ## Requirement Coverage Snapshot
 
@@ -72,6 +76,7 @@
 | 90-day raw artifact retention lifecycle | M57, M61, M64 |
 | Markdown-derived TTS input contract | M62 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
+| Free-trial ingest gating + admin quota overrides | M71 |
 
 ## Milestone Status Snapshot
 
@@ -154,6 +159,7 @@ Milestone metadata contract:
 | M68 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M69 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M70 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M71 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1888,3 +1894,35 @@ Milestone metadata contract:
   - `npm run lint`
   - `npm run test`
   - `npm run build`
+
+### M71 - Free Trial Quota + Admin Overrides
+- status: Done
+- target_finish: 2026-02-27
+- completed_on: 2026-02-27
+- evidence: local validation + implementation pass (2026-02-27)
+- Scope:
+  - Enforce default ingest quota of 2 free submissions for non-paid users.
+  - Block over-quota submissions with explicit machine-readable error.
+  - Add admin controls to mark selected users as paid and grant extra submission credits.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/submission-quota.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/app/api/admin/users/quota/route.ts`
+  - `apps/web/src/components/admin-quota-manager.tsx`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/tests/submission-quota.test.ts`
+- Acceptance criteria:
+  - Non-paid users can submit up to configured free quota and are blocked afterwards.
+  - Ingest APIs return `USAGE_LIMIT_EXCEEDED` for exhausted quota.
+  - Admin can search users and update `paid` status or extra credits from dashboard.
+  - Granted extra credits immediately allow additional submissions.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - `corepack pnpm --filter @articlepod/web run export`
+  - `npm run license:check`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`

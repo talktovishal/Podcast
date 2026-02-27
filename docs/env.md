@@ -52,6 +52,7 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `DEMO_EMAIL`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`

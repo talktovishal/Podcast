@@ -4,6 +4,14 @@ import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 
+function parseNonNegativeInt(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
     return raw;
@@ -42,6 +50,7 @@ export const env = {
   azureMonitorConnectionString: process.env.AZURE_MONITOR_CONNECTION_STRING,
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
   sessionTtlDays: Number(process.env.SESSION_TTL_DAYS ?? 30),
+  freeTrialSubmissionLimit: parseNonNegativeInt(process.env.FREE_TRIAL_SUBMISSION_LIMIT, 2),
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   appleClientId: process.env.APPLE_CLIENT_ID,

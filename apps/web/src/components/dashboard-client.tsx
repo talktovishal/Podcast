@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
@@ -52,10 +53,20 @@ type TtsAvailability = Record<
   }
 >;
 
+type SubmissionQuotaSnapshot = {
+  isPaid: boolean;
+  submissionCount: number;
+  freeTrialSubmissionLimit: number;
+  extraSubmissionCredits: number;
+  totalFreeSubmissionAllowance: number;
+  remainingFreeSubmissions: number | null;
+};
+
 type Props = {
   feedUrl: string;
   feedToken: string;
   isDemoAccount?: boolean;
+  initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
   initialTtsSelection: {
     providerId: string;
     voice: string;
@@ -97,6 +108,7 @@ export function DashboardClient({
   feedUrl,
   feedToken,
   isDemoAccount = false,
+  initialSubmissionQuota = null,
   initialTtsSelection,
   ttsCatalog,
   ttsAvailability,
@@ -106,6 +118,7 @@ export function DashboardClient({
   initialItems
 }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [submissionQuota] = useState(initialSubmissionQuota);
   const [demoDiagnostics, setDemoDiagnostics] = useState(initialDemoDiagnostics);
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
@@ -126,6 +139,8 @@ export function DashboardClient({
   const showSubmissionSection = !readOnly && !isSettingsView;
   const showItemsSection = !isSettingsView;
   const showDiagnosticsSection = !readOnly && isDemoAccount && !isSettingsView;
+  const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
+  const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -525,6 +540,30 @@ export function DashboardClient({
       {showSubmissionSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Add New Episode</h2>
+          {showSubmissionQuota ? (
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                submissionBlocked ? "border-[#f9c6c3] bg-[#fff1f0] text-[#8d231f]" : "border-[#cfe7df] bg-[#f1faf7] text-[#155240]"
+              }`}
+            >
+              {submissionQuota?.isPaid ? (
+                <p>Paid plan active. Submissions are unlimited for this account.</p>
+              ) : (
+                <>
+                  <p>
+                    Free trial quota: {submissionQuota?.remainingFreeSubmissions ?? 0} of{" "}
+                    {submissionQuota?.totalFreeSubmissionAllowance ?? 0} submissions remaining.
+                  </p>
+                  {submissionBlocked ? (
+                    <p className="mt-1">
+                      Trial quota is exhausted. Upgrade on the <Link className="underline" href="/pricing">pricing page</Link> or ask an
+                      admin for extra tries.
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
 
           <fieldset className="mt-3">
             <legend className="sr-only">Choose source</legend>
@@ -619,7 +658,7 @@ export function DashboardClient({
 
             <button
               className="mt-3 w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-              disabled={isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)}
+              disabled={submissionBlocked || isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)}
               onClick={submitActiveSource}
             >
               {sourceMode === "url" ? "Submit URL" : "Upload PDF"}

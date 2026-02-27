@@ -18,6 +18,11 @@ Primary entities:
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
 - `DemoExtractionTrace` (demo-only extraction diagnostics, last 10)
+
+Monetization/quota fields on `User`:
+- `isPaid` (paid accounts are unrestricted)
+- `submissionCount` (lifetime submission usage counter)
+- `extraSubmissionCredits` (admin-granted free-tier extensions)
 - `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
 - `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
 - `AnalyticsCoverage` (metric coverage/backfill metadata, including forward-only metrics)
@@ -45,6 +50,7 @@ Current behavior (`M57`-`M64` implemented):
 
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
+   - before enqueue, submission quota is consumed atomically for non-paid users.
 2. Worker claims due jobs (`QUEUED` or retry-eligible `FAILED`).
 3. Worker extracts + normalizes text.
 4. Worker chunks text deterministically and computes hash key.

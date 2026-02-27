@@ -55,9 +55,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - event instrumentation for signup/login/submit/ready/fail/playback.
   - KPI/retention/users APIs and CSV export endpoints.
   - hybrid analytics backfill script with coverage metadata (`npm run analytics:backfill`).
+- Submission monetization baseline is implemented:
+  - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
+  - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
+  - admin dashboard includes user-level quota controls (`paid` toggle + extra submission credits)
 
 ### Next Milestones
-- Current milestone set (`M00`-`M70`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M71`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
@@ -148,6 +152,7 @@ A) Account + private feed
 - Each user has a private feed URL:
   - `/rss/<feed_token>.xml`
 - User can rotate the feed token (invalidates previous URL)
+- Free users have a submission trial quota (default 2). Additional submissions require paid status or admin-granted extra tries.
 
 B) Ingest content
 - Submit URL (HTML article)

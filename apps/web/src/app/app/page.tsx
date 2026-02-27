@@ -8,6 +8,7 @@ import { LogoutButton } from "@/components/logout-button";
 import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
+import { getSubmissionQuotaSnapshot } from "@/lib/submission-quota";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
 export const metadata: Metadata = {
@@ -21,12 +22,13 @@ export default async function AppDashboardPage() {
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedToken, items, ttsSettings, ttsAvailability, demoDiagnostics] = await Promise.all([
+  const [feedToken, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota] = await Promise.all([
     ensureUserFeedToken(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
-    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([])
+    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
+    getSubmissionQuotaSnapshot(user.id)
   ]);
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
@@ -72,6 +74,7 @@ export default async function AppDashboardPage() {
           feedUrl={feedUrl}
           feedToken={feedToken}
           isDemoAccount={isDemoUser}
+          initialSubmissionQuota={submissionQuota}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}
