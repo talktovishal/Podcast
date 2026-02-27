@@ -207,6 +207,7 @@ E) Web UI (polished)
 
 F) Admin Module
 - Secure admin login with a predefined administrator account.
+- Admin login can route directly to `/admin` for dashboard-first access.
 - Role-gated, tabbed admin analytics dashboard with:
   - Investor Summary
   - Growth & Activation
@@ -222,6 +223,7 @@ F) Admin Module
   - role (`USER`, `ADMIN`, all)
 - User analytics table masks PII by default, with admin-only reveal toggle.
 - CSV export endpoints for summary, timeseries, and users datasets.
+- Admin account deletion is blocked server-side and not exposed in dashboard controls.
 - Enables monitoring, debugging, and investor-facing storytelling with clear usage metrics.
 
 G) Export

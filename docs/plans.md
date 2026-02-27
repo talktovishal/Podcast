@@ -34,6 +34,7 @@
   - role-gated analytics APIs + CSV exports
   - tabbed investor+ops admin dashboard with masked-by-default user table
   - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
+- Admin safety hardening: admin login redirects to `/admin`, and admin account deletion is blocked in API/UI.
 - Submission monetization controls (`M71`) are implemented:
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`

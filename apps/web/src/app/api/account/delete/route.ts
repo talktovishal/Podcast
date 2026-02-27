@@ -9,6 +9,16 @@ export async function DELETE(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
   }
+  if (user.role === "ADMIN") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error_code: "ADMIN_DELETE_FORBIDDEN",
+        error_message: "Admin accounts cannot be deleted."
+      },
+      { status: 403 }
+    );
+  }
 
   const [items, digestRuns, digestEpisodes] = await Promise.all([
     prisma.item.findMany({

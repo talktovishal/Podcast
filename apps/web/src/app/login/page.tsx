@@ -73,7 +73,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/app");
+      router.push(json.role === "ADMIN" ? "/admin" : "/app");
       router.refresh();
     } catch {
       setError("Unexpected error. Please try again.");

@@ -18,6 +18,8 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 Set passwords via environment variables before seeding (see `.env.example`):
 - Demo account: `demo@articlepod.local` — password from `DEMO_PASSWORD` env var
 - Admin account: `admin@articlepod.local` — password from `ADMIN_PASSWORD` env var
+- Admin login redirects directly to `/admin` for faster dashboard access.
+- Admin accounts cannot be deleted through `/api/account/delete` (protected server-side and hidden in dashboard UI).
 - Free-tier quota:
   - non-paid users get `FREE_TRIAL_SUBMISSION_LIMIT` free submissions (default `2`)
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`

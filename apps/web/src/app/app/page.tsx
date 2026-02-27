@@ -57,7 +57,7 @@ export default async function AppDashboardPage() {
                 Admin
               </Link>
             ) : null}
-            <DeleteAccountButton />
+            {user.role !== "ADMIN" ? <DeleteAccountButton /> : null}
             <LogoutButton />
           </div>
         </header>
