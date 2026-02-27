@@ -160,6 +160,7 @@ export default function LoginPage() {
                       Google unavailable
                     </button>
                   )}
+                  {/* Apple Sign-In — hidden until Apple Developer account is configured
                   {appleConfigured ? (
                     <a className="rounded-lg border px-3 py-2 text-center text-sm" href="/api/auth/apple/start">
                       Continue with Apple
@@ -169,6 +170,7 @@ export default function LoginPage() {
                       Apple unavailable
                     </button>
                   )}
+                  */}
                 </div>
                 {!oauthProviders ? <p className="mt-2 text-xs text-[var(--muted)]">Checking provider availability...</p> : null}
               </div>
