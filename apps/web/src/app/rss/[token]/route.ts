@@ -74,7 +74,17 @@ export async function GET(request: NextRequest, context: { params: { token: stri
       userId: feed.userId,
       expectedAudioPath: episode.audioPath,
       reason: "Audio file was missing and has been queued for regeneration."
-    }).catch(() => ({ enqueued: false as const }));
+    }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
+
+    if (repair.resolvedEpisode) {
+      availableEpisodes.push({
+        ...episode,
+        audioPath: repair.resolvedEpisode.audioPath,
+        audioBytes: repair.resolvedEpisode.audioBytes,
+        mimeType: repair.resolvedEpisode.mimeType
+      });
+      continue;
+    }
 
     if (repair.enqueued) {
       repairEnqueuedCount += 1;

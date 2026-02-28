@@ -51,6 +51,7 @@
 - Podcast playback diagnostics are now emitted from RSS/media routes in web structured logs (token-safe request metadata + range/status/bytes/latency) to debug client-specific playback failures.
 - Podcast compatibility hardening (`M81`) now defaults published item/digest audio to MP3 (`audio/mpeg`) and normalizes episode descriptions for cleaner client display.
 - Feed resilience hardening (`M82`) now auto-recovers missing media episodes (RSS skip + regeneration queue) and reduces stale delete visibility with no-store RSS caching.
+- M82 repair flow now also reconciles MP3/M4A path drift in-place (serve immediately when sibling object exists), prevents endless requeues for non-regenerable items, and adds a bulk MP3 backfill command.
 
 ## Requirement Coverage Snapshot
 
@@ -2183,6 +2184,8 @@ Milestone metadata contract:
 - evidence: local validation + implementation pass (2026-02-28)
 - Scope:
   - Add server-side media self-heal so missing episode objects trigger regeneration queueing instead of repeated client failures.
+  - Reconcile MP3/M4A key drift in-place when alternate sibling media exists.
+  - Guard regeneration queueing for non-regenerable items to prevent stuck requeue loops.
   - Exclude episodes with missing media from RSS output until repair completes.
   - Ensure delete behavior reflects in RSS output with stricter cache policy.
 - Key files/modules:
@@ -2190,10 +2193,13 @@ Milestone metadata contract:
   - `apps/web/src/app/api/media/[...path]/route.ts`
   - `apps/web/src/app/rss/[token]/route.ts`
   - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/scripts/backfill-episode-audio.ts`
   - `apps/web/tests/media-route.test.ts`
   - `apps/web/tests/rss-delete-route.test.ts`
 - Acceptance criteria:
+  - When expected media key is missing but sibling `.mp3`/`.m4a` exists, feed/media responses recover immediately and episode metadata is updated.
   - Missing media requests emit 404 and enqueue regeneration jobs when an episode/item can be safely identified.
+  - Missing media requests do not enqueue regeneration when item source data is not available for rebuild.
   - RSS feed does not include episodes whose backing media object is unavailable.
   - Deleting an item removes its episode from subsequent RSS responses.
 - Verification commands:

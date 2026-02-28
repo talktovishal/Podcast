@@ -195,3 +195,97 @@ test("rss feed skips missing media episodes and enqueues repair", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("rss feed keeps episode when alternate media path exists", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-reconcile`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `rss-reconcile-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "PDF",
+      sourceFilePath: null,
+      status: "READY"
+    }
+  });
+  await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED",
+      attempt: 0
+    }
+  });
+  const missingPath = `items/${item.id}/episode.mp3`;
+  const alternatePath = `items/${item.id}/episode.m4a`;
+  const alternatePayload = Buffer.from("rss-reconcile-audio", "utf8");
+  await storage.putObject(alternatePath, alternatePayload, {
+    contentType: "audio/mp4"
+  });
+
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Reconcile RSS ${uniq}`,
+      description: "reconcile rss",
+      audioPath: missingPath,
+      audioBytes: 1000,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    assert.equal(response.status, 200);
+    const xml = await response.text();
+    assert.equal(xml.includes(episode.guid), true);
+    assert.equal(xml.includes(alternatePath), true);
+    assert.equal(xml.includes('type="audio/mp4"'), true);
+
+    const refreshedEpisode = await prisma.episode.findUnique({
+      where: { id: episode.id },
+      select: { audioPath: true, mimeType: true, audioBytes: true }
+    });
+    assert.equal(refreshedEpisode?.audioPath, alternatePath);
+    assert.equal(refreshedEpisode?.mimeType, "audio/mp4");
+    assert.equal(refreshedEpisode?.audioBytes, alternatePayload.byteLength);
+
+    const refreshedItem = await prisma.item.findUnique({
+      where: { id: item.id },
+      select: { status: true, errorCode: true }
+    });
+    assert.equal(refreshedItem?.status, "READY");
+    assert.equal(refreshedItem?.errorCode, null);
+
+    const queuedJobs = await prisma.job.count({
+      where: {
+        itemId: item.id,
+        status: "QUEUED"
+      }
+    });
+    assert.equal(queuedJobs, 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

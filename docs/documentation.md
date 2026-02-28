@@ -44,9 +44,12 @@ Connect flow:
 - Media route supports `HEAD` and byte-range `206 Partial Content`
 - Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
 - Episode descriptions are normalized to concise sentence summaries before RSS publication.
-- Missing media self-heal: if an episode object is missing, feed/media routes auto-queue regeneration and temporarily omit that episode from RSS output.
+- Missing media self-heal:
+  - if an episode object is missing but sibling `.mp3`/`.m4a` exists, feed/media routes reconcile metadata and continue serving immediately.
+  - if no object exists, feed/media routes queue regeneration only when source inputs are still available; non-regenerable items are skipped without endless requeue.
 - RSS endpoints use `Cache-Control: private, no-store` to reduce stale episode visibility after delete actions.
 - Feed and digest RSS include both `<itunes:image>` and channel `<image>` artwork tags, pointing to branded podcast cover art.
+- Bulk repair command: `npm run audio:backfill-mp3` converts/reconciles stored episodes to MP3 metadata in place.
 
 ## Digest settings
 Available in `/app/settings`:

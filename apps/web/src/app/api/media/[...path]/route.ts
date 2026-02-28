@@ -128,7 +128,34 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
       userId: auth.userId,
       expectedAudioPath: key,
       reason: "Audio file was missing and has been queued for regeneration."
-    }).catch(() => ({ enqueued: false as const }));
+    }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
+
+    if (repair.resolvedEpisode) {
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.info("Podcast media request served", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 200,
+          media_kind: "item",
+          media_key: repair.resolvedEpisode.audioPath,
+          episode_id: maybeEpisodeId,
+          mime_type: repair.resolvedEpisode.mimeType,
+          total_bytes: repair.resolvedEpisode.audioBytes,
+          served_bytes: 0,
+          response_mode: "HEAD",
+          duration_ms: Date.now() - startedAt
+        });
+      }
+
+      return new NextResponse(null, {
+        status: 200,
+        headers: {
+          "content-type": repair.resolvedEpisode.mimeType,
+          "content-length": String(repair.resolvedEpisode.audioBytes),
+          "accept-ranges": "bytes"
+        }
+      });
+    }
 
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media object not found", {
@@ -326,7 +353,94 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       userId: auth.userId,
       expectedAudioPath: key,
       reason: "Audio file was missing and has been queued for regeneration."
-    }).catch(() => ({ enqueued: false as const }));
+    }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
+
+    if (repair.resolvedEpisode) {
+      const resolvedKey = repair.resolvedEpisode.audioPath;
+      const mimeType = repair.resolvedEpisode.mimeType || contentTypeForPath(resolvedKey);
+      const size = repair.resolvedEpisode.audioBytes;
+      const range = request.headers.get("range");
+      const storage = getArtifactStorage();
+
+      if (!range) {
+        const full = await storage.getObject(resolvedKey);
+        if (env.podcastRequestLoggingEnabled) {
+          await logger.info("Podcast media request served", {
+            ...requestMeta,
+            route: MEDIA_ROUTE,
+            status: 200,
+            media_kind: "item",
+            media_key: resolvedKey,
+            episode_id: maybeEpisodeId,
+            mime_type: mimeType,
+            total_bytes: size,
+            served_bytes: size,
+            duration_ms: Date.now() - startedAt
+          });
+        }
+        return new NextResponse(new Uint8Array(full), {
+          status: 200,
+          headers: {
+            "content-type": mimeType,
+            "content-length": String(size),
+            "accept-ranges": "bytes"
+          }
+        });
+      }
+
+      const parsedRange = parseRangeHeader(range, size);
+      if (!parsedRange) {
+        if (env.podcastRequestLoggingEnabled) {
+          await logger.warn("Podcast media request invalid range", {
+            ...requestMeta,
+            route: MEDIA_ROUTE,
+            status: 416,
+            media_kind: "item",
+            media_key: resolvedKey,
+            episode_id: maybeEpisodeId,
+            total_bytes: size,
+            duration_ms: Date.now() - startedAt
+          });
+        }
+        return new NextResponse("Invalid range", {
+          status: 416,
+          headers: {
+            "content-range": `bytes */${size}`
+          }
+        });
+      }
+
+      const { start, end } = parsedRange;
+      const chunk = await storage.getObject(resolvedKey, { start, end });
+      const chunkSize = chunk.byteLength;
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.info("Podcast media request served", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 206,
+          media_kind: "item",
+          media_key: resolvedKey,
+          episode_id: maybeEpisodeId,
+          mime_type: mimeType,
+          total_bytes: size,
+          served_bytes: chunkSize,
+          range_start: start,
+          range_end: end,
+          content_range: `bytes ${start}-${end}/${size}`,
+          duration_ms: Date.now() - startedAt
+        });
+      }
+
+      return new NextResponse(new Uint8Array(chunk), {
+        status: 206,
+        headers: {
+          "content-type": mimeType,
+          "content-length": String(chunkSize),
+          "content-range": `bytes ${start}-${end}/${size}`,
+          "accept-ranges": "bytes"
+        }
+      });
+    }
 
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media object not found", {

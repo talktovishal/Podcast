@@ -258,3 +258,163 @@ test("media route 404 enqueues repair for missing episode media", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("media route reconciles alternate audio path when expected media is missing", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-reconcile-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "PDF",
+      sourceFilePath: null,
+      status: "QUEUED",
+      jobs: {
+        create: {
+          status: "QUEUED",
+          attempt: 0
+        }
+      }
+    }
+  });
+
+  const missingPath = `items/${item.id}/episode.mp3`;
+  const alternatePath = `items/${item.id}/episode.m4a`;
+  const alternatePayload = Buffer.from("reconciled-audio", "utf8");
+  await storage.putObject(alternatePath, alternatePayload, { contentType: "audio/mp4" });
+
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Reconcile media ${uniq}`,
+      description: "reconcile media",
+      audioPath: missingPath,
+      audioBytes: 1024,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/media/${missingPath}?feed_token=${feedToken.plain}&eid=${episode.id}`),
+      { params: { path: missingPath.split("/") } }
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "audio/mp4");
+    const body = Buffer.from(await response.arrayBuffer()).toString("utf8");
+    assert.equal(body, "reconciled-audio");
+
+    const refreshedEpisode = await prisma.episode.findUnique({
+      where: { id: episode.id },
+      select: { audioPath: true, mimeType: true, audioBytes: true }
+    });
+    assert.equal(refreshedEpisode?.audioPath, alternatePath);
+    assert.equal(refreshedEpisode?.mimeType, "audio/mp4");
+    assert.equal(refreshedEpisode?.audioBytes, alternatePayload.byteLength);
+
+    const refreshedItem = await prisma.item.findUnique({
+      where: { id: item.id },
+      select: { status: true, errorCode: true }
+    });
+    assert.equal(refreshedItem?.status, "READY");
+    assert.equal(refreshedItem?.errorCode, null);
+
+    const queuedJobs = await prisma.job.count({
+      where: {
+        itemId: item.id,
+        status: "QUEUED"
+      }
+    });
+    assert.equal(queuedJobs, 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("media route does not enqueue repair jobs for non-regenerable items", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-noqueue-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "PDF",
+      sourceFilePath: null,
+      status: "READY"
+    }
+  });
+  const missingPath = `items/${item.id}/episode.mp3`;
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `No queue media ${uniq}`,
+      description: "no queue media",
+      audioPath: missingPath,
+      audioBytes: 1024,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/media/${missingPath}?feed_token=${feedToken.plain}&eid=${episode.id}`),
+      { params: { path: missingPath.split("/") } }
+    );
+    assert.equal(response.status, 404);
+
+    const refreshedItem = await prisma.item.findUnique({
+      where: { id: item.id },
+      select: { status: true }
+    });
+    assert.equal(refreshedItem?.status, "READY");
+
+    const queuedJobs = await prisma.job.count({
+      where: {
+        itemId: item.id,
+        status: "QUEUED"
+      }
+    });
+    assert.equal(queuedJobs, 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

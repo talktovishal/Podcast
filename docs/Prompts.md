@@ -80,7 +80,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Feed resilience and deletion consistency hardening are implemented:
   - RSS feed generation now skips episodes whose media object is missing and auto-queues regeneration.
   - media 404 paths now auto-queue item regeneration after clearing stale chunk cache metadata.
+  - when an episode key drifts between `.mp3` and `.m4a`, feed/media routes reconcile to the existing sibling object and keep serving without waiting for regeneration.
+  - regeneration queueing is now guarded by source availability (non-regenerable items are not requeued endlessly).
   - RSS cache policy is now `private, no-store` to reduce stale-feed behavior after item deletion.
+  - operational backfill command `npm run audio:backfill-mp3` can normalize existing episode assets to MP3 metadata in bulk.
 
 ### Next Milestones
 - Current milestone set (`M00`-`M82`) is complete per `docs/plans.md`.

@@ -112,7 +112,9 @@ Critical artifacts in object storage:
 - `GET` with byte-range `206 Partial Content`
 - stable enclosure URLs from episode object keys
 - published episode artifacts default to MP3 (`audio/mpeg`) for broader client codec support
-- missing-object repair path: item media 404s can enqueue regeneration jobs and clear stale chunk cache references
+- missing-object repair path:
+  - item media 404s can enqueue regeneration jobs and clear stale chunk cache references when source material is still available
+  - if the expected key is missing but sibling `.mp3`/`.m4a` exists, episode metadata is reconciled in-place and served immediately
 
 ## Extension ingestion path
 1. User is authenticated on web app.
