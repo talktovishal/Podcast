@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
         }
       }
     });
-    if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
+    if (!item || user.role !== "ADMIN") {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
 
@@ -51,4 +51,3 @@ export async function GET(request: NextRequest, context: { params: { id: string 
     });
   }
 }
-

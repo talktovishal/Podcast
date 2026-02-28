@@ -61,6 +61,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
           readOnly
           feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
           feedToken={feedToken}
+          isAdmin={false}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}

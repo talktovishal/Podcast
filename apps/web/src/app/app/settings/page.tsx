@@ -65,6 +65,7 @@ export default async function AppSettingsPage() {
           viewMode="settings"
           feedUrl={feedUrl}
           feedToken={feedToken}
+          isAdmin={user.role === "ADMIN"}
           digestFeedUrl={digestFeedUrl}
           initialDigestSettings={{
             timezone: digestSettings.timezone,

@@ -157,6 +157,10 @@ No hard-coded vendor logic scattered throughout the code.
 ## Git / PR / change rules
 - Small, reviewable diffs.
 - Avoid scope creep.
+- Worktree-first edits (mandatory unless explicitly overridden by user):
+  - Create a `codex/*` branch in a sibling worktree under `../Podcast-worktrees/<branch-name>`.
+  - Do not edit from the primary checkout unless the user explicitly requests it.
+  - Run validation, commit, and push from the active worktree branch.
 - After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):

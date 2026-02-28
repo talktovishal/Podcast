@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
+import { FeedUrlActions } from "@/components/feed-url-actions";
 import { LogoutButton } from "@/components/logout-button";
 import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
@@ -44,8 +45,7 @@ export default async function AppDashboardPage() {
           <div>
             <p className="text-sm text-[var(--muted)]">Signed in as</p>
             <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-            <p className="mt-2 text-xs text-[var(--muted)]">Private feed URL</p>
-            <code className="mt-1 block max-w-full overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{feedUrl}</code>
+            <FeedUrlActions feedUrl={feedUrl} />
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
@@ -62,17 +62,11 @@ export default async function AppDashboardPage() {
           </div>
         </header>
 
-        <section className="card p-4">
-          <p className="text-sm font-medium">Demo mode ready</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Starter content is available immediately. You can submit URLs or PDFs and watch worker status transition in real time.
-          </p>
-        </section>
-
         <DashboardClient
           viewMode="workspace"
           feedUrl={feedUrl}
           feedToken={feedToken}
+          isAdmin={user.role === "ADMIN"}
           isDemoAccount={isDemoUser}
           initialSubmissionQuota={submissionQuota}
           initialTtsSelection={normalizedSelection}

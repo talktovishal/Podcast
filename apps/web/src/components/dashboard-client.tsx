@@ -150,6 +150,7 @@ const DEFAULT_DEMOGRAPHIC_SURVEY: UserDemographicSurveyView = {
 type Props = {
   feedUrl: string;
   feedToken: string;
+  isAdmin?: boolean;
   digestFeedUrl?: string;
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
@@ -196,6 +197,7 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
 export function DashboardClient({
   feedUrl,
   feedToken,
+  isAdmin = false,
   digestFeedUrl = "",
   isDemoAccount = false,
   initialSubmissionQuota = null,
@@ -1294,12 +1296,14 @@ export function DashboardClient({
 
                   {!readOnly ? (
                     <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
-                      <button
-                        className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
-                        onClick={() => viewMarkdown(item.id, item.title)}
-                      >
-                        View markdown
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                          onClick={() => viewMarkdown(item.id, item.title)}
+                        >
+                          View markdown
+                        </button>
+                      ) : null}
                       {showRetry ? (
                         <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
                           Retry
@@ -1385,7 +1389,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {showItemsSection && markdownPreview ? (
+      {showItemsSection && isAdmin && markdownPreview ? (
         <section className="card p-4 sm:p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold">Markdown preview: {markdownPreview.title}</h2>

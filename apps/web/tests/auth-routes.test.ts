@@ -352,7 +352,7 @@ test("html snapshot validates payload and queues item for session user", async (
   }
 });
 
-test("item markdown route returns markdown for authorized owner", async () => {
+test("item markdown route requires admin role", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);
   const storage = getArtifactStorage();
@@ -400,12 +400,78 @@ test("item markdown route returns markdown for authorized owner", async () => {
     });
 
     const response = await itemMarkdownGet(request, { params: { id: item.id } });
+    assert.equal(response.status, 403);
+    const payload = (await response.json()) as { ok: boolean; error_code: string };
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "UNAUTHORIZED");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("item markdown route returns markdown for admin", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const storage = getArtifactStorage();
+
+  const owner = await prisma.user.create({
+    data: {
+      email: `markdown-owner-admin-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+  const admin = await prisma.user.create({
+    data: {
+      email: `markdown-admin-${uniq}@articlepod.local`,
+      role: "ADMIN",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const markdown = `# Admin fixture ${uniq}\n\nThis markdown should be visible to admins.`;
+    const storageKey = `items/${uniq}/artifacts/source.md`;
+    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+
+    const item = await prisma.item.create({
+      data: {
+        userId: owner.id,
+        sourceType: "URL",
+        sourceUrl: `https://example.com/${uniq}`,
+        status: "READY"
+      }
+    });
+
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+
+    const sessionToken = await createSession(admin.id);
+    const request = new NextRequest(`http://localhost/api/items/${item.id}/markdown`, {
+      headers: {
+        cookie: `articlepod_session=${sessionToken}`
+      }
+    });
+
+    const response = await itemMarkdownGet(request, { params: { id: item.id } });
     assert.equal(response.status, 200);
     const payload = (await response.json()) as { ok: boolean; markdown: string };
     assert.equal(payload.ok, true);
     assert.equal(payload.markdown, markdown);
   } finally {
-    await prisma.user.delete({ where: { id: user.id } });
+    await prisma.user.delete({ where: { id: owner.id } });
+    await prisma.user.delete({ where: { id: admin.id } });
   }
 });
 

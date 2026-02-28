@@ -89,9 +89,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - optional demographic survey API (`GET/POST/DELETE /api/account/demographics`) supports save, skip, edit, and delete lifecycle.
   - settings UI includes optional demographic profile controls.
   - admin users analytics and CSV exports include coarse geo and (PII-gated) demographic fields.
+- Dashboard feed shortcut and markdown access track (`M84`) is implemented:
+  - `/app` signed-in header now includes copy-first feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
+  - `Demo mode ready` banner is removed from the `/app` workspace.
+  - markdown preview controls and markdown API access are now admin-only.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M83`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M84`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

@@ -56,6 +56,10 @@
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
   - admin user analytics and CSV exports now include coarse geo and PII-gated demographic fields.
+- Dashboard feed shortcut + markdown access track (`M84`) is implemented:
+  - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
+  - workspace banner copy is simplified by removing the `Demo mode ready` card.
+  - markdown preview controls and markdown API access are now admin-only.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
   - Implementation gated on per-milestone user sign-off.
@@ -103,6 +107,7 @@
 | Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
 | Missing media auto-repair + RSS delete consistency hardening | M82 |
 | Global geo snapshots + optional demographic profile capture | M83 |
+| Smart feed shortcuts + admin-only markdown controls | M84 |
 | Apple Sign-In JWT cryptographic verification | S01 |
 | Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
 | Brute-force rate limiting on login + timing oracle fix | S03 |
@@ -216,6 +221,7 @@ Milestone metadata contract:
 | M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
+| M84 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2287,6 +2293,41 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test`
   - `pnpm --filter @articlepod/web run build`
   - `pnpm --filter @articlepod/worker test`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M84 - Smart Feed Shortcuts + Admin-Only Markdown Controls
+- status: Done
+- target_finish: 2026-02-28
+- completed_on: 2026-02-28
+- evidence: local validation + implementation pass (2026-02-28)
+- Scope:
+  - Improve `/app` signed-in feed UX with copy icon and shortcut actions for Apple Podcasts and YouTube Music.
+  - Use mobile-smart behavior (copy first, attempt app open where available, fallback to web) with inline status guidance.
+  - Remove the `Demo mode ready` card from `/app`.
+  - Restrict markdown preview actions to admins in dashboard UI and markdown API route.
+- Key files/modules:
+  - `apps/web/src/components/feed-url-actions.tsx`
+  - `apps/web/src/app/app/page.tsx`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/app/app/settings/page.tsx`
+  - `apps/web/src/app/share/page.tsx`
+  - `apps/web/src/app/api/items/[id]/markdown/route.ts`
+  - `apps/web/tests/app-dashboard-layout.test.ts`
+  - `apps/web/tests/auth-routes.test.ts`
+  - `docs/Prompts.md`
+  - `AGENTS.md`
+- Acceptance criteria:
+  - `/app` header exposes copy-first private feed shortcuts with clear copy/open status feedback.
+  - `Demo mode ready` copy no longer appears in the workspace UI.
+  - Non-admin users cannot view markdown controls in dashboard and receive `403` from markdown API.
+  - Admin users retain markdown preview access in UI/API.
+- Verification commands:
+  - `pnpm --filter @articlepod/web run lint`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm --filter @articlepod/web run build`
+  - `pnpm run lint`
+  - `pnpm run test`
+  - `pnpm run build`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ---
