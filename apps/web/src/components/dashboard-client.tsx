@@ -25,9 +25,11 @@ type DashboardItem = {
   createdAt: string;
   episode:
     | {
+        id: string;
         audioPath: string;
         audioBytes: number;
         mimeType: string;
+        mediaToken: string;
       }
     | null;
 };
@@ -149,7 +151,6 @@ const DEFAULT_DEMOGRAPHIC_SURVEY: UserDemographicSurveyView = {
 
 type Props = {
   feedUrl: string;
-  feedToken: string;
   isAdmin?: boolean;
   digestFeedUrl?: string;
   isDemoAccount?: boolean;
@@ -196,7 +197,6 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
 
 export function DashboardClient({
   feedUrl,
-  feedToken,
   isAdmin = false,
   digestFeedUrl = "",
   isDemoAccount = false,
@@ -1250,7 +1250,9 @@ export function DashboardClient({
             {newestFirst.map((item) => {
               const badgeClass = item.status.toLowerCase();
               const statusText = item.status.toUpperCase();
-              const mediaUrl = item.episode ? `/api/media/${item.episode.audioPath}?feed_token=${feedToken}` : null;
+              const mediaUrl = item.episode
+                ? `/api/media/${item.episode.audioPath}?mt=${encodeURIComponent(item.episode.mediaToken)}&eid=${encodeURIComponent(item.episode.id)}`
+                : null;
               const helpText = statusHelpText(item.status, item.errorMessage);
               const showRetry = statusText === "FAILED";
 

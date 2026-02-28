@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signMediaUrl } from "@articlepod/core";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics } from "@/lib/dashboard";
 import { env } from "@/lib/env";
@@ -30,9 +31,11 @@ export async function GET(request: NextRequest) {
       createdAt: item.createdAt.toISOString(),
       episode: item.episode
         ? {
+            id: item.episode.id,
             audioPath: item.episode.audioPath,
             audioBytes: item.episode.audioBytes,
-            mimeType: item.episode.mimeType
+            mimeType: item.episode.mimeType,
+            mediaToken: signMediaUrl(item.episode.audioPath, env.mediaSigningKey || item.episode.guid)
           }
         : null
     }))

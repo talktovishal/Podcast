@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
+import { getTtsCatalog, normalizeTtsSelection, signMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
 import { getActiveFeedTokenForUser, getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
@@ -60,7 +60,6 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
         <DashboardClient
           readOnly
           feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
-          feedToken={feedToken}
           isAdmin={false}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
@@ -76,9 +75,11 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             createdAt: item.createdAt.toISOString(),
             episode: item.episode
               ? {
+                  id: item.episode.id,
                   audioPath: item.episode.audioPath,
                   audioBytes: item.episode.audioBytes,
-                  mimeType: item.episode.mimeType
+                  mimeType: item.episode.mimeType,
+                  mediaToken: signMediaUrl(item.episode.audioPath, env.mediaSigningKey || item.episode.guid)
                 }
               : null
           }))}

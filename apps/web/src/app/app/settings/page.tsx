@@ -64,7 +64,6 @@ export default async function AppSettingsPage() {
         <DashboardClient
           viewMode="settings"
           feedUrl={feedUrl}
-          feedToken={feedToken}
           isAdmin={user.role === "ADMIN"}
           digestFeedUrl={digestFeedUrl}
           initialDigestSettings={{

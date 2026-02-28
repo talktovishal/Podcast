@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
+import { getTtsCatalog, normalizeTtsSelection, signMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { FeedUrlActions } from "@/components/feed-url-actions";
@@ -65,7 +65,6 @@ export default async function AppDashboardPage() {
         <DashboardClient
           viewMode="workspace"
           feedUrl={feedUrl}
-          feedToken={feedToken}
           isAdmin={user.role === "ADMIN"}
           isDemoAccount={isDemoUser}
           initialSubmissionQuota={submissionQuota}
@@ -84,9 +83,11 @@ export default async function AppDashboardPage() {
             createdAt: item.createdAt.toISOString(),
             episode: item.episode
               ? {
+                  id: item.episode.id,
                   audioPath: item.episode.audioPath,
                   audioBytes: item.episode.audioBytes,
-                  mimeType: item.episode.mimeType
+                  mimeType: item.episode.mimeType,
+                  mediaToken: signMediaUrl(item.episode.audioPath, env.mediaSigningKey || item.episode.guid)
                 }
               : null
           }))}
