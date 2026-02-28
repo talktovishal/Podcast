@@ -128,6 +128,24 @@ test("extractHtmlFromUrl maps unreachable host network to actionable extraction 
   globalThis.fetch = originalFetch;
 });
 
+test("extractHtmlFromUrl maps invalid pinned IP errors to actionable extraction error", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => {
+    throw Object.assign(new Error("Invalid IP address"), { code: "ERR_INVALID_IP_ADDRESS" });
+  }) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://example.com/invalid-ip"),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage.toLowerCase().includes("could not connect")
+  );
+
+  globalThis.fetch = originalFetch;
+});
+
 test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachable fallback", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
   const originalRequest = http.request;

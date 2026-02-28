@@ -159,7 +159,7 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
     );
   }
 
-  if (code === "ERR_INVALID_IP_ADDRESS") {
+  if (code === "ERR_INVALID_IP_ADDRESS" || code === "ERR_INVALID_ARG_TYPE" || code === "ERR_INVALID_ADDRESS_FAMILY" || /invalid ip address/i.test(err.message)) {
     return new AppError(
       errorCodes.EXTRACTION_FAILED,
       "Could not connect to the source site. Retry later or use a different URL.",
@@ -269,6 +269,9 @@ function shouldTryNextPinnedIp(error: unknown): boolean {
     code === "ENETDOWN" ||
     code === "EAI_AGAIN" ||
     code === "ETIMEDOUT" ||
+    code === "ERR_INVALID_IP_ADDRESS" ||
+    code === "ERR_INVALID_ARG_TYPE" ||
+    code === "ERR_INVALID_ADDRESS_FAMILY" ||
     code === "UND_ERR_CONNECT_TIMEOUT" ||
     code === "UND_ERR_HEADERS_TIMEOUT"
   );
