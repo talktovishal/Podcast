@@ -329,11 +329,12 @@ async function extractItemText(item: {
     appendExtractionLog(item.logs, "extract:url", "Validating URL source", {
       sourceUrl: item.sourceUrl
     });
-    const { resolvedIp } = await validateFetchableUrl(item.sourceUrl);
+    const { resolvedIp, resolvedIps } = await validateFetchableUrl(item.sourceUrl);
     appendExtractionLog(item.logs, "extract:url", "URL validation passed");
 
     appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML");
-    const extracted = await extractHtmlFromUrl(item.sourceUrl, resolvedIp);
+    const pinnedCandidates = resolvedIps && resolvedIps.length > 0 ? resolvedIps : resolvedIp ? [resolvedIp] : undefined;
+    const extracted = await extractHtmlFromUrl(item.sourceUrl, pinnedCandidates);
     const extractedTitle = extracted.title ?? "";
     appendExtractionLog(item.logs, "extract:url", "HTML extraction complete", {
       extractedTitleLength: extractedTitle.length,

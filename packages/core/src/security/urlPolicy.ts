@@ -28,7 +28,31 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
-export async function validateFetchableUrl(rawUrl: string): Promise<{ url: URL; resolvedIp: string }> {
+function prioritizeFetchCandidates(addresses: string[]): string[] {
+  const unique = Array.from(new Set(addresses));
+  return unique.sort((left, right) => {
+    const leftFamily = isIP(left);
+    const rightFamily = isIP(right);
+    if (leftFamily === rightFamily) {
+      return 0;
+    }
+    if (leftFamily === 4) {
+      return -1;
+    }
+    if (rightFamily === 4) {
+      return 1;
+    }
+    return 0;
+  });
+}
+
+export type ValidatedFetchableUrl = {
+  url: URL;
+  resolvedIp: string;
+  resolvedIps: string[];
+};
+
+export async function validateFetchableUrl(rawUrl: string): Promise<ValidatedFetchableUrl> {
   let parsed: URL;
 
   try {
@@ -55,7 +79,7 @@ export async function validateFetchableUrl(rawUrl: string): Promise<{ url: URL; 
         400
       );
     }
-    return { url: parsed, resolvedIp: hostname };
+    return { url: parsed, resolvedIp: hostname, resolvedIps: [hostname] };
   }
 
   const resolved = await lookup(hostname, { all: true, verbatim: true });
@@ -73,5 +97,10 @@ export async function validateFetchableUrl(rawUrl: string): Promise<{ url: URL; 
     }
   }
 
-  return { url: parsed, resolvedIp: resolved[0].address };
+  const resolvedIps = prioritizeFetchCandidates(resolved.map((record) => record.address));
+  if (resolvedIps.length === 0) {
+    throw new AppError(errorCodes.URL_BLOCKED, "Could not resolve URL host.", 400);
+  }
+
+  return { url: parsed, resolvedIp: resolvedIps[0], resolvedIps };
 }

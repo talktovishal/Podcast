@@ -127,7 +127,7 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
   const directCode = (err as { code?: string }).code;
   const code = directCode || causeCode || "";
 
-  if (err.name === "AbortError" || code === "UND_ERR_HEADERS_TIMEOUT" || code === "ETIMEDOUT") {
+  if (err.name === "AbortError" || code === "UND_ERR_HEADERS_TIMEOUT" || code === "UND_ERR_CONNECT_TIMEOUT" || code === "ETIMEDOUT") {
     return new AppError(
       errorCodes.EXTRACTION_FAILED,
       "The source site timed out while fetching content. Retry or try another URL.",
@@ -151,6 +151,14 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
     );
   }
 
+  if (code === "ENETUNREACH" || code === "EHOSTUNREACH" || code === "ENETDOWN") {
+    return new AppError(
+      errorCodes.EXTRACTION_FAILED,
+      "This server cannot currently reach the source host network. Please retry shortly.",
+      502
+    );
+  }
+
   return new AppError(
     errorCodes.EXTRACTION_FAILED,
     "Could not fetch this URL. Retry once; if it fails again, the site likely blocks automated access.",
@@ -170,7 +178,18 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
     const mod = isHttps ? https : http;
     const port = parsedUrl.port ? Number(parsedUrl.port) : (isHttps ? 443 : 80);
     const agent = new mod.Agent({
-      lookup: (_hostname: string, _options: unknown, callback: (err: Error | null, address: string, family: number) => void) => {
+      lookup: (
+        _hostname: string,
+        optionsOrCallback: unknown,
+        maybeCallback?: (err: Error | null, address: string, family: number) => void
+      ) => {
+        const callback =
+          typeof optionsOrCallback === "function"
+            ? (optionsOrCallback as (err: Error | null, address: string, family: number) => void)
+            : maybeCallback;
+        if (!callback) {
+          return;
+        }
         callback(null, resolvedIp, family);
       }
     } as ConstructorParameters<typeof https.Agent>[0]);
@@ -205,7 +224,38 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
   });
 }
 
-export async function extractHtmlFromUrl(url: string, resolvedIp?: string): Promise<{
+function normalizePinnedIpCandidates(resolvedIp?: string | string[]): string[] {
+  const candidates = Array.isArray(resolvedIp) ? resolvedIp : resolvedIp ? [resolvedIp] : [];
+  const unique = new Set<string>();
+  for (const candidate of candidates) {
+    const normalized = candidate.trim();
+    if (!normalized) {
+      continue;
+    }
+    unique.add(normalized);
+  }
+  return Array.from(unique);
+}
+
+function shouldTryNextPinnedIp(error: unknown): boolean {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const causeCode = (err as { cause?: { code?: string } }).cause?.code;
+  const directCode = (err as { code?: string }).code;
+  const code = directCode || causeCode || "";
+  return (
+    code === "ECONNREFUSED" ||
+    code === "ECONNRESET" ||
+    code === "EHOSTUNREACH" ||
+    code === "ENETUNREACH" ||
+    code === "ENETDOWN" ||
+    code === "EAI_AGAIN" ||
+    code === "ETIMEDOUT" ||
+    code === "UND_ERR_CONNECT_TIMEOUT" ||
+    code === "UND_ERR_HEADERS_TIMEOUT"
+  );
+}
+
+export async function extractHtmlFromUrl(url: string, resolvedIp?: string | string[]): Promise<{
   title: string;
   text: string;
   markdown: string;
@@ -213,9 +263,28 @@ export async function extractHtmlFromUrl(url: string, resolvedIp?: string): Prom
   byline?: string | null;
 }> {
   let response: { status: number; ok: boolean; text: () => Promise<string> };
+  const pinnedCandidates = normalizePinnedIpCandidates(resolvedIp);
   try {
-    if (resolvedIp) {
-      response = await fetchWithPinnedIp(url, resolvedIp, FETCH_TIMEOUT_MS);
+    if (pinnedCandidates.length > 0) {
+      let lastNetworkError: unknown = null;
+      let pinnedResponse: { status: number; ok: boolean; text: () => Promise<string> } | null = null;
+      for (let index = 0; index < pinnedCandidates.length; index += 1) {
+        try {
+          pinnedResponse = await fetchWithPinnedIp(url, pinnedCandidates[index]!, FETCH_TIMEOUT_MS);
+          break;
+        } catch (error) {
+          lastNetworkError = error;
+          const isLastCandidate = index === pinnedCandidates.length - 1;
+          if (!shouldTryNextPinnedIp(error) || isLastCandidate) {
+            throw error;
+          }
+        }
+      }
+
+      if (!pinnedResponse) {
+        throw lastNetworkError || new Error("fetch failed");
+      }
+      response = pinnedResponse;
     } else {
       const r = await fetch(url, {
         method: "GET",

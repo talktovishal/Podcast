@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { EventEmitter } from "node:events";
+import http from "node:http";
 import { extractHtmlFromUrl, extractHtmlSnapshot } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
 import { extractTextFromPdf } from "../src/extract/pdf";
@@ -106,6 +108,79 @@ test("extractHtmlFromUrl maps network timeout to actionable extraction error", a
   );
 
   globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlFromUrl maps unreachable host network to actionable extraction error", async () => {
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => {
+    throw Object.assign(new Error("network unreachable"), { code: "ENETUNREACH" });
+  }) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://example.com/unreachable"),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage.toLowerCase().includes("cannot currently reach")
+  );
+
+  globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachable fallback", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  let requestCalls = 0;
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      if (requestCalls === 1) {
+        process.nextTick(() => {
+          requestEmitter.emit("error", Object.assign(new Error("connect refused"), { code: "ECONNREFUSED" }));
+        });
+        return;
+      }
+
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrl("http://example.com/article", ["203.0.113.7", "198.51.100.9"]);
+    assert.equal(requestCalls, 2);
+    assert.ok(result.text.length > 100);
+    assert.ok(result.markdown.length > 80);
+    assert.ok(result.title.length > 0);
+  } finally {
+    http.request = originalRequest;
+  }
 });
 
 test("extractHtmlSnapshot extracts content without network fetch", async () => {

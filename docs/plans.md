@@ -52,6 +52,7 @@
 - Podcast compatibility hardening (`M81`) now defaults published item/digest audio to MP3 (`audio/mpeg`) and normalizes episode descriptions for cleaner client display.
 - Feed resilience hardening (`M82`) now auto-recovers missing media episodes (RSS skip + regeneration queue) and reduces stale delete visibility with no-store RSS caching.
 - M82 repair flow now also reconciles MP3/M4A path drift in-place (serve immediately when sibling object exists), prevents endless requeues for non-regenerable items, and adds a bulk MP3 backfill command.
+- URL extraction reliability hardening now retries across validated DNS candidate IPs (IPv4-preferred) and fixes pinned-lookup callback compatibility in Dockerized runtimes, eliminating false generic fetch failures introduced by single-IP pinning.
 - Geo + demographics profile track (`M83`) is implemented:
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
