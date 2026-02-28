@@ -183,6 +183,86 @@ test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachabl
   }
 });
 
+test("extractHtmlFromUrl handles pinned lookup callbacks in all-address mode", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  let allAddressLookupHandled = false;
+
+  http.request = ((...args: unknown[]) => {
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestOptions = args[0] as {
+      agent?: {
+        options?: {
+          lookup?: (
+            hostname: string,
+            options: { all?: boolean },
+            callback: (err: Error | null, addresses: Array<{ address: string; family: number }>) => void
+          ) => void;
+        };
+      };
+    };
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const lookup = requestOptions.agent?.options?.lookup;
+      if (typeof lookup !== "function") {
+        process.nextTick(() =>
+          requestEmitter.emit("error", Object.assign(new Error("missing lookup"), { code: "ERR_LOOKUP_MISSING" }))
+        );
+        return;
+      }
+
+      lookup("example.com", { all: true }, (error, addresses) => {
+        if (error) {
+          process.nextTick(() => requestEmitter.emit("error", error));
+          return;
+        }
+        allAddressLookupHandled =
+          Array.isArray(addresses) &&
+          addresses.length === 1 &&
+          addresses[0]?.address === "203.0.113.7" &&
+          addresses[0]?.family === 4;
+
+        const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+        responseEmitter.statusCode = 200;
+        process.nextTick(() => {
+          callback?.(responseEmitter);
+          responseEmitter.emit("data", Buffer.from(html, "utf8"));
+          responseEmitter.emit("end");
+        });
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrl("http://example.com/article", ["203.0.113.7"]);
+    assert.equal(allAddressLookupHandled, true);
+    assert.ok(result.text.length > 100);
+    assert.ok(result.markdown.length > 80);
+    assert.ok(result.title.length > 0);
+  } finally {
+    http.request = originalRequest;
+  }
+});
+
 test("extractHtmlSnapshot extracts content without network fetch", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
   const originalFetch = globalThis.fetch;

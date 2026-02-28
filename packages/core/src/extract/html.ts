@@ -159,6 +159,14 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
     );
   }
 
+  if (code === "ERR_INVALID_IP_ADDRESS") {
+    return new AppError(
+      errorCodes.EXTRACTION_FAILED,
+      "Could not connect to the source site. Retry later or use a different URL.",
+      502
+    );
+  }
+
   return new AppError(
     errorCodes.EXTRACTION_FAILED,
     "Could not fetch this URL. Retry once; if it fails again, the site likely blocks automated access.",
@@ -187,7 +195,18 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
           typeof optionsOrCallback === "function"
             ? (optionsOrCallback as (err: Error | null, address: string, family: number) => void)
             : maybeCallback;
+        const options =
+          typeof optionsOrCallback === "object" && optionsOrCallback !== null
+            ? (optionsOrCallback as { all?: boolean })
+            : null;
         if (!callback) {
+          return;
+        }
+        if (options?.all) {
+          (callback as unknown as (err: Error | null, addresses: Array<{ address: string; family: number }>) => void)(
+            null,
+            [{ address: resolvedIp, family }]
+          );
           return;
         }
         callback(null, resolvedIp, family);

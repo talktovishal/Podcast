@@ -75,7 +75,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Podcast playback diagnostics are implemented in web structured logs:
   - RSS and media routes now emit token-safe request traces (method, user-agent, range header, response status, bytes, content-range, and latency) to aid podcast app playback debugging.
 - URL extraction reliability hardening is implemented:
-  - URL fetch now safely retries across validated DNS candidate IPs (IPv4-preferred) and supports Node lookup callback variants used by Docker/runtime environments, preventing broad false `EXTRACTION_FAILED` fetch errors after SSRF pinning changes.
+  - URL fetch now safely retries across validated DNS candidate IPs (IPv4-preferred) and supports Node lookup callback variants (single-address and all-address/happy-eyeballs modes) used by Docker/runtime environments, preventing broad false `EXTRACTION_FAILED` fetch errors after SSRF pinning changes.
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.
