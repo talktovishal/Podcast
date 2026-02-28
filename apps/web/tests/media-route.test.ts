@@ -178,3 +178,83 @@ test("media route rejects path traversal attempts", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("media route 404 enqueues repair for missing episode media", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-repair-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/${uniq}`,
+      status: "READY"
+    }
+  });
+  const missingPath = `items/${item.id}/episode.mp3`;
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Missing media ${uniq}`,
+      description: "missing media",
+      audioPath: missingPath,
+      audioBytes: 1024,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  await prisma.chunkCache.create({
+    data: {
+      itemId: item.id,
+      chunkIndex: 0,
+      hash: `hash-${uniq}`,
+      filePath: missingPath,
+      audioBytes: 1024,
+      mimeType: "audio/mpeg"
+    }
+  });
+
+  try {
+    const response = await GET(
+      new NextRequest(`http://localhost/api/media/${missingPath}?feed_token=${feedToken.plain}&eid=${episode.id}`),
+      { params: { path: missingPath.split("/") } }
+    );
+    assert.equal(response.status, 404);
+
+    const refreshedItem = await prisma.item.findUnique({ where: { id: item.id }, select: { status: true, errorMessage: true } });
+    assert.equal(refreshedItem?.status, "QUEUED");
+    assert.equal((refreshedItem?.errorMessage || "").includes("regeneration"), true);
+
+    const queuedJobs = await prisma.job.findMany({
+      where: {
+        itemId: item.id,
+        status: "QUEUED"
+      }
+    });
+    assert.equal(queuedJobs.length > 0, true);
+
+    const cacheRows = await prisma.chunkCache.count({ where: { itemId: item.id } });
+    assert.equal(cacheRows, 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

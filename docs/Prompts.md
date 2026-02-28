@@ -77,9 +77,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.
+- Feed resilience and deletion consistency hardening are implemented:
+  - RSS feed generation now skips episodes whose media object is missing and auto-queues regeneration.
+  - media 404 paths now auto-queue item regeneration after clearing stale chunk cache metadata.
+  - RSS cache policy is now `private, no-store` to reduce stale-feed behavior after item deletion.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M81`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M82`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

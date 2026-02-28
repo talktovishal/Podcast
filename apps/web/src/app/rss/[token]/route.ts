@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
+import { getArtifactStorage } from "@/lib/storage";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
 
 const FEED_ROUTE = "/rss/[token]";
@@ -54,6 +56,44 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     },
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
   });
+  const storage = getArtifactStorage();
+  const availableEpisodes: typeof episodes = [];
+  let missingEpisodeCount = 0;
+  let repairEnqueuedCount = 0;
+
+  for (const episode of episodes) {
+    const exists = await storage.headObject(episode.audioPath).then(() => true).catch(() => false);
+    if (exists) {
+      availableEpisodes.push(episode);
+      continue;
+    }
+
+    missingEpisodeCount += 1;
+    const repair = await enqueueEpisodeMediaRepair({
+      episodeId: episode.id,
+      userId: feed.userId,
+      expectedAudioPath: episode.audioPath,
+      reason: "Audio file was missing and has been queued for regeneration."
+    }).catch(() => ({ enqueued: false as const }));
+
+    if (repair.enqueued) {
+      repairEnqueuedCount += 1;
+    }
+
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast feed item skipped due to missing media", {
+        ...requestMeta,
+        route: FEED_ROUTE,
+        feed_kind: "item",
+        status: 200,
+        user_id: feed.userId,
+        episode_id: episode.id,
+        item_id: episode.itemId,
+        media_key: episode.audioPath,
+        repair_enqueued: repair.enqueued
+      });
+    }
+  }
 
   const xml = buildRssXml({
     title: `${feed.user.name || feed.user.email} - ${BRAND_NAME}`,
@@ -62,7 +102,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     feedUrl: `${env.appUrl}/rss/${token}.xml`,
     language: "en-us",
     imageUrl: absoluteBrandAssetUrl(env.appUrl, BRAND_PODCAST_COVER_PATH),
-    episodes: episodes.map((episode) => ({
+    episodes: availableEpisodes.map((episode) => ({
       guid: episode.guid,
       title: episode.title,
       description: episode.description,
@@ -80,8 +120,10 @@ export async function GET(request: NextRequest, context: { params: { token: stri
       feed_kind: "item",
       status: 200,
       user_id: feed.userId,
-      episode_count: episodes.length,
-      enclosure_mime_types: Array.from(new Set(episodes.map((episode) => episode.mimeType))).sort(),
+      episode_count: availableEpisodes.length,
+      missing_episode_count: missingEpisodeCount,
+      repair_enqueued_count: repairEnqueuedCount,
+      enclosure_mime_types: Array.from(new Set(availableEpisodes.map((episode) => episode.mimeType))).sort(),
       duration_ms: Date.now() - startedAt
     });
   }
@@ -90,7 +132,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     status: 200,
     headers: {
       "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "private, max-age=60"
+      "cache-control": "private, no-store"
     }
   });
 }

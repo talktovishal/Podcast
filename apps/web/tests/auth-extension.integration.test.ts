@@ -13,6 +13,7 @@ import { GET as seedDemoGet } from "../src/app/api/seed-demo/route";
 import { GET as rssGet } from "../src/app/rss/[token]/route";
 import { createSession, ensureUserFeedToken, findOrCreateOAuthUser } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
+import { getArtifactStorage } from "../src/lib/storage";
 import { processJob } from "../../worker/src/jobs/processItemJob";
 
 let dbReady = false;
@@ -222,13 +223,17 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     });
     const chunks = chunkText(extracted.text);
     const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
+    const cachedAudioPath = `items/test-${uniq}/episode.mp3`;
+    await getArtifactStorage().putObject(cachedAudioPath, Buffer.from("cached-audio", "utf8"), {
+      contentType: "audio/mpeg"
+    });
 
     await prisma.chunkCache.create({
       data: {
         itemId: createdItem!.id,
         chunkIndex: 0,
         hash: cacheKey,
-        filePath: `items/test-${uniq}/episode.mp3`,
+        filePath: cachedAudioPath,
         audioBytes: 2048,
         mimeType: "audio/mpeg"
       }

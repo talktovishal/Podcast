@@ -84,7 +84,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     status: 200,
     headers: {
       "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "private, max-age=60"
+      "cache-control": "private, no-store"
     }
   });
 }

@@ -50,6 +50,7 @@
   - podcast contract checks now validate artwork presence and artwork URL availability.
 - Podcast playback diagnostics are now emitted from RSS/media routes in web structured logs (token-safe request metadata + range/status/bytes/latency) to debug client-specific playback failures.
 - Podcast compatibility hardening (`M81`) now defaults published item/digest audio to MP3 (`audio/mpeg`) and normalizes episode descriptions for cleaner client display.
+- Feed resilience hardening (`M82`) now auto-recovers missing media episodes (RSS skip + regeneration queue) and reduces stale delete visibility with no-store RSS caching.
 
 ## Requirement Coverage Snapshot
 
@@ -92,6 +93,7 @@
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
 | Unified branding icons + podcast artwork consistency | M80 |
 | Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
+| Missing media auto-repair + RSS delete consistency hardening | M82 |
 
 ## Milestone Status Snapshot
 
@@ -185,6 +187,7 @@ Milestone metadata contract:
 | M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
+| M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -2166,6 +2169,33 @@ Milestone metadata contract:
   - Digest podcast episodes also publish as MP3 and remain range-compatible.
   - Episode descriptions in RSS are free of markdown/link noise and limited to concise sentence summaries.
   - Regression tests fail if defaults drift away from MP3 or description formatter behavior regresses.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M82 - Missing Media Auto-Repair + RSS Delete Consistency
+- status: Done
+- target_finish: 2026-02-28
+- completed_on: 2026-02-28
+- evidence: local validation + implementation pass (2026-02-28)
+- Scope:
+  - Add server-side media self-heal so missing episode objects trigger regeneration queueing instead of repeated client failures.
+  - Exclude episodes with missing media from RSS output until repair completes.
+  - Ensure delete behavior reflects in RSS output with stricter cache policy.
+- Key files/modules:
+  - `apps/web/src/lib/media-repair.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/tests/media-route.test.ts`
+  - `apps/web/tests/rss-delete-route.test.ts`
+- Acceptance criteria:
+  - Missing media requests emit 404 and enqueue regeneration jobs when an episode/item can be safely identified.
+  - RSS feed does not include episodes whose backing media object is unavailable.
+  - Deleting an item removes its episode from subsequent RSS responses.
 - Verification commands:
   - `npm run typecheck`
   - `npm run lint`

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
@@ -93,6 +94,7 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     return new NextResponse(null, { status: 400 });
   }
   const key = rawKey;
+  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
   try {
     const storage = getArtifactStorage();
@@ -121,6 +123,13 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
       }
     });
   } catch {
+    const repair = await enqueueEpisodeMediaRepair({
+      episodeId: maybeEpisodeId,
+      userId: auth.userId,
+      expectedAudioPath: key,
+      reason: "Audio file was missing and has been queued for regeneration."
+    }).catch(() => ({ enqueued: false as const }));
+
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media object not found", {
         ...requestMeta,
@@ -128,6 +137,8 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         status: 404,
         media_kind: "item",
         media_key: key,
+        episode_id: maybeEpisodeId,
+        repair_enqueued: repair.enqueued,
         duration_ms: Date.now() - startedAt
       });
     }
@@ -310,6 +321,13 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       }
     });
   } catch {
+    const repair = await enqueueEpisodeMediaRepair({
+      episodeId: maybeEpisodeId,
+      userId: auth.userId,
+      expectedAudioPath: key,
+      reason: "Audio file was missing and has been queued for regeneration."
+    }).catch(() => ({ enqueued: false as const }));
+
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media object not found", {
         ...requestMeta,
@@ -318,6 +336,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         media_kind: "item",
         media_key: key,
         episode_id: maybeEpisodeId,
+        repair_enqueued: repair.enqueued,
         duration_ms: Date.now() - startedAt
       });
     }
