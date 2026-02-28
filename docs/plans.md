@@ -60,6 +60,7 @@
   - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
+- Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
   - Implementation gated on per-milestone user sign-off.

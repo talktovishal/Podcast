@@ -111,6 +111,8 @@ jobs:
           DEMO_PASSWORD: ${{ secrets.APP_DEMO_PASSWORD }}
           GOOGLE_CLIENT_ID: ${{ secrets.APP_GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.APP_GOOGLE_CLIENT_SECRET }}
+          DIGEST_SCHEDULER_SECRET: ${{ secrets.APP_DIGEST_SCHEDULER_SECRET }}
+          MEDIA_SIGNING_KEY: ${{ secrets.APP_MEDIA_SIGNING_KEY }}
         run: |
           set -euo pipefail
 

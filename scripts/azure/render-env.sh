@@ -23,6 +23,41 @@ for key in "${required[@]}"; do
   fi
 done
 
+hash_secret() {
+  local input="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf "%s" "$input" | sha256sum | awk '{print $1}'
+  else
+    printf "%s" "$input" | shasum -a 256 | awk '{print $1}'
+  fi
+}
+
+derive_secret() {
+  local purpose="$1"
+  local entropy_source=""
+  if [[ -n "${AZURE_STORAGE_CONNECTION_STRING:-}" ]]; then
+    entropy_source="${AZURE_STORAGE_CONNECTION_STRING}"
+  elif [[ -n "${AZURE_STORAGE_ACCOUNT_URL:-}" || -n "${AZURE_STORAGE_SAS_TOKEN:-}" ]]; then
+    entropy_source="${AZURE_STORAGE_ACCOUNT_URL:-}|${AZURE_STORAGE_SAS_TOKEN:-}"
+  else
+    entropy_source="${DATABASE_URL}|${APP_URL}|${ADMIN_PASSWORD:-}"
+  fi
+  hash_secret "${purpose}|${DATABASE_URL}|${APP_URL}|${entropy_source}"
+}
+
+DIGEST_SCHEDULER_SECRET="${DIGEST_SCHEDULER_SECRET:-$(derive_secret "digest_scheduler")}"
+MEDIA_SIGNING_KEY="${MEDIA_SIGNING_KEY:-$(derive_secret "media_signing")}"
+
+if [[ "${#DIGEST_SCHEDULER_SECRET}" -lt 32 ]]; then
+  echo "DIGEST_SCHEDULER_SECRET must be at least 32 characters"
+  exit 1
+fi
+
+if [[ "${#MEDIA_SIGNING_KEY}" -lt 32 ]]; then
+  echo "MEDIA_SIGNING_KEY must be at least 32 characters"
+  exit 1
+fi
+
 mkdir -p "$(dirname "$OUT_FILE")"
 
 cat > "$OUT_FILE" <<ENVFILE
@@ -51,6 +86,8 @@ GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
 GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
 APPLE_CLIENT_ID=${APPLE_CLIENT_ID:-}
 APPLE_CLIENT_SECRET=${APPLE_CLIENT_SECRET:-}
+DIGEST_SCHEDULER_SECRET=${DIGEST_SCHEDULER_SECRET}
+MEDIA_SIGNING_KEY=${MEDIA_SIGNING_KEY}
 ENVFILE
 
 echo "[render-env] wrote $OUT_FILE"

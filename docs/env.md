@@ -36,10 +36,16 @@ Recommended:
 - `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
 - `AZURE_STORAGE_CONTAINER`
+- `DIGEST_SCHEDULER_SECRET` (recommended explicit secret, minimum 32 chars)
+- `MEDIA_SIGNING_KEY` (recommended explicit secret, minimum 32 chars)
 - One of:
   - `AZURE_STORAGE_CONNECTION_STRING`
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
+
+Azure deploy helper behavior:
+- `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
+- If either value is unset, a deterministic 64-char SHA-256 fallback is derived from existing Azure/database app secrets so non-simple profile startup contracts remain satisfied.
 
 Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `CANONICAL_HOST` (defaults from `APP_URL` host when set)
