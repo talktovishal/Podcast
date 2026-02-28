@@ -543,6 +543,11 @@ export function AdminAnalyticsDashboard() {
                       <th className="px-2 py-1">User</th>
                       <th className="px-2 py-1">Role</th>
                       <th className="px-2 py-1">Auth profile</th>
+                      <th className="px-2 py-1">Country</th>
+                      <th className="px-2 py-1">Region</th>
+                      <th className="px-2 py-1">City</th>
+                      <th className="px-2 py-1">Age band</th>
+                      <th className="px-2 py-1">Gender</th>
                       <th className="px-2 py-1">Created</th>
                       <th className="px-2 py-1">Last active</th>
                       <th className="px-2 py-1">Logins</th>
@@ -558,6 +563,11 @@ export function AdminAnalyticsDashboard() {
                         <td className="px-2 py-1">{row.email}</td>
                         <td className="px-2 py-1">{row.role}</td>
                         <td className="px-2 py-1">{row.authProfile}</td>
+                        <td className="px-2 py-1">{row.firstSeenCountryCode || "—"}</td>
+                        <td className="px-2 py-1">{row.firstSeenRegionCode || "—"}</td>
+                        <td className="px-2 py-1">{row.firstSeenCity || "—"}</td>
+                        <td className="px-2 py-1">{row.ageBand || "—"}</td>
+                        <td className="px-2 py-1">{row.genderIdentity || "—"}</td>
                         <td className="px-2 py-1">{new Date(row.createdAt).toLocaleDateString()}</td>
                         <td className="px-2 py-1">{row.lastActiveAt ? new Date(row.lastActiveAt).toLocaleString() : "—"}</td>
                         <td className="px-2 py-1">{row.logins}</td>
@@ -569,7 +579,7 @@ export function AdminAnalyticsDashboard() {
                     ))}
                     {users && users.rows.length === 0 ? (
                       <tr>
-                        <td className="px-2 py-2 text-[var(--muted)]" colSpan={10}>
+                        <td className="px-2 py-2 text-[var(--muted)]" colSpan={15}>
                           No users match this filter.
                         </td>
                       </tr>

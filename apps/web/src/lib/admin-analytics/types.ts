@@ -128,6 +128,11 @@ export type AdminAnalyticsUserRow = {
   email: string;
   role: AnalyticsUserRole;
   authProfile: AnalyticsSegmentAuth;
+  firstSeenCountryCode: string | null;
+  firstSeenRegionCode: string | null;
+  firstSeenCity: string | null;
+  ageBand: string | null;
+  genderIdentity: string | null;
   createdAt: string;
   lastActiveAt: string | null;
   signups: number;

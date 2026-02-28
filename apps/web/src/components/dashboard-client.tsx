@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
+import {
+  DEMOGRAPHIC_AGE_BANDS,
+  DEMOGRAPHIC_GENDER_IDENTITIES,
+  ageBandLabel,
+  genderIdentityLabel,
+  type DemographicAgeBand,
+  type DemographicGenderIdentity,
+  type UserDemographicSurveyView
+} from "@/lib/demographics";
 import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
 
 type DashboardItem = {
@@ -127,6 +136,17 @@ const DEFAULT_DIGEST_SETTINGS: DigestSettings = {
   weeklyLengthMinutes: 15
 };
 
+const DEFAULT_DEMOGRAPHIC_SURVEY: UserDemographicSurveyView = {
+  status: "PENDING",
+  ageBand: null,
+  genderIdentity: null,
+  genderSelfDescribe: null,
+  completedAt: null,
+  skippedAt: null,
+  deletedAt: null,
+  updatedAt: null
+};
+
 type Props = {
   feedUrl: string;
   feedToken: string;
@@ -135,6 +155,7 @@ type Props = {
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
   initialDigestSettings?: DigestSettings;
   initialDigestRuns?: DigestRun[];
+  initialDemographicSurvey?: UserDemographicSurveyView;
   initialTtsSelection: {
     providerId: string;
     voice: string;
@@ -180,6 +201,7 @@ export function DashboardClient({
   initialSubmissionQuota = null,
   initialDigestSettings = DEFAULT_DIGEST_SETTINGS,
   initialDigestRuns = [],
+  initialDemographicSurvey = DEFAULT_DEMOGRAPHIC_SURVEY,
   initialTtsSelection,
   ttsCatalog,
   ttsAvailability,
@@ -201,6 +223,8 @@ export function DashboardClient({
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
   const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
+  const [demographicSurvey, setDemographicSurvey] = useState<UserDemographicSurveyView>(initialDemographicSurvey);
+  const [isDemographicBusy, setIsDemographicBusy] = useState(false);
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const [extensionConnectCode, setExtensionConnectCode] = useState<string | null>(null);
@@ -531,6 +555,87 @@ export function DashboardClient({
     }
   }
 
+  async function saveDemographicSurvey() {
+    if (!demographicSurvey.ageBand || !demographicSurvey.genderIdentity) {
+      setStatusMessage("Select age band and gender identity before saving, or choose Skip for now.");
+      return;
+    }
+    if (demographicSurvey.genderIdentity === "SELF_DESCRIBE" && !demographicSurvey.genderSelfDescribe?.trim()) {
+      setStatusMessage("Add a self-description or choose a different gender identity option.");
+      return;
+    }
+
+    setIsDemographicBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/account/demographics", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "save",
+          ageBand: demographicSurvey.ageBand,
+          genderIdentity: demographicSurvey.genderIdentity,
+          genderSelfDescribe: demographicSurvey.genderIdentity === "SELF_DESCRIBE" ? demographicSurvey.genderSelfDescribe : null
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not save demographic profile.");
+        return;
+      }
+      setDemographicSurvey(json.survey as UserDemographicSurveyView);
+      setStatusMessage("Demographic profile saved.");
+    } finally {
+      setIsDemographicBusy(false);
+    }
+  }
+
+  async function skipDemographicSurvey() {
+    setIsDemographicBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/account/demographics", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          action: "skip"
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not skip demographic profile.");
+        return;
+      }
+      setDemographicSurvey(json.survey as UserDemographicSurveyView);
+      setStatusMessage("Demographic profile skipped. You can update this anytime.");
+    } finally {
+      setIsDemographicBusy(false);
+    }
+  }
+
+  async function deleteDemographicSurvey() {
+    setIsDemographicBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/account/demographics", {
+        method: "DELETE"
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not delete demographic profile.");
+        return;
+      }
+      setDemographicSurvey(json.survey as UserDemographicSurveyView);
+      setStatusMessage("Demographic responses deleted.");
+    } finally {
+      setIsDemographicBusy(false);
+    }
+  }
+
   async function previewVoice() {
     setIsTtsBusy(true);
     setStatusMessage(null);
@@ -772,6 +877,106 @@ export function DashboardClient({
               onClick={saveDigestSettings}
             >
               Save digest settings
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {showSettingsSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Optional Demographic Profile</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            This is optional and used only for aggregate product insights. You can skip now, edit later, or delete responses anytime.
+          </p>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Age band</span>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={demographicSurvey.ageBand ?? ""}
+                onChange={(event) =>
+                  setDemographicSurvey((current) => ({
+                    ...current,
+                    ageBand: (event.target.value || null) as DemographicAgeBand | null
+                  }))
+                }
+              >
+                <option value="">Select age band (optional)</option>
+                {DEMOGRAPHIC_AGE_BANDS.map((ageBand) => (
+                  <option key={ageBand} value={ageBand}>
+                    {ageBandLabel(ageBand)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Gender identity</span>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={demographicSurvey.genderIdentity ?? ""}
+                onChange={(event) =>
+                  setDemographicSurvey((current) => ({
+                    ...current,
+                    genderIdentity: (event.target.value || null) as DemographicGenderIdentity | null,
+                    genderSelfDescribe: event.target.value === "SELF_DESCRIBE" ? current.genderSelfDescribe : null
+                  }))
+                }
+              >
+                <option value="">Select gender identity (optional)</option>
+                {DEMOGRAPHIC_GENDER_IDENTITIES.map((identity) => (
+                  <option key={identity} value={identity}>
+                    {genderIdentityLabel(identity)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {demographicSurvey.genderIdentity === "SELF_DESCRIBE" ? (
+            <label className="mt-3 block">
+              <span className="mb-1 block text-sm font-medium">Self-describe</span>
+              <input
+                className="w-full rounded-lg border px-3 py-2"
+                maxLength={120}
+                value={demographicSurvey.genderSelfDescribe ?? ""}
+                onChange={(event) =>
+                  setDemographicSurvey((current) => ({
+                    ...current,
+                    genderSelfDescribe: event.target.value
+                  }))
+                }
+              />
+            </label>
+          ) : null}
+
+          <p className="mt-3 text-xs text-[var(--muted)]">
+            Current status: {demographicSurvey.status.toLowerCase()}
+            {demographicSurvey.updatedAt ? ` · Updated ${new Date(demographicSurvey.updatedAt).toLocaleString()}` : ""}
+          </p>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <button
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+              disabled={isDemographicBusy}
+              onClick={saveDemographicSurvey}
+            >
+              Save demographic profile
+            </button>
+            <button
+              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+              disabled={isDemographicBusy}
+              onClick={skipDemographicSurvey}
+            >
+              Skip for now
+            </button>
+            <button
+              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+              disabled={isDemographicBusy}
+              onClick={deleteDemographicSurvey}
+            >
+              Delete responses
             </button>
           </div>
         </section>

@@ -20,6 +20,11 @@ Set passwords via environment variables before seeding (see `.env.example`):
 - Admin account: `admin@articlepod.local` — password from `ADMIN_PASSWORD` env var
 - Admin login redirects directly to `/admin` for faster dashboard access.
 - Admin accounts cannot be deleted through `/api/account/delete` (protected server-side and hidden in dashboard UI).
+- Successful auth updates coarse geo snapshots on user records (`firstSeen*` and `lastSeen*` with country/region/city when available from trusted proxy headers). Raw IPs are not persisted for profile analytics.
+- Optional demographic survey is available in `/app/settings`:
+  - skippable at any time
+  - editable after save
+  - deletable (responses are cleared and status returns to skipped)
 - Free-tier quota:
   - non-paid users get `FREE_TRIAL_SUBMISSION_LIMIT` free submissions (default `2`)
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`

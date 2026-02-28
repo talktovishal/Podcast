@@ -52,6 +52,10 @@
 - Podcast compatibility hardening (`M81`) now defaults published item/digest audio to MP3 (`audio/mpeg`) and normalizes episode descriptions for cleaner client display.
 - Feed resilience hardening (`M82`) now auto-recovers missing media episodes (RSS skip + regeneration queue) and reduces stale delete visibility with no-store RSS caching.
 - M82 repair flow now also reconciles MP3/M4A path drift in-place (serve immediately when sibling object exists), prevents endless requeues for non-regenerable items, and adds a bulk MP3 backfill command.
+- Geo + demographics profile track (`M83`) is implemented:
+  - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
+  - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
+  - admin user analytics and CSV exports now include coarse geo and PII-gated demographic fields.
 
 ## Requirement Coverage Snapshot
 
@@ -95,6 +99,7 @@
 | Unified branding icons + podcast artwork consistency | M80 |
 | Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
 | Missing media auto-repair + RSS delete consistency hardening | M82 |
+| Global geo snapshots + optional demographic profile capture | M83 |
 
 ## Milestone Status Snapshot
 
@@ -189,6 +194,7 @@ Milestone metadata contract:
 | M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
+| M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -2207,4 +2213,39 @@ Milestone metadata contract:
   - `npm run lint`
   - `npm run test`
   - `npm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M83 - Global Geo Snapshot + Optional Demographic Survey
+- status: Done
+- target_finish: 2026-02-28
+- completed_on: 2026-02-28
+- evidence: local validation + implementation pass (2026-02-28)
+- Scope:
+  - Store coarse first-seen and last-seen geo snapshots on users from trusted proxy headers.
+  - Add optional self-reported demographic survey with skip/edit/delete lifecycle.
+  - Extend admin users analytics + CSV export with coarse geo and PII-gated demographic dimensions.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/geo.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/app/api/account/demographics/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/lib/admin-analytics/service.ts`
+  - `apps/web/src/lib/admin-analytics/types.ts`
+  - `apps/web/src/lib/admin-analytics/csv.ts`
+  - `apps/web/tests/geo.test.ts`
+  - `apps/web/tests/auth-geo.test.ts`
+  - `apps/web/tests/account-demographics.test.ts`
+  - `apps/web/tests/admin-analytics.test.ts`
+- Acceptance criteria:
+  - Successful auth updates `User.firstSeen*` (set once) and `User.lastSeen*` (updated when new geo is available) without persisting raw IP.
+  - `GET/POST/DELETE /api/account/demographics` supports default pending state and save/skip/edit/delete flows.
+  - Settings page surfaces optional demographic form controls with clear non-blocking UX.
+  - Admin users dataset and CSV include country/region for all modes and city/demographics only when `pii=1`.
+- Verification commands:
+  - `pnpm --filter @articlepod/web run lint`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm --filter @articlepod/web run build`
+  - `pnpm --filter @articlepod/worker test`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`

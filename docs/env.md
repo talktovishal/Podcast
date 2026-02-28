@@ -58,6 +58,10 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
   - `GOOGLE_CLIENT_SECRET`
   - `APPLE_CLIENT_ID`
   - `APPLE_CLIENT_SECRET`
+- Optional geo header overrides (defaults already support Vercel + Cloudflare):
+  - `GEO_HEADER_COUNTRY`
+  - `GEO_HEADER_REGION`
+  - `GEO_HEADER_CITY`
 
 ## Worker controls
 - `WORKER_POLL_MS`

@@ -5,6 +5,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import type { AnalyticsAuthMethod } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
+import { resolveGeoSnapshotFromHeaders } from "./geo";
 import { prisma } from "./prisma";
 
 const SESSION_COOKIE = AUTH_COOKIE_NAMES.session;
@@ -149,6 +150,65 @@ export async function ensureUserDigestSettings(userId: string) {
         weeklyMinute: 0
       })
     }
+  });
+}
+
+export async function updateUserGeoSnapshotFromRequest(userId: string, request: NextRequest): Promise<void> {
+  const geo = resolveGeoSnapshotFromHeaders(request.headers);
+  const now = new Date();
+
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      firstSeenAt: true,
+      firstSeenCountryCode: true,
+      firstSeenRegionCode: true,
+      firstSeenCity: true
+    }
+  });
+  if (!existing) {
+    return;
+  }
+
+  const updateData: {
+    firstSeenAt?: Date;
+    firstSeenCountryCode?: string;
+    firstSeenRegionCode?: string;
+    firstSeenCity?: string;
+    lastSeenAt: Date;
+    lastSeenCountryCode?: string;
+    lastSeenRegionCode?: string;
+    lastSeenCity?: string;
+  } = {
+    lastSeenAt: now
+  };
+
+  if (!existing.firstSeenAt) {
+    updateData.firstSeenAt = now;
+  }
+  if (!existing.firstSeenCountryCode && geo.countryCode) {
+    updateData.firstSeenCountryCode = geo.countryCode;
+  }
+  if (!existing.firstSeenRegionCode && geo.regionCode) {
+    updateData.firstSeenRegionCode = geo.regionCode;
+  }
+  if (!existing.firstSeenCity && geo.city) {
+    updateData.firstSeenCity = geo.city;
+  }
+
+  if (geo.countryCode) {
+    updateData.lastSeenCountryCode = geo.countryCode;
+  }
+  if (geo.regionCode) {
+    updateData.lastSeenRegionCode = geo.regionCode;
+  }
+  if (geo.city) {
+    updateData.lastSeenCity = geo.city;
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: updateData
   });
 }
 

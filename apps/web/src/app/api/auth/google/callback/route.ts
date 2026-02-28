@@ -6,7 +6,8 @@ import {
   findOrCreateOAuthUser,
   getOAuthStateFromRequest,
   isOAuthProviderConfigured,
-  setSessionCookie
+  setSessionCookie,
+  updateUserGeoSnapshotFromRequest
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
@@ -101,6 +102,7 @@ export async function GET(request: NextRequest) {
       }
     });
   }
+  await updateUserGeoSnapshotFromRequest(user.id, request);
   const sessionToken = await createSession(user.id, { authMethod: "GOOGLE" });
 
   const response = NextResponse.redirect(`${env.appUrl}/app`);

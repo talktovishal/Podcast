@@ -695,7 +695,16 @@ export async function getAdminAnalyticsUsers(input: {
         id: true,
         email: true,
         role: true,
+        firstSeenCountryCode: true,
+        firstSeenRegionCode: true,
+        firstSeenCity: true,
         createdAt: true,
+        demographicSurvey: {
+          select: {
+            ageBand: true,
+            genderIdentity: true
+          }
+        },
         oauthIdentities: {
           select: {
             provider: true
@@ -785,6 +794,11 @@ export async function getAdminAnalyticsUsers(input: {
         email: pii ? user.email : maskEmail(user.email),
         role: user.role === "ADMIN" ? "ADMIN" : "USER",
         authProfile: hasOAuth ? "OAUTH_LINKED" : "LOCAL_ONLY",
+        firstSeenCountryCode: user.firstSeenCountryCode ?? null,
+        firstSeenRegionCode: user.firstSeenRegionCode ?? null,
+        firstSeenCity: pii ? user.firstSeenCity ?? null : null,
+        ageBand: pii ? user.demographicSurvey?.ageBand ?? null : null,
+        genderIdentity: pii ? user.demographicSurvey?.genderIdentity ?? null : null,
         createdAt: user.createdAt.toISOString(),
         lastActiveAt: aggregate.lastActiveAt ? aggregate.lastActiveAt.toISOString() : null,
         signups: aggregate.signups,

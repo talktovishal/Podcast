@@ -22,6 +22,13 @@ Primary entities:
 - `DigestFeedToken` (private digest RSS access token with rotation)
 - `DigestRun` + `DigestEpisode` (daily/weekly digest execution state + published digest audio metadata)
 - `DigestSchedulerTick` (external scheduler signal queue)
+- `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
+
+Auth profile metadata on `User`:
+- coarse geo snapshots from trusted proxy headers:
+  - first-seen: `firstSeenAt`, `firstSeenCountryCode`, `firstSeenRegionCode`, `firstSeenCity`
+  - last-seen: `lastSeenAt`, `lastSeenCountryCode`, `lastSeenRegionCode`, `lastSeenCity`
+- raw IP values are not persisted in user profile data
 
 Monetization/quota fields on `User`:
 - `isPaid` (paid accounts are unrestricted)

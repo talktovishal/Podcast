@@ -76,6 +76,15 @@ test("account delete route allows non-admin deletion", async () => {
       role: "USER"
     }
   });
+  await prisma.userDemographicSurvey.create({
+    data: {
+      userId: user.id,
+      status: "COMPLETED",
+      ageBand: "AGE_35_44",
+      genderIdentity: "MAN",
+      completedAt: new Date()
+    }
+  });
 
   try {
     const sessionToken = await createSession(user.id, { authMethod: "LOCAL" });
@@ -93,6 +102,11 @@ test("account delete route allows non-admin deletion", async () => {
 
     const deleted = await prisma.user.findUnique({ where: { id: user.id } });
     assert.equal(deleted, null);
+
+    const deletedSurvey = await prisma.userDemographicSurvey.findUnique({
+      where: { userId: user.id }
+    });
+    assert.equal(deletedSurvey, null);
   } finally {
     await prisma.user.deleteMany({ where: { id: user.id } });
   }

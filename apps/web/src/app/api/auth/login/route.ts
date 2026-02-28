@@ -5,6 +5,7 @@ import {
   ensureUserFeedToken,
   hashPassword,
   setSessionCookie,
+  updateUserGeoSnapshotFromRequest,
   verifyPassword
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await updateUserGeoSnapshotFromRequest(user.id, request);
     const sessionToken = await createSession(user.id, { authMethod: "LOCAL" });
 
     const response = NextResponse.json({ ok: true, role: user.role });

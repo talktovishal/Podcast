@@ -84,9 +84,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - regeneration queueing is now guarded by source availability (non-regenerable items are not requeued endlessly).
   - RSS cache policy is now `private, no-store` to reduce stale-feed behavior after item deletion.
   - operational backfill command `npm run audio:backfill-mp3` can normalize existing episode assets to MP3 metadata in bulk.
+- Geo + demographics profile track (`M83`) is implemented:
+  - successful auth writes coarse first-seen/last-seen geo snapshots on `User` from trusted proxy headers (country/region/city when available).
+  - optional demographic survey API (`GET/POST/DELETE /api/account/demographics`) supports save, skip, edit, and delete lifecycle.
+  - settings UI includes optional demographic profile controls.
+  - admin users analytics and CSV exports include coarse geo and (PII-gated) demographic fields.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M82`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M83`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

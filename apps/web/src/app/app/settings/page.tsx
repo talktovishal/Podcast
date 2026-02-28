@@ -6,7 +6,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";
 import { ensureUserDigestFeedToken, ensureUserDigestSettings, ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
-import { getRecentDigestRuns, getUserTtsSettings } from "@/lib/dashboard";
+import { getRecentDigestRuns, getUserDemographicSurvey, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
@@ -20,13 +20,14 @@ export default async function AppSettingsPage() {
     redirect("/login");
   }
 
-  const [feedToken, digestFeedToken, digestSettings, digestRuns, ttsSettings, ttsAvailability] = await Promise.all([
+  const [feedToken, digestFeedToken, digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
     ensureUserFeedToken(user.id),
     ensureUserDigestFeedToken(user.id),
     ensureUserDigestSettings(user.id),
     getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
-    getTtsProviderAvailability()
+    getTtsProviderAvailability(),
+    getUserDemographicSurvey(user.id)
   ]);
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
@@ -93,6 +94,7 @@ export default async function AppSettingsPage() {
             podcastEnabled: run.podcastEnabled,
             podcastStatus: run.podcastStatus
           }))}
+          initialDemographicSurvey={demographicSurvey}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}

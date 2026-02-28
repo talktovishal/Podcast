@@ -3,6 +3,7 @@ import {
   type DemoExtractionDiagnostic,
   normalizeExtractionLogEntries
 } from "./demo-diagnostics";
+import type { UserDemographicSurveyView } from "./demographics";
 import { prisma } from "./prisma";
 
 export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
@@ -95,6 +96,46 @@ export async function getRecentDigestRuns(userId: string, limit = 20) {
       }
     }
   });
+}
+
+export async function getUserDemographicSurvey(userId: string): Promise<UserDemographicSurveyView> {
+  const survey = await prisma.userDemographicSurvey.findUnique({
+    where: { userId },
+    select: {
+      status: true,
+      ageBand: true,
+      genderIdentity: true,
+      genderSelfDescribe: true,
+      completedAt: true,
+      skippedAt: true,
+      deletedAt: true,
+      updatedAt: true
+    }
+  });
+
+  if (!survey) {
+    return {
+      status: "PENDING",
+      ageBand: null,
+      genderIdentity: null,
+      genderSelfDescribe: null,
+      completedAt: null,
+      skippedAt: null,
+      deletedAt: null,
+      updatedAt: null
+    };
+  }
+
+  return {
+    status: survey.status === "COMPLETED" || survey.status === "SKIPPED" ? survey.status : "PENDING",
+    ageBand: survey.ageBand as UserDemographicSurveyView["ageBand"],
+    genderIdentity: survey.genderIdentity as UserDemographicSurveyView["genderIdentity"],
+    genderSelfDescribe: survey.genderSelfDescribe,
+    completedAt: survey.completedAt ? survey.completedAt.toISOString() : null,
+    skippedAt: survey.skippedAt ? survey.skippedAt.toISOString() : null,
+    deletedAt: survey.deletedAt ? survey.deletedAt.toISOString() : null,
+    updatedAt: survey.updatedAt.toISOString()
+  };
 }
 
 export async function getAdminMetrics() {

@@ -58,7 +58,25 @@ test("admin analytics summary/users/export routes return structured data", async
   const user = await prisma.user.create({
     data: {
       email: `user-analytics-${uniq}@articlepod.local`,
-      role: "USER"
+      role: "USER",
+      firstSeenAt: now,
+      firstSeenCountryCode: "US",
+      firstSeenRegionCode: "CA",
+      firstSeenCity: "San Francisco",
+      lastSeenAt: now,
+      lastSeenCountryCode: "US",
+      lastSeenRegionCode: "CA",
+      lastSeenCity: "San Francisco"
+    }
+  });
+
+  await prisma.userDemographicSurvey.create({
+    data: {
+      userId: user.id,
+      status: "COMPLETED",
+      ageBand: "AGE_25_34",
+      genderIdentity: "WOMAN",
+      completedAt: now
     }
   });
 
@@ -170,6 +188,11 @@ test("admin analytics summary/users/export routes return structured data", async
         rows: Array<{
           userId: string;
           email: string;
+          firstSeenCountryCode: string | null;
+          firstSeenRegionCode: string | null;
+          firstSeenCity: string | null;
+          ageBand: string | null;
+          genderIdentity: string | null;
         }>;
       };
     };
@@ -177,6 +200,11 @@ test("admin analytics summary/users/export routes return structured data", async
     const maskedUserRow = usersMaskedBody.users.rows.find((row) => row.userId === user.id);
     assert.ok(maskedUserRow);
     assert.equal(maskedUserRow!.email.includes("*"), true);
+    assert.equal(maskedUserRow!.firstSeenCountryCode, "US");
+    assert.equal(maskedUserRow!.firstSeenRegionCode, "CA");
+    assert.equal(maskedUserRow!.firstSeenCity, null);
+    assert.equal(maskedUserRow!.ageBand, null);
+    assert.equal(maskedUserRow!.genderIdentity, null);
 
     const usersPiiRequest = new NextRequest("http://localhost/api/admin/analytics/users?pii=1", {
       method: "GET",
@@ -191,12 +219,22 @@ test("admin analytics summary/users/export routes return structured data", async
         rows: Array<{
           userId: string;
           email: string;
+          firstSeenCountryCode: string | null;
+          firstSeenRegionCode: string | null;
+          firstSeenCity: string | null;
+          ageBand: string | null;
+          genderIdentity: string | null;
         }>;
       };
     };
     const piiUserRow = usersPiiBody.users.rows.find((row) => row.userId === user.id);
     assert.ok(piiUserRow);
     assert.equal(piiUserRow!.email, user.email);
+    assert.equal(piiUserRow!.firstSeenCountryCode, "US");
+    assert.equal(piiUserRow!.firstSeenRegionCode, "CA");
+    assert.equal(piiUserRow!.firstSeenCity, "San Francisco");
+    assert.equal(piiUserRow!.ageBand, "AGE_25_34");
+    assert.equal(piiUserRow!.genderIdentity, "WOMAN");
 
     const exportRequest = new NextRequest("http://localhost/api/admin/analytics/export?dataset=summary", {
       method: "GET",
@@ -209,6 +247,18 @@ test("admin analytics summary/users/export routes return structured data", async
     assert.equal(exportResponse.headers.get("content-type"), "text/csv; charset=utf-8");
     const csv = await exportResponse.text();
     assert.equal(csv.includes("metric,value"), true);
+
+    const usersExportRequest = new NextRequest("http://localhost/api/admin/analytics/export?dataset=users&pii=1", {
+      method: "GET",
+      headers: {
+        cookie
+      }
+    });
+    const usersExportResponse = await exportGet(usersExportRequest);
+    assert.equal(usersExportResponse.status, 200);
+    const usersCsv = await usersExportResponse.text();
+    assert.equal(usersCsv.includes("first_seen_country_code"), true);
+    assert.equal(usersCsv.includes("gender_identity"), true);
   } finally {
     await prisma.user.delete({ where: { id: admin.id } });
     await prisma.user.delete({ where: { id: user.id } });
