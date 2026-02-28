@@ -6,7 +6,7 @@ import { ensureDataDirs } from "@/lib/fs";
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
 import { logger } from "@/lib/logger";
-import { enforceSubmitRateLimits } from "@/lib/rate-limit";
+import { enforceSubmitRateLimits, getClientIp } from "@/lib/rate-limit";
 import { getArtifactStorage, normalizeStorageKey } from "@/lib/storage";
 
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
@@ -19,8 +19,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    enforceSubmitRateLimits(user.id, ip);
+    const ip = getClientIp(request);
+    await enforceSubmitRateLimits(user.id, ip);
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -44,6 +44,11 @@ export async function POST(request: NextRequest) {
     const relativePath = normalizeStorageKey(join("uploads", user.id, `${Date.now()}-${random}.pdf`));
 
     const bytes = Buffer.from(await file.arrayBuffer());
+
+    // Validate PDF magic bytes (%PDF-)
+    if (bytes.length < 5 || bytes.slice(0, 5).toString("ascii") !== "%PDF-") {
+      return NextResponse.json({ ok: false, error_code: "INVALID_FILE_TYPE", error_message: "File must be a valid PDF." }, { status: 400 });
+    }
     await getArtifactStorage().putObject(relativePath, bytes, {
       contentType: "application/pdf"
     });

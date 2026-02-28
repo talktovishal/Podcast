@@ -12,5 +12,5 @@ export function makeTtsProvider(selection: { providerId: TtsProviderId }): TtsPr
     throw new AppError(errorCodes.TTS_FAILED, "Only Kokoro-82M is enabled for narration.", 400);
   }
 
-  return new KokoroTtsProvider(workerEnv.pythonTtsUrl, workerEnv.pythonTtsTimeoutMs);
+  return new KokoroTtsProvider(workerEnv.pythonTtsUrl, workerEnv.pythonTtsTimeoutMs, workerEnv.pythonTtsSecret);
 }

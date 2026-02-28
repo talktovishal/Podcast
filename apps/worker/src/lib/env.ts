@@ -57,5 +57,10 @@ export const workerEnv = {
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
+  pythonTtsSecret: process.env.PYTHON_TTS_SECRET,
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL
 };
+
+if (workerEnv.runtimeProfile !== "simple" && !workerEnv.digestSchedulerSecret) {
+  throw new Error("DIGEST_SCHEDULER_SECRET must be set when RUNTIME_PROFILE is not 'simple'");
+}

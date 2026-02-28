@@ -4,6 +4,8 @@ import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
+import https from "node:https";
+import http from "node:http";
 
 const FETCH_TIMEOUT_MS = 30_000;
 
@@ -156,22 +158,72 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
   );
 }
 
-export async function extractHtmlFromUrl(url: string): Promise<{
+/**
+ * Fetch a URL while pinning the TCP connection to a pre-resolved IP address.
+ * This closes the TOCTOU DNS-rebinding window between validation and fetch.
+ */
+function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number): Promise<{ status: number; ok: boolean; text: () => Promise<string> }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(urlStr);
+    const isHttps = parsedUrl.protocol === "https:";
+    const family: 4 | 6 = resolvedIp.includes(":") ? 6 : 4;
+    const mod = isHttps ? https : http;
+    const port = parsedUrl.port ? Number(parsedUrl.port) : (isHttps ? 443 : 80);
+    const agent = new mod.Agent({
+      lookup: (_hostname: string, _options: unknown, callback: (err: Error | null, address: string, family: number) => void) => {
+        callback(null, resolvedIp, family);
+      }
+    } as ConstructorParameters<typeof https.Agent>[0]);
+
+    const timer = setTimeout(() => {
+      req.destroy(Object.assign(new Error("ETIMEDOUT"), { code: "ETIMEDOUT" }));
+    }, timeoutMs);
+
+    const req = mod.request(
+      {
+        hostname: parsedUrl.hostname,
+        port,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        method: "GET",
+        headers: { "user-agent": BRAND_BOT_USER_AGENT, host: parsedUrl.host },
+        agent
+      },
+      (res) => {
+        clearTimeout(timer);
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => chunks.push(chunk));
+        res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf8");
+          const status = res.statusCode ?? 200;
+          resolve({ status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) });
+        });
+        res.on("error", reject);
+      }
+    );
+    req.on("error", (err) => { clearTimeout(timer); reject(err); });
+    req.end();
+  });
+}
+
+export async function extractHtmlFromUrl(url: string, resolvedIp?: string): Promise<{
   title: string;
   text: string;
   markdown: string;
   rawHtml: string;
   byline?: string | null;
 }> {
-  let response: Response;
+  let response: { status: number; ok: boolean; text: () => Promise<string> };
   try {
-    response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "user-agent": BRAND_BOT_USER_AGENT
-      },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-    });
+    if (resolvedIp) {
+      response = await fetchWithPinnedIp(url, resolvedIp, FETCH_TIMEOUT_MS);
+    } else {
+      const r = await fetch(url, {
+        method: "GET",
+        headers: { "user-agent": BRAND_BOT_USER_AGENT },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+      });
+      response = { status: r.status, ok: r.ok, text: () => r.text() };
+    }
   } catch (error) {
     throw mapNetworkErrorToAppError(error);
   }

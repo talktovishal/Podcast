@@ -111,19 +111,25 @@ async function reclaimStaleProcessingDigestRuns(): Promise<number> {
     return 0;
   }
 
-  await prisma.digestRun.updateMany({
-    where: {
-      id: {
-        in: staleRuns.map((run) => run.id)
-      }
-    },
-    data: {
-      status: "QUEUED",
-      lockedAt: null,
-      nextRetryAt: new Date()
+  let reclaimed = 0;
+  for (const run of staleRuns) {
+    try {
+      // Re-check status inside transaction to prevent double-reclaim race
+      await prisma.digestRun.update({
+        where: { id: run.id, status: "PROCESSING", lockedAt: { lt: staleBefore } },
+        data: {
+          status: "QUEUED",
+          lockedAt: null,
+          nextRetryAt: new Date()
+        }
+      });
+      reclaimed++;
+    } catch {
+      // Run was already claimed by another worker instance — skip it
     }
-  });
-  return staleRuns.length;
+  }
+
+  return reclaimed;
 }
 
 export async function processDigestRun(runId: string): Promise<boolean> {

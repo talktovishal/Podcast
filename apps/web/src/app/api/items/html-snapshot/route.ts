@@ -6,7 +6,7 @@ import { getAuthUserFromExtensionTokenRequest, getAuthUserFromRequest } from "@/
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
 import { logger } from "@/lib/logger";
-import { enforceSubmitRateLimits } from "@/lib/rate-limit";
+import { enforceSubmitRateLimits, getClientIp } from "@/lib/rate-limit";
 import { getArtifactStorage, normalizeStorageKey } from "@/lib/storage";
 
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    enforceSubmitRateLimits(user.id, ip);
+    const ip = getClientIp(request);
+    await enforceSubmitRateLimits(user.id, ip);
 
     const snapshotKey = normalizeStorageKey(join("uploads", user.id, `snapshot-${Date.now()}-${makeToken(8)}.html`));
     await getArtifactStorage().putObject(snapshotKey, Buffer.from(payload.html, "utf8"), {

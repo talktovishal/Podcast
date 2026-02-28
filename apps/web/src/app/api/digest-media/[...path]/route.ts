@@ -1,4 +1,4 @@
-import { hashIncomingToken } from "@articlepod/core";
+import { verifyMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -18,14 +18,15 @@ function contentTypeForPath(path: string): string {
   return "audio/mp4";
 }
 
-async function validateToken(feedToken: string | null): Promise<{ userId: string } | null> {
-  if (!feedToken) {
-    return null;
+function validateMediaToken(path: string, token: string | null): boolean {
+  if (!token) {
+    return false;
   }
-
-  const tokenHash = hashIncomingToken(feedToken);
-  const found = await prisma.digestFeedToken.findFirst({ where: { tokenHash, active: true }, select: { userId: true } });
-  return found ? { userId: found.userId } : null;
+  if (!env.mediaSigningKey) {
+    return token.length > 0;
+  }
+  const result = verifyMediaUrl(path, token, env.mediaSigningKey);
+  return result.valid;
 }
 
 function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
@@ -59,19 +60,14 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
   return { start, end: Math.min(end, size - 1) };
 }
 
-async function authorizeDigestEpisode(userId: string, digestEpisodeId: string | null): Promise<boolean> {
+async function authorizeDigestEpisode(digestEpisodeId: string | null): Promise<boolean> {
   if (!digestEpisodeId) {
     return true;
   }
 
   const episode = await prisma.digestEpisode.findFirst({
-    where: {
-      id: digestEpisodeId,
-      userId
-    },
-    select: {
-      id: true
-    }
+    where: { id: digestEpisodeId },
+    select: { id: true }
   });
   return Boolean(episode);
 }
@@ -79,23 +75,24 @@ async function authorizeDigestEpisode(userId: string, digestEpisodeId: string | 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const digestFeedToken = request.nextUrl.searchParams.get("digest_feed_token");
-  const auth = await validateToken(digestFeedToken);
-  if (!auth) {
+  const rawKey = context.params.path.join("/");
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const isAuthorized = validateMediaToken(rawKey, mediaToken);
+  if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
         route: DIGEST_MEDIA_ROUTE,
         status: 401,
         media_kind: "digest",
-        has_feed_token: Boolean(digestFeedToken)
+        has_media_token: Boolean(mediaToken)
       });
     }
     return new NextResponse(null, { status: 401 });
   }
 
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
-  if (!(await authorizeDigestEpisode(auth.userId, digestEpisodeId))) {
+  if (!(await authorizeDigestEpisode(digestEpisodeId))) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
@@ -109,7 +106,6 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     return new NextResponse(null, { status: 401 });
   }
 
-  const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -171,16 +167,17 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
 export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const digestFeedToken = request.nextUrl.searchParams.get("digest_feed_token");
-  const auth = await validateToken(digestFeedToken);
-  if (!auth) {
+  const rawKey = context.params.path.join("/");
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const isAuthorized = validateMediaToken(rawKey, mediaToken);
+  if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
         route: DIGEST_MEDIA_ROUTE,
         status: 401,
         media_kind: "digest",
-        has_feed_token: Boolean(digestFeedToken),
+        has_media_token: Boolean(mediaToken),
         has_digest_episode_id: Boolean(request.nextUrl.searchParams.get("deid"))
       });
     }
@@ -188,7 +185,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   }
 
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
-  if (!(await authorizeDigestEpisode(auth.userId, digestEpisodeId))) {
+  if (!(await authorizeDigestEpisode(digestEpisodeId))) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
@@ -202,7 +199,6 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {

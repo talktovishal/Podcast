@@ -8,6 +8,57 @@ import type { SynthesizeInput, TtsProvider, TtsProviderId } from "./types";
 
 type PythonProviderId = Extract<TtsProviderId, "kokoro" | "melo">;
 
+// ---------------------------------------------------------------------------
+// Simple in-memory circuit breaker for the Python TTS sidecar.
+// Opens after CB_FAIL_THRESHOLD consecutive failures; stays open for
+// CB_OPEN_DURATION_MS, then allows one probe (half-open) before closing.
+// This prevents retry storms when the sidecar is down.
+// ---------------------------------------------------------------------------
+const CB_FAIL_THRESHOLD = 3;
+const CB_OPEN_DURATION_MS = 30_000;
+
+type CbState = "closed" | "open" | "half-open";
+
+const _cb: { state: CbState; failCount: number; openedAt: number } = {
+  state: "closed",
+  failCount: 0,
+  openedAt: 0
+};
+
+function _cbCheck(providerId: string): void {
+  if (_cb.state === "closed") return;
+  if (_cb.state === "open") {
+    if (Date.now() - _cb.openedAt >= CB_OPEN_DURATION_MS) {
+      _cb.state = "half-open";
+      return;
+    }
+    throw new AppError(
+      errorCodes.TTS_FAILED,
+      `${providerId} TTS service is temporarily unavailable. Try again shortly.`,
+      503
+    );
+  }
+  // half-open: allow one probe through
+}
+
+function _cbSuccess(): void {
+  _cb.state = "closed";
+  _cb.failCount = 0;
+}
+
+function _cbFailure(): void {
+  if (_cb.state === "half-open") {
+    _cb.state = "open";
+    _cb.openedAt = Date.now();
+    return;
+  }
+  _cb.failCount++;
+  if (_cb.failCount >= CB_FAIL_THRESHOLD) {
+    _cb.state = "open";
+    _cb.openedAt = Date.now();
+  }
+}
+
 function sanitizeServiceDetail(detail: unknown): string {
   if (typeof detail === "string") {
     return detail.trim();
@@ -80,13 +131,18 @@ export class PythonModelTtsProvider implements TtsProvider {
 
   private readonly timeoutMs: number;
 
-  constructor(params: { providerId: PythonProviderId; baseUrl: string; timeoutMs?: number }) {
+  private readonly sidecarSecret: string | undefined;
+
+  constructor(params: { providerId: PythonProviderId; baseUrl: string; timeoutMs?: number; sidecarSecret?: string }) {
     this.providerId = params.providerId;
     this.baseUrl = params.baseUrl.replace(/\/+$/, "");
     this.timeoutMs = params.timeoutMs ?? 120_000;
+    this.sidecarSecret = params.sidecarSecret;
   }
 
   async synthesizeToFile({ text, voice, format, outPath, headers }: SynthesizeInput): Promise<void> {
+    // Fail fast if the sidecar has been continuously failing.
+    _cbCheck(this.providerId);
     const workspace = await mkdtemp(join(tmpdir(), `articlepod-${this.providerId}-`));
     const wavPath = join(workspace, "speech.wav");
     const ctx = getLogContext();
@@ -94,6 +150,9 @@ export class PythonModelTtsProvider implements TtsProvider {
       "content-type": "application/json",
       ...(headers ?? {})
     };
+    if (this.sidecarSecret) {
+      requestHeaders["x-sidecar-secret"] = this.sidecarSecret;
+    }
     if (!requestHeaders["x-request-id"] && ctx.request_id) {
       requestHeaders["x-request-id"] = ctx.request_id;
     }
@@ -140,14 +199,21 @@ export class PythonModelTtsProvider implements TtsProvider {
       if (contentType.includes("audio/wav") || contentType.includes("audio/x-wav")) {
         await writeFile(wavPath, buffer);
         await convertWavToTarget(wavPath, outPath, format);
+        _cbSuccess();
         return;
       }
 
       await writeFile(outPath, buffer);
+      _cbSuccess();
     } catch (error) {
       if (error instanceof AppError) {
+        // Don't trip the breaker for the breaker's own 503 rejection.
+        if (error.status !== 503) {
+          _cbFailure();
+        }
         throw error;
       }
+      _cbFailure();
       throw new AppError(
         errorCodes.TTS_FAILED,
         `Could not synthesize audio with ${this.providerId}. Ensure python-tts service is running.`,

@@ -222,7 +222,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
       url: `https://example.com/private/${uniq}`
     });
     const chunks = chunkText(extracted.text);
-    const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
+    const cacheKey = sha256([user.id, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cachedAudioPath = `items/test-${uniq}/episode.mp3`;
     await getArtifactStorage().putObject(cachedAudioPath, Buffer.from("cached-audio", "utf8"), {
       contentType: "audio/mpeg"

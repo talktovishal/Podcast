@@ -61,6 +61,7 @@ export const env = {
   geoHeaderCity: process.env.GEO_HEADER_CITY,
   openAiApiKey: process.env.OPENAI_API_KEY,
   digestSchedulerSecret: process.env.DIGEST_SCHEDULER_SECRET ?? "",
+  mediaSigningKey: process.env.MEDIA_SIGNING_KEY ?? "",
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL,
@@ -68,3 +69,11 @@ export const env = {
   adminEmail: process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD
 };
+
+if (env.runtimeProfile !== "simple" && !env.digestSchedulerSecret) {
+  throw new Error("DIGEST_SCHEDULER_SECRET must be set when RUNTIME_PROFILE is not 'simple'");
+}
+
+if (env.runtimeProfile !== "simple" && !env.mediaSigningKey) {
+  throw new Error("MEDIA_SIGNING_KEY must be set when RUNTIME_PROFILE is not 'simple'");
+}

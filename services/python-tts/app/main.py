@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hmac
 import importlib.util
 import io
 import json
 import logging
 import os
+import secrets
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -14,11 +16,24 @@ from typing import Any, Dict, Literal
 
 import numpy as np
 import soundfile as sf
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 app = FastAPI(title="ArticlePod Python TTS")
+
+# Optional shared secret between caller (worker) and this sidecar.
+# When set, every non-health request must include the matching X-Sidecar-Secret header.
+_SIDECAR_SECRET: str = os.getenv("PYTHON_TTS_SECRET", "")
+
+
+def _require_sidecar_auth(request: Request) -> None:
+    if not _SIDECAR_SECRET:
+        # No secret configured — allow all (local dev without auth).
+        return
+    header_value = request.headers.get("x-sidecar-secret", "")
+    if not secrets.compare_digest(header_value, _SIDECAR_SECRET):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def _default_log_root() -> Path:
@@ -314,7 +329,7 @@ def health() -> dict[str, Any]:
 
 
 @app.get("/v1/providers")
-def providers() -> dict[str, Any]:
+def providers(_auth: None = Depends(_require_sidecar_auth)) -> dict[str, Any]:
     health_info = _provider_health()
     return {
         "providers": {
@@ -333,7 +348,7 @@ def providers() -> dict[str, Any]:
 
 
 @app.post("/v1/synthesize")
-def synthesize(payload: SynthesizePayload, request: Request) -> Response:
+def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depends(_require_sidecar_auth)) -> Response:
     started = time.perf_counter()
     request_ctx = _request_context(request)
     _log_event(

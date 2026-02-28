@@ -414,6 +414,72 @@ If serving media from the web server:
 Start now.
 First, create `plans.md` with the complete plan, risk register, demo script, and architecture overview. Do NOT start coding until `plans.md` exists and is coherent. 
 
+## Security Hardening Requirements (added 2026-02-28)
+
+All items below map to milestones S01–S18 in `docs/plans.md`.
+Each item must be implemented before the corresponding milestone is marked Done.
+No item may be marked Done without passing the verification commands listed in its milestone.
+
+### Authentication (S01, S03, S04, S18)
+- Apple Sign-In `id_token` MUST be verified against Apple's JWKS endpoint before trusting any claims. (S01)
+- `POST /api/auth/login` MUST enforce per-IP and per-email rate limits before any DB or bcrypt work. (S03)
+- A dummy bcrypt compare MUST run when the email is not found to normalize response timing. (S03)
+- `ensureAdminUser()` MUST NOT be called inside any request handler. It MUST run once at startup. (S04)
+- Session cookies MUST set `Secure: true` when `runtimeProfile !== "simple"` (not based on `NODE_ENV`). (S18)
+
+### Token Storage (S02)
+- `FeedToken`, `DigestFeedToken`, `ShareToken`, and `ExtensionToken` MUST NOT store `tokenValue` (plaintext) in the database.
+- Only `tokenHash` may be persisted. Plaintext token is returned once at creation time only.
+- A DB migration MUST invalidate all existing plaintext-stored tokens and trigger re-issuance.
+
+### SSRF and URL Fetching (S08)
+- After DNS resolution in `validateFetchableUrl`, the resolved IP MUST be passed through to the actual fetch call.
+- The fetch MUST use the resolved IP directly (with `Host` header set) to prevent DNS rebinding.
+
+### Media Token Exposure (S16)
+- Enclosure URLs in RSS feeds MUST NOT contain the long-lived `feed_token` as a query parameter.
+- Media access MUST use short-lived HMAC-signed URLs generated at RSS serve time.
+- A `MEDIA_SIGNING_KEY` environment variable (min 32 bytes) MUST be required for `parity` and `azure` profiles.
+
+### Python TTS Sidecar (S07)
+- `POST /v1/synthesize` MUST require an `X-Sidecar-Secret` header matching the `TTS_SIDECAR_SECRET` env var.
+- The Dockerfile MUST include a `USER app` directive (no root process).
+- uvicorn MUST bind to `127.0.0.1` in production profiles.
+
+### Rate Limiting (S11)
+- `enforceRateLimit` MUST be backed by a persistent shared store (Postgres `RateLimitBucket` table) for `parity` and `azure` profiles.
+- In-memory fallback is acceptable for `simple` profile only.
+
+### HTTP Headers (S09)
+- All responses MUST include: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a baseline `Content-Security-Policy`.
+
+### Global Auth Middleware (S10)
+- A `middleware.ts` MUST exist that enforces session authentication for all `/app` and `/api/` routes.
+- A `PUBLIC_ROUTES` list MUST explicitly enumerate every unauthenticated-accessible path.
+
+### Upload Validation (S13)
+- PDF uploads MUST check the first 5 bytes for the `%PDF-` magic signature before writing to storage.
+- Files failing this check MUST return `INVALID_FILE_TYPE` error code.
+
+### Digest Scheduler Secret (S06)
+- `DIGEST_SCHEDULER_SECRET` MUST be asserted to be non-empty and ≥ 32 characters at server startup for `parity` and `azure` profiles.
+- App MUST fail to start if this assertion fails.
+
+### Worker Process Health (S12)
+- The worker process MUST expose a `GET /health` HTTP endpoint on a configurable port (default 3001).
+- The endpoint MUST return last-poll timestamp and count of stuck jobs.
+
+### Cross-User Audio Privacy (S05)
+- ChunkCache key MUST include `userId` so no user's audio artifacts are stored in another user's item path.
+
+### Enumeration and Role Hardening (S14, S17)
+- Signup conflict responses MUST NOT confirm whether an email is registered.
+- `normalizeRole()` MUST throw on unrecognized role strings rather than silently downgrading.
+- PostgreSQL schema MUST enforce `role IN ('USER', 'ADMIN')` at the DB level.
+
+### Stale Job Reclaim (S15)
+- Stale-job `updateMany` MUST include `status: "PROCESSING"` filter to prevent reverting completed jobs.
+
 ## Verification Prompts
 
 Before marking any milestone complete, run and record the results for:

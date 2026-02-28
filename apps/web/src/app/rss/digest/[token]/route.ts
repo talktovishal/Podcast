@@ -1,4 +1,4 @@
-import { buildRssXml, hashIncomingToken } from "@articlepod/core";
+import { buildRssXml, hashIncomingToken, signMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
@@ -56,15 +56,19 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     feedUrl: `${env.appUrl}/rss/digest/${token}.xml`,
     language: "en-us",
     imageUrl: absoluteBrandAssetUrl(env.appUrl, BRAND_PODCAST_COVER_PATH),
-    episodes: episodes.map((episode) => ({
-      guid: episode.guid,
-      title: episode.title,
-      description: episode.description,
-      pubDate: episode.publishedAt,
-      enclosureUrl: `${env.appUrl}/api/digest-media/${episode.audioPath}?digest_feed_token=${token}&deid=${episode.id}`,
-      enclosureLength: episode.audioBytes,
-      enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
-    }))
+    episodes: episodes.map((episode) => {
+      const mediaPath = episode.audioPath;
+      const mediaToken = signMediaUrl(mediaPath, env.mediaSigningKey || episode.guid);
+      return {
+        guid: episode.guid,
+        title: episode.title,
+        description: episode.description,
+        pubDate: episode.publishedAt,
+        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&deid=${episode.id}`,
+        enclosureLength: episode.audioBytes,
+        enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
+      };
+    })
   });
 
   if (env.podcastRequestLoggingEnabled) {

@@ -3,6 +3,7 @@ export * from "./errors/codes";
 export * from "./security/urlPolicy";
 export * from "./security/tokens";
 export * from "./security/rateLimit";
+export * from "./security/signedUrl";
 export * from "./chunking/chunkText";
 export * from "./tts/types";
 export * from "./tts/catalog";

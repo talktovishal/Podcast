@@ -1,5 +1,6 @@
 import { AUTH_COOKIE_NAMES, computeNextDailyRunAt, computeNextWeeklyRunAt, createSecretToken, hashIncomingToken } from "@articlepod/core";
 import bcrypt from "bcryptjs";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
 import type { AnalyticsAuthMethod } from "@articlepod/core";
@@ -26,7 +27,10 @@ export type AuthUser = {
 };
 
 function normalizeRole(role: string): "USER" | "ADMIN" {
-  return role === "ADMIN" ? "ADMIN" : "USER";
+  if (role !== "USER" && role !== "ADMIN") {
+    throw new Error(`Unknown role value in database: "${role}". Expected USER or ADMIN.`);
+  }
+  return role;
 }
 
 function authUserFromDbUser(user: { id: string; email: string; name: string | null; role: string }): AuthUser {
@@ -71,21 +75,38 @@ export async function hashPassword(plain: string): Promise<string> {
   return bcrypt.hash(plain, 12);
 }
 
+const APPLE_JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
+
+export async function verifyAppleIdToken(
+  idToken: string,
+  clientId: string
+): Promise<Record<string, unknown>> {
+  const { payload } = await jwtVerify(idToken, APPLE_JWKS, {
+    issuer: "https://appleid.apple.com",
+    audience: clientId
+  });
+  return payload as Record<string, unknown>;
+}
+
 export async function verifyPassword(plain: string, passwordHash: string): Promise<boolean> {
   return bcrypt.compare(plain, passwordHash);
 }
 
 export async function ensureUserFeedToken(userId: string): Promise<string> {
   const active = await prisma.feedToken.findFirst({ where: { userId, active: true } });
-  if (active) {
+  if (active?.tokenValue) {
+    // Legacy row with plaintext still present — return it as-is.
     return active.tokenValue;
+  }
+  if (active) {
+    // Active token exists but no plaintext stored; rotate to get a returnable plain value.
+    await prisma.feedToken.updateMany({ where: { userId, active: true }, data: { active: false, rotatedAt: new Date() } });
   }
 
   const token = createSecretToken();
   await prisma.feedToken.create({
     data: {
       userId,
-      tokenValue: token.plain,
       tokenHash: token.hash,
       active: true
     }
@@ -95,15 +116,17 @@ export async function ensureUserFeedToken(userId: string): Promise<string> {
 
 export async function ensureUserDigestFeedToken(userId: string): Promise<string> {
   const active = await prisma.digestFeedToken.findFirst({ where: { userId, active: true } });
-  if (active) {
+  if (active?.tokenValue) {
     return active.tokenValue;
+  }
+  if (active) {
+    await prisma.digestFeedToken.updateMany({ where: { userId, active: true }, data: { active: false, rotatedAt: new Date() } });
   }
 
   const token = createSecretToken();
   await prisma.digestFeedToken.create({
     data: {
       userId,
-      tokenValue: token.plain,
       tokenHash: token.hash,
       active: true
     }
@@ -248,7 +271,7 @@ export async function setSessionCookie(response: NextResponse, token: string): P
     value: token,
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.runtimeProfile !== "simple",
     path: "/",
     expires: sessionExpiryDate()
   });
@@ -329,7 +352,6 @@ export async function rotateFeedToken(userId: string): Promise<string> {
   await prisma.feedToken.create({
     data: {
       userId,
-      tokenValue: token.plain,
       tokenHash: token.hash,
       active: true
     }
@@ -351,7 +373,6 @@ export async function rotateDigestFeedToken(userId: string): Promise<string> {
   await prisma.digestFeedToken.create({
     data: {
       userId,
-      tokenValue: token.plain,
       tokenHash: token.hash,
       active: true
     }
@@ -365,7 +386,6 @@ export async function createShareToken(userId: string, expiresAt?: Date): Promis
   await prisma.shareToken.create({
     data: {
       userId,
-      tokenValue: token.plain,
       tokenHash: token.hash,
       expiresAt
     }
@@ -426,7 +446,7 @@ export function setOAuthStateCookie(response: NextResponse, provider: OAuthProvi
     value: state,
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.runtimeProfile !== "simple",
     path: "/",
     maxAge: 60 * 10
   });
@@ -643,7 +663,6 @@ export async function exchangeExtensionConnectCode(input: {
       data: {
         userId: connectCode.userId,
         tokenHash: token.hash,
-        tokenValue: token.plain,
         label: input.label?.trim() || connectCode.label || "chrome-extension",
         scope: "ingest:html_snapshot",
         expiresAt
@@ -679,5 +698,12 @@ export async function revokeExtensionTokensForUser(userId: string): Promise<numb
 
 export async function requestIpAddress(): Promise<string> {
   const headerStore = await headers();
-  return headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const realIp = headerStore.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const xff = headerStore.get("x-forwarded-for");
+  if (xff) {
+    const rightmost = xff.split(",").pop()?.trim();
+    if (rightmost) return rightmost;
+  }
+  return "unknown";
 }

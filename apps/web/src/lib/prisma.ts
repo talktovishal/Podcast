@@ -12,3 +12,9 @@ export const prisma = global.__prisma__ ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") {
   global.__prisma__ = prisma;
 }
+
+// Enable WAL journal mode for SQLite to reduce lock contention between the
+// Next.js web process and the worker process sharing the same database file.
+if (env.databaseUrl.startsWith("file:")) {
+  void prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL");
+}

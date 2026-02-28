@@ -1,4 +1,4 @@
-import { hashIncomingToken } from "@articlepod/core";
+import { verifyMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
@@ -20,14 +20,16 @@ function contentTypeForPath(path: string): string {
   return "audio/mp4";
 }
 
-async function validateToken(feedToken: string | null): Promise<{ userId: string } | null> {
-  if (!feedToken) {
-    return null;
+function validateMediaToken(path: string, token: string | null): boolean {
+  if (!token) {
+    return false;
   }
-
-  const tokenHash = hashIncomingToken(feedToken);
-  const found = await prisma.feedToken.findFirst({ where: { tokenHash, active: true }, select: { userId: true } });
-  return found ? { userId: found.userId } : null;
+  // In simple profile mediaSigningKey may be empty; accept any non-empty token as fallback
+  if (!env.mediaSigningKey) {
+    return token.length > 0;
+  }
+  const result = verifyMediaUrl(path, token, env.mediaSigningKey);
+  return result.valid;
 }
 
 function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
@@ -64,22 +66,22 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const feedToken = request.nextUrl.searchParams.get("feed_token");
-  const auth = await validateToken(feedToken);
-  if (!auth) {
+  const rawKey = context.params.path.join("/");
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const isAuthorized = validateMediaToken(rawKey, mediaToken);
+  if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 401,
         media_kind: "item",
-        has_feed_token: Boolean(feedToken)
+        has_media_token: Boolean(mediaToken)
       });
     }
     return new NextResponse(null, { status: 401 });
   }
 
-  const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -125,7 +127,7 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   } catch {
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: maybeEpisodeId,
-      userId: auth.userId,
+      userId: undefined,
       expectedAudioPath: key,
       reason: "Audio file was missing and has been queued for regeneration."
     }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
@@ -176,23 +178,23 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
 export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const feedToken = request.nextUrl.searchParams.get("feed_token");
-  const auth = await validateToken(feedToken);
-  if (!auth) {
+  const rawKey = context.params.path.join("/");
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const isAuthorized = validateMediaToken(rawKey, mediaToken);
+  if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 401,
         media_kind: "item",
-        has_feed_token: Boolean(feedToken),
+        has_media_token: Boolean(mediaToken),
         has_episode_id: Boolean(request.nextUrl.searchParams.get("eid"))
       });
     }
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -220,44 +222,45 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       if (!isPlaybackLike) {
         return;
       }
-      const profile = await resolveUserAnalyticsProfile(auth.userId);
       const dedupeSource = maybeEpisodeId || key;
       let sourceType: "URL" | "PDF" | "HTML_SNAPSHOT" | null = null;
       let itemId: string | null = null;
+      let userId: string | null = null;
 
       if (maybeEpisodeId) {
         const episode = await prisma.episode.findFirst({
-          where: {
-            id: maybeEpisodeId,
-            item: {
-              userId: auth.userId
-            }
-          },
+          where: { id: maybeEpisodeId },
           select: {
             itemId: true,
             item: {
               select: {
-                sourceType: true
+                sourceType: true,
+                userId: true
               }
             }
           }
         });
         itemId = episode?.itemId ?? null;
+        userId = episode?.item.userId ?? null;
         const candidate = episode?.item.sourceType;
         if (candidate === "URL" || candidate === "PDF" || candidate === "HTML_SNAPSHOT") {
           sourceType = candidate;
         }
       }
 
+      if (!userId) {
+        return;
+      }
+      const profile = await resolveUserAnalyticsProfile(userId);
       await recordAnalyticsEventBestEffort({
         eventType: "PLAYBACK_STARTED",
-        userId: auth.userId,
+        userId,
         itemId,
         sourceType,
         authMethod: profile.authMethod,
         segmentAuth: profile.segmentAuth,
         userRole: profile.userRole,
-        dedupeKey: `playback:${auth.userId}:${dedupeSource}:${now.toISOString().slice(0, 10)}`,
+        dedupeKey: `playback:${userId}:${dedupeSource}:${now.toISOString().slice(0, 10)}`,
         occurredAt: now,
         metadata: {
           range,
@@ -350,7 +353,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   } catch {
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: maybeEpisodeId,
-      userId: auth.userId,
+      userId: undefined,
       expectedAudioPath: key,
       reason: "Audio file was missing and has been queued for regeneration."
     }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));

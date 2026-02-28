@@ -329,11 +329,11 @@ async function extractItemText(item: {
     appendExtractionLog(item.logs, "extract:url", "Validating URL source", {
       sourceUrl: item.sourceUrl
     });
-    await validateFetchableUrl(item.sourceUrl);
+    const { resolvedIp } = await validateFetchableUrl(item.sourceUrl);
     appendExtractionLog(item.logs, "extract:url", "URL validation passed");
 
     appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML");
-    const extracted = await extractHtmlFromUrl(item.sourceUrl);
+    const extracted = await extractHtmlFromUrl(item.sourceUrl, resolvedIp);
     const extractedTitle = extracted.title ?? "";
     appendExtractionLog(item.logs, "extract:url", "HTML extraction complete", {
       extractedTitleLength: extractedTitle.length,
@@ -574,30 +574,37 @@ async function reclaimStaleProcessingJobs(): Promise<number> {
     return 0;
   }
 
+  let reclaimed = 0;
   for (const job of staleJobs) {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.job.update({
-        where: { id: job.id },
-        data: {
-          status: "QUEUED",
-          lockedAt: null,
-          nextRetryAt: new Date()
-        }
-      });
+    try {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Re-check status inside transaction to prevent double-reclaim race
+        await tx.job.update({
+          where: { id: job.id, status: "PROCESSING", lockedAt: { lt: staleBefore } },
+          data: {
+            status: "QUEUED",
+            lockedAt: null,
+            nextRetryAt: new Date()
+          }
+        });
 
-      await tx.item.updateMany({
-        where: {
-          id: job.itemId,
-          status: "PROCESSING"
-        },
-        data: {
-          status: "QUEUED"
-        }
+        await tx.item.updateMany({
+          where: {
+            id: job.itemId,
+            status: "PROCESSING"
+          },
+          data: {
+            status: "QUEUED"
+          }
+        });
       });
-    });
+      reclaimed++;
+    } catch {
+      // Job was already claimed by another worker instance — skip it
+    }
   }
 
-  return staleJobs.length;
+  return reclaimed;
 }
 
 export async function processJob(jobId: string): Promise<boolean> {
@@ -823,7 +830,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       voice: ttsSelection.voice
     });
 
-    const cacheKey = sha256([ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
+    const cacheKey = sha256([item.userId, ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cacheHit = await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
 
     let audio: { relativePath: string; bytes: number; mimeType: string };

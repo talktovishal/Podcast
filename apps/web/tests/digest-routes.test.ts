@@ -251,11 +251,16 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     assert.equal(xml.includes("<image>"), true);
     assert.equal(xml.includes("/brand/podcast-cover-1400.png"), true);
 
+    // Extract media URL from XML enclosure
+    const enclosureMatch = /enclosure url="([^"]+)"/.exec(xml);
+    assert.ok(enclosureMatch, "enclosure URL must be present in RSS XML");
+    const enclosureUrl = enclosureMatch[1];
+    const enclosurePath = new URL(enclosureUrl).pathname.replace("/api/digest-media/", "");
+    const enclosureSearch = new URL(enclosureUrl).search;
+
     const headResponse = await digestMediaHead(
-      new NextRequest(
-        `http://localhost/api/digest-media/${audioKey}?digest_feed_token=${encodeURIComponent(token)}&deid=${encodeURIComponent(episode.id)}`
-      ),
-      { params: { path: audioKey.split("/") } }
+      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
+      { params: { path: enclosurePath.split("/") } }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), "16");
@@ -263,28 +268,28 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
 
     const rangeResponse = await digestMediaGet(
       new NextRequest(
-        `http://localhost/api/digest-media/${audioKey}?digest_feed_token=${encodeURIComponent(token)}&deid=${encodeURIComponent(episode.id)}`,
+        `http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`,
         {
           headers: {
             range: "bytes=0-1"
           }
         }
       ),
-      { params: { path: audioKey.split("/") } }
+      { params: { path: enclosurePath.split("/") } }
     );
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
 
     const suffixRangeResponse = await digestMediaGet(
       new NextRequest(
-        `http://localhost/api/digest-media/${audioKey}?digest_feed_token=${encodeURIComponent(token)}&deid=${encodeURIComponent(episode.id)}`,
+        `http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`,
         {
           headers: {
             range: "bytes=-4"
           }
         }
       ),
-      { params: { path: audioKey.split("/") } }
+      { params: { path: enclosurePath.split("/") } }
     );
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), "bytes 12-15/16");

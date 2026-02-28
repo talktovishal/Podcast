@@ -53,7 +53,7 @@ function canRegenerateMedia(item: Pick<Item, "sourceType" | "sourceUrl" | "sourc
 
 export async function enqueueEpisodeMediaRepair(input: {
   episodeId: string | null | undefined;
-  userId: string;
+  userId?: string | null;
   expectedAudioPath?: string | null;
   reason?: string;
 }): Promise<EnqueueEpisodeMediaRepairResult> {
@@ -65,9 +65,7 @@ export async function enqueueEpisodeMediaRepair(input: {
   const episode = await prisma.episode.findFirst({
     where: {
       id: episodeId,
-      item: {
-        userId: input.userId
-      }
+      ...(input.userId ? { item: { userId: input.userId } } : {})
     },
     select: {
       id: true,

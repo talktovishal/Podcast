@@ -7,24 +7,11 @@ import {
   getOAuthStateFromRequest,
   isOAuthProviderConfigured,
   setSessionCookie,
-  updateUserGeoSnapshotFromRequest
+  updateUserGeoSnapshotFromRequest,
+  verifyAppleIdToken
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
-
-function parseJwtPayload(idToken: string): Record<string, unknown> | null {
-  const segments = idToken.split(".");
-  if (segments.length < 2) {
-    return null;
-  }
-
-  try {
-    const payload = Buffer.from(segments[1], "base64url").toString("utf8");
-    return JSON.parse(payload) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
 
 function redirectWithError(code: string, clearState = false) {
   const response = NextResponse.redirect(`${env.appUrl}/login?oauth_error=${code}`);
@@ -74,10 +61,16 @@ export async function GET(request: NextRequest) {
     return redirectWithError("apple_id_token", true);
   }
 
-  const payload = parseJwtPayload(tokenData.id_token);
-  const providerUserId = typeof payload?.sub === "string" ? payload.sub : null;
-  const email = typeof payload?.email === "string" ? payload.email : null;
-  const name = typeof payload?.name === "string" ? payload.name : null;
+  let payload: Record<string, unknown>;
+  try {
+    payload = await verifyAppleIdToken(tokenData.id_token, env.appleClientId!);
+  } catch {
+    return redirectWithError("apple_id_token_invalid", true);
+  }
+
+  const providerUserId = typeof payload.sub === "string" ? payload.sub : null;
+  const email = typeof payload.email === "string" ? payload.email : null;
+  const name = typeof payload.name === "string" ? payload.name : null;
 
   if (!providerUserId) {
     return redirectWithError("apple_sub", true);

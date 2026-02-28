@@ -56,6 +56,9 @@
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
   - admin user analytics and CSV exports now include coarse geo and PII-gated demographic fields.
+- Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
+  - Full audit findings, options, and accepted approaches documented per milestone below.
+  - Implementation gated on per-milestone user sign-off.
 
 ## Requirement Coverage Snapshot
 
@@ -100,6 +103,24 @@
 | Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
 | Missing media auto-repair + RSS delete consistency hardening | M82 |
 | Global geo snapshots + optional demographic profile capture | M83 |
+| Apple Sign-In JWT cryptographic verification | S01 |
+| Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
+| Brute-force rate limiting on login + timing oracle fix | S03 |
+| Move admin bootstrap out of request path | S04 |
+| ChunkCache cross-user audio privacy and reliability | S05 |
+| digestSchedulerSecret startup assertion | S06 |
+| Python TTS sidecar authentication + non-root Docker | S07 |
+| SSRF DNS rebinding TOCTOU fix | S08 |
+| HTTP security headers (CSP, X-Frame, X-Content-Type, Referrer) | S09 |
+| Global auth middleware (centralized enforcement for all routes) | S10 |
+| Shared-state rate limiter (multi-instance correctness) | S11 |
+| Worker process health probe | S12 |
+| PDF magic-byte validation before storage write | S13 |
+| Username enumeration normalization (login/signup response parity) | S14 |
+| Stale-job reclaim atomic fix | S15 |
+| Feed token signed-URL pattern (tokens out of enclosure URLs) | S16 |
+| DB role field hardened to enum constraint | S17 |
+| Session cookie `secure` flag tied to runtime profile, not NODE_ENV | S18 |
 
 ## Milestone Status Snapshot
 
@@ -195,6 +216,24 @@ Milestone metadata contract:
 | M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
+| S01 | Planned | 2026-03-07 | — | — |
+| S02 | Planned | 2026-03-07 | — | — |
+| S03 | Planned | 2026-03-07 | — | — |
+| S04 | Planned | 2026-03-07 | — | — |
+| S05 | Planned | 2026-03-14 | — | — |
+| S06 | Planned | 2026-03-07 | — | — |
+| S07 | Planned | 2026-03-07 | — | — |
+| S08 | Planned | 2026-03-14 | — | — |
+| S09 | Planned | 2026-03-07 | — | — |
+| S10 | Planned | 2026-03-14 | — | — |
+| S11 | Planned | 2026-03-21 | — | — |
+| S12 | Planned | 2026-03-14 | — | — |
+| S13 | Planned | 2026-03-07 | — | — |
+| S14 | Planned | 2026-03-07 | — | — |
+| S15 | Planned | 2026-03-14 | — | — |
+| S16 | Planned | 2026-03-28 | — | — |
+| S17 | Planned | 2026-03-28 | — | — |
+| S18 | Planned | 2026-03-07 | — | — |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -2249,3 +2288,627 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web run build`
   - `pnpm --filter @articlepod/worker test`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+---
+
+## Security Hardening Track (S01–S18)
+
+> Audit date: 2026-02-28. All milestones are **Planned** pending per-issue user sign-off.
+> Priority order: P0 (critical/do-now) → P1 (high/pre-launch) → P2 (medium/pre-scale) → P3 (medium-long/polish).
+
+---
+
+### S01 — Apple Sign-In JWT Cryptographic Verification
+- status: Planned
+- priority: P0 (Critical)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `apps/web/src/app/api/auth/apple/callback/route.ts` decodes the Apple `id_token` payload with
+    plain base64 but never verifies the RS256/ES256 signature against Apple's published JWKS.
+  - An attacker can craft a JWT with any `sub` (Apple user ID) and log in as any existing Apple-linked account.
+- Options considered:
+  - **Option A (chosen):** Use `jose` library to verify the `id_token` against Apple's JWKS endpoint
+    (`https://appleid.apple.com/auth/keys`). Validate `iss`, `aud`, `exp` claims before trusting `sub`/`email`.
+    This is the Apple-recommended approach and the `jose` library is MIT-licensed.
+  - **Option B:** Replace Apple Sign-In with Apple's server-to-server token validation API.
+    Heavier implementation, same security outcome, but more moving parts.
+  - **Option C:** Disable Apple Sign-In until fixed (emergency stop-gap only).
+- Accepted approach: Option A.
+- Scope:
+  - Add `jose` as a dependency in `apps/web`.
+  - Replace `parseJwtPayload()` with a `verifyAppleIdToken(idToken, clientId)` helper that fetches JWKS,
+    validates signature, and returns verified claims.
+  - Add unit test with a fixture JWT + mock JWKS endpoint.
+- Key files/modules:
+  - `apps/web/src/app/api/auth/apple/callback/route.ts`
+  - `apps/web/src/lib/auth.ts` (new `verifyAppleIdToken` helper)
+  - `apps/web/tests/auth-apple.test.ts`
+- Acceptance criteria:
+  - A JWT with a tampered payload or invalid signature is rejected with `apple_token` error.
+  - A valid Apple token (mocked JWKS in tests) proceeds to `findOrCreateOAuthUser`.
+  - `iss === "https://appleid.apple.com"` and `aud === clientId` are both asserted.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth-apple`
+  - `pnpm --filter @articlepod/web run lint`
+  - `pnpm --filter @articlepod/web run typecheck`
+
+---
+
+### S02 — Drop Plaintext Token Storage from Database
+- status: Planned
+- priority: P0 (Critical)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `FeedToken.tokenValue`, `DigestFeedToken.tokenValue`, `ShareToken.tokenValue`, and
+    `ExtensionToken.tokenValue` all store plaintext tokens alongside their SHA-256 hash.
+  - A database dump exposes every active RSS feed URL, share link, and extension token immediately.
+  - `Session` already uses hash-only storage — the other models do not follow the same pattern.
+- Options considered:
+  - **Option A (chosen):** Remove `tokenValue` columns from all four models in a Prisma migration.
+    All lookups already use `tokenHash`. Return plaintext token to the caller once at creation time only
+    (already the pattern in `createSecretToken()`). Force a one-time token rotation for all existing users.
+  - **Option B:** Encrypt `tokenValue` at-rest using AES-GCM with a `TOKEN_ENCRYPTION_KEY` env secret.
+    More complex, and if the key is on the same VM as the DB, provides limited additional protection.
+  - **Option C:** Keep as-is but add a DB-level encryption layer (e.g., Transparent Data Encryption on Azure).
+    Doesn't protect against a SQL injection or application-layer dump.
+- Accepted approach: Option A.
+- Scope:
+  - Drop `tokenValue` from `FeedToken`, `DigestFeedToken`, `ShareToken`, `ExtensionToken` in both
+    `schema.prisma` and `schema.postgres.prisma`.
+  - Update `auth.ts`: `ensureUserFeedToken`, `ensureUserDigestFeedToken`, `createShareToken`,
+    `createExtensionToken` — return plaintext only at creation, never read back.
+  - Update `dashboard.ts`: `getActiveFeedTokenForUser()` returns `null` instead of plaintext;
+    the dashboard page flow derives feed URL from the token returned at rotation time.
+  - Write migration. For existing rows: invalidate by setting `active=false` and emit a one-time
+    rotation event so the next user session triggers new token issuance.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/app/api/feed-token/rotate/route.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+- Acceptance criteria:
+  - No `tokenValue` column exists in any token model.
+  - Feed URL is derived from the plaintext token returned at the time of creation/rotation.
+  - Hash-only lookup works end-to-end: RSS route resolves token → user → episodes.
+  - All existing tests pass; add a test asserting `tokenValue` is absent on any created token row.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- tokens`
+  - `pnpm --filter @articlepod/web test -- rss`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+---
+
+### S03 — Login Brute-Force Rate Limiting + Timing Oracle Fix
+- status: Planned
+- priority: P0 (Critical)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `POST /api/auth/login` has no rate limiting. An attacker can brute-force passwords at bcrypt cost
+    with no throttling.
+  - When an email is not found, the handler short-circuits before `bcrypt.compare()`, creating a
+    timing difference that confirms whether an email is registered.
+- Options considered:
+  - **Option A (chosen):** Add `enforceRateLimit` per IP (10 attempts / 15 min) and per email
+    (5 attempts / 15 min) at the top of the handler before any DB work. When user lookup fails,
+    run `bcrypt.compare(body.password, DUMMY_HASH)` before returning 401 to normalize timing.
+  - **Option B:** Implement exponential backoff with a `LoginAttempt` table (persistent across restarts).
+    Heavier, but survives process restarts. Can be added in S11 (shared-state rate limiter).
+  - **Option C:** Add a CAPTCHA after N failures. Better UX than hard blocks but requires a third-party
+    service (adds a dependency); defer to P3.
+- Accepted approach: Option A now; revisit with shared-state rate limiter in S11.
+- Scope:
+  - Add per-IP and per-email `enforceRateLimit` calls at handler entry.
+  - Define `DUMMY_HASH` (a static bcrypt hash) in `auth.ts` and run a compare when user not found.
+  - Move `ensureAdminUser()` call out of the login handler (see S04).
+- Key files/modules:
+  - `apps/web/src/app/api/auth/login/route.ts`
+  - `apps/web/src/lib/auth.ts` (DUMMY_HASH constant)
+  - `apps/web/tests/auth-login.test.ts`
+- Acceptance criteria:
+  - 11th login attempt from same IP within 15 min returns 429.
+  - 6th attempt with same email within 15 min returns 429.
+  - Timing difference between "user not found" and "wrong password" is ≤ 5ms on average in tests.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth-login`
+  - `pnpm --filter @articlepod/web run lint`
+
+---
+
+### S04 — Move Admin Bootstrap Out of Request Path
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-07
+- Audit finding:
+  - Every `POST /api/auth/login` call invokes `ensureAdminUser()`, which unconditionally runs
+    `bcrypt.hash(ADMIN_PASSWORD, 12)` (~100–300ms CPU per unauthenticated request).
+  - This is both a CPU amplifier (DoS) and a startup-concern leaking into a hot path.
+- Options considered:
+  - **Option A (chosen):** Move `ensureAdminUser()` to server startup. Add an in-process boolean
+    flag (`adminBootstrapped`) so it only runs once per process lifetime, not per request.
+    If `ADMIN_PASSWORD` is unset, throw at startup so the app fails fast rather than breaking login for everyone.
+  - **Option B:** Keep in the request path but add a module-level `let bootstrapped = false` guard.
+    Still runs once per process restart, avoids the per-request bcrypt cost. Simpler but less clean.
+  - **Option C:** Remove admin bootstrap entirely; use a separate `npm run create-admin` CLI script.
+    Cleanest design but breaks zero-config local startup.
+- Accepted approach: Option A (startup init with flag guard).
+- Scope:
+  - Add `initAdminUser()` call in the Next.js server startup path (instrumentation hook or
+    `apps/web/src/app/layout.tsx` server-side init block with a module-level guard).
+  - Remove `ensureAdminUser()` from `apps/web/src/app/api/auth/login/route.ts`.
+  - Assert `ADMIN_PASSWORD` non-empty at startup; throw `Error("ADMIN_PASSWORD must be set")`.
+- Key files/modules:
+  - `apps/web/src/lib/user-bootstrap.ts`
+  - `apps/web/src/app/api/auth/login/route.ts`
+  - `apps/web/src/app/layout.tsx` (or equivalent startup hook)
+- Acceptance criteria:
+  - `POST /api/auth/login` no longer calls any bcrypt hash operation outside of `verifyPassword`.
+  - Server startup logs "admin user bootstrapped" once per process.
+  - App fails to start (exits non-zero) when `ADMIN_PASSWORD` is unset in production profile.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth-login`
+  - `pnpm --filter @articlepod/web run build`
+
+---
+
+### S05 — ChunkCache Cross-User Audio Privacy and Reliability
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-14
+- Audit finding:
+  - The chunk cache key is `sha256(provider|voice|chunkHashes)` with no user component.
+  - When two users submit the same article with the same TTS settings, User B's episode references
+    User A's audio file path. If User A deletes their item, User B's episode silently breaks.
+  - Privacy concern: User B's RSS feed serves audio stored under User A's item path.
+- Options considered:
+  - **Option A:** Scope cache key to `userId` so each user always gets their own audio file.
+    Simplest fix; eliminates sharing entirely. Slightly less efficient (no cross-user dedup),
+    but correctness and privacy are worth it.
+  - **Option B (chosen):** Move cached audio to a content-addressed shared path
+    (`shared/audio/{contentHash}.mp3`) independent of any item. Track reference counts in a new
+    `SharedAudioAsset` table. Delete the shared asset only when `refcount` drops to 0.
+    Best efficiency and privacy; no user's files live in another user's path.
+  - **Option C:** Scope cache key to `userId` (Option A) as a quick fix now; design Option B as a
+    follow-on optimization under a separate milestone.
+- Accepted approach: Option C (Option A now for correctness; Option B deferred as optimization).
+- Scope:
+  - Modify `processItemJob.ts`: include `userId` in the chunk cache key derivation.
+  - Ensure `ChunkCache.itemId` still points to the item that produced the cache entry, but
+    the audio path is user-scoped.
+  - Add a test: two users submit identical content → each gets their own audio file path.
+- Key files/modules:
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `packages/core/src/chunking/chunkText.ts` (if cache key is built here)
+  - `apps/web/tests/chunk-cache.test.ts`
+- Acceptance criteria:
+  - Two users submitting identical content produce separate audio files in separate paths.
+  - Deleting User A's item does not affect User B's episode.
+- Verification commands:
+  - `pnpm --filter @articlepod/worker test -- chunk-cache`
+  - `pnpm --filter @articlepod/web test`
+
+---
+
+### S06 — digestSchedulerSecret Startup Assertion
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `DIGEST_SCHEDULER_SECRET` defaults to `""` if unset. The tick endpoint returns 503 for empty
+    secrets, but a deployment that forgets this env var has no startup warning — it silently
+    allows the digest feature to appear healthy while being unauthenticated.
+- Options considered:
+  - **Option A (chosen):** Assert `digestSchedulerSecret.length >= 32` at startup in `user-bootstrap.ts`
+    (or the env validation layer). Throw if unset and `RUNTIME_PROFILE !== "simple"` (local dev
+    can omit it). This mirrors the existing `SESSION_SECRET` minimum-length pattern.
+  - **Option B:** Log a `WARN` on startup without throwing. Weaker, but doesn't break local dev.
+  - **Option C:** Auto-generate a random secret at startup if unset and write it to the env file.
+    Risky: the generated secret won't match the cron caller's config.
+- Accepted approach: Option A.
+- Scope:
+  - Update `apps/web/src/lib/env.ts`: add minimum-length assertion for `digestSchedulerSecret`
+    when `runtimeProfile !== "simple"`.
+  - Same check in `apps/worker/src/lib/env.ts`.
+- Key files/modules:
+  - `apps/web/src/lib/env.ts`
+  - `apps/worker/src/lib/env.ts`
+- Acceptance criteria:
+  - Non-simple profile startup throws a clear error when `DIGEST_SCHEDULER_SECRET` is unset or < 32 chars.
+  - Simple profile (local dev) starts without the var.
+- Verification commands:
+  - `pnpm --filter @articlepod/web run build`
+  - `pnpm --filter @articlepod/worker run build`
+
+---
+
+### S07 — Python TTS Sidecar Authentication + Non-Root Docker
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `POST /v1/synthesize` on the python-tts service has no authentication.
+  - The Dockerfile has no `USER` directive — the service runs as root.
+  - If port 8010 is reachable outside the VM/pod network, any caller can synthesize arbitrary text.
+- Options considered:
+  - **Option A (chosen):** Add a `SIDECAR_SHARED_SECRET` env var. Python-tts FastAPI middleware checks
+    `X-Sidecar-Secret` header on every `/v1/synthesize` call. Node.js caller (`tts/pythonService.ts`)
+    injects the header. Add `USER app` to Dockerfile. Bind uvicorn to `127.0.0.1` by default.
+  - **Option B:** Use mTLS between Node caller and Python sidecar. Most secure but heavy for an
+    intra-VM communication channel.
+  - **Option C:** Rely entirely on network isolation (private VNET / no external port binding).
+    Operational safeguard only; doesn't defend against tenant-level escapes or config mistakes.
+- Accepted approach: Option A.
+- Scope:
+  - `services/python-tts/app/main.py`: add FastAPI middleware for `X-Sidecar-Secret` on `/v1/synthesize`.
+  - `services/python-tts/Dockerfile`: add `USER app` and change bind to `127.0.0.1`.
+  - `packages/core/src/tts/pythonService.ts`: inject `X-Sidecar-Secret` header from env.
+  - `apps/web/src/lib/env.ts`, `apps/worker/src/lib/env.ts`: add `ttsSidecarSecret` field.
+  - Update `.env.example` and `docs/env.md`.
+- Key files/modules:
+  - `services/python-tts/app/main.py`
+  - `services/python-tts/Dockerfile`
+  - `packages/core/src/tts/pythonService.ts`
+- Acceptance criteria:
+  - Request to `/v1/synthesize` without `X-Sidecar-Secret` returns 401.
+  - Node TTS client includes the header and synthesis works end-to-end.
+  - `docker inspect` shows process user is not root.
+- Verification commands:
+  - `curl -X POST http://127.0.0.1:8010/v1/synthesize` (expect 401)
+  - `pnpm --filter @articlepod/worker test -- tts`
+  - End-to-end job completion test
+
+---
+
+### S08 — SSRF DNS Rebinding TOCTOU Fix
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-14
+- Audit finding:
+  - `validateFetchableUrl()` resolves DNS at validation time; `extractHtmlFromUrl()` re-resolves
+    via `fetch(url)` potentially seconds later. An attacker-controlled domain can serve a public IP
+    at validation and rebind to `169.254.169.254` (metadata) at fetch time.
+- Options considered:
+  - **Option A (chosen):** After `lookup()` in `validateFetchableUrl`, return the resolved IP address.
+    In `extractHtmlFromUrl`, use `fetch()` with the IP directly in the URL and set the `Host` header
+    to the original hostname. This forces a single DNS resolution that cannot be rebounded.
+  - **Option B:** Run all outbound fetches through an HTTP proxy that enforces IP-layer blocking
+    (e.g., a local Squid or dante proxy). More operationally complex.
+  - **Option C:** Accept the TOCTOU window and rely on Azure VM network policies to block metadata
+    endpoints. Defense-in-depth only; not a code fix.
+- Accepted approach: Option A.
+- Scope:
+  - `packages/core/src/security/urlPolicy.ts`: return resolved IP from `validateFetchableUrl`.
+  - `packages/core/src/extract/html.ts`: accept resolved IP, construct fetch target with IP,
+    set `Host` header explicitly.
+  - Update callers in `processItemJob.ts` to pass resolved IP through.
+- Key files/modules:
+  - `packages/core/src/security/urlPolicy.ts`
+  - `packages/core/src/extract/html.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `packages/core/tests/urlPolicy.test.ts`
+- Acceptance criteria:
+  - A URL whose DNS changes between validation and fetch is still blocked (test with mocked resolver).
+  - Normal URL fetching still works end-to-end.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test -- urlPolicy`
+  - `pnpm --filter @articlepod/worker test -- processItemJob`
+
+---
+
+### S09 — HTTP Security Headers
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `next.config.mjs` has no `headers()` export. Missing `X-Frame-Options`, `X-Content-Type-Options`,
+    `Referrer-Policy`, `Permissions-Policy`, and `Content-Security-Policy`.
+  - Without CSP, any XSS has full access to the page including the rendered feed token.
+- Options considered:
+  - **Option A (chosen):** Add a `headers()` export in `next.config.mjs` with the five headers above.
+    Start with a permissive CSP (`default-src 'self' 'unsafe-inline'`) that can be tightened
+    incrementally as inline styles/scripts are audited.
+  - **Option B:** Use a Next.js middleware (`middleware.ts`) to inject headers. Flexible but more
+    boilerplate and runs on every request.
+  - **Option C:** Set headers at the nginx level only. Doesn't cover local dev or direct access.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/next.config.mjs`: add `headers()` with recommended values for all routes.
+- Key files/modules:
+  - `apps/web/next.config.mjs`
+- Acceptance criteria:
+  - `curl -I https://articlepod.com/` response includes all five headers.
+  - `X-Frame-Options: SAMEORIGIN`
+  - `X-Content-Type-Options: nosniff`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+- Verification commands:
+  - `curl -I http://localhost:3000/`
+  - `pnpm --filter @articlepod/web run build`
+
+---
+
+### S10 — Global Auth Middleware
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-14
+- Audit finding:
+  - There is no `middleware.ts`. Every API route individually checks auth. A new route that forgets
+    `requireAuthUser()` is silently public.
+- Options considered:
+  - **Option A (chosen):** Add `apps/web/src/middleware.ts` that enforces session authentication
+    for all paths under `/app` and `/api/` (except an explicit `PUBLIC_ROUTES` set:
+    `/api/health`, `/api/auth/*`, `/api/feed`, `/rss/`, public share routes).
+    Returns 401/redirect for unauthenticated access.
+  - **Option B:** Keep per-route enforcement but add a lint rule that flags any route file missing
+    an auth call. Fragile and hard to maintain.
+  - **Option C:** Use a higher-order function wrapper `withAuth(handler)` for all protected routes.
+    Better than nothing but doesn't catch forgetting to wrap.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/src/middleware.ts`: new file with matcher and auth check.
+  - Audit all existing routes to confirm none break under the new middleware.
+- Key files/modules:
+  - `apps/web/src/middleware.ts`
+- Acceptance criteria:
+  - `GET /app/settings` without session cookie returns redirect to `/login`.
+  - `POST /api/items/url` without session returns 401.
+  - `GET /api/health` without session returns 200 (public route).
+  - All existing auth tests still pass.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- middleware`
+  - `pnpm --filter @articlepod/web test`
+
+---
+
+### S11 — Shared-State Rate Limiter (Multi-Instance Correctness)
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-21
+- Audit finding:
+  - `enforceRateLimit` uses a module-level `Map` — per process, resets on restart.
+  - With multiple web pods, each has independent counters; an attacker distributes requests across pods.
+- Options considered:
+  - **Option A:** Replace `Map` with a Redis-backed sliding window using atomic `INCR` + `EXPIRE`.
+    Best correctness; requires Redis as a new infra dependency.
+  - **Option B (chosen for MVP):** Replace `Map` with a Postgres row (`RateLimitBucket` table) using
+    an atomic `UPDATE ... SET count = count + 1 WHERE reset_at > now()`. No new infra; works on
+    existing DB. Slightly higher latency than Redis but acceptable for rate-limiting.
+  - **Option C:** Keep in-memory but add a sticky-session load balancer. Operationally fragile; not suitable.
+- Accepted approach: Option B (Postgres-backed). Redis path documented as a future upgrade.
+- Scope:
+  - Add `RateLimitBucket` model to Prisma schema.
+  - Rewrite `packages/core/src/security/rateLimit.ts` to be an async function backed by Prisma.
+  - Update all callers to `await enforceRateLimit(...)`.
+  - Prune expired buckets via a lightweight cron or cleanup-on-read strategy.
+- Key files/modules:
+  - `packages/core/src/security/rateLimit.ts`
+  - `apps/web/prisma/schema.prisma`
+  - All API routes calling `enforceRateLimit`
+- Acceptance criteria:
+  - Two concurrent processes sharing the same DB enforce a combined request limit.
+  - Rate limit state survives a process restart.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test -- rateLimit`
+  - `pnpm --filter @articlepod/web test`
+
+---
+
+### S12 — Worker Process Health Probe
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-14
+- Audit finding:
+  - The worker has no HTTP server, health endpoint, or readiness probe. A silent crash goes undetected
+    until items remain stuck in `PROCESSING` past the stale-job timeout.
+- Options considered:
+  - **Option A (chosen):** Add a minimal HTTP server in `apps/worker/src/index.ts` on a configurable
+    port (default 3001). Expose `GET /health` returning `{ ok: true, lastPollAt, stuckJobCount }`.
+    Wire it to the systemd `WatchdogSec` or a container readiness probe.
+  - **Option B:** Use a file-based heartbeat (write a timestamp to a temp file; a sidecar script
+    checks mtime). Works without an HTTP port but is less standard.
+  - **Option C:** Rely on systemd `Restart=on-failure` and email alerting from ops runbook.
+    Detects crashes but not silent hangs.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/worker/src/index.ts`: start a lightweight HTTP server alongside the poll loop.
+  - Expose `lastPollAt` and count of jobs in `PROCESSING` older than the stale timeout.
+  - Update systemd unit to add `WatchdogSec=60` or equivalent.
+- Key files/modules:
+  - `apps/worker/src/index.ts`
+  - `infra/systemd/articlepod-worker.service`
+- Acceptance criteria:
+  - `curl http://localhost:3001/health` returns `{ ok: true }` when worker is running normally.
+  - Systemd unit file includes a restart/watchdog directive.
+- Verification commands:
+  - Start worker; `curl http://localhost:3001/health`
+  - `pnpm --filter @articlepod/worker run build`
+
+---
+
+### S13 — PDF Magic-Byte Validation Before Storage Write
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-07
+- Audit finding:
+  - The PDF upload route checks `file.type !== "application/pdf"` — a client-supplied MIME type
+    that is trivially forged. A malicious file with a crafted `Content-Type` bypasses this and
+    is written to object storage before pdf.js validates actual content.
+- Options considered:
+  - **Option A (chosen):** Read the first 5 bytes of the upload buffer and assert the `%PDF-`
+    magic signature before writing to storage. Reject with `INVALID_FILE_TYPE` error code if absent.
+    3-line addition with no new dependencies.
+  - **Option B:** Use a library like `file-type` (MIT) for broad magic-byte coverage across file types.
+    Overkill for a PDF-only upload endpoint; adds a dependency.
+  - **Option C:** Run pdf.js eagerly on the raw upload before storing. Works but costs more CPU on
+    the web server request path.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/src/app/api/items/pdf/route.ts`: read first 5 bytes, check for `%PDF-`.
+- Key files/modules:
+  - `apps/web/src/app/api/items/pdf/route.ts`
+- Acceptance criteria:
+  - A file with `Content-Type: application/pdf` but no `%PDF-` header returns 400 `INVALID_FILE_TYPE`.
+  - A valid PDF proceeds normally.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- pdf-upload`
+
+---
+
+### S14 — Username Enumeration Normalization
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-07
+- Audit finding:
+  - Signup returns `"An account with this email already exists."` when the email is taken.
+  - This allows an attacker to enumerate registered email addresses at the signup endpoint.
+- Options considered:
+  - **Option A (chosen):** Change the signup-conflict response to `"Check your email to continue."`
+    (a generic message that doesn't confirm whether the email is registered). For login, the existing
+    `"Invalid email or password."` message is already correct.
+  - **Option B:** Implement a "check email" flow where signup always sends a verification email,
+    hiding whether the account existed. Better UX for email-based products but requires email infra
+    (currently stubbed).
+  - **Option C:** Accept the enumeration risk at MVP since the product requires account creation
+    with a valid email. Defer to P3.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/src/app/api/auth/login/route.ts`: change signup-conflict error message.
+- Key files/modules:
+  - `apps/web/src/app/api/auth/login/route.ts`
+- Acceptance criteria:
+  - Signup with an existing email returns a message that does not confirm the email is registered.
+  - Existing signup-success path is unchanged.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth-login`
+
+---
+
+### S15 — Stale-Job Reclaim Atomic Fix
+- status: Planned
+- priority: P2 (Medium)
+- target_finish: 2026-03-14
+- Audit finding:
+  - Worker stale-job reclaim does `findMany` then `updateMany` as separate unprotected operations.
+  - A job that completes between the two calls gets reset to `QUEUED` and re-processed.
+  - TTS synthesis survives (chunk cache), but episode upserts and analytics events are duplicated.
+- Options considered:
+  - **Option A (chosen):** Add `status: "PROCESSING"` to the `updateMany` where clause so only
+    still-processing jobs are affected. Wrap both operations in a `$transaction`. Minimal change,
+    eliminates the race.
+  - **Option B:** Use `SELECT ... FOR UPDATE` (PostgreSQL) to lock rows before updating.
+    Correct but SQLite doesn't support this; incompatible with the dev profile.
+  - **Option C:** Add a `version` integer to `Job` and use optimistic concurrency (compare-and-swap).
+    More complex than needed for this use case.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/worker/src/jobs/processItemJob.ts` and `processDigestRunJob.ts`: add `status: "PROCESSING"`
+    filter to the `updateMany` clause in stale-job reclaim.
+- Key files/modules:
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+- Acceptance criteria:
+  - A job that transitions to `SUCCEEDED` between `findMany` and `updateMany` is NOT reset to `QUEUED`.
+  - Test: mock a job that "finishes" mid-reclaim; assert it stays `SUCCEEDED`.
+- Verification commands:
+  - `pnpm --filter @articlepod/worker test -- stale-jobs`
+
+---
+
+### S16 — Feed Token Signed-URL Pattern (Tokens Out of Enclosure URLs)
+- status: Planned
+- priority: P3 (Medium-Long)
+- target_finish: 2026-03-28
+- Audit finding:
+  - Every `<enclosure>` URL embeds `?feed_token=TOKEN` — a long-lived secret exposed in server logs,
+    CDN logs, podcast app request logs, and browser history.
+  - Nginx/CDN log redaction does not cover this because redaction only applies to structured app logs.
+- Options considered:
+  - **Option A:** Keep tokens in URL query params but configure nginx to mask query strings in
+    access logs. Quick, operational fix only — tokens still appear elsewhere.
+  - **Option B (chosen):** At RSS serve time, generate short-lived signed media URLs: `HMAC-SHA256`
+    of `{tokenHash}:{storagePath}:{expiresAt}` with a server-side `MEDIA_SIGNING_KEY`. Enclosure URL
+    becomes `/api/media/{path}?sig={signature}&exp={expiresAt}`. Long-lived feed token stays off the wire.
+    Podcast apps cache the feed for ≤ 24h, so a 48h signature TTL covers all normal clients.
+  - **Option C:** Move the feed token into the URL path segment instead of a query param
+    (e.g., `/api/media/{feedToken}/{path}`). Simpler than HMAC but token still appears in logs.
+- Accepted approach: Option B.
+- Scope:
+  - `packages/core/src/rss/buildFeed.ts`: accept a `signMediaUrl(path) => string` callback.
+  - New `packages/core/src/security/signedUrl.ts`: `signMediaUrl`, `verifySignedUrl` using HMAC-SHA256.
+  - `apps/web/src/app/rss/[token]/route.ts`: inject `signMediaUrl` into feed builder.
+  - `apps/web/src/app/api/media/[...path]/route.ts`: verify signature instead of feed token query param.
+  - Add `MEDIA_SIGNING_KEY` env var (min 32 bytes).
+- Key files/modules:
+  - `packages/core/src/security/signedUrl.ts` (new)
+  - `packages/core/src/rss/buildFeed.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+- Acceptance criteria:
+  - Enclosure URLs in RSS XML contain no `feed_token` query parameter.
+  - A valid signed URL plays audio successfully.
+  - An expired or tampered signed URL returns 401.
+  - Existing podcast contract tests pass.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- media`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+---
+
+### S17 — DB Role Field Hardened to Enum Constraint
+- status: Planned
+- priority: P3 (Medium-Long)
+- target_finish: 2026-03-28
+- Audit finding:
+  - `User.role` is stored as `String` in Prisma. SQLite enforces no allowed values.
+  - Any direct DB write (migration script, admin tooling, ORM bypass) can insert an unexpected role
+    string that silently passes or fails the `role === "ADMIN"` check unpredictably.
+- Options considered:
+  - **Option A (chosen):** When migrating to PostgreSQL (parity/azure profile), define `role` as a
+    Postgres `ENUM` type via a raw migration. Add a `@@check(fields: [role], expression: "role IN ('USER','ADMIN')")` 
+    to the Prisma schema (Prisma 5+ supported). For the SQLite dev profile, add a Zod enum validation
+    in `normalizeRole()` that throws on unrecognized values instead of silently defaulting.
+  - **Option B:** Add a check constraint only in the application layer (`normalizeRole` throwing).
+    No DB enforcement; weaker.
+  - **Option C:** Use Prisma's `enum` type when it becomes supported for SQLite. Not yet available.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/src/lib/auth.ts`: `normalizeRole()` throws `AppError(INVALID_INPUT)` on unrecognized roles.
+  - `apps/web/prisma/schema.postgres.prisma`: add check constraint or enum type for `role`.
+- Key files/modules:
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/prisma/schema.postgres.prisma`
+- Acceptance criteria:
+  - `normalizeRole("SUPERADMIN")` throws rather than silently returning `"USER"`.
+  - PostgreSQL schema rejects an INSERT with `role = 'SUPERADMIN'` at the DB level.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth`
+  - `pnpm --filter @articlepod/web prisma validate`
+
+---
+
+### S18 — Session Cookie `secure` Flag Tied to Runtime Profile
+- status: Planned
+- priority: P1 (High)
+- target_finish: 2026-03-07
+- Audit finding:
+  - `secure: process.env.NODE_ENV === "production"` in `auth.ts` means a `parity` Docker Compose
+    run with `NODE_ENV=development` sends session cookies without the `Secure` flag, allowing
+    transmission over HTTP.
+- Options considered:
+  - **Option A (chosen):** Replace `NODE_ENV === "production"` with `env.runtimeProfile !== "simple"`.
+    The `simple` profile is local dev only; `parity` and `azure` profiles should always set `Secure`.
+  - **Option B:** Add an explicit `SECURE_COOKIES=true` env var. More explicit but one more config
+    variable to remember in parity/azure environments.
+  - **Option C:** Always set `Secure: true` and require HTTPS even in local dev. Requires local TLS
+    setup, breaking zero-config local startup.
+- Accepted approach: Option A.
+- Scope:
+  - `apps/web/src/lib/auth.ts`: change the `secure` cookie flag condition.
+- Key files/modules:
+  - `apps/web/src/lib/auth.ts`
+- Acceptance criteria:
+  - In `simple` profile: `secure: false` (allows HTTP local dev).
+  - In `parity` or `azure` profile: `secure: true`.
+- Verification commands:
+  - `pnpm --filter @articlepod/web test -- auth`
+  - `pnpm --filter @articlepod/web run lint`

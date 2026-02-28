@@ -11,7 +11,12 @@ import {
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { fromError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
-import { ensureAdminUser } from "@/lib/user-bootstrap";
+
+import { enforceLoginRateLimits, getClientIp } from "@/lib/rate-limit";
+
+// Precomputed bcrypt hash (cost 12) of a dummy value — used for timing-safe
+// rejection paths so response time does not reveal whether an email exists.
+const DUMMY_HASH = "$2a$12$Bnzzf3TKBt44iQoKsG9.y.3q6bMWBpzE2sXkpS0krc8Yw6hI.CpzG";
 
 const schema = z.object({
   mode: z.enum(["signup", "login"]),
@@ -22,7 +27,8 @@ const schema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    await ensureAdminUser();
+    const ip = getClientIp(request);
+    await enforceLoginRateLimits(ip);
     const body = schema.parse(await request.json());
     const email = body.email.toLowerCase();
 
@@ -34,7 +40,7 @@ export async function POST(request: NextRequest) {
           {
             ok: false,
             error_code: "INVALID_INPUT",
-            error_message: "An account with this email already exists."
+            error_message: "Unable to create account. Please check your details or try logging in."
           },
           { status: 400 }
         );
@@ -66,6 +72,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user || !user.passwordHash) {
+      // Run a dummy compare so response time does not reveal email existence.
+      await verifyPassword(body.password, DUMMY_HASH);
       return NextResponse.json(
         {
           ok: false,

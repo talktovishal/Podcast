@@ -28,7 +28,7 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
-export async function validateFetchableUrl(rawUrl: string): Promise<URL> {
+export async function validateFetchableUrl(rawUrl: string): Promise<{ url: URL; resolvedIp: string }> {
   let parsed: URL;
 
   try {
@@ -46,6 +46,18 @@ export async function validateFetchableUrl(rawUrl: string): Promise<URL> {
     throw new AppError(errorCodes.URL_BLOCKED, "This URL host is blocked for security reasons.", 400);
   }
 
+  // If the host is already a literal IP address, validate it directly.
+  if (isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new AppError(
+        errorCodes.URL_BLOCKED,
+        "This URL resolves to a private/internal address and cannot be fetched.",
+        400
+      );
+    }
+    return { url: parsed, resolvedIp: hostname };
+  }
+
   const resolved = await lookup(hostname, { all: true, verbatim: true });
   if (resolved.length === 0) {
     throw new AppError(errorCodes.URL_BLOCKED, "Could not resolve URL host.", 400);
@@ -61,5 +73,5 @@ export async function validateFetchableUrl(rawUrl: string): Promise<URL> {
     }
   }
 
-  return parsed;
+  return { url: parsed, resolvedIp: resolved[0].address };
 }

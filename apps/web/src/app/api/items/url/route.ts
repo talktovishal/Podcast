@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
 import { enqueueItem } from "@/lib/items";
-import { enforceSubmitRateLimits } from "@/lib/rate-limit";
+import { enforceSubmitRateLimits, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
 
 export async function POST(request: NextRequest) {
@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = submitUrlSchema.parse(await request.json());
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    enforceSubmitRateLimits(user.id, ip);
+    const ip = getClientIp(request);
+    await enforceSubmitRateLimits(user.id, ip);
 
     await validateFetchableUrl(payload.url);
 

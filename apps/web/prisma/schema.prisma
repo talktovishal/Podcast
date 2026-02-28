@@ -58,7 +58,7 @@ model Session {
 model FeedToken {
   id        String   @id @default(cuid())
   userId    String
-  tokenValue String  @unique
+  tokenValue String?  @unique
   tokenHash String   @unique
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -72,7 +72,7 @@ model FeedToken {
 model ShareToken {
   id        String   @id @default(cuid())
   userId    String
-  tokenValue String  @unique
+  tokenValue String?  @unique
   tokenHash String   @unique
   scope     String   @default("read_only")
   expiresAt DateTime?
@@ -159,7 +159,7 @@ model ExtensionToken {
   id         String   @id @default(cuid())
   userId     String
   tokenHash  String   @unique
-  tokenValue String   @unique
+  tokenValue String?   @unique
   label      String?
   scope      String   @default("ingest:html_snapshot")
   expiresAt  DateTime?
@@ -338,7 +338,7 @@ model UserDigestSettings {
 model DigestFeedToken {
   id         String   @id @default(cuid())
   userId     String
-  tokenValue String   @unique
+  tokenValue String?   @unique
   tokenHash  String   @unique
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -434,4 +434,11 @@ model UserDemographicSurvey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status, updatedAt])
+}
+
+model RateLimitBucket {
+  key       String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
+  updatedAt DateTime @updatedAt
 }
