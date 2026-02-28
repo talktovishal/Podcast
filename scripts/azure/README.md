@@ -59,6 +59,25 @@ What it runs:
 - `LETSENCRYPT_EMAIL`: required when ingress automation is enabled.
 - `DEPLOY_CONFIGURE_INGRESS`: set `0` to skip nginx/TLS automation for a deploy.
 
+## Production URL Extraction Probe (Safe Diagnostics)
+Use the GitHub Actions workflow **Probe URL Extraction (VM)** to test extraction for a specific URL from the production VM network path without exposing new public endpoints.
+
+Requirements:
+- GitHub repository secrets already used by deploy workflow:
+  - `AZURE_VM_HOST`
+  - `AZURE_VM_USER` (optional; defaults to `azureuser`)
+  - `AZURE_SSH_KEY`
+
+What it does:
+1. Copies `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/probe-url-extract.ts` to the VM.
+2. Runs DNS + HTTP HEAD checks from the VM.
+3. Runs core extraction (`validateFetchableUrl` + `extractHtmlFromUrl`) on the target URL.
+4. Outputs structured JSON with either extraction metrics or actionable error details.
+
+Security notes:
+- Uses existing SSH key auth and VM host secrets; no inbound port changes or debug routes.
+- Runs on demand (`workflow_dispatch`) and does not persist source content.
+
 ## Individual Building Blocks
 - Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
 - Promote staged files only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`

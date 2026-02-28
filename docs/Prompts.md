@@ -77,6 +77,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - URL extraction reliability hardening is implemented:
   - URL fetch now safely retries across validated DNS candidate IPs (IPv4-preferred) and supports Node lookup callback variants (single-address and all-address/happy-eyeballs modes) used by Docker/runtime environments, preventing broad false `EXTRACTION_FAILED` fetch errors after SSRF pinning changes.
   - Invalid-address network failures in pinned lookup paths are now mapped to actionable connection guidance instead of generic fetch-failed messaging.
+- Production URL extraction diagnostics automation is implemented:
+  - manual GitHub Actions workflow `Probe URL Extraction (VM)` runs DNS/HEAD/extraction probes for an arbitrary URL from the production VM path using existing SSH secrets (no new public debug endpoint).
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.

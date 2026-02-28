@@ -1,0 +1,125 @@
+name: Probe URL Extraction (VM)
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Target URL to validate/extract from the production VM"
+        required: true
+        type: string
+      fail_on_error:
+        description: "Fail workflow when extraction fails"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate inputs and secrets
+        env:
+          TARGET_URL: ${{ inputs.url }}
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TARGET_URL" ]; then
+            echo "::error::URL input is required"
+            exit 1
+          fi
+          if [ -z "$TARGET_HOST" ]; then
+            echo "::error::AZURE_VM_HOST secret is not configured"
+            exit 1
+          fi
+          if [ -z "$TARGET_USER" ]; then
+            echo "::error::AZURE_VM_USER resolved to empty value"
+            exit 1
+          fi
+          if [ -z "$AZURE_SSH_KEY" ]; then
+            echo "::error::AZURE_SSH_KEY secret is not configured"
+            exit 1
+          fi
+
+      - name: Setup SSH credentials
+        env:
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          printf "%s\n" "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
+          chmod 600 ~/.ssh/articlepod_azure
+          {
+            echo "Host *"
+            echo "    StrictHostKeyChecking no"
+            echo "    UserKnownHostsFile=/dev/null"
+            echo "    LogLevel QUIET"
+          } > ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Run VM URL probe
+        id: probe
+        env:
+          TARGET_URL: ${{ inputs.url }}
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          FAIL_ON_ERROR: ${{ inputs.fail_on_error }}
+        run: |
+          set -euo pipefail
+
+          TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure"
+          PROBE_FILE="/tmp/articlepod-probe-url-extract.ts"
+          LOG_FILE="/tmp/probe-url-extraction.log"
+
+          scp -i "$TARGET_SSH_KEY" scripts/azure/probe-url-extract.ts "${TARGET_USER}@${TARGET_HOST}:${PROBE_FILE}"
+
+          url_host="$(python3 -c 'from urllib.parse import urlparse; import sys; print(urlparse(sys.argv[1]).hostname or "")' "$TARGET_URL")"
+          escaped_target_url="$(printf '%q' "$TARGET_URL")"
+          escaped_url_host="$(printf '%q' "$url_host")"
+          escaped_probe_file="$(printf '%q' "$PROBE_FILE")"
+          remote_cmd="set -euo pipefail; \
+            echo '== VM host DNS check =='; \
+            if [ -n \"\$URL_HOST\" ]; then getent hosts \"\$URL_HOST\" || true; fi; \
+            echo '== VM direct HEAD check =='; \
+            curl -I --max-time 25 \"\$TARGET_URL\" || true; \
+            echo '== VM extraction probe =='; \
+            cd /opt/articlepod; \
+            npx tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
+          escaped_remote_cmd="$(printf '%q' "$remote_cmd")"
+
+          set +e
+          ssh -i "$TARGET_SSH_KEY" "${TARGET_USER}@${TARGET_HOST}" \
+            "TARGET_URL=$escaped_target_url URL_HOST=$escaped_url_host PROBE_FILE=$escaped_probe_file bash -lc $escaped_remote_cmd" > "$LOG_FILE" 2>&1
+          probe_status=$?
+          set -e
+
+          cat "$LOG_FILE"
+
+          if [ "$probe_status" -ne 0 ] && [ "$FAIL_ON_ERROR" = "true" ]; then
+            echo "::error::URL extraction probe failed (status=$probe_status)"
+            exit "$probe_status"
+          fi
+
+          if [ "$probe_status" -ne 0 ]; then
+            echo "::warning::URL extraction probe failed but workflow is configured to continue"
+          fi
+
+      - name: Probe summary
+        if: always()
+        env:
+          TARGET_URL: ${{ inputs.url }}
+        run: |
+          echo "## URL Probe Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: \`$TARGET_URL\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- VM host: \`${{ secrets.AZURE_VM_HOST }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fail on error: \`${{ inputs.fail_on_error }}\`" >> "$GITHUB_STEP_SUMMARY"
