@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAMES } from "@articlepod/core";
+import { AUTH_COOKIE_NAMES } from "@articlepod/core/src/config/naming";
 
 // Routes accessible without a session cookie.
 const PUBLIC_PREFIXES: string[] = [
