@@ -48,6 +48,7 @@
   - unified brain icon assets generated from one deterministic script for extension + web.
   - feed and digest RSS now publish explicit artwork tags (`itunes:image` + channel `image`).
   - podcast contract checks now validate artwork presence and artwork URL availability.
+- Podcast playback diagnostics are now emitted from RSS/media routes in web structured logs (token-safe request metadata + range/status/bytes/latency) to debug client-specific playback failures.
 
 ## Requirement Coverage Snapshot
 

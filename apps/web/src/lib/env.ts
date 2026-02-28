@@ -45,6 +45,7 @@ export const env = {
   logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
   logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
+  podcastRequestLoggingEnabled: (process.env.PODCAST_REQUEST_LOGGING ?? "1") !== "0",
   telemetryEnabled: process.env.OTEL_ENABLED === "1",
   telemetryServiceName: process.env.OTEL_SERVICE_NAME ?? "web",
   azureMonitorConnectionString: process.env.AZURE_MONITOR_CONNECTION_STRING,

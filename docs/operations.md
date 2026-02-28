@@ -103,6 +103,16 @@ npm run logs:triage
 Output:
 - `/Users/vishalchowdhary/Documents/Podcast/exports/diagnostics/error-digest.md`
 
+Podcast playback diagnostics (RSS + media request traces):
+```bash
+rg '"msg":"Podcast (feed|media) request' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+```
+
+Filter recent range-related failures (`401`, `404`, `416`):
+```bash
+rg '"msg":"Podcast media request (unauthorized|invalid range|object not found)"' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+```
+
 ## Admin analytics runbook
 Backfill admin analytics events/rollups/coverage:
 ```bash

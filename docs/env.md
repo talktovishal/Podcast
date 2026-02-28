@@ -81,6 +81,7 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)
 - `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
+- `PODCAST_REQUEST_LOGGING` (default: `1`; set `0` to disable detailed RSS/media request diagnostics in web logs)
 - Legacy fallback: `LISTENLATER_CONSOLE_LOGS`
 
 ## Telemetry wiring (Azure + parity)

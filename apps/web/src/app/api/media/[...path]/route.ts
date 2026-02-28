@@ -1,8 +1,13 @@
 import { hashIncomingToken } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
+import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
+
+const MEDIA_ROUTE = "/api/media/[...path]";
 
 function contentTypeForPath(path: string): string {
   if (path.endsWith(".mp3")) {
@@ -56,13 +61,35 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
 }
 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
-  const auth = await validateToken(request.nextUrl.searchParams.get("feed_token"));
+  const startedAt = Date.now();
+  const requestMeta = podcastRequestLogMeta(request);
+  const feedToken = request.nextUrl.searchParams.get("feed_token");
+  const auth = await validateToken(feedToken);
   if (!auth) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request unauthorized", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 401,
+        media_kind: "item",
+        has_feed_token: Boolean(feedToken)
+      });
+    }
     return new NextResponse(null, { status: 401 });
   }
 
   const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request rejected", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 400,
+        media_kind: "item",
+        reason: "path_traversal",
+        duration_ms: Date.now() - startedAt
+      });
+    }
     return new NextResponse(null, { status: 400 });
   }
   const key = rawKey;
@@ -70,6 +97,20 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   try {
     const storage = getArtifactStorage();
     const head = await storage.headObject(key);
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.info("Podcast media request served", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 200,
+        media_kind: "item",
+        media_key: key,
+        mime_type: head.contentType || contentTypeForPath(key),
+        total_bytes: head.bytes,
+        served_bytes: 0,
+        response_mode: "HEAD",
+        duration_ms: Date.now() - startedAt
+      });
+    }
 
     return new NextResponse(null, {
       status: 200,
@@ -80,21 +121,55 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
       }
     });
   } catch {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media object not found", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 404,
+        media_kind: "item",
+        media_key: key,
+        duration_ms: Date.now() - startedAt
+      });
+    }
     return new NextResponse(null, { status: 404 });
   }
 }
 
 export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
-  const auth = await validateToken(request.nextUrl.searchParams.get("feed_token"));
+  const startedAt = Date.now();
+  const requestMeta = podcastRequestLogMeta(request);
+  const feedToken = request.nextUrl.searchParams.get("feed_token");
+  const auth = await validateToken(feedToken);
   if (!auth) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request unauthorized", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 401,
+        media_kind: "item",
+        has_feed_token: Boolean(feedToken),
+        has_episode_id: Boolean(request.nextUrl.searchParams.get("eid"))
+      });
+    }
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   const rawKey = context.params.path.join("/");
   if (rawKey.includes("..")) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request rejected", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 400,
+        media_kind: "item",
+        reason: "path_traversal",
+        duration_ms: Date.now() - startedAt
+      });
+    }
     return new NextResponse("Bad Request", { status: 400 });
   }
   const key = rawKey;
+  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
   try {
     const storage = getArtifactStorage();
@@ -103,7 +178,6 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     const mimeType = head.contentType || contentTypeForPath(key);
     const range = request.headers.get("range");
     const now = new Date();
-    const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
     const maybeLogPlayback = async (isPlaybackLike: boolean): Promise<void> => {
       if (!isPlaybackLike) {
         return;
@@ -158,6 +232,20 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     if (!range) {
       const full = await storage.getObject(key);
       void maybeLogPlayback(true).catch(() => undefined);
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.info("Podcast media request served", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 200,
+          media_kind: "item",
+          media_key: key,
+          episode_id: maybeEpisodeId,
+          mime_type: mimeType,
+          total_bytes: size,
+          served_bytes: size,
+          duration_ms: Date.now() - startedAt
+        });
+      }
       return new NextResponse(new Uint8Array(full), {
         status: 200,
         headers: {
@@ -170,6 +258,18 @@ export async function GET(request: NextRequest, context: { params: { path: strin
 
     const parsedRange = parseRangeHeader(range, size);
     if (!parsedRange) {
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.warn("Podcast media request invalid range", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 416,
+          media_kind: "item",
+          media_key: key,
+          episode_id: maybeEpisodeId,
+          total_bytes: size,
+          duration_ms: Date.now() - startedAt
+        });
+      }
       return new NextResponse("Invalid range", {
         status: 416,
         headers: {
@@ -182,6 +282,23 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     const chunk = await storage.getObject(key, { start, end });
     const chunkSize = chunk.byteLength;
     void maybeLogPlayback(start <= 1).catch(() => undefined);
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.info("Podcast media request served", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 206,
+        media_kind: "item",
+        media_key: key,
+        episode_id: maybeEpisodeId,
+        mime_type: mimeType,
+        total_bytes: size,
+        served_bytes: chunkSize,
+        range_start: start,
+        range_end: end,
+        content_range: `bytes ${start}-${end}/${size}`,
+        duration_ms: Date.now() - startedAt
+      });
+    }
 
     return new NextResponse(new Uint8Array(chunk), {
       status: 206,
@@ -193,6 +310,17 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       }
     });
   } catch {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media object not found", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 404,
+        media_kind: "item",
+        media_key: key,
+        episode_id: maybeEpisodeId,
+        duration_ms: Date.now() - startedAt
+      });
+    }
     return new NextResponse("Not found", { status: 404 });
   }
 }

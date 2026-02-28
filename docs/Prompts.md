@@ -72,6 +72,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - web metadata + web manifest now use explicit branded icon assets.
   - main and digest RSS feeds now include both `<itunes:image>` and channel `<image>` blocks for podcast app artwork.
   - podcast contract checker now validates artwork tags and artwork URL reachability.
+- Podcast playback diagnostics are implemented in web structured logs:
+  - RSS and media routes now emit token-safe request traces (method, user-agent, range header, response status, bytes, content-range, and latency) to aid podcast app playback debugging.
 
 ### Next Milestones
 - Current milestone set (`M00`-`M80`) is complete per `docs/plans.md`.
