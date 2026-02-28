@@ -111,6 +111,7 @@ Critical artifacts in object storage:
 - `HEAD` with accurate `Content-Length`
 - `GET` with byte-range `206 Partial Content`
 - stable enclosure URLs from episode object keys
+- published episode artifacts default to MP3 (`audio/mpeg`) for broader client codec support
 
 ## Extension ingestion path
 1. User is authenticated on web app.

@@ -42,6 +42,8 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
+- Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
+- Episode descriptions are normalized to concise sentence summaries before RSS publication.
 - Feed and digest RSS include both `<itunes:image>` and channel `<image>` artwork tags, pointing to branded podcast cover art.
 
 ## Digest settings

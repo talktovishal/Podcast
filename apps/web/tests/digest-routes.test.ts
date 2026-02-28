@@ -202,9 +202,9 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
 
   try {
     const token = await ensureUserDigestFeedToken(user.id);
-    const audioKey = `digests/${user.id}/weekly/2026-02-27/episode.m4a`;
+    const audioKey = `digests/${user.id}/weekly/2026-02-27/episode.mp3`;
     await storage.putObject(audioKey, Buffer.from("0123456789abcdef", "utf8"), {
-      contentType: "audio/mp4"
+      contentType: "audio/mpeg"
     });
 
     const run = await prisma.digestRun.create({
@@ -237,7 +237,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
         description: "Digest description",
         audioPath: audioKey,
         audioBytes: 16,
-        mimeType: "audio/mp4",
+        mimeType: "audio/mpeg",
         publishedAt: new Date("2026-02-27T16:05:00.000Z")
       }
     });

@@ -49,6 +49,7 @@
   - feed and digest RSS now publish explicit artwork tags (`itunes:image` + channel `image`).
   - podcast contract checks now validate artwork presence and artwork URL availability.
 - Podcast playback diagnostics are now emitted from RSS/media routes in web structured logs (token-safe request metadata + range/status/bytes/latency) to debug client-specific playback failures.
+- Podcast compatibility hardening (`M81`) now defaults published item/digest audio to MP3 (`audio/mpeg`) and normalizes episode descriptions for cleaner client display.
 
 ## Requirement Coverage Snapshot
 
@@ -90,6 +91,7 @@
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
 | Unified branding icons + podcast artwork consistency | M80 |
+| Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
 
 ## Milestone Status Snapshot
 
@@ -182,6 +184,7 @@ Milestone metadata contract:
 | M78 | Done | 2026-03-08 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
 | M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
+| M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -1256,7 +1259,7 @@ Milestone metadata contract:
 ## Assumptions and Defaults
 - Package manager: `pnpm`.
 - Workspace package names will use `@articlepod/*`.
-- Local demo audio format currently defaults to AAC/M4A (`audio/mp4`).
+- Local demo audio format currently defaults to MP3 (`audio/mpeg`).
 - OAuth providers are optional at runtime and must not block local credential login.
 - Apple Podcasts verification requires a reachable host (Azure deployment or trusted tunnel).
 - Optional Phase 1.5 milestone (M22) is explicitly non-blocking for MVP completion.
@@ -2138,3 +2141,34 @@ Milestone metadata contract:
   - `corepack pnpm run build`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
+
+### M81 - Podcast Playback Compatibility + Description Quality Hardening
+- status: Done
+- target_finish: 2026-02-28
+- completed_on: 2026-02-28
+- evidence: local validation + implementation pass (2026-02-28)
+- Scope:
+  - Default published item and digest episodes to MP3 (`audio/mpeg`) for broader third-party podcast client compatibility.
+  - Improve episode description quality by generating cleaned sentence-based summaries instead of raw text slicing.
+  - Expand tests to lock MP3 defaults and description formatting behavior.
+- Key files/modules:
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `packages/core/src/utils/description.ts`
+  - `packages/core/src/tts/pythonService.ts`
+  - `apps/web/scripts/seed-demo.ts`
+  - `apps/web/tests/digest-routes.test.ts`
+  - `apps/web/tests/auth-extension.integration.test.ts`
+  - `apps/worker/tests/queue-resilience.test.ts`
+  - `packages/core/tests/description.test.ts`
+- Acceptance criteria:
+  - New and regenerated episodes publish with `.mp3` enclosures and `audio/mpeg` MIME type.
+  - Digest podcast episodes also publish as MP3 and remain range-compatible.
+  - Episode descriptions in RSS are free of markdown/link noise and limited to concise sentence summaries.
+  - Regression tests fail if defaults drift away from MP3 or description formatter behavior regresses.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`

@@ -76,9 +76,9 @@ async function seedCacheForHtml(itemId: string, html: string, url: string): Prom
       itemId,
       chunkIndex: 0,
       hash: cacheKey,
-      filePath: `items/test-${itemId}/episode.m4a`,
+      filePath: `items/test-${itemId}/episode.mp3`,
       audioBytes: 1024,
-      mimeType: "audio/mp4"
+      mimeType: "audio/mpeg"
     }
   });
 
@@ -295,6 +295,8 @@ test("processes oversized snapshot when chunk cache is available", async () => {
     assert.equal(finishedJob?.status, "SUCCEEDED");
     assert.equal(finishedItem?.status, "READY");
     assert.ok(episode?.audioPath);
+    assert.equal(episode?.audioPath.endsWith(".mp3"), true);
+    assert.equal(episode?.mimeType, "audio/mpeg");
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

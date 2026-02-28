@@ -13,8 +13,8 @@ import {
 import { env } from "./env";
 
 const ENABLED_PROVIDER_ID: TtsProviderId = "kokoro";
-const PREVIEW_EXTENSION = "m4a";
-const PREVIEW_MIME_TYPE = "audio/mp4";
+const PREVIEW_EXTENSION = "mp3";
+const PREVIEW_MIME_TYPE = "audio/mpeg";
 const PREVIEW_SAMPLE_TEXT =
   `Hello from ${BRAND_NAME}. This is a quick voice sample so you can choose the default narration style.`;
 

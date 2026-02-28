@@ -72,7 +72,7 @@ async function convertWavToTarget(inputWav: string, outPath: string, format: "mp
 }
 
 export class PythonModelTtsProvider implements TtsProvider {
-  readonly outputFormat = "m4a" as const;
+  readonly outputFormat = "mp3" as const;
 
   readonly providerId: PythonProviderId;
 

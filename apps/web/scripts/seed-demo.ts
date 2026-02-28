@@ -39,15 +39,15 @@ function run(cmd: string, args: string[]): Promise<void> {
 
 async function renderStarterAudioBuffer(): Promise<Buffer> {
   const tempDir = await mkdtemp(join(tmpdir(), `${BRAND_SLUG}-seed-`));
-  const m4aPath = join(tempDir, "starter.m4a");
+  const mp3Path = join(tempDir, "starter.mp3");
   const aiffPath = join(tempDir, "starter.aiff");
 
   try {
     if (process.platform === "darwin") {
       try {
         await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
-        await run("afconvert", [aiffPath, "-o", m4aPath, "-f", "m4af", "-d", "aac"]);
-        return readFile(m4aPath);
+        await run("afconvert", [aiffPath, "-o", mp3Path, "-f", "MPG3", "-d", ".mp3"]);
+        return readFile(mp3Path);
       } catch {
         // Fall through to python-tts provider path.
       }
@@ -58,12 +58,12 @@ async function renderStarterAudioBuffer(): Promise<Buffer> {
       await provider.synthesizeToFile({
         text: DEMO_TEXT,
         voice: "af_heart",
-        format: "m4a",
-        outPath: m4aPath
+        format: "mp3",
+        outPath: mp3Path
       });
-      return readFile(m4aPath);
+      return readFile(mp3Path);
     } catch {
-      // Final fallback for Linux parity/CI environments: create a short silent AAC clip.
+      // Final fallback for Linux parity/CI environments: create a short silent MP3 clip.
       await run("ffmpeg", [
         "-y",
         "-f",
@@ -72,11 +72,11 @@ async function renderStarterAudioBuffer(): Promise<Buffer> {
         "anullsrc=r=24000:cl=mono",
         "-t",
         "2",
-        "-c:a",
-        "aac",
-        m4aPath
+        "-codec:a",
+        "libmp3lame",
+        mp3Path
       ]);
-      return readFile(m4aPath);
+      return readFile(mp3Path);
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
@@ -96,7 +96,7 @@ async function ensureStarterAudioObject(relativePath: string): Promise<number> {
   }
 
   const audio = await renderStarterAudioBuffer();
-  const stored = await storage.putObject(relativePath, audio, { contentType: "audio/mp4" });
+  const stored = await storage.putObject(relativePath, audio, { contentType: "audio/mpeg" });
   return stored.bytes;
 }
 
@@ -144,7 +144,7 @@ async function main() {
     }
   });
 
-  const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.m4a"));
+  const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.mp3"));
   const bytes = await ensureStarterAudioObject(relativePath);
 
   if (!existingStarter) {
@@ -172,7 +172,7 @@ async function main() {
         description: DEMO_TEXT,
         audioPath: relativePath,
         audioBytes: bytes,
-        mimeType: "audio/mp4",
+        mimeType: "audio/mpeg",
         publishedAt: new Date()
       }
     });
@@ -195,14 +195,14 @@ async function main() {
     if (
       existingStarter.episode.audioPath !== relativePath ||
       existingStarter.episode.audioBytes !== bytes ||
-      existingStarter.episode.mimeType !== "audio/mp4"
+      existingStarter.episode.mimeType !== "audio/mpeg"
     ) {
       await prisma.episode.update({
         where: { id: existingStarter.episode.id },
         data: {
           audioPath: relativePath,
           audioBytes: bytes,
-          mimeType: "audio/mp4"
+          mimeType: "audio/mpeg"
         }
       });
     }

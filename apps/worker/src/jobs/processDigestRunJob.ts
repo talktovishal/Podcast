@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import {
   AppError,
+  buildEpisodeDescription,
   buildDigestGuid,
   chunkText,
   digestTargetWords,
@@ -317,13 +318,14 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           chunks,
           ttsSelection,
           undefined,
-          normalizeStorageKey(join(digestDir, "episode.m4a"))
+          normalizeStorageKey(join(digestDir, "episode.mp3"))
         );
         const guid = buildDigestGuid({
           userId: claimResult.userId,
           cadence: claimResult.cadence === "WEEKLY" ? "WEEKLY" : "DAILY",
           periodKey: claimResult.periodKey
         });
+        const description = buildEpisodeDescription(summary.plainText || narration);
 
         await prisma.digestEpisode.upsert({
           where: { digestRunId: claimResult.id },
@@ -331,7 +333,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
             userId: claimResult.userId,
             guid,
             title: summary.title,
-            description: (summary.plainText || narration).slice(0, 400),
+            description,
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
@@ -342,7 +344,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
             userId: claimResult.userId,
             guid,
             title: summary.title,
-            description: (summary.plainText || narration).slice(0, 400),
+            description,
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
+  buildEpisodeDescription,
   chunkText,
   errorCodes,
   extractHtmlFromUrl,
@@ -50,6 +51,7 @@ type ExtractionResult = {
 
 const DEMO_TRACE_LIMIT = 10;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
+const PUBLISHED_AUDIO_FORMAT = "mp3" as const;
 
 function now() {
   return new Date();
@@ -196,11 +198,12 @@ export async function synthesizeEpisodeAudio(
   chunks: { text: string }[],
   selection: { providerId: TtsProviderId; voice: string },
   onProgress?: (current: number, total: number) => Promise<void> | void,
-  outputKey?: string
+  outputKey?: string,
+  outputFormat: "mp3" | "m4a" = PUBLISHED_AUDIO_FORMAT
 ): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
   const provider = makeTtsProvider({ providerId: selection.providerId });
-  const extension = provider.outputFormat === "mp3" ? "mp3" : "m4a";
-  const mimeType = provider.outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
+  const extension = outputFormat === "mp3" ? "mp3" : "m4a";
+  const mimeType = outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
   const relativePath = normalizeStorageKey(outputKey || join("items", itemId, `episode.${extension}`));
   const tempDir = await mkdtemp(join(tmpdir(), "articlepod-worker-"));
   const tempOutputPath = join(tempDir, `episode.${extension}`);
@@ -210,7 +213,7 @@ export async function synthesizeEpisodeAudio(
       await provider.synthesizeToFile({
         text: chunks[0]?.text ?? "",
         voice: selection.voice,
-        format: provider.outputFormat,
+        format: outputFormat,
         outPath: tempOutputPath
       });
       if (onProgress) {
@@ -224,7 +227,7 @@ export async function synthesizeEpisodeAudio(
         await provider.synthesizeToFile({
           text: segmentText,
           voice: selection.voice,
-          format: provider.outputFormat,
+          format: outputFormat,
           outPath: segmentPath
         });
         if (onProgress) {
@@ -232,7 +235,7 @@ export async function synthesizeEpisodeAudio(
         }
         segmentPaths.push(segmentPath);
       }
-      await concatenateAudioSegments(segmentPaths, tempOutputPath, provider.outputFormat);
+      await concatenateAudioSegments(segmentPaths, tempOutputPath, outputFormat);
     }
 
     const bytes = await readFile(tempOutputPath);
@@ -889,6 +892,7 @@ export async function processJob(jobId: string): Promise<boolean> {
     }
 
     const guid = `episode-${item.id}`;
+    const description = buildEpisodeDescription(narrationText);
 
     stage = "persist";
     await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -897,7 +901,7 @@ export async function processJob(jobId: string): Promise<boolean> {
         update: {
           guid,
           title: resolvedTitle,
-          description: narrationText.slice(0, 400),
+          description,
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
           mimeType: audio.mimeType,
@@ -907,7 +911,7 @@ export async function processJob(jobId: string): Promise<boolean> {
           itemId: item.id,
           guid,
           title: resolvedTitle,
-          description: narrationText.slice(0, 400),
+          description,
           audioPath: audio.relativePath,
           audioBytes: audio.bytes,
           mimeType: audio.mimeType,

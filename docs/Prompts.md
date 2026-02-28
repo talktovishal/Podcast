@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-02-27)
+## Spec Status (as of 2026-02-28)
 
-### Implemented (as of 2026-02-27)
+### Implemented (as of 2026-02-28)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -74,9 +74,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - podcast contract checker now validates artwork tags and artwork URL reachability.
 - Podcast playback diagnostics are implemented in web structured logs:
   - RSS and media routes now emit token-safe request traces (method, user-agent, range header, response status, bytes, content-range, and latency) to aid podcast app playback debugging.
+- Podcast compatibility and feed quality hardening are implemented:
+  - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
+  - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M80`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M81`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
@@ -157,7 +160,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ### Product statement
 ArticlePod turns **URLs and PDFs** into **audio episodes** and publishes them to a **private podcast RSS feed** that users can subscribe to in their favorite podcast app.
 
-> Note: Google Podcasts has been discontinued; we target Apple Podcasts and other RSS-capable podcast apps. (YouTube Music consumes podcasts differently and is out of scope.)  
+> Note: Google Podcasts has been discontinued; we target Apple Podcasts and other RSS-capable podcast apps. YouTube Music custom-feed behavior is best-effort and validated using MP3 enclosures.  
 > For local-only demo, we validate RSS and playback via browser + curl; for Apple Podcasts integration you must run the server on a reachable host (Azure deployment or local tunnel).  
 
 ### MVP scope (must-have)
@@ -181,7 +184,7 @@ C) Convert to audio (worker)
   - PDF: deterministic text extraction (pdfjs path) with markdown output for downstream reuse.
   - Reuse as much as possible from reputable upstream repos (abogen first) and keep attribution in docs.
 - Worker generates audio with a pluggable TTS provider:
-  - default local provider: Kokoro via python-tts → AAC (`.m4a`) (see below)
+  - default local provider: Kokoro via python-tts → MP3 (`.mp3`) (see below)
   - optional local fallback: macOS `say`
   - optional: OpenAI TTS provider (only if API key set)
 - Output:

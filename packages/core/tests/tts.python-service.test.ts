@@ -17,14 +17,15 @@ test("python service surfaces structured detail as safe string", async () => {
     providerId: "kokoro",
     baseUrl: "http://127.0.0.1:8010"
   });
+  assert.equal(provider.outputFormat, "mp3");
 
   try {
     await assert.rejects(
       provider.synthesizeToFile({
         text: "hello",
         voice: "af_heart",
-        format: "m4a",
-        outPath: "/tmp/unused.m4a"
+        format: "mp3",
+        outPath: "/tmp/unused.mp3"
       }),
       (error: unknown) => {
         assert.ok(error instanceof AppError);
@@ -37,4 +38,3 @@ test("python service surfaces structured detail as safe string", async () => {
     globalThis.fetch = originalFetch;
   }
 });
-

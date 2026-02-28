@@ -228,9 +228,9 @@ test("extension connect + html snapshot submission reaches user feed", async () 
         itemId: createdItem!.id,
         chunkIndex: 0,
         hash: cacheKey,
-        filePath: `items/test-${uniq}/episode.m4a`,
+        filePath: `items/test-${uniq}/episode.mp3`,
         audioBytes: 2048,
-        mimeType: "audio/mp4"
+        mimeType: "audio/mpeg"
       }
     });
 

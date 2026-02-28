@@ -27,6 +27,7 @@ export * from "./digest/summary";
 export * from "./digest/email";
 export * from "./digest/schedule";
 export * from "./utils/hash";
+export * from "./utils/description";
 export * from "./utils/title";
 export * from "./config/brand";
 export * from "./config/naming";
