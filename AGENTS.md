@@ -157,10 +157,11 @@ No hard-coded vendor logic scattered throughout the code.
 ## Git / PR / change rules
 - Small, reviewable diffs.
 - Avoid scope creep.
-- Worktree-first edits (mandatory unless explicitly overridden by user):
-  - Create a `codex/*` branch in a sibling worktree under `../Podcast-worktrees/<branch-name>`.
-  - Do not edit from the primary checkout unless the user explicitly requests it.
-  - Run validation, commit, and push from the active worktree branch.
+- Primary-checkout edits (default):
+  - Edit from the primary checkout by default.
+  - Commit and push directly from the active branch (`main` unless the user requests a feature branch).
+  - Worktrees are optional and should only be used when explicitly requested by the user.
+  - If a worktree/branch setup is attempted but blocked by environment or sandbox restrictions, continue in the primary checkout and note the fallback in the final update.
 - After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):
