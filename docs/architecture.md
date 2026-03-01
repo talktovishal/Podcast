@@ -23,6 +23,7 @@ Primary entities:
 - `DigestRun` + `DigestEpisode` (daily/weekly digest execution state + published digest audio metadata)
 - `DigestSchedulerTick` (external scheduler signal queue)
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
+- `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
 
 Auth profile metadata on `User`:
 - coarse geo snapshots from trusted proxy headers:
@@ -97,6 +98,18 @@ Queue resilience:
 - stale `PROCESSING` reclaim (`lockedAt` timeout)
 - due-retry scheduling via `nextRetryAt`
 - retry jitter to reduce thundering-herd retries
+
+## Feedback suggestions pipeline (`M85`)
+1. Authenticated user submits message-first feedback on `/app/feedback`.
+2. API validates payload (`message` required; `feedbackType`/`featureArea` optional) and enforces rate limits.
+3. Submission persists to `UserFeedback` with triage `status=NEW`.
+4. Mirror adapter attempts to create a private GitHub issue when enabled.
+5. Mirror outcome is persisted (`MIRRORED`, `FAILED`, or `SKIPPED`) without blocking successful feedback submission.
+6. Admin inbox in `/admin` supports filter/search, status updates, and manual mirror retry.
+
+Privacy contract:
+- mirror payload includes feedback id/status/type/feature/message/contact flag/source path/timestamp
+- mirror payload excludes submitter email and all auth/feed/media tokens
 
 ## Storage contract
 Artifacts use object keys, not local absolute paths.

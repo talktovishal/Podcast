@@ -69,6 +69,17 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
   - `GEO_HEADER_REGION`
   - `GEO_HEADER_CITY`
 
+## Feedback mirror (optional)
+- `GITHUB_FEEDBACK_MIRROR_ENABLED` (`1` to mirror feedback into private GitHub issues; default `0`)
+- `GITHUB_FEEDBACK_OWNER`
+- `GITHUB_FEEDBACK_REPO`
+- `GITHUB_FEEDBACK_TOKEN` (issues write token)
+- `GITHUB_FEEDBACK_LABELS` (comma-separated labels, default `feedback`)
+
+Behavior:
+- When disabled or unset, feedback remains DB-only.
+- Mirror failures do not block user submission and can be retried from admin inbox.
+
 ## Worker controls
 - `WORKER_POLL_MS`
 - `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)

@@ -65,6 +65,10 @@
   - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
+- Feedback suggestions track (`M85`) is implemented:
+  - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
+  - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
+  - private GitHub mirror support is env-gated and excludes submitter email from mirrored issue bodies.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
@@ -114,6 +118,7 @@
 | Missing media auto-repair + RSS delete consistency hardening | M82 |
 | Global geo snapshots + optional demographic profile capture | M83 |
 | Smart feed shortcuts + admin-only markdown controls | M84 |
+| Message-first feedback inbox + admin triage + private GitHub mirror | M85 |
 | Apple Sign-In JWT cryptographic verification | S01 |
 | Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
 | Brute-force rate limiting on login + timing oracle fix | S03 |
@@ -228,6 +233,7 @@ Milestone metadata contract:
 | M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M84 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
+| M85 | Done | 2026-03-01 | 2026-03-01 | local validation + implementation pass (2026-03-01) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2331,6 +2337,45 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web run lint`
   - `pnpm --filter @articlepod/web test`
   - `pnpm --filter @articlepod/web run build`
+  - `pnpm run lint`
+  - `pnpm run test`
+  - `pnpm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M85 - Message-First Feedback Suggestions + Admin Triage Inbox
+- status: Done
+- target_finish: 2026-03-01
+- completed_on: 2026-03-01
+- evidence: local validation + implementation pass (2026-03-01)
+- Scope:
+  - Add an authenticated `/app/feedback` page with message-first input and optional type/feature metadata.
+  - Add admin feedback inbox in `/admin` with status workflow and mirror retry actions.
+  - Add env-gated private GitHub issue mirror with best-effort semantics and no submitter email in mirror payload.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/feedback.ts`
+  - `apps/web/src/lib/feedback-mirror.ts`
+  - `apps/web/src/app/api/feedback/route.ts`
+  - `apps/web/src/app/api/admin/feedback/route.ts`
+  - `apps/web/src/app/api/admin/feedback/[id]/status/route.ts`
+  - `apps/web/src/app/api/admin/feedback/[id]/mirror/route.ts`
+  - `apps/web/src/components/feedback-form.tsx`
+  - `apps/web/src/app/app/feedback/page.tsx`
+  - `apps/web/src/components/admin-feedback-inbox.tsx`
+  - `apps/web/src/app/admin/page.tsx`
+  - `apps/web/tests/feedback-api.test.ts`
+- Acceptance criteria:
+  - `/app/feedback` renders feedback message as the first and required field.
+  - Feedback `type` and `feature area` are optional and persist as `null` when omitted.
+  - Contact checkbox defaults to checked and persists user opt-out when unchecked.
+  - Admin inbox supports filtering, status updates, and mirror retry for failed/pending mirror states.
+  - Mirror failures never block successful feedback submission.
+- Verification commands:
+  - `pnpm --filter @articlepod/web run lint`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm --filter @articlepod/web run build`
+  - `pnpm --filter @articlepod/worker test`
   - `pnpm run lint`
   - `pnpm run test`
   - `pnpm run build`

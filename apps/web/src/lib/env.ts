@@ -12,6 +12,30 @@ function parseNonNegativeInt(raw: string | undefined, fallback: number): number 
   return parsed;
 }
 
+function parseBoolean(raw: string | undefined, fallback = false): boolean {
+  if (raw === undefined) {
+    return fallback;
+  }
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "1" || normalized === "true" || normalized === "yes") {
+    return true;
+  }
+  if (normalized === "0" || normalized === "false" || normalized === "no") {
+    return false;
+  }
+  return fallback;
+}
+
+function parseCsv(raw: string | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+}
+
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
     return raw;
@@ -59,6 +83,11 @@ export const env = {
   geoHeaderCountry: process.env.GEO_HEADER_COUNTRY,
   geoHeaderRegion: process.env.GEO_HEADER_REGION,
   geoHeaderCity: process.env.GEO_HEADER_CITY,
+  feedbackMirrorEnabled: parseBoolean(process.env.GITHUB_FEEDBACK_MIRROR_ENABLED, false),
+  feedbackMirrorOwner: process.env.GITHUB_FEEDBACK_OWNER?.trim(),
+  feedbackMirrorRepo: process.env.GITHUB_FEEDBACK_REPO?.trim(),
+  feedbackMirrorToken: process.env.GITHUB_FEEDBACK_TOKEN?.trim(),
+  feedbackMirrorLabels: parseCsv(process.env.GITHUB_FEEDBACK_LABELS),
   openAiApiKey: process.env.OPENAI_API_KEY,
   digestSchedulerSecret: process.env.DIGEST_SCHEDULER_SECRET ?? "",
   mediaSigningKey: process.env.MEDIA_SIGNING_KEY ?? "",

@@ -47,6 +47,11 @@ export async function enforceSubmitRateLimits(userId: string, ip: string): Promi
   await enforceRateLimitAsync(`submit:ip:${ip}`, 60, 60_000);
 }
 
+export async function enforceFeedbackRateLimits(userId: string, ip: string): Promise<void> {
+  await enforceRateLimitAsync(`feedback:user:${userId}`, 10, 60_000);
+  await enforceRateLimitAsync(`feedback:ip:${ip}`, 30, 60_000);
+}
+
 export async function enforceLoginRateLimits(ip: string): Promise<void> {
   await enforceRateLimitAsync(`login:ip:${ip}`, 10, 60_000);
 }
@@ -67,4 +72,3 @@ export function getClientIp(request: NextRequest): string {
   }
   return "unknown";
 }
-

@@ -100,9 +100,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app` signed-in header now includes copy-first feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
+- Feedback suggestions track (`M85`) is implemented:
+  - authenticated users can submit message-first feedback from `/app/feedback` with optional type/feature metadata.
+  - contact preference defaults to opt-in and can be disabled per submission.
+  - `/admin` includes feedback inbox controls for filtering, status triage, and GitHub mirror retry actions.
+  - private GitHub issue mirroring is best-effort and excludes submitter email from mirrored payloads.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M84`) is complete per `docs/plans.md`.
+- Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

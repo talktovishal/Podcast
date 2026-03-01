@@ -13,6 +13,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
+6. Logged-in users can submit message-first product feedback at `/app/feedback`.
 
 ## Accounts
 Set passwords via environment variables before seeding (see `.env.example`):
@@ -29,6 +30,10 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - non-paid users get `FREE_TRIAL_SUBMISSION_LIMIT` free submissions (default `2`)
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin can grant extra submission credits or mark users paid from `/admin`
+- Feedback suggestions:
+  - `/app/feedback` collects required freeform message plus optional type/feature metadata.
+  - contact checkbox defaults to opt-in per submission.
+  - admin can triage suggestions from `/admin`.
 
 ## Chrome extension
 - Source: `/Users/vishalchowdhary/Documents/Podcast/apps/extension`
@@ -113,9 +118,35 @@ Current implementation:
   - `/api/admin/analytics/export`
 - analytics backfill/coverage command:
   - `npm run analytics:backfill`
+- admin feedback inbox:
+  - appears in `/admin` below analytics/quota controls.
+  - supports status transitions (`NEW`, `IN_REVIEW`, `PLANNED`, `DONE`, `DECLINED`).
+  - supports mirror retry for failed/pending GitHub mirrors.
 - diagnostics scripts:
   - `npm run logs:collect`
   - `npm run logs:triage`
+
+## Feedback APIs
+- `POST /api/feedback`
+  - authenticated route
+  - required: `message`
+  - optional: `feedbackType`, `featureArea`, `allowEmailContact`, `sourcePath`
+- `GET /api/admin/feedback`
+  - admin-only list/filter/pagination route
+- `POST /api/admin/feedback/[id]/status`
+  - admin-only triage status update
+- `POST /api/admin/feedback/[id]/mirror`
+  - admin-only manual mirror retry
+
+## GitHub mirror (optional)
+- Enable by setting:
+  - `GITHUB_FEEDBACK_MIRROR_ENABLED=1`
+  - `GITHUB_FEEDBACK_OWNER`
+  - `GITHUB_FEEDBACK_REPO`
+  - `GITHUB_FEEDBACK_TOKEN`
+  - optional `GITHUB_FEEDBACK_LABELS` (comma-separated)
+- Mirror behavior is best-effort and never blocks user submission.
+- Mirrored issue body excludes submitter email.
 
 ## Markdown Artifacts
 Current (`M57`-`M64` implemented):

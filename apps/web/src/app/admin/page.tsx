@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminAnalyticsDashboard } from "@/components/admin-analytics-dashboard";
+import { AdminFeedbackInbox } from "@/components/admin-feedback-inbox";
 import { AdminQuotaManager } from "@/components/admin-quota-manager";
 import { getAuthUserFromCookies } from "@/lib/auth";
 
@@ -36,6 +37,7 @@ export default async function AdminPage() {
 
         <AdminAnalyticsDashboard />
         <AdminQuotaManager />
+        <AdminFeedbackInbox />
       </div>
     </main>
   );

@@ -43,6 +43,7 @@ model User {
   digestRuns      DigestRun[]
   digestEpisodes  DigestEpisode[]
   demographicSurvey UserDemographicSurvey?
+  feedbackSubmissions UserFeedback[]
 }
 
 model Session {
@@ -434,6 +435,31 @@ model UserDemographicSurvey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status, updatedAt])
+}
+
+model UserFeedback {
+  id                String   @id @default(cuid())
+  userId            String
+  message           String
+  feedbackType      String?
+  featureArea       String?
+  allowEmailContact Boolean  @default(true)
+  status            String   @default("NEW")
+  sourcePath        String?
+  mirrorStatus      String   @default("PENDING")
+  mirrorIssueNumber Int?
+  mirrorIssueUrl    String?
+  mirrorAttemptedAt DateTime?
+  mirrorErrorCode   String?
+  mirrorErrorMessage String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([mirrorStatus, createdAt])
 }
 
 model RateLimitBucket {

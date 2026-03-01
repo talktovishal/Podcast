@@ -52,6 +52,9 @@ export default async function AppDashboardPage() {
             <Link className="rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white" href="/app/settings">
               Settings
             </Link>
+            <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/app/feedback">
+              Feedback
+            </Link>
             {user.role === "ADMIN" ? (
               <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/admin">
                 Admin

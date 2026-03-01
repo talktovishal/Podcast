@@ -6,6 +6,7 @@ test("app dashboard links to settings and renders smart feed actions", () => {
   const source = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
 
   assert.equal(source.includes('href="/app/settings"'), true);
+  assert.equal(source.includes('href="/app/feedback"'), true);
   assert.equal(source.includes("FeedUrlActions"), true);
   assert.equal(source.includes("<FeedUrlActions feedUrl={feedUrl} />"), true);
   assert.equal(source.includes("Demo mode ready"), false);
@@ -20,9 +21,23 @@ test("settings page exists and renders settings-only dashboard mode", () => {
 
   const source = readFileSync(pagePath, "utf8");
   assert.equal(source.includes('href="/app"'), true);
+  assert.equal(source.includes('href="/app/feedback"'), true);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
   assert.equal(source.includes('user.role !== "ADMIN" ? <DeleteAccountButton /> : null'), true);
+});
+
+test("feedback page exists and keeps message as the first field", () => {
+  const source = readFileSync(new URL("../src/components/feedback-form.tsx", import.meta.url), "utf8");
+  const messageIndex = source.indexOf("Your feedback *");
+  const typeIndex = source.indexOf("Type (optional)");
+  const areaIndex = source.indexOf("Feature area (optional)");
+  assert.equal(messageIndex > -1, true);
+  assert.equal(typeIndex > -1, true);
+  assert.equal(areaIndex > -1, true);
+  assert.equal(messageIndex < typeIndex, true);
+  assert.equal(typeIndex < areaIndex, true);
+  assert.equal(source.includes("You may contact me by email about this feedback"), true);
 });
 
 test("dashboard client gates markdown controls to admins", () => {

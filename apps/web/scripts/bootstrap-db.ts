@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -24,6 +24,8 @@ async function ensureSqlitePath(databaseUrl: string): Promise<void> {
   const rawPath = databaseUrl.replace(/^file:/, "");
   const absolutePath = resolve(process.cwd(), rawPath);
   await mkdir(dirname(absolutePath), { recursive: true });
+  // Some environments fail `prisma db push` when the SQLite file does not exist yet.
+  await writeFile(absolutePath, "", { flag: "a" });
 }
 
 async function main() {
