@@ -26,6 +26,10 @@ APP_URL=https://articlepod.com \
 /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
 ```
 
+GitHub Actions production deploys now run automatically on every push to `main` (not only commits with `[deploy]`), plus a mandatory post-deploy smoke gate.
+Required repo secret for that gate:
+- `APP_SMOKE_FEED_TOKEN` (valid RSS feed token used to verify media HEAD/range and legacy `feed_token` compatibility)
+
 Default deploy mode is incremental:
 - skips `pnpm install` when `pnpm-lock.yaml` is unchanged
 - skips python-tts package/model provisioning when requirements/assets are unchanged

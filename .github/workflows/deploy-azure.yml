@@ -33,9 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[deploy]'))
 
     steps:
       - name: Checkout code
@@ -168,6 +165,69 @@ jobs:
           ./scripts/azure/deploy-changes.sh "${DEPLOY_ARGS[@]}"
 
           echo "::endgroup::"
+
+      - name: Post-deploy smoke tests
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SMOKE_FEED_TOKEN: ${{ secrets.APP_SMOKE_FEED_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL secret is not configured"
+            exit 1
+          fi
+          APP_URL="${APP_URL%/}"
+
+          if [ -z "$SMOKE_FEED_TOKEN" ]; then
+            echo "::error::APP_SMOKE_FEED_TOKEN secret is not configured"
+            echo "Set APP_SMOKE_FEED_TOKEN to a real user/demo feed token for post-deploy media validation."
+            exit 1
+          fi
+
+          expect_status() {
+            local expected="$1"
+            local method="$2"
+            local url="$3"
+            local label="$4"
+            local code
+
+            if [ "$method" = "HEAD" ]; then
+              code="$(curl -sS -o /dev/null -w "%{http_code}" -I "$url")"
+            else
+              code="$(curl -sS -o /dev/null -w "%{http_code}" -H "Range: bytes=0-1" "$url")"
+            fi
+
+            echo "$label status: $code"
+            if [ "$code" != "$expected" ]; then
+              echo "::error::$label expected HTTP $expected, got $code"
+              exit 1
+            fi
+          }
+
+          expect_status 200 HEAD "$APP_URL/api/health" "health endpoint"
+          expect_status 200 HEAD "$APP_URL/manifest.webmanifest" "web manifest"
+          expect_status 200 HEAD "$APP_URL/apple-icon.png" "apple icon"
+          expect_status 200 HEAD "$APP_URL/brand/brain-mark-192.png" "brand icon"
+
+          FEED_URL="$APP_URL/rss/$SMOKE_FEED_TOKEN"
+          ./scripts/verify_podcast_contract.sh "$FEED_URL"
+
+          RSS_TMP="$(mktemp)"
+          trap 'rm -f "$RSS_TMP"' EXIT
+          curl -fsS "$FEED_URL" -o "$RSS_TMP"
+
+          FIRST_MP3_URL="$(python3 -c 'import sys, xml.etree.ElementTree as ET; tree = ET.parse(sys.argv[1]); root = tree.getroot(); channel = root.find("channel"); item = channel.find("item") if channel is not None else None; enclosure = item.find("enclosure") if item is not None else None; print((enclosure.attrib.get("url") if enclosure is not None else "") or "")' "$RSS_TMP")"
+
+          if [ -z "$FIRST_MP3_URL" ]; then
+            echo "::error::Could not extract first enclosure URL from RSS feed"
+            exit 1
+          fi
+
+          LEGACY_MP3_URL="$(python3 -c 'import sys; from urllib.parse import urlencode, urlparse, urlunparse; parsed = urlparse(sys.argv[1]); print(urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", urlencode({"feed_token": sys.argv[2]}), "")))' "$FIRST_MP3_URL" "$SMOKE_FEED_TOKEN")"
+
+          expect_status 200 HEAD "$LEGACY_MP3_URL" "legacy media HEAD"
+          expect_status 206 RANGE "$LEGACY_MP3_URL" "legacy media range"
 
       - name: Deployment summary
         if: success()

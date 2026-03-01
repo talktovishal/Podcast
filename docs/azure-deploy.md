@@ -218,6 +218,16 @@ TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
   ./scripts/azure/deploy-changes.sh
 ```
 
+## GitHub Actions deploy guardrails
+`Deploy to Azure` now auto-runs on every push to `main` and enforces post-deploy smoke checks. Configure this secret in GitHub repository settings:
+- `APP_SMOKE_FEED_TOKEN`: valid feed token for smoke validation.
+
+The smoke gate verifies:
+- `/api/health` returns `200`
+- public branding assets (`/manifest.webmanifest`, `/apple-icon.png`, `/brand/brain-mark-192.png`) return `200`
+- RSS + media contract via `scripts/verify_podcast_contract.sh`
+- legacy `/api/media/...?...feed_token=...` HEAD `200` + Range `206`
+
 Equivalent step-by-step flow:
 From local repo:
 ```bash
