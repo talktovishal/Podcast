@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NextRequest } from "next/server";
 import { GET, HEAD } from "../src/app/api/media/[...path]/route";
+import { ensureUserFeedToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 
@@ -121,6 +122,79 @@ test("media route supports HEAD and byte-range responses", async () => {
   } finally {
     await storage.deleteObject(key);
     await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("media route accepts legacy feed_token for matching owner and rejects others", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const storage = getArtifactStorage();
+
+  const owner = await prisma.user.create({
+    data: {
+      email: `media-legacy-owner-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+  const otherUser = await prisma.user.create({
+    data: {
+      email: `media-legacy-other-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const ownerFeedToken = await ensureUserFeedToken(owner.id);
+  const otherFeedToken = await ensureUserFeedToken(otherUser.id);
+
+  const item = await prisma.item.create({
+    data: {
+      userId: owner.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/legacy/${uniq}`,
+      status: "READY"
+    }
+  });
+  const key = `items/${item.id}/episode.mp3`;
+  const payload = Buffer.from("legacy-media-token-fallback", "utf8");
+  await storage.putObject(key, payload, { contentType: "audio/mpeg" });
+
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-legacy-${item.id}`,
+      title: `Legacy media ${uniq}`,
+      description: "legacy feed token fallback",
+      audioPath: key,
+      audioBytes: payload.byteLength,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const authorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(authorizedResponse.status, 200);
+    assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
+
+    const unauthorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(unauthorizedResponse.status, 401);
+
+    const headResponse = await HEAD(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
+  } finally {
+    await storage.deleteObject(key);
+    await prisma.user.delete({ where: { id: owner.id } });
+    await prisma.user.delete({ where: { id: otherUser.id } });
   }
 });
 

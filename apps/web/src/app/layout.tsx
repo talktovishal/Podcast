@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   manifest: BRAND_MANIFEST_PATH,
   icons: {
     icon: [
-      { url: BRAND_FAVICON_PATH, type: "image/x-icon" },
+      { url: BRAND_FAVICON_PATH, type: "image/png", sizes: "192x192" },
       { url: BRAND_ICON_192_PATH, sizes: "192x192", type: "image/png" },
       { url: BRAND_ICON_512_PATH, sizes: "512x512", type: "image/png" }
     ],

@@ -1,4 +1,4 @@
-import { verifyMediaUrl } from "@articlepod/core";
+import { hashIncomingToken, verifyMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
@@ -30,6 +30,52 @@ function validateMediaToken(path: string, token: string | null): boolean {
   }
   const result = verifyMediaUrl(path, token, env.mediaSigningKey);
   return result.valid;
+}
+
+function extractItemIdFromMediaPath(path: string): string | null {
+  const match = /^items\/([^/]+)\/.+$/.exec(path);
+  return match?.[1] ?? null;
+}
+
+async function validateLegacyFeedTokenForPath(path: string, feedToken: string | null): Promise<boolean> {
+  if (!feedToken) {
+    return false;
+  }
+
+  const itemId = extractItemIdFromMediaPath(path);
+  if (!itemId) {
+    return false;
+  }
+
+  const tokenHash = hashIncomingToken(feedToken);
+  const activeFeedToken = await prisma.feedToken.findFirst({
+    where: {
+      tokenHash,
+      active: true
+    },
+    select: {
+      userId: true
+    }
+  });
+
+  if (!activeFeedToken) {
+    return false;
+  }
+
+  const episode = await prisma.episode.findFirst({
+    where: {
+      itemId,
+      audioPath: path,
+      item: {
+        userId: activeFeedToken.userId
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return Boolean(episode);
 }
 
 function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
@@ -67,21 +113,6 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const rawKey = context.params.path.join("/");
-  const mediaToken = request.nextUrl.searchParams.get("mt");
-  const isAuthorized = validateMediaToken(rawKey, mediaToken);
-  if (!isAuthorized) {
-    if (env.podcastRequestLoggingEnabled) {
-      await logger.warn("Podcast media request unauthorized", {
-        ...requestMeta,
-        route: MEDIA_ROUTE,
-        status: 401,
-        media_kind: "item",
-        has_media_token: Boolean(mediaToken)
-      });
-    }
-    return new NextResponse(null, { status: 401 });
-  }
-
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -95,6 +126,26 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     }
     return new NextResponse(null, { status: 400 });
   }
+
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
+  const isAuthorized =
+    validateMediaToken(rawKey, mediaToken) ||
+    (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
+  if (!isAuthorized) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request unauthorized", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 401,
+        media_kind: "item",
+        has_media_token: Boolean(mediaToken),
+        has_legacy_feed_token: Boolean(legacyFeedToken)
+      });
+    }
+    return new NextResponse(null, { status: 401 });
+  }
+
   const key = rawKey;
   const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
@@ -179,22 +230,6 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const rawKey = context.params.path.join("/");
-  const mediaToken = request.nextUrl.searchParams.get("mt");
-  const isAuthorized = validateMediaToken(rawKey, mediaToken);
-  if (!isAuthorized) {
-    if (env.podcastRequestLoggingEnabled) {
-      await logger.warn("Podcast media request unauthorized", {
-        ...requestMeta,
-        route: MEDIA_ROUTE,
-        status: 401,
-        media_kind: "item",
-        has_media_token: Boolean(mediaToken),
-        has_episode_id: Boolean(request.nextUrl.searchParams.get("eid"))
-      });
-    }
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -208,6 +243,27 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     }
     return new NextResponse("Bad Request", { status: 400 });
   }
+
+  const mediaToken = request.nextUrl.searchParams.get("mt");
+  const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
+  const isAuthorized =
+    validateMediaToken(rawKey, mediaToken) ||
+    (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
+  if (!isAuthorized) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request unauthorized", {
+        ...requestMeta,
+        route: MEDIA_ROUTE,
+        status: 401,
+        media_kind: "item",
+        has_media_token: Boolean(mediaToken),
+        has_legacy_feed_token: Boolean(legacyFeedToken),
+        has_episode_id: Boolean(request.nextUrl.searchParams.get("eid"))
+      });
+    }
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   const key = rawKey;
   const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
