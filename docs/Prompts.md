@@ -19,6 +19,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - standalone MV3 extension package under `apps/extension`.
   - popup now uses packaged runtime server configuration (no user-entered server URL) with connected/capture state cues.
   - packaged runtime config defaults extension connections to `https://articlepod.com` (override in `apps/extension/runtime-config.js` for local debugging).
+  - signed-in `/app` and `/app/settings` now both include extension controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
@@ -222,13 +223,14 @@ E) Web UI (polished)
 - `/login`: signup/login
 - `/app` episodes workspace:
   - signed-in header with compact RSS feed URL visibility
+  - top-of-page Chrome extension install CTA + connect/revoke controls for fast capture onboarding
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/settings`:
   - full private feed controls (copy, rotate token, create read-only share link)
-  - Chrome extension connect/revoke controls
+  - Chrome extension install + connect/revoke controls
   - voice settings (preview + save default)
 - Strong empty states, toasts, clear failure messages, modern UI.
 

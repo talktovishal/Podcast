@@ -115,6 +115,7 @@ const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
 ];
 
 const LENGTH_OPTIONS: ReadonlyArray<5 | 15 | 30> = [5, 15, 30];
+const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp";
 
 function defaultTimezone(): string {
   try {
@@ -238,6 +239,7 @@ export function DashboardClient({
   const showFeedSection = readOnly || isSettingsView;
   const showSettingsSection = !readOnly && isSettingsView;
   const showSubmissionSection = !readOnly && !isSettingsView;
+  const showExtensionSection = !readOnly;
   const showItemsSection = !isSettingsView;
   const showDiagnosticsSection = !readOnly && isDemoAccount && !isSettingsView;
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
@@ -710,6 +712,54 @@ export function DashboardClient({
         </section>
       ) : null}
 
+      {showExtensionSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Chrome Extension</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Add ArticlePod Capture to Chrome or another Chromium-based browser, then generate a one-time connect code to authorize
+            page capture.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <a
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white sm:w-auto"
+              href={CHROME_WEB_STORE_URL}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Add to Chrome
+            </a>
+            {!isSettingsView ? (
+              <Link className="w-full rounded-lg border px-3 py-2 text-center text-sm sm:w-auto" href="/app/settings">
+                Open extension settings
+              </Link>
+            ) : null}
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={generateExtensionConnectCode} disabled={isBusy}>
+              Generate connect code
+            </button>
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={revokeExtensionTokens} disabled={isBusy}>
+              Revoke extension tokens
+            </button>
+            {extensionConnectCode ? (
+              <button
+                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+                onClick={() => navigator.clipboard.writeText(extensionConnectCode)}
+              >
+                Copy code
+              </button>
+            ) : null}
+          </div>
+          {extensionConnectCode ? (
+            <div className="mt-3 rounded-lg border bg-slate-50 p-3">
+              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code</p>
+              <code className="mt-1 block overflow-x-auto text-sm">{extensionConnectCode}</code>
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
+              </p>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       {showSettingsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Digest Settings</h2>
@@ -1012,40 +1062,6 @@ export function DashboardClient({
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      {showSettingsSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Chrome Extension</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Generate a one-time connect code, then paste it into the extension popup to authorize page capture.
-          </p>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={generateExtensionConnectCode} disabled={isBusy}>
-              Generate connect code
-            </button>
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={revokeExtensionTokens} disabled={isBusy}>
-              Revoke extension tokens
-            </button>
-            {extensionConnectCode ? (
-              <button
-                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
-                onClick={() => navigator.clipboard.writeText(extensionConnectCode)}
-              >
-                Copy code
-              </button>
-            ) : null}
-          </div>
-          {extensionConnectCode ? (
-            <div className="mt-3 rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code</p>
-              <code className="mt-1 block overflow-x-auto text-sm">{extensionConnectCode}</code>
-              <p className="mt-2 text-xs text-[var(--muted)]">
-                Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
-              </p>
-            </div>
-          ) : null}
         </section>
       ) : null}
 

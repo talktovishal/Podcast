@@ -32,6 +32,14 @@ test("dashboard client gates markdown controls to admins", () => {
   assert.equal(source.includes("{showItemsSection && isAdmin && markdownPreview ? ("), true);
 });
 
+test("dashboard client includes chrome web store install CTA and extension controls in workspace", () => {
+  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
+  assert.equal(source.includes("Add to Chrome"), true);
+  assert.equal(source.includes("Open extension settings"), true);
+  assert.equal(source.includes("const showExtensionSection = !readOnly;"), true);
+});
+
 test("login redirects admins directly to admin dashboard", () => {
   const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('router.push(json.role === "ADMIN" ? "/admin" : "/app")'), true);
