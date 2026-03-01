@@ -162,6 +162,20 @@ No hard-coded vendor logic scattered throughout the code.
   - Commit and push directly from the active branch (`main` unless the user requests a feature branch).
   - Worktrees are optional and should only be used when explicitly requested by the user.
   - If a worktree/branch setup is attempted but blocked by environment or sandbox restrictions, continue in the primary checkout and note the fallback in the final update.
+- Task-level execution directives (user prompt hints):
+  - Agents MUST honor these directives when present in the user prompt (case-insensitive).
+  - `WORKTREE FLOW: <task-name>` means:
+    1) create/use worktree at `.worktrees/<task-name>`
+    2) create/use branch `codex/<task-name>` in that worktree
+    3) make all edits + validation in that worktree only
+    4) commit + push `codex/<task-name>`
+    5) merge/rebase cleanly to `main` and push `origin/main` after validation passes
+  - `WORKTREE ONLY: <task-name>` means the same as above but STOP after pushing `codex/<task-name>` (do not merge to `main`).
+  - `WORKTREE FALLBACK OK` allows fallback to primary checkout if worktree setup fails.
+  - Without `WORKTREE FALLBACK OK`, if worktree setup fails, STOP and ask user before editing in primary checkout.
+  - Recommended prompt snippet:
+    - `WORKTREE FLOW: fix-media-auth`
+    - `WORKTREE FALLBACK OK` (optional)
 - After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):
