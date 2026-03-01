@@ -716,8 +716,7 @@ export function DashboardClient({
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Add ArticlePod Capture to Chrome or another Chromium-based browser, then generate a one-time connect code to authorize
-            page capture.
+            Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code to authorize page capture.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <a
@@ -726,13 +725,8 @@ export function DashboardClient({
               rel="noopener noreferrer"
               target="_blank"
             >
-              Add to Chrome
+              Add to Chrome (Chrome Web Store)
             </a>
-            {!isSettingsView ? (
-              <Link className="w-full rounded-lg border px-3 py-2 text-center text-sm sm:w-auto" href="/app/settings">
-                Open extension settings
-              </Link>
-            ) : null}
             <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={generateExtensionConnectCode} disabled={isBusy}>
               Generate connect code
             </button>
