@@ -56,7 +56,7 @@ function getRuntimeConfig() {
   const globalConfig = window.ARTICLEPOD_EXTENSION_CONFIG;
   if (!globalConfig || typeof globalConfig !== "object") {
     return {
-      localServerUrl: "http://localhost:3000",
+      localServerUrl: "https://articlepod.com",
       privateStoreServerUrl: "",
       publicStoreServerUrl: "",
       byExtensionId: {},
@@ -70,7 +70,7 @@ function getConfiguredServerUrls(activeServerUrl = "") {
   const config = getRuntimeConfig();
   const byExtensionId = config.byExtensionId && typeof config.byExtensionId === "object" ? config.byExtensionId : {};
   const configuredChannel = byExtensionId[chrome.runtime.id] || config.defaultChannel || "local";
-  const localUrl = normalizeServerUrl(config.localServerUrl || "http://localhost:3000");
+  const localUrl = normalizeServerUrl(config.localServerUrl || "https://articlepod.com");
   const privateUrl = normalizeServerUrl(config.privateStoreServerUrl || "");
   const publicUrl = normalizeServerUrl(config.publicStoreServerUrl || "");
 

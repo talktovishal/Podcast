@@ -70,7 +70,7 @@ Server targets are configured in:
 `apps/extension/runtime-config.js`
 
 Default behavior:
-- `localServerUrl` points to `http://localhost:3000`
+- `localServerUrl` points to `https://articlepod.com`
 - optional `privateStoreServerUrl` / `publicStoreServerUrl` can be set for store deployments
 - optional `byExtensionId` maps extension IDs to `private` or `public` target channel
 

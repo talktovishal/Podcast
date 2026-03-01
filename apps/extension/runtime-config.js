@@ -1,7 +1,7 @@
 (function initArticlePodExtensionConfig(globalObject) {
   const config = {
-    // Unpacked local development fallback.
-    localServerUrl: "http://localhost:3000",
+    // Default ArticlePod web app URL.
+    localServerUrl: "https://articlepod.com",
 
     // Set this for your private/tester Web Store listing.
     privateStoreServerUrl: "",
