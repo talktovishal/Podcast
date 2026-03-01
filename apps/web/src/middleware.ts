@@ -9,6 +9,7 @@ const PUBLIC_PREFIXES: string[] = [
   "/api/digest-media/",
   "/api/internal/",
   "/rss/",
+  "/brand/",
   "/login",
   "/about",
   "/faq",
@@ -18,7 +19,14 @@ const PUBLIC_PREFIXES: string[] = [
   "/share",
 ];
 
-const PUBLIC_EXACT: Set<string> = new Set(["/", "/login"]);
+const PUBLIC_EXACT: Set<string> = new Set([
+  "/",
+  "/login",
+  "/apple-icon.png",
+  "/manifest.webmanifest",
+  "/robots.txt",
+  "/sitemap.xml"
+]);
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
@@ -62,6 +70,6 @@ export function middleware(request: NextRequest): NextResponse {
 export const config = {
   matcher: [
     // Match all routes except Next.js internals and static files.
-    "/((?!_next/static|_next/image|favicon\\.ico|icons/|webstore/).*)"
+    "/((?!_next/static|_next/image|favicon\\.ico|apple-icon\\.png|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|brand/|icons/|webstore/).*)"
   ]
 };
