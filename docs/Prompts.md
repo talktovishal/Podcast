@@ -105,6 +105,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - contact preference defaults to opt-in and can be disabled per submission.
   - `/admin` includes feedback inbox controls for filtering, status triage, and GitHub mirror retry actions.
   - private GitHub issue mirroring is best-effort and excludes submitter email from mirrored payloads.
+- Episodes workspace refresh behavior now uses a hybrid strategy:
+  - fast polling while jobs are actively processing
+  - slower visible-tab polling while idle
+  - immediate refresh on tab focus/visibility return for external captures (for example Chrome extension submits)
 
 ### Next Milestones
 - Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.

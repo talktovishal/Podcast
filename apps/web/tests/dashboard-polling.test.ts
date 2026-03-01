@@ -4,13 +4,18 @@ import test from "node:test";
 
 const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
 
-test("dashboard polling runs only while jobs are in progress", () => {
-  assert.equal(source.includes("if (readOnly || !showItemsSection || inProgressCount === 0)"), true);
-  assert.equal(source.includes("const intervalMs = 3000;"), true);
+test("dashboard polling uses fast active interval and slower idle interval", () => {
+  assert.equal(source.includes("if (readOnly || !showItemsSection)"), true);
+  assert.equal(source.includes("const ACTIVE_REFRESH_INTERVAL_MS = 3000;"), true);
+  assert.equal(source.includes("const IDLE_REFRESH_INTERVAL_MS = 20000;"), true);
+  assert.equal(source.includes("const intervalMs = inProgressCount > 0 ? ACTIVE_REFRESH_INTERVAL_MS : IDLE_REFRESH_INTERVAL_MS;"), true);
 });
 
-test("dashboard polling skips refresh while tab is hidden", () => {
+test("dashboard polling skips hidden tabs and refreshes on focus/visibility", () => {
   assert.equal(source.includes('if (document.visibilityState !== "visible")'), true);
+  assert.equal(source.includes('if (document.visibilityState === "visible")'), true);
+  assert.equal(source.includes('window.addEventListener("focus", refreshIfVisible);'), true);
+  assert.equal(source.includes('document.addEventListener("visibilitychange", handleVisibilityChange);'), true);
 });
 
 test("dashboard refresh merges new items without churning episode media tokens", () => {
