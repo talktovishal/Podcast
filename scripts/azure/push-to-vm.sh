@@ -42,7 +42,7 @@ rsync -az --delete \
   -e "ssh ${SSH_ARGS[*]}" \
   --contimeout="$PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT" \
   --timeout="$PUSH_TO_VM_RSYNC_TIMEOUT" \
-  --info=stats2 \
+  --stats \
   --exclude '.git' \
   --exclude '.env' \
   --exclude '.env.*' \
