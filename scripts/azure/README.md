@@ -34,6 +34,7 @@ Default deploy mode is incremental:
 - configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
 - auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
 - removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives
+- hardens VM sync with SSH keep-alive + rsync connect/I/O timeouts (`PUSH_TO_VM_SSH_*`, `PUSH_TO_VM_RSYNC_*`) to fail fast instead of hanging indefinitely
 
 Force a full runtime refresh:
 ```bash

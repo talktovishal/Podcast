@@ -12,6 +12,7 @@ import {
   type DemographicGenderIdentity,
   type UserDemographicSurveyView
 } from "@/lib/demographics";
+import { mergeItemsPreservingEpisodeTokens } from "@/lib/dashboard-items";
 import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
 
 type DashboardItem = {
@@ -193,35 +194,6 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
   }
 
   return null;
-}
-
-function mergeItemsPreservingEpisodeTokens(previous: DashboardItem[], incoming: DashboardItem[]): DashboardItem[] {
-  const previousById = new Map(previous.map((item) => [item.id, item] as const));
-  return incoming.map((item) => {
-    if (!item.episode) {
-      return item;
-    }
-
-    const previousItem = previousById.get(item.id);
-    const previousEpisode = previousItem?.episode;
-    if (!previousEpisode) {
-      return item;
-    }
-
-    // Preserve the current token while the same episode remains in the list.
-    // This avoids audio element src churn on each poll refresh.
-    if (previousEpisode.id !== item.episode.id || previousEpisode.audioPath !== item.episode.audioPath) {
-      return item;
-    }
-
-    return {
-      ...item,
-      episode: {
-        ...item.episode,
-        mediaToken: previousEpisode.mediaToken
-      }
-    };
-  });
 }
 
 export function DashboardClient({

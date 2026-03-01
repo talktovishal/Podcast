@@ -28,7 +28,7 @@ const PUBLIC_EXACT: Set<string> = new Set([
   "/sitemap.xml"
 ]);
 
-function isPublic(pathname: string): boolean {
+export function isPublicPathForAuth(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
   for (const prefix of PUBLIC_PREFIXES) {
     if (pathname.startsWith(prefix)) return true;
@@ -48,7 +48,7 @@ function hasSessionCookie(request: NextRequest): boolean {
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
 
-  if (isPublic(pathname)) {
+  if (isPublicPathForAuth(pathname)) {
     return NextResponse.next();
   }
 
