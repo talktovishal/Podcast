@@ -76,6 +76,7 @@ export function FeedbackForm() {
           value={message}
           onChange={(event) => setMessage(event.target.value)}
         />
+        <p className="mt-1 text-xs text-[var(--muted)]">{message.length}/5000 characters</p>
       </label>
 
       <label className="mt-3 block">
@@ -92,6 +93,7 @@ export function FeedbackForm() {
             </option>
           ))}
         </select>
+        <p className="mt-1 text-xs text-[var(--muted)]">Optional. Helps us sort feedback faster.</p>
       </label>
 
       <label className="mt-3 block">
@@ -108,6 +110,7 @@ export function FeedbackForm() {
             </option>
           ))}
         </select>
+        <p className="mt-1 text-xs text-[var(--muted)]">Optional. Leave blank if it spans multiple areas.</p>
       </label>
 
       <label className="mt-4 inline-flex items-center gap-2 text-sm">
