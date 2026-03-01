@@ -116,6 +116,8 @@ const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
 
 const LENGTH_OPTIONS: ReadonlyArray<5 | 15 | 30> = [5, 15, 30];
 const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp";
+const ACTIVE_REFRESH_INTERVAL_MS = 3000;
+const IDLE_REFRESH_INTERVAL_MS = 20000;
 
 function defaultTimezone(): string {
   try {
@@ -296,20 +298,35 @@ export function DashboardClient({
   }, []);
 
   useEffect(() => {
-    if (readOnly || !showItemsSection || inProgressCount === 0) {
+    if (readOnly || !showItemsSection) {
       return;
     }
 
-    const intervalMs = 3000;
-    const interval = window.setInterval(() => {
+    const refreshIfVisible = () => {
       if (document.visibilityState !== "visible") {
         return;
       }
       void refreshItems();
+    };
+
+    const intervalMs = inProgressCount > 0 ? ACTIVE_REFRESH_INTERVAL_MS : IDLE_REFRESH_INTERVAL_MS;
+    const interval = window.setInterval(() => {
+      refreshIfVisible();
     }, intervalMs);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshItems();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", refreshIfVisible);
 
     return () => {
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", refreshIfVisible);
     };
   }, [inProgressCount, readOnly, refreshItems, showItemsSection]);
 

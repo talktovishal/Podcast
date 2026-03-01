@@ -100,6 +100,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app` signed-in header now includes copy-first feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
+- Episodes workspace refresh behavior now uses a hybrid strategy:
+  - fast polling while jobs are actively processing
+  - slower visible-tab polling while idle
+  - immediate refresh on tab focus/visibility return for external captures (for example Chrome extension submits)
 
 ### Next Milestones
 - Current milestone set (`M00`-`M84`) is complete per `docs/plans.md`.
