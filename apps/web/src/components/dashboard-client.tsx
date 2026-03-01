@@ -195,6 +195,35 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
   return null;
 }
 
+function mergeItemsPreservingEpisodeTokens(previous: DashboardItem[], incoming: DashboardItem[]): DashboardItem[] {
+  const previousById = new Map(previous.map((item) => [item.id, item] as const));
+  return incoming.map((item) => {
+    if (!item.episode) {
+      return item;
+    }
+
+    const previousItem = previousById.get(item.id);
+    const previousEpisode = previousItem?.episode;
+    if (!previousEpisode) {
+      return item;
+    }
+
+    // Preserve the current token while the same episode remains in the list.
+    // This avoids audio element src churn on each poll refresh.
+    if (previousEpisode.id !== item.episode.id || previousEpisode.audioPath !== item.episode.audioPath) {
+      return item;
+    }
+
+    return {
+      ...item,
+      episode: {
+        ...item.episode,
+        mediaToken: previousEpisode.mediaToken
+      }
+    };
+  });
+}
+
 export function DashboardClient({
   feedUrl,
   isAdmin = false,
@@ -273,7 +302,7 @@ export function DashboardClient({
       items: DashboardItem[];
       extractionDiagnostics?: DemoExtractionDiagnostic[];
     };
-    setItems(payload.items);
+    setItems((previous) => mergeItemsPreservingEpisodeTokens(previous, payload.items));
     if (isDemoAccount && Array.isArray(payload.extractionDiagnostics)) {
       setDemoDiagnostics(payload.extractionDiagnostics);
     }
@@ -293,12 +322,15 @@ export function DashboardClient({
   }, []);
 
   useEffect(() => {
-    if (readOnly || !showItemsSection) {
+    if (readOnly || !showItemsSection || inProgressCount === 0) {
       return;
     }
 
-    const intervalMs = inProgressCount > 0 ? 2500 : 4500;
+    const intervalMs = 3000;
     const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       void refreshItems();
     }, intervalMs);
 
