@@ -1,7 +1,7 @@
 # Azure IaC (Bicep + azd)
 
 This folder contains reproducible infrastructure templates for the durable Azure target:
-- Single Linux VM for runtime compute (`web`, `worker`, `python-tts`)
+- Single Linux VM for runtime compute (`web`, `worker`, `python-tts`) (default SKU: `Standard_B2s`)
 - Azure PostgreSQL Flexible Server for durable relational data
 - Azure Blob Storage for durable artifacts (`uploads`, audio, diagnostics)
 

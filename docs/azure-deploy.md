@@ -5,11 +5,15 @@
   - `web` (Next.js)
   - `worker` (queue processor)
   - `python-tts` (Kokoro service)
+  - optional `worker-overflow` (queue-pressure-triggered overflow lane)
 - Durable data:
   - Azure PostgreSQL Flexible Server
   - Azure Blob Storage
 
 This keeps compute cost-first while preserving data and media durability on VM loss.
+Current right-sizing baseline for cost-control:
+- VM SKU: `Standard_B2s`
+- local TTS lane: fixed `TTS_WORKERS=1`
 
 ## Prerequisites (local)
 From repo root:
@@ -127,7 +131,16 @@ sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.
   AZURE_STORAGE_CONTAINER="articlepod" \
   AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
+  TTS_WORKERS="1" \
   /opt/articlepod/scripts/azure/render-env.sh
+```
+Optional metadata mirror/canary flags:
+```bash
+METADATA_MIRROR_BACKEND="azure_table"
+METADATA_MIRROR_DUAL_WRITE="1"
+METADATA_CANARY_COMPARE="1"
+AZURE_TABLE_CONNECTION_STRING="<TABLE_CONNECTION_STRING>"
+WORKER_QUEUE_PRESSURE_SOURCE="prisma"
 ```
 Defaults now include VM-safe runtime paths:
 - `STORAGE_ROOT=/var/lib/articlepod/storage`
@@ -138,13 +151,17 @@ Defaults now include VM-safe runtime paths:
 On VM:
 ```bash
 sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh
-sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod-worker
+sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod-worker articlepod-worker-overflow
 ```
 
 Notes:
 - `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
+- overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
+- enable overflow worker only when external overflow TTS is configured:
+  - `sudo ENABLE_OVERFLOW_WORKER_SERVICE=1 /opt/articlepod/scripts/azure/install-systemd.sh`
+  - `sudo systemctl restart articlepod-worker-overflow`
 - `promote-runtime.sh` preserves `services/python-tts/.venv` so model assets are not dropped on every code sync.
 - `promote-runtime.sh` preserves `.runtime/` and strips synced app-local `.env` files to avoid config/path drift across promotions.
 
@@ -215,6 +232,7 @@ HOST_ALIASES="www.articlepod.com" \
 LETSENCRYPT_EMAIL="<EMAIL>" \
 APP_URL="https://articlepod.com" \
 TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
+ENABLE_OVERFLOW_WORKER_SERVICE="0" \
   ./scripts/azure/deploy-changes.sh
 ```
 

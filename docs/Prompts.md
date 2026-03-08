@@ -116,6 +116,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane that activates only under queue pressure and can route to external TTS.
   - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
+- Cost optimization implementation is in progress in repo (worker overflow policy + metadata mirror dual-write/canary + budget guardrail scripts).
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

@@ -8,7 +8,7 @@ export const DAYS_PER_MONTH = 30.4;
 
 export const ARCH_BASELINE = {
   region: COST_REGION,
-  vmSku: "Standard_D4as_v5",
+  vmSku: "Standard_B2s",
   vmCount: 1,
   postgresSku: "General Purpose Ddsv4 (2 vCore equivalent)",
   postgresVCores: 2,
@@ -111,9 +111,9 @@ export const SCENARIOS = {
 };
 
 const FALLBACK_PRICES = {
-  vmHourlyPayg: 0.172,
-  vmReservation1Year: 889,
-  vmReservation3Year: 1718,
+  vmHourlyPayg: 0.0499,
+  vmReservation1Year: 260,
+  vmReservation3Year: 500,
   postgresVcoreHourlyPayg: 0.089,
   postgresVcoreReservation1Year: 468,
   postgresVcoreReservation3Year: 936,
@@ -158,7 +158,7 @@ function pickSingle(items, predicate, fallback) {
 }
 
 export async function fetchAzurePriceSnapshot() {
-  const vmUrl = `https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'${COST_REGION}'%20and%20armSkuName%20eq%20'Standard_D4as_v5'`;
+  const vmUrl = `https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Virtual%20Machines'%20and%20armRegionName%20eq%20'${COST_REGION}'%20and%20armSkuName%20eq%20'Standard_B2s'`;
   const vmItems = await fetchAllPages(vmUrl);
 
   const pgUrl = `https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20'Azure%20Database%20for%20PostgreSQL'%20and%20armRegionName%20eq%20'${COST_REGION}'`;
@@ -176,7 +176,7 @@ export async function fetchAzurePriceSnapshot() {
   const prices = {
     vmHourlyPayg: pickSingle(
       vmItems,
-      (item) => item.type === "Consumption" && item.skuName === "Standard_D4as_v5" && !String(item.productName || "").includes("Windows") && !String(item.skuName || "").includes("Spot") && !String(item.skuName || "").includes("Low Priority"),
+      (item) => item.type === "Consumption" && item.skuName === "Standard_B2s" && !String(item.productName || "").includes("Windows") && !String(item.skuName || "").includes("Spot") && !String(item.skuName || "").includes("Low Priority"),
       FALLBACK_PRICES.vmHourlyPayg
     ),
     vmReservation1Year: pickSingle(

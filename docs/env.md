@@ -42,6 +42,7 @@ Recommended:
   - `AZURE_STORAGE_CONNECTION_STRING`
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
+- `TTS_WORKERS` (set to `1` for the cost-optimized B2s baseline)
 
 Azure deploy helper behavior:
 - `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
@@ -96,6 +97,16 @@ Behavior:
 - `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
 - `WORKER_RETRY_POLL_MS`
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
+- `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)
+
+## Metadata mirror controls (serverless migration track)
+- `METADATA_MIRROR_BACKEND` (`none` default, `azure_table` supported)
+- `METADATA_MIRROR_DUAL_WRITE` (`0` default; set `1` to dual-write queue/item/digest projections)
+- `METADATA_CANARY_COMPARE` (`0` default; set `1` to log queue snapshot diffs between Prisma and mirror)
+- `AZURE_TABLE_CONNECTION_STRING` (preferred auth for Azure Table mirror)
+- `AZURE_TABLE_ACCOUNT_URL` + `AZURE_TABLE_SAS_TOKEN` (alternative auth pair)
+- `AZURE_TABLE_PREFIX` (default `articlepod`; table names derive from this prefix)
+- `AZURE_TABLE_CREATE_TABLES` (`1` default; set `0` to require pre-provisioned tables)
 
 ## Digest controls
 - `DIGEST_INTERNAL_SCHEDULER_ENABLED` (`1` default; set `0` to rely only on external tick calls)

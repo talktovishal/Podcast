@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { workerEnv } from "../lib/env.js";
 import { workerLogger } from "../lib/logger.js";
+import { syncDigestRunProjectionById } from "../lib/metadata-projection.js";
 
 type ScheduleResult = {
   scheduledRuns: number;
@@ -119,9 +120,10 @@ async function scheduleForUser(input: {
   };
   now: Date;
   forceNow: boolean;
-}): Promise<number> {
+}): Promise<{ created: number; runIds: string[] }> {
   const { tx, settings, now, forceNow } = input;
   let created = 0;
+  const runIds: string[] = [];
   let nextDailyRunAt = settings.dailyNextRunAt;
   let nextWeeklyRunAt = settings.weeklyNextRunAt;
 
@@ -135,7 +137,7 @@ async function scheduleForUser(input: {
       dailyMinute: settings.dailyMinute
     });
     try {
-      await tx.digestRun.create({
+      const run = await tx.digestRun.create({
         data: {
           userId: settings.userId,
           cadence: "DAILY",
@@ -150,6 +152,7 @@ async function scheduleForUser(input: {
         }
       });
       created += 1;
+      runIds.push(run.id);
     } catch (error) {
       if (!isPrismaUniqueError(error)) {
         throw error;
@@ -174,7 +177,7 @@ async function scheduleForUser(input: {
       weeklyMinute: settings.weeklyMinute
     });
     try {
-      await tx.digestRun.create({
+      const run = await tx.digestRun.create({
         data: {
           userId: settings.userId,
           cadence: "WEEKLY",
@@ -189,6 +192,7 @@ async function scheduleForUser(input: {
         }
       });
       created += 1;
+      runIds.push(run.id);
     } catch (error) {
       if (!isPrismaUniqueError(error)) {
         throw error;
@@ -213,7 +217,7 @@ async function scheduleForUser(input: {
     });
   }
 
-  return created;
+  return { created, runIds };
 }
 
 export async function scheduleDigestRuns(forceNow = false): Promise<ScheduleResult> {
@@ -251,8 +255,9 @@ export async function scheduleDigestRuns(forceNow = false): Promise<ScheduleResu
   });
 
   let scheduledRuns = 0;
+  const createdRunIds: string[] = [];
   for (const entry of settings) {
-    scheduledRuns += await prisma.$transaction((tx) =>
+    const result = await prisma.$transaction((tx) =>
       scheduleForUser({
         tx,
         settings: entry,
@@ -260,9 +265,12 @@ export async function scheduleDigestRuns(forceNow = false): Promise<ScheduleResu
         forceNow: shouldForceNow
       })
     );
+    scheduledRuns += result.created;
+    createdRunIds.push(...result.runIds);
   }
 
   await markTicksProcessed(pendingTicks, now);
+  await Promise.all(createdRunIds.map((runId) => syncDigestRunProjectionById(runId)));
 
   if (scheduledRuns > 0 || pendingTicks.length > 0) {
     await workerLogger.info("Digest scheduler pass completed", {

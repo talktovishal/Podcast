@@ -9,8 +9,8 @@ User=articlepod
 Group=articlepod
 WorkingDirectory=/opt/articlepod/services/python-tts
 EnvironmentFile=/etc/articlepod/articlepod.env
-# TTS_WORKERS can be set in /etc/articlepod/articlepod.env to enable concurrent synthesis (default: 1).
-ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers ${TTS_WORKERS:-1}'
+# Cost-optimized default locks local TTS lane to a single worker on B2s.
+ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers 1'
 Restart=always
 RestartSec=5
 TimeoutStartSec=120

@@ -7,7 +7,7 @@ param prefix string = 'articlepod'
 param location string = resourceGroup().location
 
 @description('Linux VM size for web/worker/python-tts runtime.')
-param vmSize string = 'Standard_D4as_v5'
+param vmSize string = 'Standard_B2s'
 
 @description('Admin username for VM SSH login.')
 param adminUsername string = 'azureuser'

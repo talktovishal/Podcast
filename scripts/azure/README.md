@@ -39,6 +39,7 @@ Default deploy mode is incremental:
 - auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
 - removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives
 - hardens VM sync with SSH keep-alive + rsync connect/I/O timeouts (`PUSH_TO_VM_SSH_*`, `PUSH_TO_VM_RSYNC_*`) to fail fast instead of hanging indefinitely
+- keeps overflow worker service disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`)
 
 Force a full runtime refresh:
 ```bash
@@ -91,3 +92,5 @@ Security notes:
 - runtime naming defaults: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/runtime-naming.sh`
 - Nginx config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
 - TLS config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`
+- Budget guardrails: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
+- Overflow guardrail validation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`

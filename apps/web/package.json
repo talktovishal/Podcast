@@ -22,6 +22,8 @@
     "artifacts:purge": "tsx scripts/purge-expired-artifacts.ts",
     "audio:backfill-mp3": "tsx scripts/backfill-episode-audio.ts",
     "analytics:backfill": "tsx scripts/backfill-admin-analytics.ts",
+    "metadata:backfill": "tsx scripts/metadata-backfill-table.ts",
+    "metadata:check": "tsx scripts/metadata-consistency-check.ts",
     "prisma:generate": "node ../../scripts/prisma-profile.mjs generate",
     "prisma:migrate": "prisma migrate dev --name init"
   },

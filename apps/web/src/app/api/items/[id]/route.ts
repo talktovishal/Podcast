@@ -1,6 +1,7 @@
 import { rm } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
+import { deleteQueueProjectionByItemId } from "@/lib/metadata-projection";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 
@@ -12,13 +13,17 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
 
   const item = await prisma.item.findUnique({
     where: { id: context.params.id },
-    include: { episode: true, artifacts: true }
+    include: { episode: true, artifacts: true, jobs: { select: { id: true } } }
   });
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
   }
 
   await prisma.item.delete({ where: { id: item.id } });
+  await deleteQueueProjectionByItemId(
+    item.id,
+    item.jobs.map((job) => job.id)
+  );
 
   const storage = getArtifactStorage();
 

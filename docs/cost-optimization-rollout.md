@@ -43,8 +43,8 @@
   - `scripts/ops/*` (new snapshot helpers if needed)
 
 ### Phase 1 - Compute right-sizing + local TTS hardening
-- [ ] Set VM deployment target to `B2s`.
-- [ ] Lock local TTS process to `TTS_WORKERS=1`.
+- [x] Set VM deployment target to `B2s`.
+- [x] Lock local TTS process to `TTS_WORKERS=1`.
 - [ ] Add memory/swap and OOM monitoring guidance.
 - Files:
   - `infra/main.parameters.json`
@@ -53,10 +53,10 @@
   - `docs/env.md`
 
 ### Phase 2 - Overflow policy scaffolding (start now)
-- [ ] Add worker role and overflow policy env controls.
-- [ ] Add queue pressure snapshot + hysteresis evaluator.
-- [ ] Add overflow role gating to keep local-first behavior.
-- [ ] Add structured logs for policy decisions.
+- [x] Add worker role and overflow policy env controls.
+- [x] Add queue pressure snapshot + hysteresis evaluator.
+- [x] Add overflow role gating to keep local-first behavior.
+- [x] Add structured logs for policy decisions.
 - Files:
   - `apps/worker/src/lib/env.ts`
   - `apps/worker/src/lib/providers.ts`
@@ -66,7 +66,7 @@
   - `apps/worker/tests/overflow-policy.test.ts` (new)
 
 ### Phase 3 - Metadata/queue abstraction layer
-- [ ] Introduce adapter interfaces for queue + metadata operations.
+- [x] Introduce adapter interfaces for queue + metadata operations.
 - [ ] Keep Postgres adapter as current default.
 - [ ] Add adapter-specific integration tests.
 - Files:
@@ -77,7 +77,7 @@
   - `apps/web/tests/*`
 
 ### Phase 4 - Serverless data adapters (Table + Blob refs)
-- [ ] Implement Azure Table adapter(s) for key metadata models.
+- [x] Implement Azure Table adapter(s) for key metadata models.
 - [ ] Implement queue semantics on serverless store (claim/retry/stale reclaim).
 - [ ] Preserve idempotency and retry semantics.
 - Files:
@@ -87,9 +87,9 @@
   - migration scripts under `scripts/`
 
 ### Phase 5 - Dual-write, backfill, consistency checker
-- [ ] Dual-write Postgres + Table.
-- [ ] Read from Postgres, shadow-read Table.
-- [ ] Consistency diff report with strict thresholds.
+- [x] Dual-write Postgres + Table.
+- [x] Read from Postgres, shadow-read Table.
+- [x] Consistency diff report with strict thresholds.
 - Files:
   - `apps/web/src/lib/*`
   - `apps/worker/src/jobs/*`
@@ -105,7 +105,7 @@
   - runbooks in `docs/operations.md`, `docs/documentation.md`
 
 ### Phase 7 - Guardrails and financial controls
-- [ ] Budget alerts on subscription/resource group.
+- [x] Budget alerts on subscription/resource group.
 - [ ] Overflow daily spend cap and concurrency cap.
 - [ ] Queue-age and failure-rate alert thresholds.
 - [ ] Incident playbook and rollback drills.

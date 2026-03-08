@@ -9,7 +9,7 @@
       "value": "centralus"
     },
     "vmSize": {
-      "value": "Standard_D4as_v5"
+      "value": "Standard_B2s"
     },
     "adminUsername": {
       "value": "azureuser"

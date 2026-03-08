@@ -139,6 +139,24 @@ If parity/azure runtime paths changed, also run:
 - expand core/web/worker tests for digest behavior.
 - run podcast contract gates for main + digest feeds and sync docs.
 
+## C01-C07 implementation sequence (in progress)
+1. C01/C02
+- set Azure VM baseline defaults to `Standard_B2s`.
+- lock VM python-tts service to one local worker (`TTS_WORKERS=1`).
+- add overflow worker role controls and hysteresis-based queue pressure policy.
+
+2. C03/C04
+- introduce queue/metadata mirror adapter contract in `packages/core`.
+- add Azure Table mirror implementation for item/job/digest queue projections.
+
+3. C05/C06
+- dual-write queue projections from web enqueue and worker state transitions.
+- add backfill and consistency-check commands for mirror canary rollout.
+- add queue pressure source toggle (`prisma` vs `mirror`) and diff logging.
+
+4. C07
+- add budget and overflow guardrail automation scripts for operations.
+
 ## Migration helpers
 - SQLite export:
   - `npx pnpm --filter @articlepod/web run db:export-json -- --out <file>`

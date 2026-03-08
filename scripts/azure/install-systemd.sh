@@ -13,9 +13,11 @@ source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
 WEB_SERVICE="$(runtime_service_name web)"
 WORKER_SERVICE="$(runtime_service_name worker)"
+WORKER_OVERFLOW_SERVICE="$(runtime_service_name worker-overflow)"
 LEGACY_PYTHON_TTS_SERVICE="$(legacy_runtime_service_name python-tts)"
 LEGACY_WEB_SERVICE="$(legacy_runtime_service_name web)"
 LEGACY_WORKER_SERVICE="$(legacy_runtime_service_name worker)"
+ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
 
 cleanup_legacy_alias_conflicts() {
   local service
@@ -33,9 +35,15 @@ cleanup_legacy_alias_conflicts() {
 install -m 0644 "$ROOT_DIR/infra/systemd/${PYTHON_TTS_SERVICE}" "/etc/systemd/system/${PYTHON_TTS_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${WEB_SERVICE}" "/etc/systemd/system/${WEB_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_SERVICE}" "/etc/systemd/system/${WORKER_SERVICE}"
+install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_OVERFLOW_SERVICE}" "/etc/systemd/system/${WORKER_OVERFLOW_SERVICE}"
 
 cleanup_legacy_alias_conflicts
 systemctl daemon-reload
 systemctl enable "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
+if [[ "$ENABLE_OVERFLOW_WORKER_SERVICE" == "1" ]]; then
+  systemctl enable "$WORKER_OVERFLOW_SERVICE"
+else
+  systemctl disable "$WORKER_OVERFLOW_SERVICE" >/dev/null 2>&1 || true
+fi
 
-echo "[install-systemd] services installed and enabled"
+echo "[install-systemd] services installed (overflow enabled=${ENABLE_OVERFLOW_WORKER_SERVICE})"

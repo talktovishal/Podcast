@@ -36,17 +36,24 @@ Options:
   --skip-configure-ingress
                          Skip nginx/TLS automation for this deploy
   --seed-mode <value>    Demo seed policy: auto|always|never (default: auto)
+  --enable-overflow-worker
+                         Enable systemd overflow worker service on VM
+  --disable-overflow-worker
+                         Disable systemd overflow worker service on VM (default)
   --skip-healthcheck     Skip post-deploy health validation
   -h, --help             Show this help message
 
 Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
   HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE,
-  CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES
+  CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES,
+  ENABLE_OVERFLOW_WORKER_SERVICE
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
-  AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, ADMIN_PASSWORD, DEMO_PASSWORD
+  AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, TTS_WORKERS,
+  METADATA_MIRROR_*, AZURE_TABLE_*, WORKER_OVERFLOW_*, OVERFLOW_PYTHON_TTS_*,
+  ADMIN_PASSWORD, DEMO_PASSWORD
 EOF
 }
 
@@ -94,6 +101,7 @@ HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_RENDER_ENV="${DEPLOY_RENDER_ENV:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
+ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
 CANONICAL_HOST="${CANONICAL_HOST:-}"
 HOST_ALIASES="${HOST_ALIASES:-${APP_DOMAIN_ALIASES:-}}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
@@ -199,6 +207,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-healthcheck)
       SKIP_HEALTHCHECK=1
+      shift
+      ;;
+    --enable-overflow-worker)
+      ENABLE_OVERFLOW_WORKER_SERVICE=1
+      shift
+      ;;
+    --disable-overflow-worker)
+      ENABLE_OVERFLOW_WORKER_SERVICE=0
       shift
       ;;
     -h|--help)
@@ -315,7 +331,7 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
 fi
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
-echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}, ingress=${DEPLOY_CONFIGURE_INGRESS}"
+echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}, ingress=${DEPLOY_CONFIGURE_INGRESS}, overflow=${ENABLE_OVERFLOW_WORKER_SERVICE}"
 
 CANONICAL_HOST_Q="$(printf '%q' "$CANONICAL_HOST")"
 HOST_ALIASES_Q="$(printf '%q' "$HOST_ALIASES")"
@@ -339,7 +355,7 @@ if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
   sudo '$TARGET_PATH/scripts/azure/bootstrap-vm.sh'
 fi
 sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
-sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' ENABLE_OVERFLOW_WORKER_SERVICE='$ENABLE_OVERFLOW_WORKER_SERVICE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
 ${REMOTE_INGRESS_SCRIPT}
 EOF
 )

@@ -2,7 +2,7 @@
 
 ## 1. Architecture baseline (from IaC)
 - Region: `eastus`
-- VM: `Standard_D4as_v5` (count: 1)
+- VM: `Standard_B2s` (count: 1)
 - PostgreSQL: `General Purpose Ddsv4 (2 vCore equivalent)` (2 vCore modeled), storage 128 GB
 - Blob Storage: `Standard_LRS Hot`
 - Optional queue alternative modeled: Azure Table Storage (LRS)
@@ -11,7 +11,7 @@
 
 ## 2. Pricing source
 - Source: [Azure Retail Prices API](https://prices.azure.com/api/retail/prices)
-- Snapshot generated: **2026-02-15T00:29:43.234Z**
+- Snapshot generated: **2026-03-08T01:36:34.718Z**
 - Currency: **USD**
 - Region pricing basis: **eastus**
 
@@ -40,9 +40,9 @@ Infrastructure sizing assumptions (editable in Excel `Inputs`):
 ## 4. Scenario summary
 | Scenario | Submissions/month | Ready episodes/month | Audio GB/month | Egress GB/month | Estimated VMs required | Monthly cost | Annual cost |
 |---|---:|---:|---:|---:|---:|---:|
-| Low | 27,451 | 28,758 | 84.2 | 436.24 | 4 | $615.61 | $7,387.37 |
-| Base | 52,288 | 54,777 | 213.85 | 779 | 8 | $1,139.84 | $13,678.07 |
-| High | 117,125 | 122,700 | 670.63 | 1,869.6 | 25 | $3,346.97 | $40,163.62 |
+| Low | 27,451 | 28,758 | 84.2 | 436.24 | 4 | $259.08 | $3,108.99 |
+| Base | 52,288 | 54,777 | 213.85 | 779 | 8 | $426.78 | $5,121.31 |
+| High | 117,125 | 122,700 | 670.63 | 1,869.6 | 25 | $1,118.64 | $13,423.72 |
 
 VM estimation method:
 - required_vm_tts = ceil(audio_minutes_month / (hours*60*tts_realtime_factor*utilization*(1-overhead)))
@@ -62,45 +62,45 @@ Kokoro throughput references used for theoretical sizing:
 ## 5. Commitment comparison (base scenario)
 | Strategy | Monthly cost | Annual cost | Monthly savings vs PAYG | Savings % |
 |---|---:|---:|---:|---:|
-| PAYG | $1,139.84 | $13,678.07 | $0.00 | 0.00% |
-| VM only - 1Y RI | $728.03 | $8,736.31 | $411.81 | 36.13% |
-| VM only - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
-| Postgres only - 1Y RI | $1,165.84 | $13,990.07 | $-26.00 | -2.28% |
-| Postgres only - 3Y RI | $1,139.84 | $13,678.07 | $0.00 | 0.00% |
-| VM + Postgres - 1Y RI | $754.03 | $9,048.31 | $385.81 | 33.85% |
-| VM + Postgres - 3Y RI | $517.14 | $6,205.65 | $622.70 | 54.63% |
+| PAYG | $426.78 | $5,121.31 | $0.00 | 0.00% |
+| VM only - 1Y RI | $277.36 | $3,328.31 | $149.42 | 35.01% |
+| VM only - 3Y RI | $246.47 | $2,957.65 | $180.30 | 42.25% |
+| Postgres only - 1Y RI | $452.78 | $5,433.31 | $-26.00 | -6.09% |
+| Postgres only - 3Y RI | $426.78 | $5,121.31 | $0.00 | 0.00% |
+| VM + Postgres - 1Y RI | $303.36 | $3,640.31 | $123.42 | 28.92% |
+| VM + Postgres - 3Y RI | $246.47 | $2,957.65 | $180.30 | 42.25% |
 
 ## 5.1 Margin pricing targets (base scenario)
 Team priced at 4x Pro.
 
 | Metric | Value |
 |---|---:|
-| Modeled monthly cost | $1,139.84 |
+| Modeled monthly cost | $426.78 |
 | Pricing mode default | tier_counts |
-| Revenue needed @90% margin | $11,398.39 |
-| Revenue needed @95% margin | $22,796.79 |
+| Revenue needed @90% margin | $4,267.75 |
+| Revenue needed @95% margin | $8,535.51 |
 
 Tier-count mode (uses modeled Pro+Team users):
 - Paying users = 580
-- Blended ARPU needed @90% = $19.65
-- Blended ARPU needed @95% = $39.30
-- Suggested Pro/Team @90% = $13.90 / $55.60
-- Suggested Pro/Team @95% = $27.80 / $111.20
+- Blended ARPU needed @90% = $7.36
+- Blended ARPU needed @95% = $14.72
+- Suggested Pro/Team @90% = $5.20 / $20.82
+- Suggested Pro/Team @95% = $10.41 / $41.64
 
 Conversion-based mode (uses total users and conversion rates):
 - Total users = 2,580
 - Conversion to Pro = 8.00%
 - Conversion to Team = 1.50%
 - Paying users from conversion = 245
-- Blended ARPU needed @90% = $46.51
-- Blended ARPU needed @95% = $93.01
-- Suggested Pro/Team @90% = $31.56 / $126.23
-- Suggested Pro/Team @95% = $63.11 / $252.46
+- Blended ARPU needed @90% = $17.41
+- Blended ARPU needed @95% = $34.82
+- Suggested Pro/Team @90% = $11.82 / $47.26
+- Suggested Pro/Team @95% = $23.63 / $94.52
 
 ## 6. Key price points used in model
-- VM hourly PAYG: $0.17 per hour
-- VM reservation 1Y: $889.00 upfront
-- VM reservation 3Y: $1,718.00 upfront
+- VM hourly PAYG: $0.05 per hour
+- VM reservation 1Y: $213.00 upfront
+- VM reservation 3Y: $500.00 upfront
 - PostgreSQL vCore hourly PAYG: $0.09 per hour
 - PostgreSQL vCore reservation 1Y: $468.00 upfront
 - PostgreSQL vCore reservation 3Y: $936.00 upfront

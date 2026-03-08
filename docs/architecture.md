@@ -152,15 +152,17 @@ Policy guardrails:
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts
 - `parity`: Docker Compose with PostgreSQL + Azurite + python-tts + web + worker
-- `azure`: single VM compute + Azure PostgreSQL + Azure Blob
+- `azure`: single VM compute + Azure PostgreSQL + Azure Blob (with optional Azure Table metadata mirror during migration)
 
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
 ## Durable Azure target (M35-M46)
 Locked target architecture:
-- Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services
+- Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
+- Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
 - Durable data: Azure PostgreSQL Flexible Server
 - Durable artifacts: Azure Blob Storage
+- Migration track: queue/item/digest metadata can be dual-written to Azure Table mirror for canary comparison and phased cutover
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
 - Deployment automation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/*.sh`
 

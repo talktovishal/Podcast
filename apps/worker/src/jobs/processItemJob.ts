@@ -26,6 +26,7 @@ import { makeTtsProvider } from "../lib/providers.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
 import { workerLogger } from "../lib/logger.js";
 import { recordWorkerAnalyticsEventBestEffort } from "../lib/analytics.js";
+import { syncItemProjectionById, syncJobAndItemProjectionByJobId } from "../lib/metadata-projection.js";
 
 type WorkerStage = "extract" | "tts" | "persist" | "job";
 type ExtractionLogEntry = {
@@ -600,6 +601,7 @@ async function reclaimStaleProcessingJobs(): Promise<number> {
         });
       });
       reclaimed++;
+      await syncJobAndItemProjectionByJobId(job.id);
     } catch {
       // Job was already claimed by another worker instance — skip it
     }
@@ -675,6 +677,8 @@ export async function processJob(jobId: string): Promise<boolean> {
   if (!claimResult) {
     return false;
   }
+
+  await syncJobAndItemProjectionByJobId(claimResult.id);
 
   const item = claimResult.item;
   const lockedAtMs = claimResult.lockedAt?.getTime() ?? claimResult.updatedAt.getTime();
@@ -998,6 +1002,8 @@ export async function processJob(jobId: string): Promise<boolean> {
       }
     });
 
+    await syncJobAndItemProjectionByJobId(claimResult.id);
+
     return true;
       }
     );
@@ -1129,6 +1135,9 @@ export async function processJob(jobId: string): Promise<boolean> {
         job_id: claimResult.id
       }
     });
+
+    await syncItemProjectionById(item.id);
+    await syncJobAndItemProjectionByJobId(claimResult.id);
 
     return false;
   }

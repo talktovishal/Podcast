@@ -1,0 +1,20 @@
+[Unit]
+Description=ArticlePod Overflow Worker
+After=network.target articlepod-python-tts.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=articlepod
+Group=articlepod
+WorkingDirectory=/opt/articlepod
+EnvironmentFile=/etc/articlepod/articlepod.env
+Environment=WORKER_ROLE=overflow
+Environment=WORKER_OVERFLOW_ENABLED=1
+ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run start'
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

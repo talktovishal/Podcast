@@ -81,7 +81,17 @@ function profileRequirements(profile) {
     "DIGEST_SUMMARY_PROVIDER",
     "DIGEST_SUMMARY_PROXY_URL",
     "DIGEST_SUMMARY_TIMEOUT_MS",
-    "DIGEST_EMAIL_PROVIDER"
+    "DIGEST_EMAIL_PROVIDER",
+    "TTS_WORKERS",
+    "METADATA_MIRROR_BACKEND",
+    "METADATA_MIRROR_DUAL_WRITE",
+    "METADATA_CANARY_COMPARE",
+    "WORKER_QUEUE_PRESSURE_SOURCE",
+    "AZURE_TABLE_CONNECTION_STRING",
+    "AZURE_TABLE_ACCOUNT_URL",
+    "AZURE_TABLE_SAS_TOKEN",
+    "AZURE_TABLE_PREFIX",
+    "AZURE_TABLE_CREATE_TABLES"
   ];
 
   if (profile === "simple") {
@@ -152,6 +162,17 @@ function run() {
     if (!hasConnString && !hasAccountPair) {
       console.error(
         "[check-env] Azure profile requires AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_URL + AZURE_STORAGE_SAS_TOKEN."
+      );
+      process.exit(1);
+    }
+  }
+
+  if (env.METADATA_MIRROR_BACKEND === "azure_table") {
+    const hasTableConnString = Boolean(env.AZURE_TABLE_CONNECTION_STRING);
+    const hasTableAccountPair = Boolean(env.AZURE_TABLE_ACCOUNT_URL && env.AZURE_TABLE_SAS_TOKEN);
+    if (!hasTableConnString && !hasTableAccountPair) {
+      console.error(
+        "[check-env] METADATA_MIRROR_BACKEND=azure_table requires AZURE_TABLE_CONNECTION_STRING or AZURE_TABLE_ACCOUNT_URL + AZURE_TABLE_SAS_TOKEN."
       );
       process.exit(1);
     }

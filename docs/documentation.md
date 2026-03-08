@@ -83,7 +83,7 @@ Scheduler trigger API (internal automation):
 ## Runtime profiles
 - `simple`: local SQLite + local object storage
 - `parity`: Docker Compose PostgreSQL + Azurite + python-tts
-- `azure`: single VM compute + Azure PostgreSQL + Azure Blob
+- `azure`: single VM compute + Azure PostgreSQL + Azure Blob, with optional Azure Table metadata mirror for migration/canary
 
 ## Durable rollout status
 Milestones `M35`-`M46` are implemented in repository assets:
@@ -98,6 +98,19 @@ Milestones `M35`-`M46` are implemented in repository assets:
 - ingress/TLS automation helpers (`scripts/azure/configure-nginx.sh`, `scripts/azure/configure-tls.sh`)
 - durability snapshot/restore drill scripts and operations runbook
 - CI matrix with simple + parity release gates
+
+## Cost optimization rollout status (C01-C07 in progress)
+Current implementation baseline:
+- always-on compute target shifted to `B2s`.
+- local Kokoro lane locked to single worker (`TTS_WORKERS=1`) in VM service template.
+- overflow worker role and queue-pressure hysteresis are implemented in worker runtime.
+- Azure Table metadata mirror adapter is implemented (dual-write + canary compare support).
+- migration scripts are available:
+  - `npm run metadata:backfill`
+  - `npm run metadata:check`
+- cost guardrail automation scripts are available:
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
 
 ## Observability status
 Current implementation:

@@ -6,6 +6,8 @@ config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 type WorkerRole = "primary" | "overflow";
+type MetadataMirrorBackend = "none" | "azure_table";
+type QueuePressureSource = "prisma" | "mirror";
 
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
@@ -46,10 +48,33 @@ function parseWorkerRole(value: string | undefined): WorkerRole {
   return "primary";
 }
 
+function parseMetadataMirrorBackend(value: string | undefined): MetadataMirrorBackend {
+  if (value === "azure_table") {
+    return "azure_table";
+  }
+  return "none";
+}
+
+function parseQueuePressureSource(value: string | undefined): QueuePressureSource {
+  if (value === "mirror") {
+    return "mirror";
+  }
+  return "prisma";
+}
+
 const pythonTtsTimeoutMs = toPositiveInt(process.env.PYTHON_TTS_TIMEOUT_MS, 120000);
 
 export const workerEnv = {
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  metadataMirrorBackend: parseMetadataMirrorBackend(process.env.METADATA_MIRROR_BACKEND),
+  metadataMirrorDualWrite: (process.env.METADATA_MIRROR_DUAL_WRITE ?? "0") === "1",
+  metadataCanaryCompare: (process.env.METADATA_CANARY_COMPARE ?? "0") === "1",
+  queuePressureSource: parseQueuePressureSource(process.env.WORKER_QUEUE_PRESSURE_SOURCE),
+  azureTableConnectionString: process.env.AZURE_TABLE_CONNECTION_STRING,
+  azureTableAccountUrl: process.env.AZURE_TABLE_ACCOUNT_URL,
+  azureTableSasToken: process.env.AZURE_TABLE_SAS_TOKEN,
+  azureTablePrefix: process.env.AZURE_TABLE_PREFIX ?? BRAND_SLUG,
+  azureTableCreateTables: (process.env.AZURE_TABLE_CREATE_TABLES ?? "1") !== "0",
   workerRole: parseWorkerRole(process.env.WORKER_ROLE),
   overflowEnabled: (process.env.WORKER_OVERFLOW_ENABLED ?? "0") === "1",
   overflowPolicyEvalMs: toPositiveInt(process.env.WORKER_OVERFLOW_POLICY_EVAL_MS, 15_000),

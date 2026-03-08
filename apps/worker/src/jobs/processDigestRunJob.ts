@@ -17,6 +17,7 @@ import { prisma } from "../lib/prisma.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, normalizeStorageKey } from "../lib/storage.js";
 import { synthesizeEpisodeAudio } from "./processItemJob.js";
+import { syncDigestRunProjectionById } from "../lib/metadata-projection.js";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 
@@ -124,6 +125,7 @@ async function reclaimStaleProcessingDigestRuns(): Promise<number> {
         }
       });
       reclaimed++;
+      await syncDigestRunProjectionById(run.id);
     } catch {
       // Run was already claimed by another worker instance — skip it
     }
@@ -191,6 +193,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     return false;
   }
 
+  await syncDigestRunProjectionById(claimResult.id);
+
   const summaryProvider = makeSummaryProvider();
   const emailSender = makeDigestEmailSender();
   const storage = getArtifactStorage();
@@ -256,6 +260,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           podcastStatus: claimResult.podcastEnabled ? "SKIPPED" : null
         }
       });
+      await syncDigestRunProjectionById(claimResult.id);
       return true;
     }
 
@@ -385,6 +390,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
         errorMessage: null
       }
     });
+    await syncDigestRunProjectionById(claimResult.id);
 
     await workerLogger.info("Digest run completed", {
       digestRunId: claimResult.id,
@@ -410,6 +416,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
         }
       });
+      await syncDigestRunProjectionById(claimResult.id);
     } catch (stateError) {
       if (!isPrismaMissingEntityError(stateError)) {
         throw stateError;

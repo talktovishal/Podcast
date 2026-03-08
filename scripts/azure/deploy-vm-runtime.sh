@@ -11,6 +11,7 @@ APP_USER="${APP_USER:-$RUNTIME_APP_USER}"
 APP_GROUP="${APP_GROUP:-$APP_USER}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
+ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
 
 DEPLOY_STATE_DIR="$APP_DIR/.runtime/deploy-state"
 LOCK_HASH_FILE="$DEPLOY_STATE_DIR/pnpm-lock.sha256"
@@ -20,6 +21,7 @@ DEMO_SEED_MARKER_FILE="$DEPLOY_STATE_DIR/demo-seed.done"
 PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
 WEB_SERVICE="$(runtime_service_name web)"
 WORKER_SERVICE="$(runtime_service_name worker)"
+WORKER_OVERFLOW_SERVICE="$(runtime_service_name worker-overflow)"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "Missing app directory: $APP_DIR"
@@ -350,10 +352,15 @@ run_python_tts_setup_if_needed
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run db:bootstrap"
 run_demo_seed_if_needed
 
-sudo "$ROOT_DIR/scripts/azure/install-systemd.sh"
+sudo ENABLE_OVERFLOW_WORKER_SERVICE="$ENABLE_OVERFLOW_WORKER_SERVICE" "$ROOT_DIR/scripts/azure/install-systemd.sh"
 sudo systemctl restart "$PYTHON_TTS_SERVICE"
 run_tts_preview_precompute
 sudo systemctl restart "$WEB_SERVICE" "$WORKER_SERVICE"
-sudo systemctl status --no-pager "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
+if systemctl is-enabled "$WORKER_OVERFLOW_SERVICE" >/dev/null 2>&1; then
+  sudo systemctl restart "$WORKER_OVERFLOW_SERVICE"
+  sudo systemctl status --no-pager "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE" "$WORKER_OVERFLOW_SERVICE"
+else
+  sudo systemctl status --no-pager "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE"
+fi
 
 echo "[deploy-vm-runtime] deployment complete"

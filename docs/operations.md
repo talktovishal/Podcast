@@ -22,6 +22,13 @@ npm run ops:pre-drill-snapshot
 Default artifact:
 - `exports/ops/pre-drill-snapshot.json`
 
+Cost + queue baseline snapshot (for cost optimization rollouts):
+```bash
+AZ_SUBSCRIPTION_ID="<SUBSCRIPTION_ID>" \
+AZ_RESOURCE_GROUP="rg-articlepod-prod" \
+npm run ops:cost-baseline
+```
+
 ## Restore verification
 After VM replacement/redeploy:
 ```bash
@@ -85,6 +92,29 @@ Digest compatibility checks:
 ./scripts/verify_podcast_contract.sh "http://127.0.0.1:4100/rss/digest/<digest_token>.xml"
 ```
 
+## Serverless metadata migration runbook
+Backfill queue/item/digest projections into Azure Table mirror:
+```bash
+METADATA_MIRROR_BACKEND=azure_table \
+METADATA_MIRROR_DUAL_WRITE=1 \
+AZURE_TABLE_CONNECTION_STRING="<table-connection-string>" \
+npm run metadata:backfill
+```
+
+Compare Prisma queue state against mirror snapshot:
+```bash
+METADATA_MIRROR_BACKEND=azure_table \
+AZURE_TABLE_CONNECTION_STRING="<table-connection-string>" \
+METADATA_CONSISTENCY_MAX_DIFF=0 \
+npm run metadata:check
+```
+
+Recommended rollout pattern:
+- dual-write on (`METADATA_MIRROR_DUAL_WRITE=1`)
+- canary compare on (`METADATA_CANARY_COMPARE=1`)
+- keep queue pressure source on Prisma first (`WORKER_QUEUE_PRESSURE_SOURCE=prisma`)
+- switch queue pressure source to mirror only after consistency checks stay clean.
+
 ## Observability runbook
 Dedicated local log root:
 - `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`
@@ -136,3 +166,25 @@ Export admin analytics datasets (role-gated APIs):
   - `AppDependencies | where DurationMs > 5000 | top 50 by DurationMs desc`
 - Extension ingest failures:
   - `AppTraces | where Message has \"html-snapshot\" and SeverityLevel >= 3 | top 100 by TimeGenerated desc`
+
+## Cost guardrails runbook
+Configure budget and burn-rate alerts (subscription + resource-group):
+```bash
+./scripts/azure/configure-budget-alerts.sh \
+  --subscription-id "<SUBSCRIPTION_ID>" \
+  --resource-group "rg-articlepod-prod" \
+  --monthly-budget-usd 120 \
+  --contact-email "<FINOPS_EMAIL>"
+```
+
+Guardrail defaults for low-cost mode:
+- keep primary compute always-on at `B2s`.
+- keep `TTS_WORKERS=1`.
+- keep overflow worker service disabled by default.
+- enable overflow worker only with explicit queue thresholds and external TTS endpoint configured.
+
+Validate overflow guardrail env before enabling overflow worker:
+```bash
+ENV_FILE="/etc/articlepod/articlepod.env" \
+./scripts/azure/validate-overflow-guardrails.sh
+```

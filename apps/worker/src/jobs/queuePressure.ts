@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { workerEnv } from "../lib/env.js";
+import { workerLogger } from "../lib/logger.js";
+import { loadMirrorQueuePressureSnapshot } from "../lib/metadata-projection.js";
 
 export type QueuePressureSnapshot = {
   capturedAt: Date;
@@ -20,7 +22,7 @@ function retryableFailedWhere(nowTs: Date): Prisma.JobWhereInput {
   };
 }
 
-export async function loadQueuePressureSnapshot(nowTs = new Date()): Promise<QueuePressureSnapshot> {
+async function loadPrismaQueuePressureSnapshot(nowTs: Date): Promise<QueuePressureSnapshot> {
   const retryableWhere = retryableFailedWhere(nowTs);
   const eligibleWhere: Prisma.JobWhereInput = {
     OR: [{ status: "QUEUED" }, retryableWhere]
@@ -61,4 +63,60 @@ export async function loadQueuePressureSnapshot(nowTs = new Date()): Promise<Que
     oldestEligibleJobCreatedAt,
     oldestEligibleJobAgeMs
   };
+}
+
+let lastCanaryLogAt = 0;
+const CANARY_LOG_INTERVAL_MS = 60_000;
+
+async function maybeLogCanaryDiffs(prismaSnapshot: QueuePressureSnapshot, mirrorSnapshot: QueuePressureSnapshot): Promise<void> {
+  const differences = {
+    queuedJobs: mirrorSnapshot.queuedJobs - prismaSnapshot.queuedJobs,
+    retryableFailedJobs: mirrorSnapshot.retryableFailedJobs - prismaSnapshot.retryableFailedJobs,
+    processingJobs: mirrorSnapshot.processingJobs - prismaSnapshot.processingJobs,
+    eligibleJobs: mirrorSnapshot.eligibleJobs - prismaSnapshot.eligibleJobs,
+    oldestEligibleJobAgeMs: mirrorSnapshot.oldestEligibleJobAgeMs - prismaSnapshot.oldestEligibleJobAgeMs
+  };
+
+  const hasDiff = Object.values(differences).some((value) => value !== 0);
+  const nowMs = Date.now();
+  if (!hasDiff || nowMs - lastCanaryLogAt < CANARY_LOG_INTERVAL_MS) {
+    return;
+  }
+
+  await workerLogger.warn("Queue pressure canary diff detected between Prisma and metadata mirror", {
+    differences,
+    prisma: {
+      queuedJobs: prismaSnapshot.queuedJobs,
+      retryableFailedJobs: prismaSnapshot.retryableFailedJobs,
+      processingJobs: prismaSnapshot.processingJobs,
+      eligibleJobs: prismaSnapshot.eligibleJobs,
+      oldestEligibleJobAgeMs: prismaSnapshot.oldestEligibleJobAgeMs
+    },
+    mirror: {
+      queuedJobs: mirrorSnapshot.queuedJobs,
+      retryableFailedJobs: mirrorSnapshot.retryableFailedJobs,
+      processingJobs: mirrorSnapshot.processingJobs,
+      eligibleJobs: mirrorSnapshot.eligibleJobs,
+      oldestEligibleJobAgeMs: mirrorSnapshot.oldestEligibleJobAgeMs
+    }
+  });
+  lastCanaryLogAt = nowMs;
+}
+
+export async function loadQueuePressureSnapshot(nowTs = new Date()): Promise<QueuePressureSnapshot> {
+  const prismaSnapshot = await loadPrismaQueuePressureSnapshot(nowTs);
+  const mirrorSnapshot = await loadMirrorQueuePressureSnapshot(nowTs);
+
+  if (workerEnv.metadataCanaryCompare && mirrorSnapshot) {
+    await maybeLogCanaryDiffs(prismaSnapshot, mirrorSnapshot);
+  }
+
+  if (workerEnv.queuePressureSource === "mirror" && mirrorSnapshot) {
+    return {
+      ...mirrorSnapshot,
+      capturedAt: nowTs
+    };
+  }
+
+  return prismaSnapshot;
 }

@@ -3,6 +3,7 @@ import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from 
 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
+type MetadataMirrorBackend = "none" | "azure_table";
 
 function parseNonNegativeInt(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(raw ?? "", 10);
@@ -50,11 +51,26 @@ function normalizeDatabaseUrl(raw: string): string {
   return `file:${resolve(baseDir, filePart)}`;
 }
 
+function parseMetadataMirrorBackend(raw: string | undefined): MetadataMirrorBackend {
+  if (raw === "azure_table") {
+    return "azure_table";
+  }
+  return "none";
+}
+
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  metadataMirrorBackend: parseMetadataMirrorBackend(process.env.METADATA_MIRROR_BACKEND),
+  metadataMirrorDualWrite: parseBoolean(process.env.METADATA_MIRROR_DUAL_WRITE, false),
+  metadataCanaryCompare: parseBoolean(process.env.METADATA_CANARY_COMPARE, false),
+  azureTableConnectionString: process.env.AZURE_TABLE_CONNECTION_STRING,
+  azureTableAccountUrl: process.env.AZURE_TABLE_ACCOUNT_URL,
+  azureTableSasToken: process.env.AZURE_TABLE_SAS_TOKEN,
+  azureTablePrefix: process.env.AZURE_TABLE_PREFIX ?? BRAND_SLUG,
+  azureTableCreateTables: parseBoolean(process.env.AZURE_TABLE_CREATE_TABLES, true),
   databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), ".data/db.sqlite")}`),
   storageBackend,
   storageRoot: process.env.STORAGE_ROOT ?? resolve(process.cwd(), ".data/media"),

@@ -8,6 +8,7 @@ import { workerLogger } from "./lib/logger.js";
 import { describeTtsRuntime } from "./lib/providers.js";
 import { evaluateOverflowPolicy, createInitialOverflowPolicyState, type OverflowPolicyConfig } from "./lib/overflowPolicy.js";
 import { loadQueuePressureSnapshot, type QueuePressureSnapshot } from "./jobs/queuePressure.js";
+import { workerMetadataMirror } from "./lib/metadata-mirror.js";
 
 const HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT ?? 3001);
 const MAX_BACKOFF_MS = 30_000;
@@ -191,6 +192,10 @@ async function main() {
     overflowActivateOldestMs: workerEnv.overflowActivateOldestMs,
     overflowDeactivateOldestMs: workerEnv.overflowDeactivateOldestMs,
     overflowMinActiveMs: workerEnv.overflowMinActiveMs,
+    queuePressureSource: workerEnv.queuePressureSource,
+    metadataMirrorBackend: workerMetadataMirror.backend,
+    metadataMirrorDualWrite: workerEnv.metadataMirrorDualWrite,
+    metadataCanaryCompare: workerEnv.metadataCanaryCompare,
     ttsLane: ttsRuntime.lane,
     ttsEndpoint: ttsRuntime.pythonTtsUrl
   });
@@ -213,6 +218,9 @@ async function main() {
     await workerLogger.warn(
       "Overflow worker is using local python-tts endpoint because OVERFLOW_PYTHON_TTS_URL is not set."
     );
+  }
+  if (workerEnv.queuePressureSource === "mirror" && !workerMetadataMirror.enabled) {
+    await workerLogger.warn("WORKER_QUEUE_PRESSURE_SOURCE=mirror but metadata mirror is not enabled; falling back to Prisma.");
   }
 
   while (true) {

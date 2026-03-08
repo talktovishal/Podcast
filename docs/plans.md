@@ -261,13 +261,13 @@ Milestone metadata contract:
 | S16 | Planned | 2026-03-28 | — | — |
 | S17 | Planned | 2026-03-28 | — | — |
 | S18 | Planned | 2026-03-07 | — | — |
-| C01 | Planned | 2026-03-10 | — | — |
+| C01 | In Progress | 2026-03-10 | — | — |
 | C02 | In Progress | 2026-03-14 | — | — |
-| C03 | Planned | 2026-03-21 | — | — |
-| C04 | Planned | 2026-03-28 | — | — |
-| C05 | Planned | 2026-04-04 | — | — |
-| C06 | Planned | 2026-04-11 | — | — |
-| C07 | Planned | 2026-04-18 | — | — |
+| C03 | In Progress | 2026-03-21 | — | — |
+| C04 | In Progress | 2026-03-28 | — | — |
+| C05 | In Progress | 2026-04-04 | — | — |
+| C06 | In Progress | 2026-04-11 | — | — |
+| C07 | In Progress | 2026-04-18 | — | — |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3026,7 +3026,7 @@ Milestone metadata contract:
 ## Cost Optimization Track (C01-C07)
 
 ### C01 - Cost Baseline, B2s Right-Sizing, and Rollback Guardrails
-- status: Planned
+- status: In Progress
 - target_finish: 2026-03-10
 - Scope:
   - Capture repeatable cost/queue baseline snapshots and rollback toggles.
@@ -3070,7 +3070,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run test`
 
 ### C03 - Metadata and Queue Adapter Interfaces (Postgres Default)
-- status: Planned
+- status: In Progress
 - target_finish: 2026-03-21
 - Scope:
   - Introduce adapter interfaces for queue claims/retries and metadata CRUD.
@@ -3089,7 +3089,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C04 - Serverless Table/Blob Metadata Adapter Implementation
-- status: Planned
+- status: In Progress
 - target_finish: 2026-03-28
 - Scope:
   - Implement Azure Table-backed metadata + queue primitives behind adapters.
@@ -3108,7 +3108,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C05 - Dual-Write, Backfill, and Consistency Certification
-- status: Planned
+- status: In Progress
 - target_finish: 2026-04-04
 - Scope:
   - Dual-write Postgres + Table with shadow-read consistency checks.
@@ -3127,7 +3127,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C06 - Canary and Full Serverless Metadata Cutover
-- status: Planned
+- status: In Progress
 - target_finish: 2026-04-11
 - Scope:
   - Roll out canary reads/writes, then full traffic cutover.
@@ -3146,7 +3146,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C07 - Financial Guardrails and Incident Controls
-- status: Planned
+- status: In Progress
 - target_finish: 2026-04-18
 - Scope:
   - Add budget alerts, overflow spend caps, and queue/failure SLO alerts.
