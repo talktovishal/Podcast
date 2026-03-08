@@ -5,14 +5,34 @@ import {
 } from "./demo-diagnostics";
 import type { UserDemographicSurveyView } from "./demographics";
 import { env } from "./env";
+import {
+  findPrimaryActiveFeedTokenByUserId,
+  findPrimaryDigestSettingsByUserId,
+  findPrimaryUserByFeedTokenHash,
+  findPrimaryUserById,
+  findPrimaryUserDemographicSurvey,
+  listPrimaryDigestRunsByUser
+} from "./metadata-primary-auth";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 
+const ADMIN_MAX_RETRY_ATTEMPTS = Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5);
+
 export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
-  const token = await prisma.feedToken.findFirst({ where: { userId, active: true }, orderBy: { createdAt: "desc" } });
+  const token = await findPrimaryActiveFeedTokenByUserId(userId, "item");
   return token?.tokenValue ?? null;
 }
 
 export async function getDashboardItems(userId: string) {
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const [items, episodes] = await Promise.all([webPrimaryStore.listItemsByUser(userId, 50), webPrimaryStore.listEpisodesForUser(userId)]);
+    const episodesByItemId = new Map(episodes.map((episode) => [episode.itemId, episode]));
+    return items.map((item) => ({
+      ...item,
+      episode: episodesByItemId.get(item.id) ?? null
+    }));
+  }
+
   return prisma.item.findMany({
     where: { userId },
     include: {
@@ -65,13 +85,7 @@ export async function getDemoExtractionDiagnostics(userId: string, limit = 10): 
 }
 
 export async function getUserTtsSettings(userId: string): Promise<{ providerId: string; voice: string }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      ttsProvider: true,
-      ttsVoice: true
-    }
-  });
+  const user = await findPrimaryUserById(userId);
   return {
     providerId: user?.ttsProvider || "kokoro",
     voice: user?.ttsVoice || "af_heart"
@@ -79,44 +93,15 @@ export async function getUserTtsSettings(userId: string): Promise<{ providerId: 
 }
 
 export async function getUserDigestSettings(userId: string) {
-  return prisma.userDigestSettings.findUnique({
-    where: { userId }
-  });
+  return findPrimaryDigestSettingsByUserId(userId);
 }
 
 export async function getRecentDigestRuns(userId: string, limit = 20) {
-  return prisma.digestRun.findMany({
-    where: { userId },
-    orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
-    take: Math.max(1, Math.min(limit, 50)),
-    include: {
-      episode: {
-        select: {
-          id: true,
-          audioPath: true,
-          audioBytes: true,
-          mimeType: true,
-          publishedAt: true
-        }
-      }
-    }
-  });
+  return listPrimaryDigestRunsByUser(userId, Math.max(1, Math.min(limit, 50)));
 }
 
 export async function getUserDemographicSurvey(userId: string): Promise<UserDemographicSurveyView> {
-  const survey = await prisma.userDemographicSurvey.findUnique({
-    where: { userId },
-    select: {
-      status: true,
-      ageBand: true,
-      genderIdentity: true,
-      genderSelfDescribe: true,
-      completedAt: true,
-      skippedAt: true,
-      deletedAt: true,
-      updatedAt: true
-    }
-  });
+  const survey = await findPrimaryUserDemographicSurvey(userId);
 
   if (!survey) {
     return {
@@ -144,6 +129,82 @@ export async function getUserDemographicSurvey(userId: string): Promise<UserDemo
 }
 
 export async function getAdminMetrics() {
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const store = webPrimaryStore;
+    const nowTs = new Date();
+    const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentJobs, recentErrors] =
+      await Promise.all([
+        store.countUsers(),
+        store.countItems(),
+        store.countItems("READY"),
+        store.countItems("FAILED"),
+        store.countJobs({ status: "QUEUED" }),
+        store.countJobs({ status: "PROCESSING" }),
+        store.countJobs({
+          status: "FAILED",
+          retryableBefore: nowTs,
+          maxRetryAttempts: ADMIN_MAX_RETRY_ATTEMPTS
+        }),
+        store.listRecentJobs(20),
+        env.jobEventStorageMode === "off"
+          ? Promise.resolve([])
+          : prisma.jobEvent.findMany({
+              where: { eventType: "error" },
+              orderBy: { createdAt: "desc" },
+              take: 20
+            })
+      ]);
+
+    const recentJobsWithItems = await Promise.all(
+      recentJobs.map(async (job) => {
+        const item = await store.findItemById(job.itemId);
+        return {
+          ...job,
+          item
+        };
+      })
+    );
+
+    const now = Date.now();
+    const queueAgeSamples = recentJobs
+      .filter((job) => job.status === "QUEUED")
+      .map((job) => Math.max(0, now - job.createdAt.getTime()));
+    const processingAgeSamples = recentJobs
+      .filter((job) => job.status === "PROCESSING")
+      .map((job) => Math.max(0, now - job.updatedAt.getTime()));
+    const avgQueueWaitMs =
+      queueAgeSamples.length > 0 ? Math.round(queueAgeSamples.reduce((sum, value) => sum + value, 0) / queueAgeSamples.length) : 0;
+    const avgProcessingAgeMs =
+      processingAgeSamples.length > 0
+        ? Math.round(processingAgeSamples.reduce((sum, value) => sum + value, 0) / processingAgeSamples.length)
+        : 0;
+    const topErrorCodes = new Map<string, number>();
+    for (const event of recentErrors) {
+      const payload = event.payloadJson as Record<string, unknown> | null;
+      const candidate = payload?.error_code ?? payload?.errorCode ?? payload?.code;
+      const code = typeof candidate === "string" && candidate.trim() ? candidate.trim() : "UNKNOWN";
+      topErrorCodes.set(code, (topErrorCodes.get(code) || 0) + 1);
+    }
+
+    return {
+      activeUsers,
+      totalItems,
+      readyItems,
+      failedItems,
+      queuedJobs,
+      processingJobs,
+      retryableFailedJobs,
+      avgQueueWaitMs,
+      avgProcessingAgeMs,
+      topErrorCodes: Array.from(topErrorCodes.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([code, count]) => ({ code, count })),
+      recentErrors,
+      recentJobs: recentJobsWithItems
+    };
+  }
+
   const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentErrors, recentJobs] =
     await Promise.all([
     prisma.user.count(),
@@ -212,8 +273,6 @@ export async function getAdminMetrics() {
 
 export async function getUserByFeedToken(token: string) {
   const tokenHash = hashIncomingToken(token);
-  return prisma.feedToken.findFirst({
-    where: { tokenHash, active: true },
-    include: { user: true }
-  });
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "item");
+  return user ? { user } : null;
 }

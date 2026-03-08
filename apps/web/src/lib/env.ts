@@ -4,6 +4,7 @@ import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 type MetadataMirrorBackend = "none" | "azure_table";
+type MetadataPrimaryBackend = "prisma" | "azure_table";
 type AnalyticsStorageMode = "full" | "off";
 type JobEventStorageMode = "database" | "off";
 
@@ -60,6 +61,13 @@ function parseMetadataMirrorBackend(raw: string | undefined): MetadataMirrorBack
   return "none";
 }
 
+function parseMetadataPrimaryBackend(raw: string | undefined): MetadataPrimaryBackend {
+  if (raw === "azure_table") {
+    return "azure_table";
+  }
+  return "prisma";
+}
+
 function parseAnalyticsStorageMode(raw: string | undefined): AnalyticsStorageMode {
   if (raw === "off") {
     return "off";
@@ -82,6 +90,7 @@ export const env = {
   analyticsStorageMode: parseAnalyticsStorageMode(process.env.ANALYTICS_STORAGE_MODE),
   jobEventStorageMode: parseJobEventStorageMode(process.env.JOB_EVENT_STORAGE_MODE),
   demoExtractionTraceEnabled: parseBoolean(process.env.DEMO_EXTRACTION_TRACE_ENABLED, true),
+  metadataPrimaryBackend: parseMetadataPrimaryBackend(process.env.METADATA_PRIMARY_BACKEND),
   metadataMirrorBackend: parseMetadataMirrorBackend(process.env.METADATA_MIRROR_BACKEND),
   metadataMirrorDualWrite: parseBoolean(process.env.METADATA_MIRROR_DUAL_WRITE, false),
   metadataCanaryCompare: parseBoolean(process.env.METADATA_CANARY_COMPARE, false),

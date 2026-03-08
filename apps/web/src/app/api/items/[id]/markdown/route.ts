@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 
@@ -12,15 +13,29 @@ export async function GET(request: NextRequest, context: { params: { id: string 
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const item = await prisma.item.findUnique({
-      where: { id: context.params.id },
-      include: {
-        artifacts: {
-          where: { kind: "MARKDOWN" },
-          take: 1
-        }
-      }
-    });
+    const item =
+      webUsesAzureTablePrimary() && webPrimaryStore
+        ? await (async () => {
+            const [itemRow, artifacts] = await Promise.all([
+              webPrimaryStore.findItemById(context.params.id),
+              webPrimaryStore.listItemArtifacts(context.params.id, "MARKDOWN")
+            ]);
+            return itemRow
+              ? {
+                  ...itemRow,
+                  artifacts
+                }
+              : null;
+          })()
+        : await prisma.item.findUnique({
+            where: { id: context.params.id },
+            include: {
+              artifacts: {
+                where: { kind: "MARKDOWN" },
+                take: 1
+              }
+            }
+          });
     if (!item || user.role !== "ADMIN") {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }

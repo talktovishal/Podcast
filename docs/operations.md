@@ -4,13 +4,14 @@
 Customer accounts, feed metadata, and generated audio must survive VM loss.
 
 Durability boundary:
-- durable: Azure PostgreSQL + Azure Blob
-- non-durable: VM local disk/process state
+- durable: Azure Table operational metadata + Azure Blob artifacts
+- optional rollback durable path: PostgreSQL only when explicitly kept for canary/rollback
+- non-durable: VM local disk/process state (including auxiliary SQLite, local logs, and demo diagnostics unless archived elsewhere)
 
 ## VM runtime recovery
 1. Recreate or repair VM compute.
 2. Re-deploy runtime (`scripts/azure/deploy-vm-runtime.sh`).
-3. Ensure env points to existing PostgreSQL + Blob resources.
+3. Ensure env points to existing Azure Table + Blob resources (and optional PostgreSQL rollback resources only if that path is still enabled).
 4. Restart systemd services.
 5. Validate health and podcast contract.
 
@@ -35,10 +36,13 @@ After VM replacement/redeploy:
 npm run ops:verify-restore
 ```
 This verifies:
-- DB counts are not regressed vs snapshot
-- previously captured episodes still exist in DB
+- primary metadata counts are not regressed vs snapshot
+- previously captured episodes still exist in the active metadata backend
 - episode audio objects are still readable from storage
 - parity smoke + podcast contract gate still pass
+
+Notes:
+- in `METADATA_PRIMARY_BACKEND=azure_table` mode, local/demo diagnostic counts are informational only and are excluded from restore regression gating.
 
 ## Signed durability drill report (template)
 - Drill date:
@@ -114,6 +118,16 @@ Recommended rollout pattern:
 - canary compare on (`METADATA_CANARY_COMPARE=1`)
 - keep queue pressure source on Prisma first (`WORKER_QUEUE_PRESSURE_SOURCE=prisma`)
 - switch queue pressure source to mirror only after consistency checks stay clean.
+
+Full low-cost primary mode:
+```bash
+METADATA_PRIMARY_BACKEND=azure_table \
+DATABASE_URL="file:/var/lib/articlepod/db.sqlite" \
+AZURE_TABLE_CONNECTION_STRING="<table-connection-string>" \
+ANALYTICS_STORAGE_MODE=off \
+JOB_EVENT_STORAGE_MODE=off \
+DEMO_EXTRACTION_TRACE_ENABLED=0
+```
 
 ## Observability runbook
 Dedicated local log root:

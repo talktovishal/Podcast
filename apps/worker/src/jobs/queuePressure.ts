@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { workerEnv } from "../lib/env.js";
 import { workerLogger } from "../lib/logger.js";
+import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import { loadMirrorQueuePressureSnapshot } from "../lib/metadata-projection.js";
 
 export type QueuePressureSnapshot = {
@@ -23,6 +24,28 @@ function retryableFailedWhere(nowTs: Date): Prisma.JobWhereInput {
 }
 
 async function loadPrismaQueuePressureSnapshot(nowTs: Date): Promise<QueuePressureSnapshot> {
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const [jobs, processing] = await Promise.all([
+      workerPrimaryStore.listNextEligibleJobs(nowTs, workerEnv.maxRetryAttempts),
+      workerPrimaryStore.listJobsByStatus("PROCESSING")
+    ]);
+    const queuedJobs = jobs.filter((job) => job.status === "QUEUED").length;
+    const retryableFailedJobs = jobs.filter((job) => job.status === "FAILED").length;
+    const processingJobs = processing.length;
+    const oldestEligible = jobs
+      .map((job) => job.createdAt)
+      .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+    return {
+      capturedAt: nowTs,
+      queuedJobs,
+      retryableFailedJobs,
+      processingJobs,
+      eligibleJobs: queuedJobs + retryableFailedJobs,
+      oldestEligibleJobCreatedAt: oldestEligible,
+      oldestEligibleJobAgeMs: oldestEligible ? Math.max(0, nowTs.getTime() - oldestEligible.getTime()) : 0
+    };
+  }
+
   const retryableWhere = retryableFailedWhere(nowTs);
   const eligibleWhere: Prisma.JobWhereInput = {
     OR: [{ status: "QUEUED" }, retryableWhere]

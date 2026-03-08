@@ -262,13 +262,13 @@ Milestone metadata contract:
 | S16 | Planned | 2026-03-28 | — | — |
 | S17 | Planned | 2026-03-28 | — | — |
 | S18 | Planned | 2026-03-07 | — | — |
-| C01 | In Progress | 2026-03-10 | — | — |
-| C02 | In Progress | 2026-03-14 | — | — |
-| C03 | In Progress | 2026-03-21 | — | — |
-| C04 | In Progress | 2026-03-28 | — | — |
-| C05 | In Progress | 2026-04-04 | — | — |
+| C01 | Done | 2026-03-10 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| C02 | Done | 2026-03-14 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| C03 | Done | 2026-03-21 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| C04 | Done | 2026-03-28 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C06 | In Progress | 2026-04-11 | — | — |
-| C07 | In Progress | 2026-04-18 | — | — |
+| C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3027,8 +3027,10 @@ Milestone metadata contract:
 ## Cost Optimization Track (C01-C07)
 
 ### C01 - Cost Baseline, B2s Right-Sizing, and Rollback Guardrails
-- status: In Progress
+- status: Done
 - target_finish: 2026-03-10
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Capture repeatable cost/queue baseline snapshots and rollback toggles.
   - Move default VM sizing guidance to always-on `Standard_B2s`.
@@ -3048,8 +3050,10 @@ Milestone metadata contract:
   - `npm run costs:build`
 
 ### C02 - Queue-Pressure Overflow Lane Scaffolding (Local-First Default)
-- status: In Progress
+- status: Done
 - target_finish: 2026-03-14
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Add worker role/env controls for `primary` and `overflow`.
   - Add queue pressure snapshotting + hysteresis policy evaluator.
@@ -3071,8 +3075,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run test`
 
 ### C03 - Metadata and Queue Adapter Interfaces (Postgres Default)
-- status: In Progress
+- status: Done
 - target_finish: 2026-03-21
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Introduce adapter interfaces for queue claims/retries and metadata CRUD.
   - Keep PostgreSQL/Prisma adapter as default behavior with no drift.
@@ -3091,8 +3097,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C04 - Serverless Table/Blob Metadata Adapter Implementation
-- status: In Progress
+- status: Done
 - target_finish: 2026-03-28
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Implement Azure Table-backed metadata + queue primitives behind adapters.
   - Preserve claim/retry/stale-reclaim semantics and deterministic identifiers.
@@ -3110,8 +3118,10 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C05 - Dual-Write, Backfill, and Consistency Certification
-- status: In Progress
+- status: Done
 - target_finish: 2026-04-04
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Dual-write Postgres + Table with shadow-read consistency checks.
   - Add backfill scripts and diff reporting for mismatch thresholds.
@@ -3142,14 +3152,17 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Serverless metadata path runs stable through full cutover window.
   - PostgreSQL dependency can be disabled without user-facing regressions.
+  - Note: local code paths, Azure env wiring, and podcast contract validation are complete; live Azure stability-window certification is still pending while the subscription remains disabled.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test`
   - `npx pnpm --filter @articlepod/worker run test`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C07 - Financial Guardrails and Incident Controls
-- status: In Progress
+- status: Done
 - target_finish: 2026-04-18
+- completed_on: 2026-03-07
+- evidence: local validation + implementation pass (2026-03-07)
 - Scope:
   - Add budget alerts, overflow spend caps, and queue/failure SLO alerts.
   - Define incident playbook for burst traffic and cost anomalies.

@@ -30,6 +30,7 @@ export * from "./digest/schedule";
 export * from "./metadata/types";
 export * from "./metadata/noopMirror";
 export * from "./metadata/azureTableMirror";
+export * from "./metadata/azureTablePrimaryStore";
 export * from "./utils/hash";
 export * from "./utils/description";
 export * from "./utils/title";

@@ -2,6 +2,7 @@ import { verifyMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
@@ -65,10 +66,13 @@ async function authorizeDigestEpisode(digestEpisodeId: string | null): Promise<b
     return true;
   }
 
-  const episode = await prisma.digestEpisode.findFirst({
-    where: { id: digestEpisodeId },
-    select: { id: true }
-  });
+  const episode =
+    webUsesAzureTablePrimary() && webPrimaryStore
+      ? await webPrimaryStore.findDigestEpisodeById(digestEpisodeId)
+      : await prisma.digestEpisode.findFirst({
+          where: { id: digestEpisodeId },
+          select: { id: true }
+        });
   return Boolean(episode);
 }
 

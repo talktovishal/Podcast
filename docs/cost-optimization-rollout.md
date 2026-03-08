@@ -29,6 +29,7 @@
   - Overflow TTS provider can point to external endpoint/provider.
 - Data:
   - Metadata + queue state: serverless table store.
+  - Auxiliary low-signal/admin-only state: local SQLite on the VM (`DATABASE_URL=file:/var/lib/articlepod/db.sqlite` in Azure Table primary mode).
   - Artifacts/audio: blob store.
   - Diagnostics/logs: local disk by default, with optional Blob archive; not Azure Table primary data.
 
@@ -68,7 +69,7 @@
 
 ### Phase 3 - Metadata/queue abstraction layer
 - [x] Introduce adapter interfaces for queue + metadata operations.
-- [ ] Keep Postgres adapter as current default.
+- [x] Keep Postgres/Prisma adapter as current default.
 - [ ] Add adapter-specific integration tests.
 - [x] Explicitly exclude logs/diagnostic firehose data from Table-primary scope.
 - Files:
@@ -80,8 +81,8 @@
 
 ### Phase 4 - Serverless data adapters (Table + Blob refs)
 - [x] Implement Azure Table adapter(s) for key metadata models.
-- [ ] Implement queue semantics on serverless store (claim/retry/stale reclaim).
-- [ ] Preserve idempotency and retry semantics.
+- [x] Implement queue semantics on serverless store (claim/retry/stale reclaim).
+- [x] Preserve idempotency and retry semantics.
 - Files:
   - `packages/core/src/storage/*` (new table adapter modules)
   - `apps/worker/src/lib/*`
@@ -99,8 +100,9 @@
   - `docs/operations.md`
 
 ### Phase 6 - Canary and full cutover
-- [ ] Canary reads/writes on serverless store.
-- [ ] Full cutover after stability window.
+- [x] Canary reads/writes on serverless store.
+- [x] Primary-store cutover flags and Azure deployment wiring are implemented locally.
+- [ ] Full Azure cutover after stability window.
 - [ ] Keep Postgres rollback window before decom.
 - Files:
   - feature flags in `apps/web/src/lib/env.ts`, `apps/worker/src/lib/env.ts`
@@ -162,6 +164,8 @@
   - `pnpm build`
 
 ## Immediate next implementation items (now in progress)
-- Add overflow env controls and policy evaluator.
-- Add overflow worker role gate with local-first behavior.
-- Add tests for hysteresis policy transitions.
+- Azure subscription re-enable, then run:
+  - `npm run metadata:backfill`
+  - `npm run metadata:check`
+  - live Azure deploy with `METADATA_PRIMARY_BACKEND=azure_table`
+  - signed restore drill on the new Table-primary Azure runtime

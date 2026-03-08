@@ -7,7 +7,33 @@ import type { AnalyticsAuthMethod } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { resolveGeoSnapshotFromHeaders } from "./geo";
-import { prisma } from "./prisma";
+import {
+  createPrimaryExtensionConnectCode,
+  createPrimaryExtensionToken,
+  createPrimaryFeedToken,
+  createPrimarySession,
+  createPrimaryShareToken,
+  createPrimaryOAuthIdentity,
+  createPrimaryUser,
+  deactivatePrimaryFeedTokens,
+  deletePrimarySessionByTokenHash,
+  findPrimaryActiveFeedTokenByUserId,
+  findPrimaryDigestSettingsByUserId,
+  findPrimaryExtensionConnectCodeWithUserByHash,
+  findPrimaryExtensionTokenWithUserByHash,
+  findPrimaryOAuthIdentityWithUser,
+  findPrimaryShareTokenWithUserByHash,
+  findPrimarySessionWithUserByTokenHash,
+  findPrimaryUserByEmail,
+  findPrimaryUserByFeedTokenHash,
+  findPrimaryUserById,
+  findPrimaryUserByShareTokenHash,
+  revokePrimaryExtensionTokensForUser,
+  touchPrimaryExtensionTokenLastUsed,
+  updatePrimaryUser,
+  upsertPrimaryDigestSettings,
+  consumePrimaryExtensionConnectCode
+} from "./metadata-primary-auth";
 
 const SESSION_COOKIE = AUTH_COOKIE_NAMES.session;
 const LEGACY_SESSION_COOKIE = AUTH_COOKIE_NAMES.legacySession;
@@ -93,86 +119,78 @@ export async function verifyPassword(plain: string, passwordHash: string): Promi
 }
 
 export async function ensureUserFeedToken(userId: string): Promise<string> {
-  const active = await prisma.feedToken.findFirst({ where: { userId, active: true } });
+  const active = await findPrimaryActiveFeedTokenByUserId(userId, "item");
   if (active?.tokenValue) {
     // Legacy row with plaintext still present — return it as-is.
     return active.tokenValue;
   }
   if (active) {
     // Active token exists but no plaintext stored; rotate to get a returnable plain value.
-    await prisma.feedToken.updateMany({ where: { userId, active: true }, data: { active: false, rotatedAt: new Date() } });
+    await deactivatePrimaryFeedTokens(userId, "item", new Date());
   }
 
   const token = createSecretToken();
-  await prisma.feedToken.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      active: true
-    }
+  await createPrimaryFeedToken({
+    userId,
+    tokenHash: token.hash,
+    kind: "item"
   });
   return token.plain;
 }
 
 export async function ensureUserDigestFeedToken(userId: string): Promise<string> {
-  const active = await prisma.digestFeedToken.findFirst({ where: { userId, active: true } });
+  const active = await findPrimaryActiveFeedTokenByUserId(userId, "digest");
   if (active?.tokenValue) {
     return active.tokenValue;
   }
   if (active) {
-    await prisma.digestFeedToken.updateMany({ where: { userId, active: true }, data: { active: false, rotatedAt: new Date() } });
+    await deactivatePrimaryFeedTokens(userId, "digest", new Date());
   }
 
   const token = createSecretToken();
-  await prisma.digestFeedToken.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      active: true
-    }
+  await createPrimaryFeedToken({
+    userId,
+    tokenHash: token.hash,
+    kind: "digest"
   });
   return token.plain;
 }
 
 export async function ensureUserDigestSettings(userId: string) {
-  const existing = await prisma.userDigestSettings.findUnique({
-    where: { userId }
-  });
+  const existing = await findPrimaryDigestSettingsByUserId(userId);
   if (existing) {
     return existing;
   }
 
   const now = new Date();
   const timezone = "UTC";
-  return prisma.userDigestSettings.create({
-    data: {
-      userId,
+  return upsertPrimaryDigestSettings({
+    userId,
+    timezone,
+    dailyEmailEnabled: false,
+    dailyPodcastEnabled: false,
+    dailyHour: 16,
+    dailyMinute: 0,
+    dailyLengthMinutes: 5,
+    dailyNextRunAt: computeNextDailyRunAt({
+      now,
       timezone,
-      dailyEmailEnabled: false,
-      dailyPodcastEnabled: false,
       dailyHour: 16,
-      dailyMinute: 0,
-      dailyLengthMinutes: 5,
-      dailyNextRunAt: computeNextDailyRunAt({
-        now,
-        timezone,
-        dailyHour: 16,
-        dailyMinute: 0
-      }),
-      weeklyEmailEnabled: true,
-      weeklyPodcastEnabled: true,
+      dailyMinute: 0
+    }),
+    weeklyEmailEnabled: true,
+    weeklyPodcastEnabled: true,
+    weeklyDayOfWeek: 5,
+    weeklyHour: 16,
+    weeklyMinute: 0,
+    weeklyLengthMinutes: 15,
+    weeklyNextRunAt: computeNextWeeklyRunAt({
+      now,
+      timezone,
       weeklyDayOfWeek: 5,
       weeklyHour: 16,
-      weeklyMinute: 0,
-      weeklyLengthMinutes: 15,
-      weeklyNextRunAt: computeNextWeeklyRunAt({
-        now,
-        timezone,
-        weeklyDayOfWeek: 5,
-        weeklyHour: 16,
-        weeklyMinute: 0
-      })
-    }
+      weeklyMinute: 0
+    })
   });
 }
 
@@ -180,15 +198,7 @@ export async function updateUserGeoSnapshotFromRequest(userId: string, request: 
   const geo = resolveGeoSnapshotFromHeaders(request.headers);
   const now = new Date();
 
-  const existing = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      firstSeenAt: true,
-      firstSeenCountryCode: true,
-      firstSeenRegionCode: true,
-      firstSeenCity: true
-    }
-  });
+  const existing = await findPrimaryUserById(userId);
   if (!existing) {
     return;
   }
@@ -229,10 +239,7 @@ export async function updateUserGeoSnapshotFromRequest(userId: string, request: 
     updateData.lastSeenCity = geo.city;
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: updateData
-  });
+  await updatePrimaryUser(userId, updateData);
 }
 
 export async function createSession(
@@ -242,12 +249,10 @@ export async function createSession(
   }
 ): Promise<string> {
   const token = createSecretToken();
-  const session = await prisma.session.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      expiresAt: sessionExpiryDate()
-    }
+  const session = await createPrimarySession({
+    userId,
+    tokenHash: token.hash,
+    expiresAt: sessionExpiryDate()
   });
   const profile = await resolveUserAnalyticsProfile(userId);
   await recordAnalyticsEventBestEffort({
@@ -314,17 +319,14 @@ export async function getAuthUserFromCookies(): Promise<AuthUser | null> {
 
 async function getAuthUserFromToken(token: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(token);
-  const session = await prisma.session.findUnique({
-    where: { tokenHash },
-    include: { user: true }
-  });
+  const session = await findPrimarySessionWithUserByTokenHash(tokenHash);
 
   if (!session) {
     return null;
   }
 
   if (session.expiresAt.getTime() < Date.now()) {
-    await prisma.session.delete({ where: { id: session.id } });
+    await deletePrimarySessionByTokenHash(tokenHash);
     return null;
   }
 
@@ -340,42 +342,26 @@ export async function requireAuthUser(request: NextRequest): Promise<AuthUser> {
 }
 
 export async function rotateFeedToken(userId: string): Promise<string> {
-  const oldTokens = await prisma.feedToken.findMany({ where: { userId, active: true } });
-  if (oldTokens.length > 0) {
-    await prisma.feedToken.updateMany({
-      where: { userId, active: true },
-      data: { active: false, rotatedAt: new Date() }
-    });
-  }
+  await deactivatePrimaryFeedTokens(userId, "item", new Date());
 
   const token = createSecretToken();
-  await prisma.feedToken.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      active: true
-    }
+  await createPrimaryFeedToken({
+    userId,
+    tokenHash: token.hash,
+    kind: "item"
   });
 
   return token.plain;
 }
 
 export async function rotateDigestFeedToken(userId: string): Promise<string> {
-  const oldTokens = await prisma.digestFeedToken.findMany({ where: { userId, active: true } });
-  if (oldTokens.length > 0) {
-    await prisma.digestFeedToken.updateMany({
-      where: { userId, active: true },
-      data: { active: false, rotatedAt: new Date() }
-    });
-  }
+  await deactivatePrimaryFeedTokens(userId, "digest", new Date());
 
   const token = createSecretToken();
-  await prisma.digestFeedToken.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      active: true
-    }
+  await createPrimaryFeedToken({
+    userId,
+    tokenHash: token.hash,
+    kind: "digest"
   });
 
   return token.plain;
@@ -383,12 +369,10 @@ export async function rotateDigestFeedToken(userId: string): Promise<string> {
 
 export async function createShareToken(userId: string, expiresAt?: Date): Promise<string> {
   const token = createSecretToken();
-  await prisma.shareToken.create({
-    data: {
-      userId,
-      tokenHash: token.hash,
-      expiresAt
-    }
+  await createPrimaryShareToken({
+    userId,
+    tokenHash: token.hash,
+    expiresAt
   });
 
   return token.plain;
@@ -396,11 +380,7 @@ export async function createShareToken(userId: string, expiresAt?: Date): Promis
 
 export async function getUserByShareToken(plain: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(plain);
-  const share = await prisma.shareToken.findUnique({
-    where: { tokenHash },
-    include: { user: true }
-  });
-
+  const share = await findPrimaryShareTokenWithUserByHash(tokenHash);
   if (!share) {
     return null;
   }
@@ -414,30 +394,22 @@ export async function getUserByShareToken(plain: string): Promise<AuthUser | nul
 
 export async function getUserByFeedToken(plain: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(plain);
-  const feedToken = await prisma.feedToken.findFirst({
-    where: { tokenHash, active: true },
-    include: { user: true }
-  });
-
-  if (!feedToken) {
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "item");
+  if (!user) {
     return null;
   }
 
-  return authUserFromDbUser(feedToken.user);
+  return authUserFromDbUser(user);
 }
 
 export async function getUserByDigestFeedToken(plain: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(plain);
-  const feedToken = await prisma.digestFeedToken.findFirst({
-    where: { tokenHash, active: true },
-    include: { user: true }
-  });
-
-  if (!feedToken) {
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "digest");
+  if (!user) {
     return null;
   }
 
-  return authUserFromDbUser(feedToken.user);
+  return authUserFromDbUser(user);
 }
 
 export function setOAuthStateCookie(response: NextResponse, provider: OAuthProvider, state: string): void {
@@ -508,67 +480,50 @@ export async function findOrCreateOAuthUser(input: {
   name?: string | null;
 }): Promise<{ user: { id: string; email: string; name: string | null; role: string }; created: boolean }> {
   const normalizedEmail = normalizeOAuthEmail(input.email);
+  const existingIdentity = await findPrimaryOAuthIdentityWithUser(input.provider, input.providerUserId);
 
-  return prisma.$transaction(async (tx) => {
-    const existingIdentity = await tx.oAuthIdentity.findUnique({
-      where: {
-        provider_providerUserId: {
-          provider: input.provider,
-          providerUserId: input.providerUserId
-        }
-      },
-      include: {
-        user: true
-      }
-    });
-
-    if (existingIdentity) {
-      const updateData: { name?: string; email?: string } = {};
-      if (input.name?.trim()) {
-        updateData.name = input.name.trim();
-      }
-      if (normalizedEmail && existingIdentity.user.email.endsWith(`@${OAUTH_PLACEHOLDER_DOMAIN}`)) {
-        updateData.email = normalizedEmail;
-      }
-
-      const user =
-        Object.keys(updateData).length > 0
-          ? await tx.user.update({
-              where: { id: existingIdentity.userId },
-              data: updateData
-            })
-          : existingIdentity.user;
-      return {
-        user,
-        created: false
-      };
+  if (existingIdentity) {
+    const updateData: { name?: string; email?: string } = {};
+    if (input.name?.trim()) {
+      updateData.name = input.name.trim();
+    }
+    if (normalizedEmail && existingIdentity.user.email.endsWith(`@${OAUTH_PLACEHOLDER_DOMAIN}`)) {
+      updateData.email = normalizedEmail;
     }
 
-    const userByEmail = normalizedEmail ? await tx.user.findUnique({ where: { email: normalizedEmail } }) : null;
     const user =
-      userByEmail ??
-      (await tx.user.create({
-        data: {
-          email: normalizedEmail ?? fallbackOAuthEmail(input.provider, input.providerUserId),
-          name: input.name?.trim() || null,
-          role: "USER"
-        }
-      }));
-
-    await tx.oAuthIdentity.create({
-      data: {
-        userId: user.id,
-        provider: input.provider,
-        providerUserId: input.providerUserId,
-        emailAtLink: normalizedEmail
-      }
-    });
-
+      Object.keys(updateData).length > 0 ? await updatePrimaryUser(existingIdentity.userId, updateData) : existingIdentity.user;
     return {
-      user,
-      created: !userByEmail
+      user: {
+        id: user?.id ?? existingIdentity.user.id,
+        email: user?.email ?? existingIdentity.user.email,
+        name: user?.name ?? existingIdentity.user.name,
+        role: user?.role ?? existingIdentity.user.role
+      },
+      created: false
     };
+  }
+
+  const userByEmail = normalizedEmail ? await findPrimaryUserByEmail(normalizedEmail) : null;
+  const user =
+    userByEmail ??
+    (await createPrimaryUser({
+      email: normalizedEmail ?? fallbackOAuthEmail(input.provider, input.providerUserId),
+      name: input.name?.trim() || null,
+      role: "USER"
+    }));
+
+  await createPrimaryOAuthIdentity({
+    userId: user.id,
+    provider: input.provider,
+    providerUserId: input.providerUserId,
+    emailAtLink: normalizedEmail
   });
+
+  return {
+    user,
+    created: !userByEmail
+  };
 }
 
 function getBearerToken(request: NextRequest): string | null {
@@ -588,10 +543,7 @@ export async function getAuthUserFromExtensionTokenRequest(request: NextRequest)
   }
 
   const tokenHash = hashIncomingToken(token);
-  const extensionToken = await prisma.extensionToken.findUnique({
-    where: { tokenHash },
-    include: { user: true }
-  });
+  const extensionToken = await findPrimaryExtensionTokenWithUserByHash(tokenHash);
 
   if (!extensionToken || extensionToken.revokedAt) {
     return null;
@@ -601,11 +553,7 @@ export async function getAuthUserFromExtensionTokenRequest(request: NextRequest)
     return null;
   }
 
-  void prisma.extensionToken
-    .update({
-      where: { id: extensionToken.id },
-      data: { lastUsedAt: new Date() }
-    })
+  void touchPrimaryExtensionTokenLastUsed(tokenHash, new Date())
     .catch(() => {
       // Best-effort usage tracking.
     });
@@ -620,13 +568,11 @@ export async function createExtensionConnectCodeForUser(
   const code = createSecretToken();
   const expiresAt = extensionConnectCodeExpiryDate();
 
-  await prisma.extensionConnectCode.create({
-    data: {
-      userId,
-      codeHash: code.hash,
-      label: label?.trim() || null,
-      expiresAt
-    }
+  await createPrimaryExtensionConnectCode({
+    userId,
+    codeHash: code.hash,
+    label: label?.trim() || null,
+    expiresAt
   });
 
   return { connectCode: code.plain, expiresAt };
@@ -638,43 +584,31 @@ export async function exchangeExtensionConnectCode(input: {
 }): Promise<{ token: string; expiresAt: Date; user: AuthUser }> {
   const codeHash = hashIncomingToken(input.connectCode);
   const now = new Date();
+  const connectCode = await findPrimaryExtensionConnectCodeWithUserByHash(codeHash);
+  if (!connectCode || connectCode.consumedAt || connectCode.expiresAt.getTime() < now.getTime()) {
+    throw new Error("INVALID_CONNECT_CODE");
+  }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const connectCode = await tx.extensionConnectCode.findUnique({
-      where: { codeHash },
-      include: { user: true }
-    });
+  const consumed = await consumePrimaryExtensionConnectCode(codeHash, now);
+  if (!consumed) {
+    throw new Error("INVALID_CONNECT_CODE");
+  }
 
-    if (!connectCode || connectCode.consumedAt || connectCode.expiresAt.getTime() < now.getTime()) {
-      return null;
-    }
-
-    await tx.extensionConnectCode.update({
-      where: { id: connectCode.id },
-      data: {
-        consumedAt: now
-      }
-    });
-
-    const token = createSecretToken();
-    const expiresAt = extensionTokenExpiryDate();
-
-    await tx.extensionToken.create({
-      data: {
-        userId: connectCode.userId,
-        tokenHash: token.hash,
-        label: input.label?.trim() || connectCode.label || "chrome-extension",
-        scope: "ingest:html_snapshot",
-        expiresAt
-      }
-    });
-
-    return {
-      token: token.plain,
-      expiresAt,
-      user: authUserFromDbUser(connectCode.user)
-    };
+  const token = createSecretToken();
+  const expiresAt = extensionTokenExpiryDate();
+  await createPrimaryExtensionToken({
+    userId: connectCode.userId,
+    tokenHash: token.hash,
+    label: input.label?.trim() || connectCode.label || "chrome-extension",
+    scope: "ingest:html_snapshot",
+    expiresAt
   });
+
+  const result = {
+    token: token.plain,
+    expiresAt,
+    user: authUserFromDbUser(connectCode.user)
+  };
 
   if (!result) {
     throw new Error("INVALID_CONNECT_CODE");
@@ -684,15 +618,7 @@ export async function exchangeExtensionConnectCode(input: {
 }
 
 export async function revokeExtensionTokensForUser(userId: string): Promise<number> {
-  const result = await prisma.extensionToken.updateMany({
-    where: {
-      userId,
-      revokedAt: null
-    },
-    data: {
-      revokedAt: new Date()
-    }
-  });
+  const result = await revokePrimaryExtensionTokensForUser(userId, new Date());
   return result.count;
 }
 

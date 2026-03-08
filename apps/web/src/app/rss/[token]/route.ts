@@ -4,6 +4,8 @@ import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
+import { findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
@@ -20,17 +22,9 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   const requestMeta = podcastRequestLogMeta(request);
   const token = normalizeFeedToken(context.params.token);
   const tokenHash = hashIncomingToken(token);
-  const feed = await prisma.feedToken.findFirst({
-    where: {
-      tokenHash,
-      active: true
-    },
-    include: {
-      user: true
-    }
-  });
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "item");
 
-  if (!feed) {
+  if (!user) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast feed request not found", {
         ...requestMeta,
@@ -44,20 +38,52 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     return new NextResponse("Feed not found", { status: 404 });
   }
 
-  const episodes = await prisma.episode.findMany({
-    where: {
-      item: {
-        userId: feed.userId,
-        status: "READY"
-      }
-    },
-    include: {
-      item: true
-    },
-    orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-  });
+  const episodes =
+    webUsesAzureTablePrimary() && webPrimaryStore
+      ? await (async () => {
+          const [episodeRows, itemRows] = await Promise.all([
+            webPrimaryStore.listEpisodesForUser(user.id),
+            webPrimaryStore.listItemsByUser(user.id, 500)
+          ]);
+          const readyItemIds = new Set(itemRows.filter((item) => item.status === "READY").map((item) => item.id));
+          return episodeRows
+            .filter((episode) => readyItemIds.has(episode.itemId))
+            .map((episode) => ({
+              ...episode,
+              item: itemRows.find((item) => item.id === episode.itemId) ?? null
+            }))
+            .sort((a, b) => {
+              const publishedDiff = b.publishedAt.getTime() - a.publishedAt.getTime();
+              if (publishedDiff !== 0) {
+                return publishedDiff;
+              }
+              return a.id.localeCompare(b.id);
+            });
+        })()
+      : await prisma.episode.findMany({
+          where: {
+            item: {
+              userId: user.id,
+              status: "READY"
+            }
+          },
+          include: {
+            item: true
+          },
+          orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+        });
   const storage = getArtifactStorage();
-  const availableEpisodes: typeof episodes = [];
+  const availableEpisodes: Array<{
+    id: string;
+    itemId: string;
+    guid: string;
+    title: string;
+    description: string;
+    audioPath: string;
+    audioBytes: number;
+    mimeType: string;
+    publishedAt: Date;
+  }> = [];
   let missingEpisodeCount = 0;
   let repairEnqueuedCount = 0;
 
@@ -71,7 +97,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     missingEpisodeCount += 1;
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: episode.id,
-      userId: feed.userId,
+      userId: user.id,
       expectedAudioPath: episode.audioPath,
       reason: "Audio file was missing and has been queued for regeneration."
     }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
@@ -96,7 +122,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         route: FEED_ROUTE,
         feed_kind: "item",
         status: 200,
-        user_id: feed.userId,
+        user_id: user.id,
         episode_id: episode.id,
         item_id: episode.itemId,
         media_key: episode.audioPath,
@@ -106,7 +132,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   }
 
   const xml = buildRssXml({
-    title: `${feed.user.name || feed.user.email} - ${BRAND_NAME}`,
+    title: `${user.name || user.email} - ${BRAND_NAME}`,
     description: `Private ${BRAND_NAME} feed`,
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/${token}.xml`,
@@ -133,7 +159,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
       route: FEED_ROUTE,
       feed_kind: "item",
       status: 200,
-      user_id: feed.userId,
+      user_id: user.id,
       episode_count: availableEpisodes.length,
       missing_episode_count: missingEpisodeCount,
       repair_enqueued_count: repairEnqueuedCount,
@@ -155,7 +181,7 @@ export async function HEAD(request: NextRequest, context: { params: { token: str
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const tokenHash = hashIncomingToken(normalizeFeedToken(context.params.token));
-  const exists = await prisma.feedToken.findFirst({ where: { tokenHash, active: true }, select: { id: true } });
+  const exists = Boolean(await findPrimaryUserByFeedTokenHash(tokenHash, "item"));
   if (env.podcastRequestLoggingEnabled) {
     await logger.info("Podcast feed request served", {
       ...requestMeta,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { listPrimaryDigestRunsByUser } from "@/lib/metadata-primary-auth";
 
 function parseLimit(request: NextRequest): number {
   const raw = request.nextUrl.searchParams.get("limit");
@@ -19,22 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const runs = await prisma.digestRun.findMany({
-      where: { userId: user.id },
-      orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
-      take: parseLimit(request),
-      include: {
-        episode: {
-          select: {
-            id: true,
-            audioPath: true,
-            audioBytes: true,
-            mimeType: true,
-            publishedAt: true
-          }
-        }
-      }
-    });
+    const runs = await listPrimaryDigestRunsByUser(user.id, parseLimit(request));
 
     return NextResponse.json({
       ok: true,

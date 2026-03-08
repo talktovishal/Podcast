@@ -1,10 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "../src/lib/metadata-primary-store";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 
 type Snapshot = {
   capturedAt: string;
+  metadataBackend?: "prisma" | "azure_table";
+  durableCountKeys?: string[];
   counts: {
     users: number;
     items: number;
@@ -43,42 +46,94 @@ function parseArgs(): { inFile: string } {
 async function main() {
   const { inFile } = parseArgs();
   const snapshot = JSON.parse(await readFile(inFile, "utf8")) as Snapshot;
+  const currentMetadataBackend = webUsesAzureTablePrimary() && webPrimaryStore ? "azure_table" : "prisma";
 
-  const [
-    userCount,
-    itemCount,
-    episodeCount,
-    readyItemCount,
-    failedItemCount,
-    jobCount,
-    feedTokenCount,
-    extensionTokenCount,
-    demoTraceCount
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.item.count(),
-    prisma.episode.count(),
-    prisma.item.count({ where: { status: "READY" } }),
-    prisma.item.count({ where: { status: "FAILED" } }),
-    prisma.job.count(),
-    prisma.feedToken.count(),
-    prisma.extensionToken.count(),
-    prisma.demoExtractionTrace.count()
-  ]);
+  if ((snapshot.metadataBackend ?? "prisma") !== currentMetadataBackend) {
+    throw new Error(
+      `Snapshot metadata backend '${snapshot.metadataBackend ?? "prisma"}' does not match current runtime backend '${currentMetadataBackend}'.`
+    );
+  }
 
-  const currentCounts = {
-    users: userCount,
-    items: itemCount,
-    episodes: episodeCount,
-    readyItems: readyItemCount,
-    failedItems: failedItemCount,
-    jobs: jobCount,
-    feedTokens: feedTokenCount,
-    extensionTokens: extensionTokenCount,
-    demoExtractionTraces: demoTraceCount
-  };
+  const currentCounts =
+    currentMetadataBackend === "azure_table"
+      ? await (async () => {
+          const store = webPrimaryStore;
+          if (!store) {
+            throw new Error("METADATA_PRIMARY_BACKEND=azure_table is set, but Azure Table primary store is not configured.");
+          }
+          const [
+            userCount,
+            itemCount,
+            episodeCount,
+            readyItemCount,
+            failedItemCount,
+            jobCount,
+            feedTokenCount,
+            extensionTokenCount,
+            demoTraceCount
+          ] = await Promise.all([
+            store.countUsers(),
+            store.countItems(),
+            store.countEpisodes(),
+            store.countItems("READY"),
+            store.countItems("FAILED"),
+            store.countJobs(),
+            store.countFeedTokens("item"),
+            store.countExtensionTokens(),
+            prisma.demoExtractionTrace.count()
+          ]);
 
-  for (const [key, before] of Object.entries(snapshot.counts)) {
+          return {
+            users: userCount,
+            items: itemCount,
+            episodes: episodeCount,
+            readyItems: readyItemCount,
+            failedItems: failedItemCount,
+            jobs: jobCount,
+            feedTokens: feedTokenCount,
+            extensionTokens: extensionTokenCount,
+            demoExtractionTraces: demoTraceCount
+          };
+        })()
+      : await (async () => {
+          const [
+            userCount,
+            itemCount,
+            episodeCount,
+            readyItemCount,
+            failedItemCount,
+            jobCount,
+            feedTokenCount,
+            extensionTokenCount,
+            demoTraceCount
+          ] = await Promise.all([
+            prisma.user.count(),
+            prisma.item.count(),
+            prisma.episode.count(),
+            prisma.item.count({ where: { status: "READY" } }),
+            prisma.item.count({ where: { status: "FAILED" } }),
+            prisma.job.count(),
+            prisma.feedToken.count(),
+            prisma.extensionToken.count(),
+            prisma.demoExtractionTrace.count()
+          ]);
+
+          return {
+            users: userCount,
+            items: itemCount,
+            episodes: episodeCount,
+            readyItems: readyItemCount,
+            failedItems: failedItemCount,
+            jobs: jobCount,
+            feedTokens: feedTokenCount,
+            extensionTokens: extensionTokenCount,
+            demoExtractionTraces: demoTraceCount
+          };
+        })();
+
+  const durableCountKeys = snapshot.durableCountKeys ?? Object.keys(snapshot.counts);
+  for (const key of durableCountKeys) {
+    const before = snapshot.counts[key as keyof Snapshot["counts"]];
     const now = currentCounts[key as keyof typeof currentCounts];
     if (now < before) {
       throw new Error(`Count regression detected for '${key}': before=${before}, now=${now}`);
@@ -87,7 +142,10 @@ async function main() {
 
   const storage = getArtifactStorage();
   for (const episode of snapshot.episodes) {
-    const exists = await prisma.episode.findUnique({ where: { id: episode.id } });
+    const exists =
+      currentMetadataBackend === "azure_table" && webPrimaryStore
+        ? await webPrimaryStore.findEpisodeById(episode.id)
+        : await prisma.episode.findUnique({ where: { id: episode.id } });
     if (!exists) {
       throw new Error(`Missing episode '${episode.id}' (${episode.guid}) after restore.`);
     }

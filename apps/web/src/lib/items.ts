@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
+import { env } from "./env";
 import { prisma } from "./prisma";
 import { consumeSubmissionCredit } from "./submission-quota";
 import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
+import { webPrimaryStore } from "./metadata-primary-store";
 
 export async function enqueueItem(input: {
   userId: string;
@@ -12,47 +15,76 @@ export async function enqueueItem(input: {
   sourceHtml?: string;
   sourceCapturedAt?: Date;
 }) {
-  const item = await prisma.$transaction(async (tx) => {
-    await consumeSubmissionCredit({
-      userId: input.userId,
-      tx
-    });
+  const item =
+    env.metadataPrimaryBackend === "azure_table" && webPrimaryStore
+      ? await (async () => {
+          await consumeSubmissionCredit({
+            userId: input.userId
+          });
 
-    return tx.item.create({
-      include: {
-        jobs: {
-          select: {
-            id: true,
-            itemId: true,
-            status: true,
-            attempt: true,
-            createdAt: true,
-            updatedAt: true,
-            lockedAt: true,
-            nextRetryAt: true,
-            errorCode: true,
-            errorMessage: true
-          },
-          take: 1
-        }
-      },
-      data: {
-        userId: input.userId,
-        title: input.title,
-        sourceType: input.sourceType,
-        sourceUrl: input.sourceUrl,
-        sourceFilePath: input.sourceFilePath,
-        sourceHtml: input.sourceHtml,
-        sourceCapturedAt: input.sourceCapturedAt,
-        status: "QUEUED",
-        jobs: {
-          create: {
+          const createdItem = await webPrimaryStore.createItem({
+            id: randomUUID(),
+            userId: input.userId,
+            title: input.title,
+            sourceType: input.sourceType,
+            sourceUrl: input.sourceUrl,
+            sourceFilePath: input.sourceFilePath,
+            sourceHtml: input.sourceHtml,
+            sourceCapturedAt: input.sourceCapturedAt,
             status: "QUEUED"
-          }
-        }
-      }
-    });
-  });
+          });
+          const createdJob = await webPrimaryStore.createJob({
+            id: randomUUID(),
+            itemId: createdItem.id,
+            userId: input.userId,
+            status: "QUEUED"
+          });
+          return {
+            ...createdItem,
+            jobs: [createdJob]
+          };
+        })()
+      : await prisma.$transaction(async (tx) => {
+          await consumeSubmissionCredit({
+            userId: input.userId,
+            tx
+          });
+
+          return tx.item.create({
+            include: {
+              jobs: {
+                select: {
+                  id: true,
+                  itemId: true,
+                  status: true,
+                  attempt: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  lockedAt: true,
+                  nextRetryAt: true,
+                  errorCode: true,
+                  errorMessage: true
+                },
+                take: 1
+              }
+            },
+            data: {
+              userId: input.userId,
+              title: input.title,
+              sourceType: input.sourceType,
+              sourceUrl: input.sourceUrl,
+              sourceFilePath: input.sourceFilePath,
+              sourceHtml: input.sourceHtml,
+              sourceCapturedAt: input.sourceCapturedAt,
+              status: "QUEUED",
+              jobs: {
+                create: {
+                  status: "QUEUED"
+                }
+              }
+            }
+          });
+        });
 
   const profile = await resolveUserAnalyticsProfile(input.userId);
   await recordAnalyticsEventBestEffort({

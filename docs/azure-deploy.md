@@ -7,8 +7,10 @@
   - `python-tts` (Kokoro service)
   - optional `worker-overflow` (queue-pressure-triggered overflow lane)
 - Durable data:
-  - Azure PostgreSQL Flexible Server
+  - Azure Table (primary operational metadata when `METADATA_PRIMARY_BACKEND=azure_table`)
   - Azure Blob Storage
+- Auxiliary local state:
+  - SQLite on the VM for low-cost/admin-only data that does not need to live in Azure Table
 
 This keeps compute cost-first while preserving data and media durability on VM loss.
 Current right-sizing baseline for cost-control:
@@ -51,12 +53,11 @@ az deployment group what-if \
   --parameters @infra/main.parameters.json
 ```
 
-## Discover resources + open PostgreSQL firewall
+## Discover resources
 ```bash
 RG="<AZURE_RESOURCE_GROUP>"
 eval "$(./scripts/azure/discover-resources.sh \
   --resource-group "$RG" \
-  --open-firewall \
   --print-connection-string)"
 ```
 
@@ -65,6 +66,10 @@ This exports:
 - `PG_NAME`
 - `STORAGE_ACCOUNT`
 - `STORAGE_CONNECTION_STRING` (secret)
+
+Notes:
+- `PG_NAME` is only needed if you are still keeping PostgreSQL around for rollback/canary work.
+- In the low-cost Azure Table primary path, PostgreSQL is not required for day-to-day runtime.
 
 ## Domain + DNS (production)
 For canonical production URLs, use:
@@ -125,21 +130,25 @@ This migrates runtime identity to canonical `articlepod` names while preserving 
 ## Render runtime env
 On VM, render `/etc/articlepod/articlepod.env`:
 ```bash
-sudo DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/articlepod?sslmode=require" \
-  APP_URL="https://articlepod.com" \
+sudo APP_URL="https://articlepod.com" \
   STORAGE_BACKEND="azure_blob" \
   AZURE_STORAGE_CONTAINER="articlepod" \
   AZURE_STORAGE_CONNECTION_STRING="${STORAGE_CONNECTION_STRING}" \
   PYTHON_TTS_URL="http://127.0.0.1:8010" \
   TTS_WORKERS="1" \
+  METADATA_PRIMARY_BACKEND="azure_table" \
+  AZURE_TABLE_CONNECTION_STRING="<TABLE_CONNECTION_STRING>" \
   /opt/articlepod/scripts/azure/render-env.sh
+```
+Optional PostgreSQL rollback/canary input:
+```bash
+DATABASE_URL="postgresql://articlepod_admin:<POSTGRES_PASSWORD>@${PG_NAME}.postgres.database.azure.com:5432/articlepod?sslmode=require"
 ```
 Optional metadata mirror/canary flags:
 ```bash
 METADATA_MIRROR_BACKEND="azure_table"
 METADATA_MIRROR_DUAL_WRITE="1"
 METADATA_CANARY_COMPARE="1"
-AZURE_TABLE_CONNECTION_STRING="<TABLE_CONNECTION_STRING>"
 WORKER_QUEUE_PRESSURE_SOURCE="prisma"
 ```
 Optional low-cost diagnostic flags:
@@ -152,6 +161,7 @@ Defaults now include VM-safe runtime paths:
 - `STORAGE_ROOT=/var/lib/articlepod/storage`
 - `MEDIA_ROOT=/var/lib/articlepod/media`
 - `UPLOAD_ROOT=/var/lib/articlepod/uploads`
+- When `METADATA_PRIMARY_BACKEND=azure_table` and `DATABASE_URL` is omitted, `render-env.sh` now defaults it to `file:/var/lib/articlepod/db.sqlite`.
 
 ## Deploy runtime + systemd services
 On VM:
@@ -163,6 +173,7 @@ sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod
 Notes:
 - `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
+- `deploy-vm-runtime.sh` bootstraps the auxiliary SQLite schema automatically when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
 - overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
 - enable overflow worker only when external overflow TTS is configured:

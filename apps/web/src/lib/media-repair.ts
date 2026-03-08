@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import type { Item } from "@prisma/client";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 import { getArtifactStorage } from "./storage";
 
@@ -62,26 +64,53 @@ export async function enqueueEpisodeMediaRepair(input: {
     return { enqueued: false, skippedReason: "missing_episode_id" };
   }
 
-  const episode = await prisma.episode.findFirst({
-    where: {
-      id: episodeId,
-      ...(input.userId ? { item: { userId: input.userId } } : {})
-    },
-    select: {
-      id: true,
-      itemId: true,
-      audioPath: true,
-      item: {
-        select: {
-          status: true,
-          sourceType: true,
-          sourceUrl: true,
-          sourceFilePath: true,
-          sourceHtml: true
-        }
-      }
-    }
-  });
+  const episode =
+    webUsesAzureTablePrimary() && webPrimaryStore
+      ? await (async () => {
+          const episodeRow = await webPrimaryStore.findEpisodeById(episodeId);
+          if (!episodeRow) {
+            return null;
+          }
+          const itemRow = await webPrimaryStore.findItemById(episodeRow.itemId);
+          if (!itemRow) {
+            return null;
+          }
+          if (input.userId && itemRow.userId !== input.userId) {
+            return null;
+          }
+          return {
+            id: episodeRow.id,
+            itemId: episodeRow.itemId,
+            audioPath: episodeRow.audioPath,
+            item: {
+              status: itemRow.status,
+              sourceType: itemRow.sourceType,
+              sourceUrl: itemRow.sourceUrl,
+              sourceFilePath: itemRow.sourceFilePath,
+              sourceHtml: itemRow.sourceHtml
+            }
+          };
+        })()
+      : await prisma.episode.findFirst({
+          where: {
+            id: episodeId,
+            ...(input.userId ? { item: { userId: input.userId } } : {})
+          },
+          select: {
+            id: true,
+            itemId: true,
+            audioPath: true,
+            item: {
+              select: {
+                status: true,
+                sourceType: true,
+                sourceUrl: true,
+                sourceFilePath: true,
+                sourceHtml: true
+              }
+            }
+          }
+        });
 
   if (!episode) {
     return { enqueued: false, skippedReason: "episode_not_found" };
@@ -103,46 +132,77 @@ export async function enqueueEpisodeMediaRepair(input: {
         mimeType: inferMimeType(alternatePath, alternateHead.contentType)
       };
 
-      await prisma.$transaction(async (tx) => {
-        await tx.episode.update({
-          where: { id: episode.id },
-          data: {
-            audioPath: resolvedEpisode.audioPath,
-            audioBytes: resolvedEpisode.audioBytes,
-            mimeType: resolvedEpisode.mimeType
-          }
+      if (webUsesAzureTablePrimary() && webPrimaryStore) {
+        const store = webPrimaryStore;
+        await store.updateEpisode(episode.id, {
+          audioPath: resolvedEpisode.audioPath,
+          audioBytes: resolvedEpisode.audioBytes,
+          mimeType: resolvedEpisode.mimeType
         });
-
-        await tx.chunkCache.deleteMany({ where: { itemId: episode.itemId } });
-        await tx.item.updateMany({
-          where: {
-            id: episode.itemId,
-            status: {
-              not: "PROCESSING"
-            }
-          },
-          data: {
+        await store.deleteChunkCachesByItemId(episode.itemId);
+        if (episode.item.status !== "PROCESSING") {
+          await store.updateItem(episode.itemId, {
             status: "READY",
             errorCode: null,
             errorMessage: null
-          }
-        });
-        await tx.job.updateMany({
-          where: {
-            itemId: episode.itemId,
-            status: {
-              in: ["QUEUED", "PROCESSING"]
+          });
+        }
+        const jobs = await store.listJobsByItemId(episode.itemId);
+        await Promise.all(
+          jobs
+            .filter((job) => job.status === "QUEUED" || job.status === "PROCESSING")
+            .map((job) =>
+              store.updateJob(job.id, {
+                status: "SUCCEEDED",
+                lockedAt: null,
+                nextRetryAt: null,
+                errorCode: null,
+                errorMessage: "Recovered missing audio via alternate media object."
+              })
+            )
+        );
+      } else {
+        await prisma.$transaction(async (tx) => {
+          await tx.episode.update({
+            where: { id: episode.id },
+            data: {
+              audioPath: resolvedEpisode.audioPath,
+              audioBytes: resolvedEpisode.audioBytes,
+              mimeType: resolvedEpisode.mimeType
             }
-          },
-          data: {
-            status: "SUCCEEDED",
-            lockedAt: null,
-            nextRetryAt: null,
-            errorCode: null,
-            errorMessage: "Recovered missing audio via alternate media object."
-          }
+          });
+
+          await tx.chunkCache.deleteMany({ where: { itemId: episode.itemId } });
+          await tx.item.updateMany({
+            where: {
+              id: episode.itemId,
+              status: {
+                not: "PROCESSING"
+              }
+            },
+            data: {
+              status: "READY",
+              errorCode: null,
+              errorMessage: null
+            }
+          });
+          await tx.job.updateMany({
+            where: {
+              itemId: episode.itemId,
+              status: {
+                in: ["QUEUED", "PROCESSING"]
+              }
+            },
+            data: {
+              status: "SUCCEEDED",
+              lockedAt: null,
+              nextRetryAt: null,
+              errorCode: null,
+              errorMessage: "Recovered missing audio via alternate media object."
+            }
+          });
         });
-      });
+      }
 
       return {
         enqueued: false,
@@ -154,6 +214,37 @@ export async function enqueueEpisodeMediaRepair(input: {
 
   if (!canRegenerateMedia(episode.item)) {
     return { enqueued: false, itemId: episode.itemId, skippedReason: "not_repairable" };
+  }
+
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const store = webPrimaryStore;
+    const item = await store.findItemById(episode.itemId);
+    if (!item) {
+      return { enqueued: false, skippedReason: "episode_not_found" as const };
+    }
+    if (item.status === "PROCESSING") {
+      return { enqueued: false, itemId: episode.itemId, skippedReason: "processing" as const };
+    }
+    const activeJob = (await store.listJobsByItemId(episode.itemId)).find(
+      (job) => job.status === "QUEUED" || job.status === "PROCESSING"
+    );
+    if (activeJob) {
+      return { enqueued: false, itemId: episode.itemId, skippedReason: "active_job" as const };
+    }
+    await store.deleteChunkCachesByItemId(episode.itemId);
+    await store.updateItem(episode.itemId, {
+      status: "QUEUED",
+      errorCode: null,
+      errorMessage: input.reason || "Rebuilding missing audio file..."
+    });
+    await store.createJob({
+      id: randomUUID(),
+      itemId: episode.itemId,
+      userId: item.userId,
+      status: "QUEUED",
+      attempt: 0
+    });
+    return { enqueued: true, itemId: episode.itemId };
   }
 
   return prisma.$transaction(async (tx) => {

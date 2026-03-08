@@ -1,7 +1,7 @@
 import { getTtsCatalog, normalizeTtsSelection, updateTtsSettingsSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { findPrimaryUserById, updatePrimaryUser } from "@/lib/metadata-primary-auth";
 import { assertTtsSelectionAvailable, getTtsProviderAvailability } from "@/lib/tts";
 
 const KOKORO_PROVIDER_ID = "kokoro";
@@ -13,10 +13,7 @@ export async function GET(request: NextRequest) {
   }
 
   const [stored, availability] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { ttsProvider: true, ttsVoice: true }
-    }),
+    findPrimaryUserById(user.id),
     getTtsProviderAvailability()
   ]);
   const selection = normalizeTtsSelection({
@@ -56,12 +53,9 @@ export async function POST(request: NextRequest) {
       providerId: KOKORO_PROVIDER_ID,
       voice: parsed.data.voice
     });
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        ttsProvider: selection.providerId,
-        ttsVoice: selection.voice
-      }
+    await updatePrimaryUser(user.id, {
+      ttsProvider: selection.providerId,
+      ttsVoice: selection.voice
     });
 
     return NextResponse.json({

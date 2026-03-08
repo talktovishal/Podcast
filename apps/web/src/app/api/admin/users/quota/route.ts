@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { findPrimaryUserById, listPrimaryUsers, updatePrimaryUser } from "@/lib/metadata-primary-auth";
 import { buildSubmissionQuotaSnapshot } from "@/lib/submission-quota";
 
 const updateQuotaSchema = z.object({
@@ -25,43 +25,19 @@ export async function GET(request: NextRequest) {
     }
 
     const query = request.nextUrl.searchParams.get("q")?.trim();
-    const users = await prisma.user.findMany({
-      where: query
-        ? {
-            OR: [
-              {
-                email: {
-                  contains: query
-                }
-              },
-              {
-                name: {
-                  contains: query
-                }
-              }
-            ]
-          }
-        : undefined,
-      orderBy: {
-        createdAt: "desc"
-      },
-      take: 100,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isPaid: true,
-        submissionCount: true,
-        extraSubmissionCredits: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    const users = await listPrimaryUsers(200);
+    const normalizedQuery = query?.toLowerCase() ?? "";
+    const filteredUsers = normalizedQuery
+      ? users.filter((user) => {
+          const email = user.email.toLowerCase();
+          const name = user.name?.toLowerCase() ?? "";
+          return email.includes(normalizedQuery) || name.includes(normalizedQuery);
+        })
+      : users;
 
     return NextResponse.json({
       ok: true,
-      users: users.map((user) => {
+      users: filteredUsers.slice(0, 100).map((user) => {
         const quota = buildSubmissionQuotaSnapshot({
           isPaid: user.isPaid,
           submissionCount: user.submissionCount,
@@ -100,24 +76,17 @@ export async function POST(request: NextRequest) {
 
     const payload = updateQuotaSchema.parse(await request.json());
 
-    const user = await prisma.user.update({
-      where: { id: payload.userId },
-      data: {
-        isPaid: payload.isPaid,
-        extraSubmissionCredits: payload.extraSubmissionCredits
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true,
-        isPaid: true,
-        submissionCount: true,
-        extraSubmissionCredits: true
-      }
+    await updatePrimaryUser(payload.userId, {
+      isPaid: payload.isPaid,
+      extraSubmissionCredits: payload.extraSubmissionCredits
     });
+    const user = await findPrimaryUserById(payload.userId);
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error_code: "NOT_FOUND", error_message: "User was not found after quota update." },
+        { status: 404 }
+      );
+    }
 
     const quota = buildSubmissionQuotaSnapshot({
       isPaid: user.isPaid,

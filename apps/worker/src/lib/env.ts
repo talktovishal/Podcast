@@ -7,6 +7,7 @@ const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 type WorkerRole = "primary" | "overflow";
 type MetadataMirrorBackend = "none" | "azure_table";
+type MetadataPrimaryBackend = "prisma" | "azure_table";
 type QueuePressureSource = "prisma" | "mirror";
 type AnalyticsStorageMode = "full" | "off";
 type JobEventStorageMode = "database" | "off";
@@ -57,6 +58,13 @@ function parseMetadataMirrorBackend(value: string | undefined): MetadataMirrorBa
   return "none";
 }
 
+function parseMetadataPrimaryBackend(value: string | undefined): MetadataPrimaryBackend {
+  if (value === "azure_table") {
+    return "azure_table";
+  }
+  return "prisma";
+}
+
 function parseQueuePressureSource(value: string | undefined): QueuePressureSource {
   if (value === "mirror") {
     return "mirror";
@@ -85,6 +93,7 @@ export const workerEnv = {
   analyticsStorageMode: parseAnalyticsStorageMode(process.env.ANALYTICS_STORAGE_MODE),
   jobEventStorageMode: parseJobEventStorageMode(process.env.JOB_EVENT_STORAGE_MODE),
   demoExtractionTraceEnabled: (process.env.DEMO_EXTRACTION_TRACE_ENABLED ?? "1") !== "0",
+  metadataPrimaryBackend: parseMetadataPrimaryBackend(process.env.METADATA_PRIMARY_BACKEND),
   metadataMirrorBackend: parseMetadataMirrorBackend(process.env.METADATA_MIRROR_BACKEND),
   metadataMirrorDualWrite: (process.env.METADATA_MIRROR_DUAL_WRITE ?? "0") === "1",
   metadataCanaryCompare: (process.env.METADATA_CANARY_COMPARE ?? "0") === "1",

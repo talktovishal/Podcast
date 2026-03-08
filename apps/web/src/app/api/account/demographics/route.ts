@@ -7,7 +7,7 @@ import {
 } from "@/lib/demographics";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { findPrimaryUserDemographicSurvey, upsertPrimaryUserDemographicSurvey } from "@/lib/metadata-primary-auth";
 
 const savePayloadSchema = z.object({
   action: z.literal("save"),
@@ -64,19 +64,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const survey = await prisma.userDemographicSurvey.findUnique({
-      where: { userId: user.id },
-      select: {
-        status: true,
-        ageBand: true,
-        genderIdentity: true,
-        genderSelfDescribe: true,
-        completedAt: true,
-        skippedAt: true,
-        deletedAt: true,
-        updatedAt: true
-      }
-    });
+    const survey = await findPrimaryUserDemographicSurvey(user.id);
 
     return NextResponse.json({
       ok: true,
@@ -101,31 +89,14 @@ export async function POST(request: NextRequest) {
     const now = new Date();
 
     if (payload.action === "skip") {
-      const survey = await prisma.userDemographicSurvey.upsert({
-        where: { userId: user.id },
-        create: {
-          userId: user.id,
-          status: "SKIPPED",
-          skippedAt: now
-        },
-        update: {
-          status: "SKIPPED",
-          ageBand: null,
-          genderIdentity: null,
-          genderSelfDescribe: null,
-          completedAt: null,
-          skippedAt: now
-        },
-        select: {
-          status: true,
-          ageBand: true,
-          genderIdentity: true,
-          genderSelfDescribe: true,
-          completedAt: true,
-          skippedAt: true,
-          deletedAt: true,
-          updatedAt: true
-        }
+      const survey = await upsertPrimaryUserDemographicSurvey({
+        userId: user.id,
+        status: "SKIPPED",
+        ageBand: null,
+        genderIdentity: null,
+        genderSelfDescribe: null,
+        completedAt: null,
+        skippedAt: now
       });
 
       return NextResponse.json({
@@ -146,35 +117,15 @@ export async function POST(request: NextRequest) {
     }
 
     const genderSelfDescribe = payload.genderIdentity === "SELF_DESCRIBE" ? payload.genderSelfDescribe?.trim() || null : null;
-    const survey = await prisma.userDemographicSurvey.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        status: "COMPLETED",
-        ageBand: payload.ageBand,
-        genderIdentity: payload.genderIdentity,
-        genderSelfDescribe,
-        completedAt: now
-      },
-      update: {
-        status: "COMPLETED",
-        ageBand: payload.ageBand,
-        genderIdentity: payload.genderIdentity,
-        genderSelfDescribe,
-        completedAt: now,
-        skippedAt: null,
-        deletedAt: null
-      },
-      select: {
-        status: true,
-        ageBand: true,
-        genderIdentity: true,
-        genderSelfDescribe: true,
-        completedAt: true,
-        skippedAt: true,
-        deletedAt: true,
-        updatedAt: true
-      }
+    const survey = await upsertPrimaryUserDemographicSurvey({
+      userId: user.id,
+      status: "COMPLETED",
+      ageBand: payload.ageBand,
+      genderIdentity: payload.genderIdentity,
+      genderSelfDescribe,
+      completedAt: now,
+      skippedAt: null,
+      deletedAt: null
     });
 
     return NextResponse.json({
@@ -197,33 +148,15 @@ export async function DELETE(request: NextRequest) {
     }
 
     const now = new Date();
-    const survey = await prisma.userDemographicSurvey.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        status: "SKIPPED",
-        skippedAt: now,
-        deletedAt: now
-      },
-      update: {
-        status: "SKIPPED",
-        ageBand: null,
-        genderIdentity: null,
-        genderSelfDescribe: null,
-        completedAt: null,
-        skippedAt: now,
-        deletedAt: now
-      },
-      select: {
-        status: true,
-        ageBand: true,
-        genderIdentity: true,
-        genderSelfDescribe: true,
-        completedAt: true,
-        skippedAt: true,
-        deletedAt: true,
-        updatedAt: true
-      }
+    const survey = await upsertPrimaryUserDemographicSurvey({
+      userId: user.id,
+      status: "SKIPPED",
+      ageBand: null,
+      genderIdentity: null,
+      genderSelfDescribe: null,
+      completedAt: null,
+      skippedAt: now,
+      deletedAt: now
     });
 
     return NextResponse.json({

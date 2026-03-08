@@ -13,6 +13,7 @@ import type { Prisma } from "@prisma/client";
 import { workerEnv } from "../lib/env.js";
 import { makeDigestEmailSender } from "../lib/digest-email.js";
 import { workerLogger } from "../lib/logger.js";
+import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import { prisma } from "../lib/prisma.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, normalizeStorageKey } from "../lib/storage.js";
@@ -96,6 +97,27 @@ function isPrismaMissingEntityError(error: unknown): boolean {
 
 async function reclaimStaleProcessingDigestRuns(): Promise<number> {
   const staleBefore = new Date(Date.now() - workerEnv.staleProcessingMs);
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const staleRuns = await workerPrimaryStore.listStaleDigestRuns(staleBefore);
+    if (staleRuns.length === 0) {
+      return 0;
+    }
+    let reclaimed = 0;
+    for (const run of staleRuns) {
+      const updated = await workerPrimaryStore.updateDigestRun(run.id, {
+        status: "QUEUED",
+        lockedAt: null,
+        nextRetryAt: new Date()
+      });
+      if (!updated) {
+        continue;
+      }
+      reclaimed++;
+      await syncDigestRunProjectionById(run.id);
+    }
+    return reclaimed;
+  }
+
   const staleRuns = await prisma.digestRun.findMany({
     where: {
       status: "PROCESSING",
@@ -136,58 +158,79 @@ async function reclaimStaleProcessingDigestRuns(): Promise<number> {
 
 export async function processDigestRun(runId: string): Promise<boolean> {
   const nowTs = new Date();
-  const claimResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const next = await tx.digestRun.findFirst({
-      where: {
-        id: runId,
-        OR: [
-          { status: "QUEUED" },
-          {
-            status: "FAILED",
-            nextRetryAt: { lte: nowTs },
-            attempt: { lt: workerEnv.digestRunMaxRetryAttempts }
+  const claimResult =
+    workerUsesAzureTablePrimary() && workerPrimaryStore
+      ? await (async () => {
+          const claimed = await workerPrimaryStore.claimDigestRun(runId, nowTs, workerEnv.digestRunMaxRetryAttempts);
+          if (!claimed) {
+            return null;
           }
-        ]
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            ttsProvider: true,
-            ttsVoice: true
+          const user = await workerPrimaryStore.findUserById(claimed.userId);
+          if (!user) {
+            return null;
           }
-        }
-      }
-    });
+          return {
+            ...claimed,
+            user: {
+              id: user.id,
+              email: user.email,
+              ttsProvider: user.ttsProvider,
+              ttsVoice: user.ttsVoice
+            }
+          };
+        })()
+      : await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const next = await tx.digestRun.findFirst({
+            where: {
+              id: runId,
+              OR: [
+                { status: "QUEUED" },
+                {
+                  status: "FAILED",
+                  nextRetryAt: { lte: nowTs },
+                  attempt: { lt: workerEnv.digestRunMaxRetryAttempts }
+                }
+              ]
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  ttsProvider: true,
+                  ttsVoice: true
+                }
+              }
+            }
+          });
 
-    if (!next) {
-      return null;
-    }
-
-    return tx.digestRun.update({
-      where: {
-        id: next.id
-      },
-      data: {
-        status: "PROCESSING",
-        lockedAt: new Date(),
-        attempt: { increment: 1 },
-        errorCode: null,
-        errorMessage: null
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            ttsProvider: true,
-            ttsVoice: true
+          if (!next) {
+            return null;
           }
-        }
-      }
-    });
-  });
+
+          return tx.digestRun.update({
+            where: {
+              id: next.id
+            },
+            data: {
+              status: "PROCESSING",
+              lockedAt: new Date(),
+              attempt: { increment: 1 },
+              errorCode: null,
+              errorMessage: null
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  email: true,
+                  ttsProvider: true,
+                  ttsVoice: true
+                }
+              }
+            }
+          });
+        });
 
   if (!claimResult) {
     return false;
@@ -200,31 +243,55 @@ export async function processDigestRun(runId: string): Promise<boolean> {
   const storage = getArtifactStorage();
 
   try {
-    const userSettings = await prisma.userDigestSettings.findUnique({
-      where: { userId: claimResult.userId },
-      select: { timezone: true }
-    });
+    const userSettings =
+      workerUsesAzureTablePrimary() && workerPrimaryStore
+        ? await workerPrimaryStore.findDigestSettingsByUserId(claimResult.userId)
+        : await prisma.userDigestSettings.findUnique({
+            where: { userId: claimResult.userId },
+            select: { timezone: true }
+          });
 
-    const sourceItems = await prisma.item.findMany({
-      where: {
-        userId: claimResult.userId,
-        status: "READY",
-        sourceType: {
-          in: ["URL", "PDF", "HTML_SNAPSHOT"]
-        },
-        createdAt: {
-          gt: claimResult.windowStart,
-          lte: claimResult.windowEnd
-        }
-      },
-      include: {
-        artifacts: {
-          where: { kind: "MARKDOWN" },
-          take: 1
-        }
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "asc" }]
-    });
+    const primaryStore = workerPrimaryStore;
+    const sourceItems =
+      workerUsesAzureTablePrimary() && primaryStore
+        ? await (async () => {
+            const items = await primaryStore.listItemsByUser(claimResult.userId, 1000);
+            const readyItems = items
+              .filter(
+                (item) =>
+                  item.status === "READY" &&
+                  (item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT") &&
+                  item.createdAt.getTime() > claimResult.windowStart.getTime() &&
+                  item.createdAt.getTime() <= claimResult.windowEnd.getTime()
+              )
+              .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || a.id.localeCompare(b.id));
+            return Promise.all(
+              readyItems.map(async (item) => ({
+                ...item,
+                artifacts: await primaryStore.listItemArtifacts(item.id, "MARKDOWN")
+              }))
+            );
+          })()
+        : await prisma.item.findMany({
+            where: {
+              userId: claimResult.userId,
+              status: "READY",
+              sourceType: {
+                in: ["URL", "PDF", "HTML_SNAPSHOT"]
+              },
+              createdAt: {
+                gt: claimResult.windowStart,
+                lte: claimResult.windowEnd
+              }
+            },
+            include: {
+              artifacts: {
+                where: { kind: "MARKDOWN" },
+                take: 1
+              }
+            },
+            orderBy: [{ createdAt: "desc" }, { id: "asc" }]
+          });
 
     const sources = (
       await Promise.all(
@@ -250,16 +317,27 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     ).filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
     if (sources.length === 0) {
-      await prisma.digestRun.update({
-        where: { id: claimResult.id },
-        data: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateDigestRun(claimResult.id, {
           status: "SKIPPED",
           sourceItemCount: 0,
           completedAt: new Date(),
           emailStatus: claimResult.emailEnabled ? "SKIPPED" : null,
-          podcastStatus: claimResult.podcastEnabled ? "SKIPPED" : null
-        }
-      });
+          podcastStatus: claimResult.podcastEnabled ? "SKIPPED" : null,
+          lockedAt: null
+        });
+      } else {
+        await prisma.digestRun.update({
+          where: { id: claimResult.id },
+          data: {
+            status: "SKIPPED",
+            sourceItemCount: 0,
+            completedAt: new Date(),
+            emailStatus: claimResult.emailEnabled ? "SKIPPED" : null,
+            podcastStatus: claimResult.podcastEnabled ? "SKIPPED" : null
+          }
+        });
+      }
       await syncDigestRunProjectionById(claimResult.id);
       return true;
     }
@@ -338,19 +416,9 @@ export async function processDigestRun(runId: string): Promise<boolean> {
         });
         const description = buildEpisodeDescription(summary.plainText || narration);
 
-        await prisma.digestEpisode.upsert({
-          where: { digestRunId: claimResult.id },
-          update: {
-            userId: claimResult.userId,
-            guid,
-            title: summary.title,
-            description,
-            audioPath: audio.relativePath,
-            audioBytes: audio.bytes,
-            mimeType: audio.mimeType,
-            publishedAt: new Date()
-          },
-          create: {
+        if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+          await workerPrimaryStore.upsertDigestEpisode({
+            id: `digest-episode-${claimResult.id}`,
             digestRunId: claimResult.id,
             userId: claimResult.userId,
             guid,
@@ -360,8 +428,33 @@ export async function processDigestRun(runId: string): Promise<boolean> {
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
             publishedAt: new Date()
-          }
-        });
+          });
+        } else {
+          await prisma.digestEpisode.upsert({
+            where: { digestRunId: claimResult.id },
+            update: {
+              userId: claimResult.userId,
+              guid,
+              title: summary.title,
+              description,
+              audioPath: audio.relativePath,
+              audioBytes: audio.bytes,
+              mimeType: audio.mimeType,
+              publishedAt: new Date()
+            },
+            create: {
+              digestRunId: claimResult.id,
+              userId: claimResult.userId,
+              guid,
+              title: summary.title,
+              description,
+              audioPath: audio.relativePath,
+              audioBytes: audio.bytes,
+              mimeType: audio.mimeType,
+              publishedAt: new Date()
+            }
+          });
+        }
 
         podcastStatus = "SUCCEEDED";
       } catch (error) {
@@ -370,11 +463,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
       }
     }
 
-    await prisma.digestRun.update({
-      where: {
-        id: claimResult.id
-      },
-      data: {
+    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+      await workerPrimaryStore.updateDigestRun(claimResult.id, {
         status: "SUCCEEDED",
         sourceItemCount: sources.length,
         summaryStorageKey: summaryStored.key,
@@ -387,9 +477,31 @@ export async function processDigestRun(runId: string): Promise<boolean> {
         podcastError,
         completedAt: new Date(),
         errorCode: null,
-        errorMessage: null
-      }
-    });
+        errorMessage: null,
+        lockedAt: null
+      });
+    } else {
+      await prisma.digestRun.update({
+        where: {
+          id: claimResult.id
+        },
+        data: {
+          status: "SUCCEEDED",
+          sourceItemCount: sources.length,
+          summaryStorageKey: summaryStored.key,
+          summaryBytes: summaryStored.bytes,
+          emailStatus,
+          emailSubject,
+          emailStorageKey,
+          emailError,
+          podcastStatus,
+          podcastError,
+          completedAt: new Date(),
+          errorCode: null,
+          errorMessage: null
+        }
+      });
+    }
     await syncDigestRunProjectionById(claimResult.id);
 
     await workerLogger.info("Digest run completed", {
@@ -407,15 +519,25 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     const safeErrorMessage = toSafeErrorMessage(mappedError.userMessage);
 
     try {
-      await prisma.digestRun.update({
-        where: { id: claimResult.id },
-        data: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateDigestRun(claimResult.id, {
           status: "FAILED",
           errorCode: mappedError.code,
           errorMessage: safeErrorMessage,
-          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
-        }
-      });
+          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null,
+          lockedAt: null
+        });
+      } else {
+        await prisma.digestRun.update({
+          where: { id: claimResult.id },
+          data: {
+            status: "FAILED",
+            errorCode: mappedError.code,
+            errorMessage: safeErrorMessage,
+            nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
+          }
+        });
+      }
       await syncDigestRunProjectionById(claimResult.id);
     } catch (stateError) {
       if (!isPrismaMissingEntityError(stateError)) {
@@ -440,6 +562,14 @@ export async function processNextQueuedDigestRun(): Promise<boolean> {
   const reclaimed = await reclaimStaleProcessingDigestRuns();
   if (reclaimed > 0) {
     await workerLogger.warn("Reclaimed stale processing digest runs", { reclaimed });
+  }
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const next = (await workerPrimaryStore.listNextEligibleDigestRuns(new Date(), workerEnv.digestRunMaxRetryAttempts))[0];
+    if (!next) {
+      return false;
+    }
+    return processDigestRun(next.id);
   }
 
   const nextQueued = await prisma.digestRun.findFirst({

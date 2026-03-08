@@ -3,7 +3,6 @@ import { signMediaUrl } from "@articlepod/core";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics } from "@/lib/dashboard";
 import { env } from "@/lib/env";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
   }
 
-  const existingReady = await prisma.item.findFirst({ where: { userId: user.id, status: "READY" } });
+  const existingReady = (await getDashboardItems(user.id)).find((item) => item.status === "READY");
   if (existingReady) {
     return NextResponse.json({ ok: true, seeded: false, reason: "already_exists" });
   }

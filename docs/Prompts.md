@@ -116,7 +116,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane that activates only under queue pressure and can route to external TTS.
   - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
-- Cost optimization implementation is in progress in repo (worker overflow policy + metadata mirror dual-write/canary + budget guardrail scripts).
+- Cost optimization implementation is now mostly in repo:
+  - worker overflow policy + budget guardrail scripts
+  - Azure Table primary operational metadata store
+  - Azure deploy/runtime helpers that default Azure Table primary mode to local auxiliary SQLite instead of managed PostgreSQL
+  - mirror dual-write/backfill/check tooling for rollback certification
+- Live Azure cutover certification is still pending because the Azure subscription is currently disabled.
 - Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in.
 - New work should be added as new dated milestones before implementation starts.
 
@@ -402,7 +407,9 @@ Document tradeoffs in `plans.md`.
 - Local DB: SQLite via Prisma (file in `apps/web/.data/db.sqlite`)
 - Local media storage (dev): `apps/web/.data/media/`
 - In Azure mode:
-  - DB becomes Azure PostgreSQL Flexible Server
+  - operational metadata can move to Azure Table via `METADATA_PRIMARY_BACKEND=azure_table`
+  - `DATABASE_URL` should point at a local SQLite file for auxiliary low-cost/admin-only state when Azure Table is primary
+  - Azure PostgreSQL is optional only for rollback/canary or if Prisma remains the primary metadata backend
   - media stored in Azure Blob Storage
 
 ### 4.2 Job engine (deterministic + idempotent)

@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { digestSchedulerTickSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { fromError } from "@/lib/http";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 
 function bearerToken(request: NextRequest): string | null {
@@ -33,12 +35,19 @@ export async function POST(request: NextRequest) {
     }
 
     const parsed = digestSchedulerTickSchema.parse(await request.json().catch(() => ({})));
-    const tick = await prisma.digestSchedulerTick.create({
-      data: {
-        requestedBy: parsed.requestedBy || "scheduler",
-        forceNow: parsed.forceNow
-      }
-    });
+    const tick =
+      webUsesAzureTablePrimary() && webPrimaryStore
+        ? await webPrimaryStore.createDigestSchedulerTick({
+            id: randomUUID(),
+            requestedBy: parsed.requestedBy || "scheduler",
+            forceNow: parsed.forceNow
+          })
+        : await prisma.digestSchedulerTick.create({
+            data: {
+              requestedBy: parsed.requestedBy || "scheduler",
+              forceNow: parsed.forceNow
+            }
+          });
 
     return NextResponse.json({
       ok: true,

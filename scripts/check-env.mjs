@@ -86,6 +86,7 @@ function profileRequirements(profile) {
     "ANALYTICS_STORAGE_MODE",
     "JOB_EVENT_STORAGE_MODE",
     "DEMO_EXTRACTION_TRACE_ENABLED",
+    "METADATA_PRIMARY_BACKEND",
     "METADATA_MIRROR_BACKEND",
     "METADATA_MIRROR_DUAL_WRITE",
     "METADATA_CANARY_COMPARE",
@@ -170,12 +171,18 @@ function run() {
     }
   }
 
-  if (env.METADATA_MIRROR_BACKEND === "azure_table") {
+  if (env.METADATA_PRIMARY_BACKEND && !["prisma", "azure_table"].includes(env.METADATA_PRIMARY_BACKEND)) {
+    console.error("[check-env] METADATA_PRIMARY_BACKEND must be either 'prisma' or 'azure_table'.");
+    process.exit(1);
+  }
+
+  const usesAzureTable = env.METADATA_PRIMARY_BACKEND === "azure_table" || env.METADATA_MIRROR_BACKEND === "azure_table";
+  if (usesAzureTable) {
     const hasTableConnString = Boolean(env.AZURE_TABLE_CONNECTION_STRING);
     const hasTableAccountPair = Boolean(env.AZURE_TABLE_ACCOUNT_URL && env.AZURE_TABLE_SAS_TOKEN);
     if (!hasTableConnString && !hasTableAccountPair) {
       console.error(
-        "[check-env] METADATA_MIRROR_BACKEND=azure_table requires AZURE_TABLE_CONNECTION_STRING or AZURE_TABLE_ACCOUNT_URL + AZURE_TABLE_SAS_TOKEN."
+        "[check-env] Azure Table metadata mode requires AZURE_TABLE_CONNECTION_STRING or AZURE_TABLE_ACCOUNT_URL + AZURE_TABLE_SAS_TOKEN."
       );
       process.exit(1);
     }

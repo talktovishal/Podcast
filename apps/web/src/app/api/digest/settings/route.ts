@@ -2,7 +2,7 @@ import { computeNextDailyRunAt, computeNextWeeklyRunAt, updateDigestSettingsSche
 import { NextRequest, NextResponse } from "next/server";
 import { ensureUserDigestSettings, getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { upsertPrimaryDigestSettings } from "@/lib/metadata-primary-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,35 +35,33 @@ export async function POST(request: NextRequest) {
     await ensureUserDigestSettings(user.id);
     const now = new Date();
 
-    const settings = await prisma.userDigestSettings.update({
-      where: { userId: user.id },
-      data: {
+    const settings = await upsertPrimaryDigestSettings({
+      userId: user.id,
+      timezone: payload.timezone,
+      dailyEmailEnabled: payload.dailyEmailEnabled,
+      dailyPodcastEnabled: payload.dailyPodcastEnabled,
+      dailyHour: payload.dailyHour,
+      dailyMinute: payload.dailyMinute,
+      dailyLengthMinutes: payload.dailyLengthMinutes,
+      dailyNextRunAt: computeNextDailyRunAt({
+        now,
         timezone: payload.timezone,
-        dailyEmailEnabled: payload.dailyEmailEnabled,
-        dailyPodcastEnabled: payload.dailyPodcastEnabled,
         dailyHour: payload.dailyHour,
-        dailyMinute: payload.dailyMinute,
-        dailyLengthMinutes: payload.dailyLengthMinutes,
-        dailyNextRunAt: computeNextDailyRunAt({
-          now,
-          timezone: payload.timezone,
-          dailyHour: payload.dailyHour,
-          dailyMinute: payload.dailyMinute
-        }),
-        weeklyEmailEnabled: payload.weeklyEmailEnabled,
-        weeklyPodcastEnabled: payload.weeklyPodcastEnabled,
+        dailyMinute: payload.dailyMinute
+      }),
+      weeklyEmailEnabled: payload.weeklyEmailEnabled,
+      weeklyPodcastEnabled: payload.weeklyPodcastEnabled,
+      weeklyDayOfWeek: payload.weeklyDayOfWeek,
+      weeklyHour: payload.weeklyHour,
+      weeklyMinute: payload.weeklyMinute,
+      weeklyLengthMinutes: payload.weeklyLengthMinutes,
+      weeklyNextRunAt: computeNextWeeklyRunAt({
+        now,
+        timezone: payload.timezone,
         weeklyDayOfWeek: payload.weeklyDayOfWeek,
         weeklyHour: payload.weeklyHour,
-        weeklyMinute: payload.weeklyMinute,
-        weeklyLengthMinutes: payload.weeklyLengthMinutes,
-        weeklyNextRunAt: computeNextWeeklyRunAt({
-          now,
-          timezone: payload.timezone,
-          weeklyDayOfWeek: payload.weeklyDayOfWeek,
-          weeklyHour: payload.weeklyHour,
-          weeklyMinute: payload.weeklyMinute
-        })
-      }
+        weeklyMinute: payload.weeklyMinute
+      })
     });
 
     return NextResponse.json({

@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
+import { createPrimaryUser, findPrimaryUserByEmail } from "@/lib/metadata-primary-auth";
 
 import { enforceLoginRateLimits, getClientIp } from "@/lib/rate-limit";
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     const body = schema.parse(await request.json());
     const email = body.email.toLowerCase();
 
-    let user = await prisma.user.findUnique({ where: { email } });
+    let user = await findPrimaryUserByEmail(email);
 
     if (body.mode === "signup") {
       if (user) {
@@ -47,13 +47,11 @@ export async function POST(request: NextRequest) {
       }
 
       const passwordHash = await hashPassword(body.password);
-      user = await prisma.user.create({
-        data: {
-          email,
-          name: body.name || null,
-          passwordHash,
-          role: "USER"
-        }
+      user = await createPrimaryUser({
+        email,
+        name: body.name || null,
+        passwordHash,
+        role: "USER"
       });
 
       await ensureUserFeedToken(user.id);

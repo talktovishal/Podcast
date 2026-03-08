@@ -1,6 +1,7 @@
 import { rm } from "node:fs/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { clearSessionCookie, getAuthUserFromRequest } from "@/lib/auth";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 
@@ -20,27 +21,68 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const [items, digestRuns, digestEpisodes] = await Promise.all([
-    prisma.item.findMany({
-      where: { userId: user.id },
-      include: { episode: true, artifacts: true }
-    }),
-    prisma.digestRun.findMany({
-      where: { userId: user.id },
-      select: {
-        summaryStorageKey: true,
-        emailStorageKey: true
-      }
-    }),
-    prisma.digestEpisode.findMany({
-      where: { userId: user.id },
-      select: {
-        audioPath: true
-      }
-    })
-  ]);
+  const [items, digestRuns, digestEpisodes] =
+    webUsesAzureTablePrimary() && webPrimaryStore
+      ? await Promise.all([
+          (async () => {
+            const store = webPrimaryStore;
+            const [itemRows, episodes] = await Promise.all([
+              store.listItemsByUser(user.id, 500),
+              store.listEpisodesForUser(user.id)
+            ]);
+            const episodesByItemId = new Map(episodes.map((episode) => [episode.itemId, episode]));
+            return Promise.all(
+              itemRows.map(async (itemRow) => ({
+                ...itemRow,
+                episode: episodesByItemId.get(itemRow.id) ?? null,
+                artifacts: await store.listItemArtifacts(itemRow.id)
+              }))
+            );
+          })(),
+          webPrimaryStore.listDigestRunsByUser(user.id, 200),
+          webPrimaryStore.listDigestEpisodesForUser(user.id)
+        ])
+      : await Promise.all([
+          prisma.item.findMany({
+            where: { userId: user.id },
+            include: { episode: true, artifacts: true }
+          }),
+          prisma.digestRun.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true,
+              summaryStorageKey: true,
+              emailStorageKey: true
+            }
+          }),
+          prisma.digestEpisode.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true,
+              audioPath: true
+            }
+          })
+        ]);
 
-  await prisma.user.delete({ where: { id: user.id } });
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const store = webPrimaryStore;
+    await Promise.all([
+      ...items.map((item) =>
+        Promise.all([
+          store.deleteItem(item.id),
+          item.episode ? store.deleteEpisode(item.episode.id) : Promise.resolve(),
+          store.deleteItemArtifactsByItemId(item.id),
+          store.deleteJobsByItemId(item.id),
+          store.deleteChunkCachesByItemId(item.id)
+        ])
+      ),
+      ...digestRuns.map((run) => store.deleteDigestRun(run.id)),
+      ...digestEpisodes.map((episode) => store.deleteDigestEpisode(episode.id)),
+      store.deleteUser(user.id)
+    ]);
+  } else {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
   const storage = getArtifactStorage();
 
   for (const item of items) {

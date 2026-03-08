@@ -21,6 +21,7 @@ import {
   validateFetchableUrl
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
+import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
@@ -56,6 +57,10 @@ const PUBLISHED_AUDIO_FORMAT = "mp3" as const;
 
 function now() {
   return new Date();
+}
+
+function generateStoreId(): string {
+  return randomBytes(12).toString("hex");
 }
 
 function generateTraceId(): string {
@@ -117,7 +122,7 @@ async function maybeStoreDemoExtractionTrace(input: {
   extractedMarkdown?: string;
   logs: ExtractionLogEntry[];
 }) {
-  if (!input.isDemoUser || !workerEnv.demoExtractionTraceEnabled) {
+  if (!input.isDemoUser || !workerEnv.demoExtractionTraceEnabled || workerUsesAzureTablePrimary()) {
     return;
   }
 
@@ -169,7 +174,7 @@ async function appendJobEvent(input: {
   diagnostic?: string;
   retryRecommended?: boolean;
 }) {
-  if (workerEnv.jobEventStorageMode === "off") {
+  if (workerEnv.jobEventStorageMode === "off" || workerUsesAzureTablePrimary()) {
     return;
   }
 
@@ -563,6 +568,31 @@ function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError 
 
 async function reclaimStaleProcessingJobs(): Promise<number> {
   const staleBefore = new Date(Date.now() - workerEnv.staleProcessingMs);
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const staleJobs = await workerPrimaryStore.listStaleJobs(staleBefore);
+    if (staleJobs.length === 0) {
+      return 0;
+    }
+
+    let reclaimed = 0;
+    for (const job of staleJobs) {
+      const updated = await workerPrimaryStore.updateJob(job.id, {
+        status: "QUEUED",
+        lockedAt: null,
+        nextRetryAt: new Date()
+      });
+      if (!updated) {
+        continue;
+      }
+      await workerPrimaryStore.updateItem(job.itemId, {
+        status: "QUEUED"
+      });
+      reclaimed++;
+      await syncJobAndItemProjectionByJobId(job.id);
+    }
+    return reclaimed;
+  }
+
   const staleJobs = await prisma.job.findMany({
     where: {
       status: "PROCESSING",
@@ -616,67 +646,98 @@ async function reclaimStaleProcessingJobs(): Promise<number> {
 
 export async function processJob(jobId: string): Promise<boolean> {
   const nowTs = now();
-  const claimResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const next = await tx.job.findFirst({
-      where: {
-        id: jobId,
-        OR: [
-          { status: "QUEUED" },
-          {
-            status: "FAILED",
-            nextRetryAt: { lte: nowTs },
-            attempt: { lt: workerEnv.maxRetryAttempts }
+  const claimResult =
+    workerUsesAzureTablePrimary() && workerPrimaryStore
+      ? await (async () => {
+          const claimed = await workerPrimaryStore.claimJob(jobId, nowTs, workerEnv.maxRetryAttempts);
+          if (!claimed) {
+            return null;
           }
-        ]
-      },
-      include: {
-        item: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                ttsProvider: true,
-                ttsVoice: true
+          const [item, user] = await Promise.all([
+            workerPrimaryStore.findItemById(claimed.itemId),
+            workerPrimaryStore.findUserById(claimed.userId)
+          ]);
+          if (!item || !user) {
+            return null;
+          }
+          await workerPrimaryStore.updateItem(item.id, {
+            status: "PROCESSING",
+            errorCode: null,
+            errorMessage: "Processing in progress..."
+          });
+          return {
+            ...claimed,
+            item: {
+              ...item,
+              user: {
+                email: user.email,
+                ttsProvider: user.ttsProvider,
+                ttsVoice: user.ttsVoice
               }
             }
-          }
-        }
-      }
-    });
-
-    if (!next) {
-      return null;
-    }
-
-    const claimed = await tx.job.update({
-      where: { id: next.id },
-      data: {
-        status: "PROCESSING",
-        lockedAt: now(),
-        attempt: { increment: 1 }
-      },
-      include: {
-        item: {
-          include: {
-            user: {
-              select: {
-                email: true,
-                ttsProvider: true,
-                ttsVoice: true
+          };
+        })()
+      : await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const next = await tx.job.findFirst({
+            where: {
+              id: jobId,
+              OR: [
+                { status: "QUEUED" },
+                {
+                  status: "FAILED",
+                  nextRetryAt: { lte: nowTs },
+                  attempt: { lt: workerEnv.maxRetryAttempts }
+                }
+              ]
+            },
+            include: {
+              item: {
+                include: {
+                  user: {
+                    select: {
+                      email: true,
+                      ttsProvider: true,
+                      ttsVoice: true
+                    }
+                  }
+                }
               }
             }
+          });
+
+          if (!next) {
+            return null;
           }
-        }
-      }
-    });
 
-    await tx.item.update({
-      where: { id: next.itemId },
-      data: { status: "PROCESSING", errorCode: null, errorMessage: "Processing in progress..." }
-    });
+          const claimed = await tx.job.update({
+            where: { id: next.id },
+            data: {
+              status: "PROCESSING",
+              lockedAt: now(),
+              attempt: { increment: 1 }
+            },
+            include: {
+              item: {
+                include: {
+                  user: {
+                    select: {
+                      email: true,
+                      ttsProvider: true,
+                      ttsVoice: true
+                    }
+                  }
+                }
+              }
+            }
+          });
 
-    return claimed;
-  });
+          await tx.item.update({
+            where: { id: next.itemId },
+            data: { status: "PROCESSING", errorCode: null, errorMessage: "Processing in progress..." }
+          });
+
+          return claimed;
+        });
 
   if (!claimResult) {
     return false;
@@ -753,28 +814,40 @@ export async function processJob(jobId: string): Promise<boolean> {
       const storedRaw = await getArtifactStorage().putObject(extraction.sourceArtifact.storageKey, extraction.sourceArtifact.bytes, {
         contentType: extraction.sourceArtifact.contentType
       });
-      await prisma.itemArtifact.upsert({
-        where: {
-          itemId_kind: {
-            itemId: item.id,
-            kind: extraction.sourceArtifact.kind
-          }
-        },
-        update: {
-          storageKey: storedRaw.key,
-          contentType: extraction.sourceArtifact.contentType,
-          byteLength: storedRaw.bytes,
-          expiresAt: extraction.sourceArtifact.expiresAt
-        },
-        create: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.upsertItemArtifact({
+          id: generateStoreId(),
           itemId: item.id,
           kind: extraction.sourceArtifact.kind,
           storageKey: storedRaw.key,
           contentType: extraction.sourceArtifact.contentType,
           byteLength: storedRaw.bytes,
           expiresAt: extraction.sourceArtifact.expiresAt
-        }
-      });
+        });
+      } else {
+        await prisma.itemArtifact.upsert({
+          where: {
+            itemId_kind: {
+              itemId: item.id,
+              kind: extraction.sourceArtifact.kind
+            }
+          },
+          update: {
+            storageKey: storedRaw.key,
+            contentType: extraction.sourceArtifact.contentType,
+            byteLength: storedRaw.bytes,
+            expiresAt: extraction.sourceArtifact.expiresAt
+          },
+          create: {
+            itemId: item.id,
+            kind: extraction.sourceArtifact.kind,
+            storageKey: storedRaw.key,
+            contentType: extraction.sourceArtifact.contentType,
+            byteLength: storedRaw.bytes,
+            expiresAt: extraction.sourceArtifact.expiresAt
+          }
+        });
+      }
       appendExtractionLog(extractionLogs, "extract", "Source artifact persisted", {
         kind: extraction.sourceArtifact.kind,
         storageKey: storedRaw.key,
@@ -786,28 +859,40 @@ export async function processJob(jobId: string): Promise<boolean> {
     const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(extraction.markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
-    await prisma.itemArtifact.upsert({
-      where: {
-        itemId_kind: {
-          itemId: item.id,
-          kind: "MARKDOWN"
-        }
-      },
-      update: {
-        storageKey: markdownStored.key,
-        contentType: "text/markdown; charset=utf-8",
-        byteLength: markdownStored.bytes,
-        expiresAt: null
-      },
-      create: {
+    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+      await workerPrimaryStore.upsertItemArtifact({
+        id: generateStoreId(),
         itemId: item.id,
         kind: "MARKDOWN",
         storageKey: markdownStored.key,
         contentType: "text/markdown; charset=utf-8",
         byteLength: markdownStored.bytes,
         expiresAt: null
-      }
-    });
+      });
+    } else {
+      await prisma.itemArtifact.upsert({
+        where: {
+          itemId_kind: {
+            itemId: item.id,
+            kind: "MARKDOWN"
+          }
+        },
+        update: {
+          storageKey: markdownStored.key,
+          contentType: "text/markdown; charset=utf-8",
+          byteLength: markdownStored.bytes,
+          expiresAt: null
+        },
+        create: {
+          itemId: item.id,
+          kind: "MARKDOWN",
+          storageKey: markdownStored.key,
+          contentType: "text/markdown; charset=utf-8",
+          byteLength: markdownStored.bytes,
+          expiresAt: null
+        }
+      });
+    }
     appendExtractionLog(extractionLogs, "extract", "Markdown artifact persisted", {
       storageKey: markdownStored.key,
       bytes: markdownStored.bytes
@@ -840,7 +925,10 @@ export async function processJob(jobId: string): Promise<boolean> {
     });
 
     const cacheKey = sha256([item.userId, ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
-    const cacheHit = await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
+    const cacheHit =
+      workerUsesAzureTablePrimary() && workerPrimaryStore
+        ? await workerPrimaryStore.findChunkCacheByHash(cacheKey)
+        : await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
     if (cacheHit) {
@@ -880,26 +968,44 @@ export async function processJob(jobId: string): Promise<boolean> {
         lastProgressWriteAt = nowMs;
         const progressMessage =
           total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
-        await prisma.item.updateMany({
-          where: {
-            id: item.id,
-            status: "PROCESSING"
-          },
-          data: {
+        if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+          await workerPrimaryStore.updateItem(item.id, {
             errorMessage: progressMessage
-          }
-        });
+          });
+        } else {
+          await prisma.item.updateMany({
+            where: {
+              id: item.id,
+              status: "PROCESSING"
+            },
+            data: {
+              errorMessage: progressMessage
+            }
+          });
+        }
       });
-      await prisma.chunkCache.create({
-        data: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.createChunkCache({
+          id: generateStoreId(),
           itemId: item.id,
           chunkIndex: 0,
           hash: cacheKey,
           filePath: audio.relativePath,
           audioBytes: audio.bytes,
           mimeType: audio.mimeType
-        }
-      });
+        });
+      } else {
+        await prisma.chunkCache.create({
+          data: {
+            itemId: item.id,
+            chunkIndex: 0,
+            hash: cacheKey,
+            filePath: audio.relativePath,
+            audioBytes: audio.bytes,
+            mimeType: audio.mimeType
+          }
+        });
+      }
       appendExtractionLog(extractionLogs, "tts", "Narration synthesis complete", {
         outputPath: audio.relativePath,
         bytes: audio.bytes,
@@ -911,51 +1017,80 @@ export async function processJob(jobId: string): Promise<boolean> {
     const description = buildEpisodeDescription(narrationText);
 
     stage = "persist";
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.episode.upsert({
-        where: { itemId: item.id },
-        update: {
-          guid,
-          title: resolvedTitle,
-          description,
-          audioPath: audio.relativePath,
-          audioBytes: audio.bytes,
-          mimeType: audio.mimeType,
-          publishedAt: now()
-        },
-        create: {
-          itemId: item.id,
-          guid,
-          title: resolvedTitle,
-          description,
-          audioPath: audio.relativePath,
-          audioBytes: audio.bytes,
-          mimeType: audio.mimeType,
-          publishedAt: now()
-        }
+    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+      await workerPrimaryStore.upsertEpisode({
+        id: generateStoreId(),
+        itemId: item.id,
+        userId: item.userId,
+        guid,
+        title: resolvedTitle,
+        description,
+        audioPath: audio.relativePath,
+        audioBytes: audio.bytes,
+        mimeType: audio.mimeType,
+        publishedAt: now()
       });
+      await workerPrimaryStore.updateItem(item.id, {
+        title: resolvedTitle,
+        status: "READY",
+        textHash: cacheKey,
+        sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
+        errorCode: null,
+        errorMessage: null
+      });
+      await workerPrimaryStore.updateJob(claimResult.id, {
+        status: "SUCCEEDED",
+        errorCode: null,
+        errorMessage: null,
+        lockedAt: null
+      });
+    } else {
+      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        await tx.episode.upsert({
+          where: { itemId: item.id },
+          update: {
+            guid,
+            title: resolvedTitle,
+            description,
+            audioPath: audio.relativePath,
+            audioBytes: audio.bytes,
+            mimeType: audio.mimeType,
+            publishedAt: now()
+          },
+          create: {
+            itemId: item.id,
+            guid,
+            title: resolvedTitle,
+            description,
+            audioPath: audio.relativePath,
+            audioBytes: audio.bytes,
+            mimeType: audio.mimeType,
+            publishedAt: now()
+          }
+        });
 
-      await tx.item.update({
-        where: { id: item.id },
-        data: {
-          title: resolvedTitle,
-          status: "READY",
-          textHash: cacheKey,
-          sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
-          errorCode: null,
-          errorMessage: null
-        }
-      });
+        await tx.item.update({
+          where: { id: item.id },
+          data: {
+            title: resolvedTitle,
+            status: "READY",
+            textHash: cacheKey,
+            sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
+            errorCode: null,
+            errorMessage: null
+          }
+        });
 
-      await tx.job.update({
-        where: { id: claimResult.id },
-        data: {
-          status: "SUCCEEDED",
-          errorCode: null,
-          errorMessage: null
-        }
+        await tx.job.update({
+          where: { id: claimResult.id },
+          data: {
+            status: "SUCCEEDED",
+            errorCode: null,
+            errorMessage: null
+          }
+        });
       });
-    });
+    }
     appendExtractionLog(extractionLogs, "persist", "Episode and item persisted", {
       guid,
       audioPath: audio.relativePath
@@ -1019,26 +1154,41 @@ export async function processJob(jobId: string): Promise<boolean> {
     const safeErrorMessage = toSafeErrorMessage(err.userMessage);
 
     try {
-      await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        await tx.item.update({
-          where: { id: item.id },
-          data: {
-            status: "FAILED",
-            errorCode: err.code,
-            errorMessage: safeErrorMessage
-          }
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateItem(item.id, {
+          status: "FAILED",
+          errorCode: err.code,
+          errorMessage: safeErrorMessage
         });
+        await workerPrimaryStore.updateJob(claimResult.id, {
+          status: "FAILED",
+          errorCode: err.code,
+          errorMessage: safeErrorMessage,
+          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null,
+          lockedAt: null
+        });
+      } else {
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          await tx.item.update({
+            where: { id: item.id },
+            data: {
+              status: "FAILED",
+              errorCode: err.code,
+              errorMessage: safeErrorMessage
+            }
+          });
 
-        await tx.job.update({
-          where: { id: claimResult.id },
-          data: {
-            status: "FAILED",
-            errorCode: err.code,
-            errorMessage: safeErrorMessage,
-            nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
-          }
+          await tx.job.update({
+            where: { id: claimResult.id },
+            data: {
+              status: "FAILED",
+              errorCode: err.code,
+              errorMessage: safeErrorMessage,
+              nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
+            }
+          });
         });
-      });
+      }
     } catch (stateError) {
       const fallbackMessage = toSafeErrorMessage(stateError);
       await workerLogger.errorWithCode({
@@ -1051,23 +1201,38 @@ export async function processJob(jobId: string): Promise<boolean> {
         }
       });
 
-      await prisma.item.updateMany({
-        where: { id: item.id },
-        data: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateItem(item.id, {
           status: "FAILED",
           errorCode: err.code,
           errorMessage: "Processing failed. Please retry."
-        }
-      });
-      await prisma.job.updateMany({
-        where: { id: claimResult.id },
-        data: {
+        });
+        await workerPrimaryStore.updateJob(claimResult.id, {
           status: "FAILED",
           errorCode: err.code,
           errorMessage: "Processing failed. Please retry.",
-          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
-        }
-      });
+          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null,
+          lockedAt: null
+        });
+      } else {
+        await prisma.item.updateMany({
+          where: { id: item.id },
+          data: {
+            status: "FAILED",
+            errorCode: err.code,
+            errorMessage: "Processing failed. Please retry."
+          }
+        });
+        await prisma.job.updateMany({
+          where: { id: claimResult.id },
+          data: {
+            status: "FAILED",
+            errorCode: err.code,
+            errorMessage: "Processing failed. Please retry.",
+            nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
+          }
+        });
+      }
     }
 
     await appendJobEvent({
@@ -1151,6 +1316,15 @@ export async function processNextQueuedJob(): Promise<boolean> {
   const reclaimed = await reclaimStaleProcessingJobs();
   if (reclaimed > 0) {
     await workerLogger.warn("Reclaimed stale processing jobs", { reclaimed });
+  }
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const candidates = await workerPrimaryStore.listNextEligibleJobs(now(), workerEnv.maxRetryAttempts);
+    const next = candidates[0];
+    if (!next) {
+      return false;
+    }
+    return processJob(next.id);
   }
 
   const nextQueued = await prisma.job.findFirst({

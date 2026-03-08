@@ -5,6 +5,7 @@ import { processNextQueuedJob } from "./jobs/processItemJob.js";
 import { processNextQueuedDigestRun } from "./jobs/processDigestRunJob.js";
 import { hasPendingDigestSchedulerTick, scheduleDigestRuns } from "./jobs/scheduleDigestRuns.js";
 import { workerLogger } from "./lib/logger.js";
+import { workerPrimaryStore, workerUsesAzureTablePrimary } from "./lib/metadata-primary-store.js";
 import { describeTtsRuntime } from "./lib/providers.js";
 import { evaluateOverflowPolicy, createInitialOverflowPolicyState, type OverflowPolicyConfig } from "./lib/overflowPolicy.js";
 import { loadQueuePressureSnapshot, type QueuePressureSnapshot } from "./jobs/queuePressure.js";
@@ -104,9 +105,12 @@ function startHealthServer(): void {
     if (req.url === "/health" && req.method === "GET") {
       const staleMs = workerEnv.staleProcessingMs;
       const staleBefore = new Date(Date.now() - staleMs);
-      const stuckJobs = await prisma.job.count({
-        where: { status: "PROCESSING", lockedAt: { lt: staleBefore } }
-      }).catch(() => -1);
+      const stuckJobs = await (workerUsesAzureTablePrimary() && workerPrimaryStore
+        ? workerPrimaryStore.countStuckJobs(staleBefore)
+        : prisma.job.count({
+            where: { status: "PROCESSING", lockedAt: { lt: staleBefore } }
+          })
+      ).catch(() => -1);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(
         JSON.stringify({

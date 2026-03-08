@@ -7,14 +7,22 @@ source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 
 OUT_FILE="${OUT_FILE:-$RUNTIME_ENV_FILE}"
 STATE_ROOT_DEFAULT="/var/lib/${RUNTIME_SERVICE_PREFIX}"
+METADATA_PRIMARY_BACKEND="${METADATA_PRIMARY_BACKEND:-prisma}"
+
+if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" && -z "${DATABASE_URL:-}" ]]; then
+  DATABASE_URL="file:${STATE_ROOT_DEFAULT}/db.sqlite"
+fi
 
 required=(
-  DATABASE_URL
   APP_URL
   STORAGE_BACKEND
   AZURE_STORAGE_CONTAINER
   PYTHON_TTS_URL
 )
+
+if [[ "$METADATA_PRIMARY_BACKEND" != "azure_table" ]]; then
+  required+=(DATABASE_URL)
+fi
 
 for key in "${required[@]}"; do
   if [[ -z "${!key:-}" ]]; then
@@ -22,6 +30,13 @@ for key in "${required[@]}"; do
     exit 1
   fi
 done
+
+if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" ]]; then
+  if [[ -z "${AZURE_TABLE_CONNECTION_STRING:-}" && ( -z "${AZURE_TABLE_ACCOUNT_URL:-}" || -z "${AZURE_TABLE_SAS_TOKEN:-}" ) ]]; then
+    echo "METADATA_PRIMARY_BACKEND=azure_table requires Azure Table credentials"
+    exit 1
+  fi
+fi
 
 hash_secret() {
   local input="$1"
@@ -58,6 +73,15 @@ if [[ "${#MEDIA_SIGNING_KEY}" -lt 32 ]]; then
   exit 1
 fi
 
+analytics_storage_mode_default="full"
+job_event_storage_mode_default="database"
+demo_extraction_trace_default="1"
+if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" ]]; then
+  analytics_storage_mode_default="off"
+  job_event_storage_mode_default="off"
+  demo_extraction_trace_default="0"
+fi
+
 mkdir -p "$(dirname "$OUT_FILE")"
 
 cat > "$OUT_FILE" <<ENVFILE
@@ -76,6 +100,7 @@ UPLOAD_ROOT=${UPLOAD_ROOT:-${STATE_ROOT_DEFAULT}/uploads}
 PYTHON_TTS_URL=${PYTHON_TTS_URL}
 PYTHON_TTS_TIMEOUT_MS=${PYTHON_TTS_TIMEOUT_MS:-120000}
 TTS_WORKERS=${TTS_WORKERS:-1}
+METADATA_PRIMARY_BACKEND=${METADATA_PRIMARY_BACKEND}
 METADATA_MIRROR_BACKEND=${METADATA_MIRROR_BACKEND:-none}
 METADATA_MIRROR_DUAL_WRITE=${METADATA_MIRROR_DUAL_WRITE:-0}
 METADATA_CANARY_COMPARE=${METADATA_CANARY_COMPARE:-0}
@@ -99,9 +124,9 @@ OVERFLOW_PYTHON_TTS_SECRET=${OVERFLOW_PYTHON_TTS_SECRET:-}
 WORKER_POLL_MS=${WORKER_POLL_MS:-2500}
 WORKER_STALE_PROCESSING_MS=${WORKER_STALE_PROCESSING_MS:-900000}
 WORKER_RETRY_POLL_MS=${WORKER_RETRY_POLL_MS:-5000}
-ANALYTICS_STORAGE_MODE=${ANALYTICS_STORAGE_MODE:-full}
-JOB_EVENT_STORAGE_MODE=${JOB_EVENT_STORAGE_MODE:-database}
-DEMO_EXTRACTION_TRACE_ENABLED=${DEMO_EXTRACTION_TRACE_ENABLED:-1}
+ANALYTICS_STORAGE_MODE=${ANALYTICS_STORAGE_MODE:-$analytics_storage_mode_default}
+JOB_EVENT_STORAGE_MODE=${JOB_EVENT_STORAGE_MODE:-$job_event_storage_mode_default}
+DEMO_EXTRACTION_TRACE_ENABLED=${DEMO_EXTRACTION_TRACE_ENABLED:-$demo_extraction_trace_default}
 DEMO_EMAIL=${DEMO_EMAIL:-demo@articlepod.local}
 DEMO_PASSWORD=${DEMO_PASSWORD:-}
 ADMIN_EMAIL=${ADMIN_EMAIL:-admin@articlepod.local}

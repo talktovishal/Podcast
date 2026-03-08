@@ -5,7 +5,7 @@ ArticlePod now uses profile-driven runtime contracts so local and Azure behavior
 ## Profile selection
 - `RUNTIME_PROFILE=simple` -> SQLite + local object storage
 - `RUNTIME_PROFILE=parity` -> PostgreSQL + Azurite (Blob API) + Docker Compose
-- `RUNTIME_PROFILE=azure` -> Azure PostgreSQL + Azure Blob + VM runtime
+- `RUNTIME_PROFILE=azure` -> Azure VM runtime + Azure Blob, with either Prisma/PostgreSQL or Azure Table as the operational metadata backend
 
 Profile examples (copy to `.env` and fill in passwords):
 - `.env.simple.example`
@@ -32,7 +32,9 @@ Recommended:
 - `PYTHON_TTS_URL`
 
 ### `azure`
-- `DATABASE_URL` (Azure PostgreSQL URL)
+- `DATABASE_URL`
+  - use a local SQLite path such as `file:/var/lib/articlepod/db.sqlite` when `METADATA_PRIMARY_BACKEND=azure_table`
+  - use an Azure PostgreSQL URL only when Prisma/PostgreSQL remains the primary metadata backend or you are running rollback/canary flows
 - `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
 - `AZURE_STORAGE_CONTAINER`
@@ -46,6 +48,11 @@ Recommended:
 
 Azure deploy helper behavior:
 - `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
+- when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` now defaults `DATABASE_URL` to `file:/var/lib/articlepod/db.sqlite` if you do not provide one explicitly.
+- in Azure Table primary mode, low-cost diagnostics default to:
+  - `ANALYTICS_STORAGE_MODE=off`
+  - `JOB_EVENT_STORAGE_MODE=off`
+  - `DEMO_EXTRACTION_TRACE_ENABLED=0`
 - If either value is unset, a deterministic 64-char SHA-256 fallback is derived from existing Azure/database app secrets so non-simple profile startup contracts remain satisfied.
 
 Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
@@ -99,14 +106,23 @@ Behavior:
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)
 
-## Metadata mirror controls (serverless migration track)
+## Metadata primary + mirror controls
+- `METADATA_PRIMARY_BACKEND` (`prisma` default, `azure_table` supported)
+  - `prisma`: Prisma-backed operational metadata (`simple` = SQLite, `parity`/legacy `azure` = PostgreSQL)
+  - `azure_table`: Azure Table becomes the operational metadata store for accounts, sessions, items, jobs, episodes, digest state, and quota state
 - `METADATA_MIRROR_BACKEND` (`none` default, `azure_table` supported)
 - `METADATA_MIRROR_DUAL_WRITE` (`0` default; set `1` to dual-write queue/item/digest projections)
 - `METADATA_CANARY_COMPARE` (`0` default; set `1` to log queue snapshot diffs between Prisma and mirror)
-- `AZURE_TABLE_CONNECTION_STRING` (preferred auth for Azure Table mirror)
+- `AZURE_TABLE_CONNECTION_STRING` (preferred auth for Azure Table primary/mirror)
 - `AZURE_TABLE_ACCOUNT_URL` + `AZURE_TABLE_SAS_TOKEN` (alternative auth pair)
 - `AZURE_TABLE_PREFIX` (default `articlepod`; table names derive from this prefix)
 - `AZURE_TABLE_CREATE_TABLES` (`1` default; set `0` to require pre-provisioned tables)
+
+Recommended low-cost Azure setting:
+- `METADATA_PRIMARY_BACKEND=azure_table`
+- `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
+- `WORKER_QUEUE_PRESSURE_SOURCE=prisma`
+- `METADATA_MIRROR_BACKEND=none` unless you are actively dual-writing for rollback certification
 
 ## Digest controls
 - `DIGEST_INTERNAL_SCHEDULER_ENABLED` (`1` default; set `0` to rely only on external tick calls)
@@ -139,6 +155,7 @@ Cost-optimized Azure guidance:
 - Keep structured logs on local disk (`LOG_ROOT`) and rotate them.
 - Archive rotated logs to Blob if retention is needed after VM replacement.
 - Do not use Azure Table for verbose logs, request traces, or analytics firehose data.
+- Treat local SQLite in Azure Table primary mode as auxiliary state for low-signal/admin-only features, not as the primary durable store.
 
 ## Validation commands
 - `npm run check:env:simple`

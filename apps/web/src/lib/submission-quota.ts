@@ -1,6 +1,7 @@
 import { AppError, errorCodes } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
 import { env } from "./env";
+import { findPrimaryUserById, updatePrimaryUser } from "./metadata-primary-auth";
 import { prisma } from "./prisma";
 
 type QuotaDbClient = Prisma.TransactionClient | typeof prisma;
@@ -58,6 +59,14 @@ export function buildSubmissionQuotaSnapshot(input: {
 }
 
 export async function getSubmissionQuotaSnapshot(userId: string, tx?: QuotaDbClient): Promise<SubmissionQuotaSnapshot> {
+  if (env.metadataPrimaryBackend === "azure_table") {
+    const user = await findPrimaryUserById(userId);
+    if (!user) {
+      throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
+    }
+    return buildSubmissionQuotaSnapshot(user);
+  }
+
   const db = tx ?? prisma;
   const user = await db.user.findUnique({
     where: { id: userId },
@@ -77,9 +86,42 @@ function throwQuotaLimitError(snapshot: SubmissionQuotaSnapshot): never {
 
 export async function consumeSubmissionCredit(input: {
   userId: string;
-  tx: Prisma.TransactionClient;
+  tx?: Prisma.TransactionClient;
 }): Promise<SubmissionQuotaSnapshot> {
-  const user = await input.tx.user.findUnique({
+  if (env.metadataPrimaryBackend === "azure_table") {
+    const user = await findPrimaryUserById(input.userId);
+    if (!user) {
+      throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
+    }
+
+    const before = buildSubmissionQuotaSnapshot(user);
+    if (before.isPaid) {
+      return before;
+    }
+
+    if ((before.remainingFreeSubmissions ?? 0) <= 0) {
+      throwQuotaLimitError(before);
+    }
+
+    const updated = await updatePrimaryUser(user.id, {
+      submissionCount: before.submissionCount + 1
+    });
+    if (!updated) {
+      throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
+    }
+    return {
+      ...before,
+      submissionCount: before.submissionCount + 1,
+      remainingFreeSubmissions: Math.max(0, (before.remainingFreeSubmissions ?? 0) - 1)
+    };
+  }
+
+  const tx = input.tx;
+  if (!tx) {
+    throw new AppError(errorCodes.INTERNAL_ERROR, "Missing quota transaction", 500);
+  }
+
+  const user = await tx.user.findUnique({
     where: { id: input.userId },
     select: quotaUserSelect
   });
@@ -97,7 +139,7 @@ export async function consumeSubmissionCredit(input: {
     throwQuotaLimitError(before);
   }
 
-  const claimed = await input.tx.user.updateMany({
+  const claimed = await tx.user.updateMany({
     where: {
       id: user.id,
       isPaid: false,
@@ -113,7 +155,7 @@ export async function consumeSubmissionCredit(input: {
   });
 
   if (claimed.count !== 1) {
-    const latest = await input.tx.user.findUnique({
+    const latest = await tx.user.findUnique({
       where: { id: user.id },
       select: quotaUserSelect
     });

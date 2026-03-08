@@ -83,7 +83,9 @@ Scheduler trigger API (internal automation):
 ## Runtime profiles
 - `simple`: local SQLite + local object storage
 - `parity`: Docker Compose PostgreSQL + Azurite + python-tts
-- `azure`: single VM compute + Azure PostgreSQL + Azure Blob, with optional Azure Table metadata mirror for migration/canary
+- `azure`: single VM compute + Azure Blob, with `METADATA_PRIMARY_BACKEND` selecting either:
+  - `prisma`: Prisma-backed metadata (legacy Azure PostgreSQL path)
+  - `azure_table`: Azure Table as the primary operational metadata store, plus local SQLite for auxiliary low-cost/admin data
 
 ## Durable rollout status
 Milestones `M35`-`M46` are implemented in repository assets:
@@ -99,22 +101,31 @@ Milestones `M35`-`M46` are implemented in repository assets:
 - durability snapshot/restore drill scripts and operations runbook
 - CI matrix with simple + parity release gates
 
-## Cost optimization rollout status (C01-C07 in progress)
+## Cost optimization rollout status
 Current implementation baseline:
 - always-on compute target shifted to `B2s`.
 - local Kokoro lane locked to single worker (`TTS_WORKERS=1`) in VM service template.
 - overflow worker role and queue-pressure hysteresis are implemented in worker runtime.
-- Azure Table metadata mirror adapter is implemented (dual-write + canary compare support).
+- Azure Table metadata primary store is implemented for operational state:
+  - users/sessions/feed tokens/share tokens
+  - items/jobs/episodes/chunk cache/item artifacts
+  - digest settings/runs/episodes/scheduler ticks
+  - extension auth and demographic survey state
+- Azure Table metadata mirror adapter remains available for dual-write + canary compare support.
 - cost-boundary controls now explicitly keep diagnostics out of the future Table-primary path:
   - `ANALYTICS_STORAGE_MODE`
   - `JOB_EVENT_STORAGE_MODE`
   - `DEMO_EXTRACTION_TRACE_ENABLED`
+- Azure runtime helpers now support low-cost serverless metadata mode directly:
+  - `METADATA_PRIMARY_BACKEND=azure_table`
+  - default auxiliary `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
 - migration scripts are available:
   - `npm run metadata:backfill`
   - `npm run metadata:check`
 - cost guardrail automation scripts are available:
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
+- live Azure cutover certification is still pending because the Azure subscription is currently disabled; local validation and deployment helpers are ready.
 
 ## Observability status
 Current implementation:

@@ -10,7 +10,7 @@ import { prisma } from "./prisma";
  * is sufficient for local development.
  */
 async function enforceRateLimitAsync(key: string, max: number, windowMs: number): Promise<void> {
-  if (env.runtimeProfile === "simple") {
+  if (env.runtimeProfile === "simple" || env.metadataPrimaryBackend === "azure_table") {
     // In-memory (dev/local) path — synchronous, no DB needed.
     enforceRateLimit(key, max, windowMs);
     return;

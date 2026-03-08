@@ -152,7 +152,9 @@ Policy guardrails:
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts
 - `parity`: Docker Compose with PostgreSQL + Azurite + python-tts + web + worker
-- `azure`: single VM compute + Azure PostgreSQL + Azure Blob (with optional Azure Table metadata mirror during migration)
+- `azure`: single VM compute + Azure Blob, with metadata primary selected by `METADATA_PRIMARY_BACKEND`
+  - `prisma`: legacy Azure PostgreSQL-backed metadata
+  - `azure_table`: Azure Table-backed operational metadata with local SQLite reserved for auxiliary low-cost/admin state
 
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
@@ -160,16 +162,18 @@ Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/
 Locked target architecture:
 - Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
 - Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
-- Durable data: Azure PostgreSQL Flexible Server
+- Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
+- Rollback/canary metadata path: optional Prisma/PostgreSQL when explicitly enabled
 - Durable artifacts: Azure Blob Storage
-- Migration track: queue/item/digest metadata can be dual-written to Azure Table mirror for canary comparison and phased cutover
+- Auxiliary local data: SQLite on VM for low-signal/admin-only state that does not need to sit in Azure Table
+- Migration track: queue/item/digest metadata can still be dual-written to Azure Table mirror for canary comparison and phased cutover
 - Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
 - Deployment automation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/*.sh`
 
 Durability principle:
 - VM loss must not lose customer records, episodes, or media objects.
-- Recovery relies on re-provisioning compute and reconnecting to existing PostgreSQL + Blob state.
+- Recovery relies on re-provisioning compute, reconnecting to existing Azure Table + Blob state, and bootstrapping any auxiliary local SQLite tables as needed.
 
 ## Observability contract (M47+)
 All runtime services emit structured JSON events with shared fields:

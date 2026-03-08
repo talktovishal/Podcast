@@ -4,6 +4,8 @@ import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/l
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
+import { findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
@@ -48,32 +50,27 @@ async function validateLegacyFeedTokenForPath(path: string, feedToken: string | 
   }
 
   const tokenHash = hashIncomingToken(feedToken);
-  const activeFeedToken = await prisma.feedToken.findFirst({
-    where: {
-      tokenHash,
-      active: true
-    },
-    select: {
-      userId: true
-    }
-  });
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "item");
 
-  if (!activeFeedToken) {
+  if (!user) {
     return false;
   }
 
-  const episode = await prisma.episode.findFirst({
-    where: {
-      itemId,
-      audioPath: path,
-      item: {
-        userId: activeFeedToken.userId
-      }
-    },
-    select: {
-      id: true
-    }
-  });
+  const episode =
+    webUsesAzureTablePrimary() && webPrimaryStore
+      ? await webPrimaryStore.findEpisodeByItemAudioPathForUser(itemId, path, user.id)
+      : await prisma.episode.findFirst({
+          where: {
+            itemId,
+            audioPath: path,
+            item: {
+              userId: user.id
+            }
+          },
+          select: {
+            id: true
+          }
+        });
 
   return Boolean(episode);
 }
@@ -284,18 +281,36 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       let userId: string | null = null;
 
       if (maybeEpisodeId) {
-        const episode = await prisma.episode.findFirst({
-          where: { id: maybeEpisodeId },
-          select: {
-            itemId: true,
-            item: {
-              select: {
-                sourceType: true,
-                userId: true
-              }
-            }
-          }
-        });
+        const episode =
+          webUsesAzureTablePrimary() && webPrimaryStore
+            ? await (async () => {
+                const episodeRow = await webPrimaryStore.findEpisodeById(maybeEpisodeId);
+                if (!episodeRow) {
+                  return null;
+                }
+                const itemRow = await webPrimaryStore.findItemById(episodeRow.itemId);
+                return itemRow
+                  ? {
+                      itemId: episodeRow.itemId,
+                      item: {
+                        sourceType: itemRow.sourceType,
+                        userId: itemRow.userId
+                      }
+                    }
+                  : null;
+              })()
+            : await prisma.episode.findFirst({
+                where: { id: maybeEpisodeId },
+                select: {
+                  itemId: true,
+                  item: {
+                    select: {
+                      sourceType: true,
+                      userId: true
+                    }
+                  }
+                }
+              });
         itemId = episode?.itemId ?? null;
         userId = episode?.item.userId ?? null;
         const candidate = episode?.item.sourceType;
