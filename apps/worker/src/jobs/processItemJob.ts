@@ -117,7 +117,7 @@ async function maybeStoreDemoExtractionTrace(input: {
   extractedMarkdown?: string;
   logs: ExtractionLogEntry[];
 }) {
-  if (!input.isDemoUser) {
+  if (!input.isDemoUser || !workerEnv.demoExtractionTraceEnabled) {
     return;
   }
 
@@ -169,6 +169,10 @@ async function appendJobEvent(input: {
   diagnostic?: string;
   retryRecommended?: boolean;
 }) {
+  if (workerEnv.jobEventStorageMode === "off") {
+    return;
+  }
+
   const payload = sanitizeLogPayload(input);
   try {
     await prisma.jobEvent.create({

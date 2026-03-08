@@ -105,6 +105,10 @@ Current implementation baseline:
 - local Kokoro lane locked to single worker (`TTS_WORKERS=1`) in VM service template.
 - overflow worker role and queue-pressure hysteresis are implemented in worker runtime.
 - Azure Table metadata mirror adapter is implemented (dual-write + canary compare support).
+- cost-boundary controls now explicitly keep diagnostics out of the future Table-primary path:
+  - `ANALYTICS_STORAGE_MODE`
+  - `JOB_EVENT_STORAGE_MODE`
+  - `DEMO_EXTRACTION_TRACE_ENABLED`
 - migration scripts are available:
   - `npm run metadata:backfill`
   - `npm run metadata:check`

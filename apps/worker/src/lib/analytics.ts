@@ -7,6 +7,7 @@ import {
   type AnalyticsUserRole
 } from "@articlepod/core";
 import { Prisma } from "@prisma/client";
+import { workerEnv } from "./env.js";
 import { prisma } from "./prisma.js";
 import { workerLogger } from "./logger.js";
 
@@ -66,6 +67,10 @@ async function resolveUserProfile(userId: string): Promise<{
 }
 
 export async function recordWorkerAnalyticsEventBestEffort(input: WorkerRecordAnalyticsEventInput): Promise<void> {
+  if (workerEnv.analyticsStorageMode === "off") {
+    return;
+  }
+
   const occurredAt = input.occurredAt ?? new Date();
   const day = toAnalyticsDay(occurredAt);
 

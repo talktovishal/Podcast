@@ -9,6 +9,7 @@ import { GET as summaryGet } from "../src/app/api/admin/analytics/summary/route"
 import { GET as usersGet } from "../src/app/api/admin/analytics/users/route";
 import { createSession } from "../src/lib/auth";
 import { recordAnalyticsEvent } from "../src/lib/admin-analytics/events";
+import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -298,6 +299,43 @@ test("recordAnalyticsEvent dedupes by dedupeKey", async () => {
     assert.equal(firstWrite, true);
     assert.equal(secondWrite, false);
   } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("recordAnalyticsEvent skips persistence when analytics storage is off", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: `analytics-off-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const previousMode = env.analyticsStorageMode;
+  env.analyticsStorageMode = "off";
+
+  try {
+    const dedupeKey = `analytics-off:${uniq}`;
+    const persisted = await recordAnalyticsEvent({
+      eventType: "USER_SIGNUP",
+      userId: user.id,
+      authMethod: "LOCAL",
+      segmentAuth: "LOCAL_ONLY",
+      userRole: "USER",
+      dedupeKey,
+      occurredAt: new Date()
+    });
+
+    const stored = await prisma.analyticsEvent.findUnique({
+      where: { dedupeKey }
+    });
+
+    assert.equal(persisted, false);
+    assert.equal(stored, null);
+  } finally {
+    env.analyticsStorageMode = previousMode;
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

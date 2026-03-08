@@ -78,6 +78,7 @@
   - keep one always-on VM (`B2s`) with local-first TTS (`TTS_WORKERS=1`).
   - add queue-pressure overflow lane with hysteresis before external TTS usage.
   - migrate metadata/queue state toward serverless table/blob adapters with guarded cutover.
+  - keep verbose diagnostics out of Table-primary scope; prefer local logs and optional Blob archive.
 
 ## Requirement Coverage Snapshot
 
@@ -3076,6 +3077,7 @@ Milestone metadata contract:
   - Introduce adapter interfaces for queue claims/retries and metadata CRUD.
   - Keep PostgreSQL/Prisma adapter as default behavior with no drift.
   - Add adapter contract tests before introducing serverless implementations.
+  - Keep diagnostics (`JobEvent`, demo traces, analytics firehose) outside the Table-primary operational store.
 - Key files/modules:
   - `packages/core/src/storage/types.ts` (or new metadata adapter module)
   - `apps/worker/src/jobs/processItemJob.ts`
@@ -3152,6 +3154,7 @@ Milestone metadata contract:
   - Add budget alerts, overflow spend caps, and queue/failure SLO alerts.
   - Define incident playbook for burst traffic and cost anomalies.
   - Add recurring cost trend reporting to operations docs.
+  - Add explicit low-cost env defaults for diagnostics persistence so Azure Table usage stays bounded.
 - Key files/modules:
   - `docs/operations.md`
   - `docs/implement.md`

@@ -163,6 +163,7 @@ Locked target architecture:
 - Durable data: Azure PostgreSQL Flexible Server
 - Durable artifacts: Azure Blob Storage
 - Migration track: queue/item/digest metadata can be dual-written to Azure Table mirror for canary comparison and phased cutover
+- Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
 - Deployment automation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/*.sh`
 

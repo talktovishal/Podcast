@@ -6,6 +6,7 @@ import {
   type AnalyticsUserRole
 } from "@articlepod/core";
 import { Prisma } from "@prisma/client";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import type { RecordAnalyticsEventInput } from "./types";
@@ -90,6 +91,10 @@ function buildRollupUpdate(input: {
 }
 
 export async function recordAnalyticsEvent(input: RecordAnalyticsEventInput): Promise<boolean> {
+  if (env.analyticsStorageMode === "off") {
+    return false;
+  }
+
   const occurredAt = input.occurredAt ?? new Date();
   const day = toAnalyticsDay(occurredAt);
   const metadata = input.metadata ?? null;

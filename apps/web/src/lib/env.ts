@@ -4,6 +4,8 @@ import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 type MetadataMirrorBackend = "none" | "azure_table";
+type AnalyticsStorageMode = "full" | "off";
+type JobEventStorageMode = "database" | "off";
 
 function parseNonNegativeInt(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(raw ?? "", 10);
@@ -58,11 +60,28 @@ function parseMetadataMirrorBackend(raw: string | undefined): MetadataMirrorBack
   return "none";
 }
 
+function parseAnalyticsStorageMode(raw: string | undefined): AnalyticsStorageMode {
+  if (raw === "off") {
+    return "off";
+  }
+  return "full";
+}
+
+function parseJobEventStorageMode(raw: string | undefined): JobEventStorageMode {
+  if (raw === "off") {
+    return "off";
+  }
+  return "database";
+}
+
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  analyticsStorageMode: parseAnalyticsStorageMode(process.env.ANALYTICS_STORAGE_MODE),
+  jobEventStorageMode: parseJobEventStorageMode(process.env.JOB_EVENT_STORAGE_MODE),
+  demoExtractionTraceEnabled: parseBoolean(process.env.DEMO_EXTRACTION_TRACE_ENABLED, true),
   metadataMirrorBackend: parseMetadataMirrorBackend(process.env.METADATA_MIRROR_BACKEND),
   metadataMirrorDualWrite: parseBoolean(process.env.METADATA_MIRROR_DUAL_WRITE, false),
   metadataCanaryCompare: parseBoolean(process.env.METADATA_CANARY_COMPARE, false),

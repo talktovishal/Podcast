@@ -142,6 +142,12 @@ METADATA_CANARY_COMPARE="1"
 AZURE_TABLE_CONNECTION_STRING="<TABLE_CONNECTION_STRING>"
 WORKER_QUEUE_PRESSURE_SOURCE="prisma"
 ```
+Optional low-cost diagnostic flags:
+```bash
+ANALYTICS_STORAGE_MODE="off"
+JOB_EVENT_STORAGE_MODE="off"
+DEMO_EXTRACTION_TRACE_ENABLED="0"
+```
 Defaults now include VM-safe runtime paths:
 - `STORAGE_ROOT=/var/lib/articlepod/storage`
 - `MEDIA_ROOT=/var/lib/articlepod/media`

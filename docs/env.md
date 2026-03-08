@@ -125,12 +125,20 @@ Behavior:
 - `LOG_MAX_FILES` (default: `10`)
 - `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
 - `PODCAST_REQUEST_LOGGING` (default: `1`; set `0` to disable detailed RSS/media request diagnostics in web logs)
+- `ANALYTICS_STORAGE_MODE` (`full` default; set `off` in cost-optimized Azure mode to keep analytics out of the primary metadata store)
+- `JOB_EVENT_STORAGE_MODE` (`database` default; set `off` to keep worker job-event firehose in local logs only)
+- `DEMO_EXTRACTION_TRACE_ENABLED` (`1` default; set `0` to disable persisted demo extraction traces)
 - Legacy fallback: `LISTENLATER_CONSOLE_LOGS`
 
 ## Telemetry wiring (Azure + parity)
 - `OTEL_ENABLED` (`1` to enable OTel exporters when configured)
 - `OTEL_SERVICE_NAME` (service tag override)
 - `AZURE_MONITOR_CONNECTION_STRING` (Azure Monitor exporter connection string)
+
+Cost-optimized Azure guidance:
+- Keep structured logs on local disk (`LOG_ROOT`) and rotate them.
+- Archive rotated logs to Blob if retention is needed after VM replacement.
+- Do not use Azure Table for verbose logs, request traces, or analytics firehose data.
 
 ## Validation commands
 - `npm run check:env:simple`

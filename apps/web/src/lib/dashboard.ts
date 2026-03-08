@@ -4,6 +4,7 @@ import {
   normalizeExtractionLogEntries
 } from "./demo-diagnostics";
 import type { UserDemographicSurveyView } from "./demographics";
+import { env } from "./env";
 import { prisma } from "./prisma";
 
 export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
@@ -23,6 +24,10 @@ export async function getDashboardItems(userId: string) {
 }
 
 export async function getDemoExtractionDiagnostics(userId: string, limit = 10): Promise<DemoExtractionDiagnostic[]> {
+  if (!env.demoExtractionTraceEnabled) {
+    return [];
+  }
+
   const traces = await prisma.demoExtractionTrace.findMany({
     where: { userId },
     include: {
@@ -155,11 +160,13 @@ export async function getAdminMetrics() {
         }
       }
     }),
-    prisma.jobEvent.findMany({
-      where: { eventType: "error" },
-      orderBy: { createdAt: "desc" },
-      take: 20
-    }),
+    env.jobEventStorageMode === "off"
+      ? Promise.resolve([])
+      : prisma.jobEvent.findMany({
+          where: { eventType: "error" },
+          orderBy: { createdAt: "desc" },
+          take: 20
+        }),
     prisma.job.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { item: true } })
   ]);
 

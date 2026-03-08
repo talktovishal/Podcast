@@ -30,6 +30,7 @@
 - Data:
   - Metadata + queue state: serverless table store.
   - Artifacts/audio: blob store.
+  - Diagnostics/logs: local disk by default, with optional Blob archive; not Azure Table primary data.
 
 ## Phase checklist (file-level)
 
@@ -69,6 +70,7 @@
 - [x] Introduce adapter interfaces for queue + metadata operations.
 - [ ] Keep Postgres adapter as current default.
 - [ ] Add adapter-specific integration tests.
+- [x] Explicitly exclude logs/diagnostic firehose data from Table-primary scope.
 - Files:
   - `packages/core/src/storage/types.ts` (or new `packages/core/src/metadata/*`)
   - `apps/worker/src/jobs/processItemJob.ts`
@@ -109,6 +111,7 @@
 - [ ] Overflow daily spend cap and concurrency cap.
 - [ ] Queue-age and failure-rate alert thresholds.
 - [ ] Incident playbook and rollback drills.
+- [x] Add env guardrails so analytics/job-event/demo diagnostics can stay local or off in low-cost mode.
 - Files:
   - `docs/operations.md`
   - `docs/implement.md`

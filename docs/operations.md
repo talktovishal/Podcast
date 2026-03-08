@@ -182,6 +182,10 @@ Guardrail defaults for low-cost mode:
 - keep `TTS_WORKERS=1`.
 - keep overflow worker service disabled by default.
 - enable overflow worker only with explicit queue thresholds and external TTS endpoint configured.
+- keep logs on local disk and archive to Blob only if needed.
+- set `ANALYTICS_STORAGE_MODE=off` if investor analytics is not needed in low-cost mode.
+- set `JOB_EVENT_STORAGE_MODE=off` to keep worker job-event diagnostics in local logs only.
+- set `DEMO_EXTRACTION_TRACE_ENABLED=0` outside demo-heavy troubleshooting windows.
 
 Validate overflow guardrail env before enabling overflow worker:
 ```bash

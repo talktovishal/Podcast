@@ -117,6 +117,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - overflow worker lane that activates only under queue pressure and can route to external TTS.
   - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
 - Cost optimization implementation is in progress in repo (worker overflow policy + metadata mirror dual-write/canary + budget guardrail scripts).
+- Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
