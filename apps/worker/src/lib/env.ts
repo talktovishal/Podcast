@@ -5,6 +5,7 @@ import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
+type WorkerRole = "primary" | "overflow";
 
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
@@ -22,8 +23,44 @@ function normalizeDatabaseUrl(raw: string): string {
 
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 
+function toPositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+}
+
+function toNonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+}
+
+function parseWorkerRole(value: string | undefined): WorkerRole {
+  if (value === "overflow") {
+    return "overflow";
+  }
+  return "primary";
+}
+
+const pythonTtsTimeoutMs = toPositiveInt(process.env.PYTHON_TTS_TIMEOUT_MS, 120000);
+
 export const workerEnv = {
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  workerRole: parseWorkerRole(process.env.WORKER_ROLE),
+  overflowEnabled: (process.env.WORKER_OVERFLOW_ENABLED ?? "0") === "1",
+  overflowPolicyEvalMs: toPositiveInt(process.env.WORKER_OVERFLOW_POLICY_EVAL_MS, 15_000),
+  overflowActivateQueueDepth: toNonNegativeInt(process.env.WORKER_OVERFLOW_ACTIVATE_QUEUE_DEPTH, 8),
+  overflowDeactivateQueueDepth: toNonNegativeInt(process.env.WORKER_OVERFLOW_DEACTIVATE_QUEUE_DEPTH, 2),
+  overflowActivateOldestMs: toNonNegativeInt(process.env.WORKER_OVERFLOW_ACTIVATE_OLDEST_MS, 5 * 60 * 1000),
+  overflowDeactivateOldestMs: toNonNegativeInt(process.env.WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS, 2 * 60 * 1000),
+  overflowMinActiveMs: toNonNegativeInt(process.env.WORKER_OVERFLOW_MIN_ACTIVE_MS, 3 * 60 * 1000),
+  overflowPythonTtsUrl: process.env.OVERFLOW_PYTHON_TTS_URL,
+  overflowPythonTtsTimeoutMs: toPositiveInt(process.env.OVERFLOW_PYTHON_TTS_TIMEOUT_MS, pythonTtsTimeoutMs),
+  overflowPythonTtsSecret: process.env.OVERFLOW_PYTHON_TTS_SECRET,
   databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), "../web/.data/db.sqlite")}`),
   storageBackend,
   storageRoot: process.env.STORAGE_ROOT ?? resolve(process.cwd(), "../web/.data/media"),
@@ -56,7 +93,7 @@ export const workerEnv = {
   digestEmailProvider: process.env.DIGEST_EMAIL_PROVIDER ?? "stub",
   openAiApiKey: process.env.OPENAI_API_KEY,
   pythonTtsUrl: process.env.PYTHON_TTS_URL ?? "http://127.0.0.1:8010",
-  pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
+  pythonTtsTimeoutMs,
   pythonTtsSecret: process.env.PYTHON_TTS_SECRET,
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL
 };

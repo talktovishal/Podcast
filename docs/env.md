@@ -81,6 +81,17 @@ Behavior:
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
 ## Worker controls
+- `WORKER_ROLE` (`primary` default; set `overflow` for a queue-pressure-triggered overflow worker process)
+- `WORKER_OVERFLOW_ENABLED` (`0` default; set `1` to let overflow workers process jobs when pressure policy is active)
+- `WORKER_OVERFLOW_POLICY_EVAL_MS` (default `15000`; queue-pressure evaluation interval)
+- `WORKER_OVERFLOW_ACTIVATE_QUEUE_DEPTH` (default `8`; overflow activates when eligible queue depth is at or above this)
+- `WORKER_OVERFLOW_DEACTIVATE_QUEUE_DEPTH` (default `2`; overflow can deactivate once queue depth drops to/below this)
+- `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS` (default `300000`; overflow activates when oldest eligible job age reaches this)
+- `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS` (default `120000`; overflow can deactivate once oldest eligible age drops to/below this)
+- `WORKER_OVERFLOW_MIN_ACTIVE_MS` (default `180000`; minimum active duration to avoid policy thrash)
+- `OVERFLOW_PYTHON_TTS_URL` (optional external python-tts endpoint used by overflow workers)
+- `OVERFLOW_PYTHON_TTS_TIMEOUT_MS` (default inherits `PYTHON_TTS_TIMEOUT_MS`)
+- `OVERFLOW_PYTHON_TTS_SECRET` (optional auth secret for overflow python-tts endpoint)
 - `WORKER_POLL_MS`
 - `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
 - `WORKER_RETRY_POLL_MS`

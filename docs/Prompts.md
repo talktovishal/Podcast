@@ -112,6 +112,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Next Milestones
 - Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.
+- Cost optimization track (`C01`-`C07`) is now the active post-`M85` focus:
+  - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
+  - overflow worker lane that activates only under queue pressure and can route to external TTS.
+  - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
@@ -294,6 +298,7 @@ I) Extraction artifacts (near-term track)
 ### Next Milestones (Post-MVP Phase 2)
 - Add net-new milestones only (do not reopen completed milestones).
 - Candidate future themes:
+  - cost optimization rollout (`C01`-`C07`) with strict burn-rate guardrails
   - long-form multi-part episode splitting
   - richer managed observability exports/dashboards in Azure
   - bookmarklet ingestion mode after extension baseline

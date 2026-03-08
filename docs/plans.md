@@ -74,6 +74,10 @@
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
   - Implementation gated on per-milestone user sign-off.
+- Cost optimization track (`C01`-`C07`) is now active:
+  - keep one always-on VM (`B2s`) with local-first TTS (`TTS_WORKERS=1`).
+  - add queue-pressure overflow lane with hysteresis before external TTS usage.
+  - migrate metadata/queue state toward serverless table/blob adapters with guarded cutover.
 
 ## Requirement Coverage Snapshot
 
@@ -120,6 +124,10 @@
 | Global geo snapshots + optional demographic profile capture | M83 |
 | Smart feed shortcuts + admin-only markdown controls | M84 |
 | Message-first feedback inbox + admin triage + private GitHub mirror | M85 |
+| 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration) | C01, C02, C03, C04, C05, C06, C07 |
+| Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
+| PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
+| Budget and burn-rate operational guardrails | C07 |
 | Apple Sign-In JWT cryptographic verification | S01 |
 | Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
 | Brute-force rate limiting on login + timing oracle fix | S03 |
@@ -253,6 +261,13 @@ Milestone metadata contract:
 | S16 | Planned | 2026-03-28 | — | — |
 | S17 | Planned | 2026-03-28 | — | — |
 | S18 | Planned | 2026-03-07 | — | — |
+| C01 | Planned | 2026-03-10 | — | — |
+| C02 | In Progress | 2026-03-14 | — | — |
+| C03 | Planned | 2026-03-21 | — | — |
+| C04 | Planned | 2026-03-28 | — | — |
+| C05 | Planned | 2026-04-04 | — | — |
+| C06 | Planned | 2026-04-11 | — | — |
+| C07 | Planned | 2026-04-18 | — | — |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3005,3 +3020,146 @@ Milestone metadata contract:
 - Verification commands:
   - `pnpm --filter @articlepod/web test -- auth`
   - `pnpm --filter @articlepod/web run lint`
+
+---
+
+## Cost Optimization Track (C01-C07)
+
+### C01 - Cost Baseline, B2s Right-Sizing, and Rollback Guardrails
+- status: Planned
+- target_finish: 2026-03-10
+- Scope:
+  - Capture repeatable cost/queue baseline snapshots and rollback toggles.
+  - Move default VM sizing guidance to always-on `Standard_B2s`.
+  - Lock python-tts guidance to `TTS_WORKERS=1` for steady-state local-first execution.
+- Key files/modules:
+  - `docs/cost-optimization-rollout.md`
+  - `docs/azure-cost-model.md`
+  - `docs/operations.md`
+  - `infra/main.parameters.json`
+  - `infra/systemd/articlepod-python-tts.service`
+- Acceptance criteria:
+  - Documented baseline and rollback checklist is available.
+  - Deployment docs and infra defaults no longer assume `D4as_v5` for this track.
+  - Worker/TTS runtime guidance explicitly documents one local TTS worker baseline.
+- Verification commands:
+  - `npm run check:env:azure`
+  - `npm run costs:build`
+
+### C02 - Queue-Pressure Overflow Lane Scaffolding (Local-First Default)
+- status: In Progress
+- target_finish: 2026-03-14
+- Scope:
+  - Add worker role/env controls for `primary` and `overflow`.
+  - Add queue pressure snapshotting + hysteresis policy evaluator.
+  - Ensure overflow workers only process jobs when policy is active.
+  - Route overflow workers to external python-tts endpoint when configured.
+- Key files/modules:
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/src/lib/providers.ts`
+  - `apps/worker/src/lib/overflowPolicy.ts`
+  - `apps/worker/src/jobs/queuePressure.ts`
+  - `apps/worker/src/index.ts`
+  - `apps/worker/tests/overflow-policy.test.ts`
+- Acceptance criteria:
+  - `primary` worker stays local-first and always processes queue jobs.
+  - `overflow` worker idles unless queue pressure crosses activation thresholds.
+  - Policy transitions are test-covered and produce structured logs.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/worker run lint`
+  - `npx pnpm --filter @articlepod/worker run test`
+
+### C03 - Metadata and Queue Adapter Interfaces (Postgres Default)
+- status: Planned
+- target_finish: 2026-03-21
+- Scope:
+  - Introduce adapter interfaces for queue claims/retries and metadata CRUD.
+  - Keep PostgreSQL/Prisma adapter as default behavior with no drift.
+  - Add adapter contract tests before introducing serverless implementations.
+- Key files/modules:
+  - `packages/core/src/storage/types.ts` (or new metadata adapter module)
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/dashboard.ts`
+- Acceptance criteria:
+  - Business logic consumes adapter contracts, not direct storage assumptions.
+  - Existing queue/retry/idempotency behavior remains unchanged.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `npx pnpm --filter @articlepod/web run test`
+
+### C04 - Serverless Table/Blob Metadata Adapter Implementation
+- status: Planned
+- target_finish: 2026-03-28
+- Scope:
+  - Implement Azure Table-backed metadata + queue primitives behind adapters.
+  - Preserve claim/retry/stale-reclaim semantics and deterministic identifiers.
+  - Keep Blob as artifact store with existing podcast media contract behavior.
+- Key files/modules:
+  - `packages/core/src/storage/*`
+  - `apps/worker/src/lib/*`
+  - `apps/web/src/lib/*`
+  - migration helpers in `scripts/`
+- Acceptance criteria:
+  - Serverless adapter passes queue/retry/idempotency integration suite.
+  - Podcast feed/media behavior remains contract-compatible.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### C05 - Dual-Write, Backfill, and Consistency Certification
+- status: Planned
+- target_finish: 2026-04-04
+- Scope:
+  - Dual-write Postgres + Table with shadow-read consistency checks.
+  - Add backfill scripts and diff reporting for mismatch thresholds.
+  - Define fail-safe rollback triggers.
+- Key files/modules:
+  - `apps/web/src/lib/*`
+  - `apps/worker/src/jobs/*`
+  - `scripts/migrate-*`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Consistency diff runs clean across representative production snapshots.
+  - Rollback path is documented and drillable.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `npx pnpm --filter @articlepod/web run test`
+
+### C06 - Canary and Full Serverless Metadata Cutover
+- status: Planned
+- target_finish: 2026-04-11
+- Scope:
+  - Roll out canary reads/writes, then full traffic cutover.
+  - Keep bounded rollback window before PostgreSQL decom.
+  - Validate latency and failure rates stay within defined limits.
+- Key files/modules:
+  - feature flag env wiring in `apps/web/src/lib/env.ts`, `apps/worker/src/lib/env.ts`
+  - `docs/operations.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - Serverless metadata path runs stable through full cutover window.
+  - PostgreSQL dependency can be disabled without user-facing regressions.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### C07 - Financial Guardrails and Incident Controls
+- status: Planned
+- target_finish: 2026-04-18
+- Scope:
+  - Add budget alerts, overflow spend caps, and queue/failure SLO alerts.
+  - Define incident playbook for burst traffic and cost anomalies.
+  - Add recurring cost trend reporting to operations docs.
+- Key files/modules:
+  - `docs/operations.md`
+  - `docs/implement.md`
+  - `docs/env.md`
+  - optional helpers in `scripts/azure/`
+- Acceptance criteria:
+  - Budget and anomaly alerts are documented with action thresholds.
+  - Operators can execute a known rollback path within one runbook cycle.
+- Verification commands:
+  - `npm run check:env:azure`
+  - `npm run costs:build`

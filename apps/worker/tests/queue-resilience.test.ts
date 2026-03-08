@@ -45,8 +45,8 @@ const SNAPSHOT_HTML = `
 </html>
 `;
 
-async function seedCacheForItem(itemId: string): Promise<string> {
-  return seedCacheForHtml(itemId, SNAPSHOT_HTML, `https://example.com/${itemId}`);
+async function seedCacheForItem(itemId: string, userId: string): Promise<string> {
+  return seedCacheForHtml(itemId, userId, SNAPSHOT_HTML, `https://example.com/${itemId}`);
 }
 
 function markdownToNarrationText(markdown: string, fallbackText: string): string {
@@ -65,11 +65,11 @@ function markdownToNarrationText(markdown: string, fallbackText: string): string
   return stripped.length >= 120 ? stripped : fallbackText.trim();
 }
 
-async function seedCacheForHtml(itemId: string, html: string, url: string): Promise<string> {
+async function seedCacheForHtml(itemId: string, userId: string, html: string, url: string): Promise<string> {
   const extracted = extractHtmlSnapshot({ html, url });
   const narrationText = markdownToNarrationText(extracted.markdown, extracted.text);
   const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
-  const cacheKey = sha256(["kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
+  const cacheKey = sha256([userId, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
   await prisma.chunkCache.create({
     data: {
@@ -116,7 +116,7 @@ test("reclaims stale processing job and completes it", async () => {
     }
   });
 
-  await seedCacheForItem(item.id);
+  await seedCacheForItem(item.id, user.id);
 
   const staleTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const job = await prisma.job.create({
@@ -220,7 +220,7 @@ test("processes retry-eligible failed job when nextRetryAt is due", async () => 
     }
   });
 
-  await seedCacheForItem(item.id);
+  await seedCacheForItem(item.id, user.id);
 
   const job = await prisma.job.create({
     data: {
@@ -282,7 +282,7 @@ test("processes oversized snapshot when chunk cache is available", async () => {
     }
   });
 
-  await seedCacheForHtml(item.id, oversizedHtml, `https://example.com/oversized/${uniq}`);
+  await seedCacheForHtml(item.id, user.id, oversizedHtml, `https://example.com/oversized/${uniq}`);
 
   try {
     const processed = await processJob(job.id);
