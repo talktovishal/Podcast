@@ -1,6 +1,30 @@
 import { spawnSync, spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+// Load root .env into process.env so child processes (including Next.js)
+// inherit vars like GOOGLE_CLIENT_ID that may not be in apps/web/.env.
+// Next.js won't override vars already present in process.env.
+const rootEnvPath = resolve(process.cwd(), '.env');
+if (existsSync(rootEnvPath)) {
+  const lines = readFileSync(rootEnvPath, 'utf8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    let value = trimmed.slice(eqIdx + 1).trim();
+    // Strip surrounding quotes
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
 
 function runOrFail(command, args) {
   const result = spawnSync(command, args, {
