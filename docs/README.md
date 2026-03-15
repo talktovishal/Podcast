@@ -22,3 +22,4 @@ Use this as the entry point for repo documentation.
 - Branding notes: `/Users/vishalchowdhary/Documents/Podcast/docs/branding.md`
 - Third-party attribution: `/Users/vishalchowdhary/Documents/Podcast/docs/THIRD_PARTY.md`
 - Cost model notes: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-cost-model.md`
+- Billing handoff and Stripe setup checklist: `/Users/vishalchowdhary/Documents/Podcast/docs/billing/README.md`

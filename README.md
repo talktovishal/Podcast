@@ -86,6 +86,7 @@ Automated CI/CD deployment:
 Script/catalog indexes:
 - `docs/README.md`
 - `scripts/README.md`
+- `docs/billing/README.md` - Stripe billing handoff, setup, and rollout checklist
 
 ## Naming management
 - Sync generated naming constants:
