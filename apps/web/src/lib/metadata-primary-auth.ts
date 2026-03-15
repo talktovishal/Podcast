@@ -66,6 +66,16 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
   };
 }
 
+export async function findPrimaryUserByBillingCustomerId(customerId: string) {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.user.findUnique({
+      where: { billingCustomerId: customerId }
+    });
+  }
+
+  return requirePrimaryStore().findUserByBillingCustomerId(customerId);
+}
+
 export async function listPrimaryUsers(limit = 100) {
   if (!webUsesAzureTablePrimary()) {
     return prisma.user.findMany({
@@ -76,6 +86,15 @@ export async function listPrimaryUsers(limit = 100) {
         email: true,
         name: true,
         role: true,
+        complimentaryPro: true,
+        billingProvider: true,
+        billingCustomerId: true,
+        billingSubscriptionId: true,
+        billingPlanCode: true,
+        billingStatus: true,
+        billingCurrentPeriodEnd: true,
+        billingCancelAtPeriodEnd: true,
+        billingUpdatedAt: true,
         isPaid: true,
         submissionCount: true,
         extraSubmissionCredits: true,
@@ -121,6 +140,15 @@ export async function updatePrimaryUser(
     passwordHash: string | null;
     name: string | null;
     role: string;
+    complimentaryPro: boolean;
+    billingProvider: string | null;
+    billingCustomerId: string | null;
+    billingSubscriptionId: string | null;
+    billingPlanCode: string;
+    billingStatus: string;
+    billingCurrentPeriodEnd: Date | null;
+    billingCancelAtPeriodEnd: boolean;
+    billingUpdatedAt: Date | null;
     firstSeenAt: Date | null;
     firstSeenCountryCode: string | null;
     firstSeenRegionCode: string | null;
@@ -144,6 +172,62 @@ export async function updatePrimaryUser(
   }
 
   return requirePrimaryStore().updateUser(userId, input);
+}
+
+export async function findPrimaryBillingWebhookEvent(provider: string, providerEventId: string) {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.billingWebhookEvent.findUnique({
+      where: {
+        provider_providerEventId: {
+          provider,
+          providerEventId
+        }
+      }
+    });
+  }
+
+  return requirePrimaryStore().findBillingWebhookEvent(provider, providerEventId);
+}
+
+export async function createPrimaryBillingWebhookEvent(input: {
+  provider: string;
+  providerEventId: string;
+  eventType: string;
+  userId?: string | null;
+  customerId?: string | null;
+  subscriptionId?: string | null;
+  status?: string;
+  errorMessage?: string | null;
+  processedAt?: Date | null;
+}) {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.billingWebhookEvent.create({
+      data: {
+        provider: input.provider,
+        providerEventId: input.providerEventId,
+        eventType: input.eventType,
+        userId: input.userId ?? null,
+        customerId: input.customerId ?? null,
+        subscriptionId: input.subscriptionId ?? null,
+        status: input.status ?? "PROCESSED",
+        errorMessage: input.errorMessage ?? null,
+        processedAt: input.processedAt ?? new Date()
+      }
+    });
+  }
+
+  return requirePrimaryStore().createBillingWebhookEvent({
+    id: randomUUID(),
+    provider: input.provider,
+    providerEventId: input.providerEventId,
+    eventType: input.eventType,
+    userId: input.userId ?? null,
+    customerId: input.customerId ?? null,
+    subscriptionId: input.subscriptionId ?? null,
+    status: input.status ?? "PROCESSED",
+    errorMessage: input.errorMessage ?? null,
+    processedAt: input.processedAt ?? new Date()
+  });
 }
 
 export async function createPrimarySession(input: { userId: string; tokenHash: string; expiresAt: Date }) {

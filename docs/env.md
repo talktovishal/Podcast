@@ -88,6 +88,16 @@ Behavior:
 - When disabled or unset, feedback remains DB-only.
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
+## Billing (optional)
+- `STRIPE_SECRET_KEY` (required to create Checkout and Customer Portal sessions)
+- `STRIPE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
+- `STRIPE_PRICE_PRO_MONTHLY` (Stripe recurring price id for the Pro plan)
+- `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit portal configuration; default Stripe portal config is used when unset)
+
+Behavior:
+- Billing routes stay unavailable until the Stripe secret key and Pro price id are set.
+- ArticlePod stores only Stripe customer/subscription metadata and effective access state; card details remain in Stripe-hosted flows.
+
 ## Worker controls
 - `WORKER_ROLE` (`primary` default; set `overflow` for a queue-pressure-triggered overflow worker process)
 - `WORKER_OVERFLOW_ENABLED` (`0` default; set `1` to let overflow workers process jobs when pressure policy is active)

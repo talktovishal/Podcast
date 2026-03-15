@@ -60,7 +60,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Submission monetization baseline is implemented:
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
-  - admin dashboard includes user-level quota controls (`paid` toggle + extra submission credits)
+  - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
+  - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are now implemented for the Pro plan
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).
@@ -112,10 +113,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Next Milestones
 - Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.
-- Cost optimization track (`C01`-`C07`) is now the active post-`M85` focus:
+- Cost optimization track (`C01`-`C07`) remains active until `C06` is closed:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane that activates only under queue pressure and can route to external TTS.
   - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
+- Billing track (`B01`-`B06`) is now in progress in parallel:
+  - Stripe-hosted Pro upgrade flow on `/pricing`
+  - Stripe Customer Portal access from `/app/settings`
+  - webhook-driven billing entitlement sync with complimentary Pro overrides
 - Cost optimization implementation is now mostly in repo:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store
@@ -214,6 +219,7 @@ A) Account + private feed
   - `/rss/<feed_token>.xml`
 - User can rotate the feed token (invalidates previous URL)
 - Free users have a submission trial quota (default 2). Additional submissions require paid status or admin-granted extra tries.
+- Pro upgrades use Stripe-hosted Checkout; ongoing billing changes/cancelation use Stripe Customer Portal.
 
 B) Ingest content
 - Submit URL (HTML article)

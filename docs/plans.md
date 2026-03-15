@@ -129,6 +129,7 @@
 | Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
 | PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
 | Budget and burn-rate operational guardrails | C07 |
+| Stripe-hosted Pro billing, portal management, and webhook entitlement sync | B01, B02, B03, B04, B05, B06 |
 | Apple Sign-In JWT cryptographic verification | S01 |
 | Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
 | Brute-force rate limiting on login + timing oracle fix | S03 |
@@ -269,6 +270,12 @@ Milestone metadata contract:
 | C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C06 | In Progress | 2026-04-11 | — | — |
 | C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| B01 | In Progress | 2026-04-18 | — | — |
+| B02 | Planned | 2026-04-25 | — | — |
+| B03 | Planned | 2026-05-02 | — | — |
+| B04 | Planned | 2026-05-09 | — | — |
+| B05 | Planned | 2026-05-16 | — | — |
+| B06 | Planned | 2026-05-23 | — | — |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3048,6 +3055,120 @@ Milestone metadata contract:
 - Verification commands:
   - `npm run check:env:azure`
   - `npm run costs:build`
+
+### B01 - Billing Track Kickoff and Contract Sync
+- status: In Progress
+- target_finish: 2026-04-18
+- Scope:
+  - Add billing milestones, env contract, dependency attribution, and cross-doc product language for Stripe-hosted Pro billing.
+  - Keep cost optimization `C06` visible as an active track while billing work begins in parallel.
+- Key files/modules:
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `docs/THIRD_PARTY.md`
+- Acceptance criteria:
+  - Billing terminology is consistent across prompts, plans, architecture, and operator docs.
+  - New billing env vars and dependency attribution are documented before the feature is marked done.
+- Verification commands:
+  - Manual cross-doc review
+
+### B02 - Billing Data Model and Metadata Backend Parity
+- status: Planned
+- target_finish: 2026-04-25
+- Scope:
+  - Extend `User` with Stripe customer/subscription state, complimentary Pro override, and effective paid-access cache.
+  - Add `BillingWebhookEvent` idempotency storage in both Prisma and Azure Table primary metadata paths.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/src/lib/metadata-primary-auth.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+- Acceptance criteria:
+  - Both Prisma and Azure Table runtimes can persist equivalent billing state.
+  - Existing quota logic continues to read effective paid access from local metadata without direct Stripe calls.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+
+### B03 - Stripe Checkout for Pro Upgrade
+- status: Planned
+- target_finish: 2026-05-02
+- Scope:
+  - Create authenticated checkout-session route for `PRO_MONTHLY`.
+  - Reuse or create Stripe customers keyed to local users.
+  - Wire `/pricing` to start checkout when billing is configured.
+- Key files/modules:
+  - `apps/web/src/lib/billing.ts`
+  - `apps/web/src/app/api/billing/checkout/route.ts`
+  - `apps/web/src/app/pricing/page.tsx`
+- Acceptance criteria:
+  - Signed-in users can start Stripe-hosted checkout from `/pricing`.
+  - Billing-unconfigured environments fail with a clear user-facing message instead of crashing.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+
+### B04 - Webhook-Driven Billing State and Portal Access
+- status: Planned
+- target_finish: 2026-05-09
+- Scope:
+  - Verify Stripe webhook signatures, dedupe event ids, and sync subscription state into local metadata.
+  - Add `/app/settings` billing card and Stripe Customer Portal launch.
+- Key files/modules:
+  - `apps/web/src/app/api/billing/webhook/route.ts`
+  - `apps/web/src/app/api/billing/portal/route.ts`
+  - `apps/web/src/app/app/settings/page.tsx`
+  - `apps/web/src/lib/billing.ts`
+- Acceptance criteria:
+  - Webhook replays do not double-apply state changes.
+  - Settings page shows current plan/status and can launch the portal for Stripe-managed subscriptions.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+
+### B05 - Admin Complimentary Access and Quota Integration
+- status: Planned
+- target_finish: 2026-05-16
+- Scope:
+  - Replace the raw admin `paid` toggle with a complimentary Pro override.
+  - Keep extra submission credits for free-tier support scenarios.
+  - Expose billing state in admin quota management to reduce support confusion.
+- Key files/modules:
+  - `apps/web/src/app/api/admin/users/quota/route.ts`
+  - `apps/web/src/components/admin-quota-manager.tsx`
+  - `apps/web/src/lib/submission-quota.ts`
+- Acceptance criteria:
+  - Admin overrides do not clobber Stripe-managed billing state.
+  - Complimentary access still unlocks unlimited submissions through the existing quota gate.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- submission-quota`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+
+### B06 - Billing Validation, Release Notes, and Operator Readiness
+- status: Planned
+- target_finish: 2026-05-23
+- Scope:
+  - Finish billing regression coverage, env examples, operations/runbook notes, and release-verification evidence.
+  - Run full repo verification prompts after the billing track lands.
+- Key files/modules:
+  - `docs/operations.md`
+  - `.env.example`
+  - `.env.simple.example`
+  - `.env.parity.example`
+  - `.env.azure.example`
+- Acceptance criteria:
+  - Billing setup and webhook troubleshooting are documented for local and Azure environments.
+  - Billing changes pass workspace, license, and podcast contract gates before sign-off.
+- Verification commands:
+  - `npm run typecheck`
+  - `npm run lint`
+  - `npm run test`
+  - `npm run build`
+  - `npm run license:check`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C02 - Queue-Pressure Overflow Lane Scaffolding (Local-First Default)
 - status: Done

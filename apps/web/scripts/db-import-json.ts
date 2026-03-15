@@ -10,6 +10,7 @@ type ExportBundle = {
   counts: Record<string, number>;
   data: {
     users: Array<Record<string, unknown>>;
+    billingWebhookEvents?: Array<Record<string, unknown>>;
     sessions: Array<Record<string, unknown>>;
     feedTokens: Array<Record<string, unknown>>;
     shareTokens: Array<Record<string, unknown>>;
@@ -65,6 +66,7 @@ function castJson(value: unknown): Prisma.InputJsonValue {
 
 async function maybeTruncateAll(): Promise<void> {
   await prisma.demoExtractionTrace.deleteMany();
+  await prisma.billingWebhookEvent.deleteMany();
   await prisma.chunkCache.deleteMany();
   await prisma.itemArtifact.deleteMany();
   await prisma.jobEvent.deleteMany();
@@ -99,6 +101,17 @@ async function main() {
         createdAt: toDate(row.createdAt),
         updatedAt: toDate(row.updatedAt)
       })) as Prisma.UserCreateManyInput[]
+    });
+  }
+
+  const billingWebhookEvents = parsed.data.billingWebhookEvents ?? [];
+  if (billingWebhookEvents.length > 0) {
+    await prisma.billingWebhookEvent.createMany({
+      data: billingWebhookEvents.map((row) => ({
+        ...row,
+        processedAt: toDate(row.processedAt),
+        createdAt: toDate(row.createdAt)
+      })) as Prisma.BillingWebhookEventCreateManyInput[]
     });
   }
 

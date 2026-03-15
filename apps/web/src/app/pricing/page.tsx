@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { BillingActionButton } from "@/components/billing-action-button";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
+import { billingPlanLabel, billingStatusLabel, getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
+import { getAuthUserFromCookies } from "@/lib/auth";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -10,7 +13,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" }
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const user = await getAuthUserFromCookies();
+  const billing = user ? await getBillingAccountSnapshot(user.id) : null;
+  const billingConfigured = isBillingCheckoutConfigured();
+
   return (
     <main className="min-h-screen py-6 sm:py-10">
       <div className="container-shell">
@@ -35,6 +42,15 @@ export default function PricingPage() {
               <li>- URL and PDF ingestion</li>
               <li>- Private RSS feed access</li>
             </ul>
+            <div className="mt-4 text-sm text-[var(--muted)]">
+              {billing ? (
+                <p>
+                  Current access: {billingPlanLabel(billing.planCode)} · {billingStatusLabel(billing.status)}
+                </p>
+              ) : (
+                <p>Sign in to start with the free plan instantly.</p>
+              )}
+            </div>
           </article>
 
           <article className="card border-[#9ad0c0] p-5">
@@ -47,6 +63,25 @@ export default function PricingPage() {
               <li>- Chrome extension capture</li>
               <li>- Daily podcast + email briefing</li>
             </ul>
+            <div className="mt-4">
+              {!user ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
+                  Sign in to upgrade
+                </Link>
+              ) : billing?.hasPaidAccess ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
+                  Manage current plan
+                </Link>
+              ) : billingConfigured ? (
+                <BillingActionButton
+                  action="checkout"
+                  className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  label="Upgrade to Pro"
+                />
+              ) : (
+                <p className="text-sm text-[var(--muted)]">Billing setup is not configured in this environment yet.</p>
+              )}
+            </div>
           </article>
 
           <article className="card p-5">
@@ -58,6 +93,7 @@ export default function PricingPage() {
               <li>- Weekly topic digest podcast</li>
               <li>- Team email summary reports</li>
             </ul>
+            <p className="mt-4 text-sm text-[var(--muted)]">Team billing is planned, but not self-serve yet. Use the contact path first.</p>
           </article>
         </section>
 

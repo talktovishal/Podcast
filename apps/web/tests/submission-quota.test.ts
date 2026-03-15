@@ -100,7 +100,7 @@ test("submission quota blocks free users after two submissions and admin can gra
       },
       body: JSON.stringify({
         userId: user.id,
-        isPaid: false,
+        complimentaryPro: false,
         extraSubmissionCredits: 3
       })
     });
@@ -113,6 +113,7 @@ test("submission quota blocks free users after two submissions and admin can gra
     const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
     assert.equal(updatedUser?.submissionCount, 3);
     assert.equal(updatedUser?.extraSubmissionCredits, 3);
+    assert.equal(updatedUser?.complimentaryPro, false);
   } finally {
     await prisma.user.delete({ where: { id: admin.id } });
     await prisma.user.delete({ where: { id: user.id } });
@@ -167,6 +168,7 @@ test("admin quota API is admin-only and returns quota rows", async () => {
       users: Array<{
         id: string;
         email: string;
+        complimentaryPro: boolean;
         quota: {
           totalFreeSubmissionAllowance: number;
           remainingFreeSubmissions: number | null;
@@ -178,6 +180,7 @@ test("admin quota API is admin-only and returns quota rows", async () => {
     const row = listPayload.users.find((candidate) => candidate.id === user.id);
     assert.ok(row);
     assert.equal(row?.email, user.email);
+    assert.equal(row?.complimentaryPro, false);
     assert.equal(row?.quota.totalFreeSubmissionAllowance, 2);
     assert.equal(row?.quota.remainingFreeSubmissions, 2);
   } finally {

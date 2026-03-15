@@ -13,6 +13,15 @@ model User {
   passwordHash String?
   name         String?
   role         String      @default("USER")
+  complimentaryPro Boolean @default(false)
+  billingProvider String?
+  billingCustomerId String? @unique
+  billingSubscriptionId String? @unique
+  billingPlanCode String @default("STARTER")
+  billingStatus String @default("NONE")
+  billingCurrentPeriodEnd DateTime?
+  billingCancelAtPeriodEnd Boolean @default(false)
+  billingUpdatedAt DateTime?
   isPaid       Boolean     @default(false)
   submissionCount Int      @default(0)
   extraSubmissionCredits Int @default(0)
@@ -44,6 +53,7 @@ model User {
   digestEpisodes  DigestEpisode[]
   demographicSurvey UserDemographicSurvey?
   feedbackSubmissions UserFeedback[]
+  billingWebhookEvents BillingWebhookEvent[]
 }
 
 model Session {
@@ -460,6 +470,26 @@ model UserFeedback {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@index([mirrorStatus, createdAt])
+}
+
+model BillingWebhookEvent {
+  id                  String   @id @default(cuid())
+  provider            String
+  providerEventId     String
+  eventType           String
+  userId              String?
+  customerId          String?
+  subscriptionId      String?
+  status              String   @default("PROCESSED")
+  errorMessage        String?
+  processedAt         DateTime?
+  createdAt           DateTime @default(now())
+
+  user                User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([userId, createdAt])
+  @@index([provider, createdAt])
 }
 
 model RateLimitBucket {

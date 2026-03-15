@@ -32,9 +32,13 @@ Auth profile metadata on `User`:
 - raw IP values are not persisted in user profile data
 
 Monetization/quota fields on `User`:
-- `isPaid` (paid accounts are unrestricted)
+- `complimentaryPro` (manual support override for non-Stripe paid access)
+- `billingProvider`, `billingCustomerId`, `billingSubscriptionId`
+- `billingPlanCode`, `billingStatus`, `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`, `billingUpdatedAt`
+- `isPaid` (effective access cache derived from billing state + complimentary override)
 - `submissionCount` (lifetime submission usage counter)
 - `extraSubmissionCredits` (admin-granted free-tier extensions)
+- `BillingWebhookEvent` (Stripe event idempotency + audit rows)
 - `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
 - `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
 - `AnalyticsCoverage` (metric coverage/backfill metadata, including forward-only metrics)
@@ -69,6 +73,14 @@ Current behavior (`M57`-`M64` implemented):
 5. Worker resolves TTS selection and uses chunk cache when available.
 6. Worker writes final audio artifact to object storage and upserts `Episode`.
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
+
+## Billing flow
+1. Authenticated user starts Pro checkout from `/pricing` or `/app/settings`.
+2. Web creates a Stripe-hosted Checkout session and reuses/creates a Stripe customer keyed to the local `User`.
+3. Stripe handles payment method capture and recurring billing outside ArticlePod.
+4. Stripe webhooks update the local billing fields on `User` and create `BillingWebhookEvent` rows for idempotency.
+5. Effective paid access is derived from Stripe subscription state plus `complimentaryPro`, then cached onto `User.isPaid` so existing quota gates stay fast.
+6. `/app/settings` launches Stripe Customer Portal for self-serve updates, cancelation, and payment-method management.
 
 ## Digest automation pipeline (`M72`-`M79`)
 1. User configures digest preferences in `/app/settings` (daily/weekly email + podcast, timezone, schedule, target length).

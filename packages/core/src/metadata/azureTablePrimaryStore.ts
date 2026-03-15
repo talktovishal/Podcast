@@ -11,6 +11,7 @@ type AzureTablePrimaryStoreOptions = {
 type TableKey =
   | "users"
   | "sessions"
+  | "billingWebhookEvents"
   | "feedTokens"
   | "digestFeedTokens"
   | "shareTokens"
@@ -34,6 +35,15 @@ export type AzureTablePrimaryUser = {
   passwordHash: string | null;
   name: string | null;
   role: string;
+  complimentaryPro: boolean;
+  billingProvider: string | null;
+  billingCustomerId: string | null;
+  billingSubscriptionId: string | null;
+  billingPlanCode: string;
+  billingStatus: string;
+  billingCurrentPeriodEnd: Date | null;
+  billingCancelAtPeriodEnd: boolean;
+  billingUpdatedAt: Date | null;
   isPaid: boolean;
   submissionCount: number;
   extraSubmissionCredits: number;
@@ -56,6 +66,20 @@ export type AzureTablePrimarySession = {
   userId: string;
   tokenHash: string;
   expiresAt: Date;
+  createdAt: Date;
+};
+
+export type AzureTablePrimaryBillingWebhookEvent = {
+  id: string;
+  provider: string;
+  providerEventId: string;
+  eventType: string;
+  userId: string | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+  status: string;
+  errorMessage: string | null;
+  processedAt: Date | null;
   createdAt: Date;
 };
 
@@ -471,6 +495,7 @@ export class AzureTablePrimaryStore {
     this.clients = {
       users: createClient(buildTableName(input.tablePrefix, "users")),
       sessions: createClient(buildTableName(input.tablePrefix, "sessions")),
+      billingWebhookEvents: createClient(buildTableName(input.tablePrefix, "billingevents")),
       feedTokens: createClient(buildTableName(input.tablePrefix, "feedtokens")),
       digestFeedTokens: createClient(buildTableName(input.tablePrefix, "digestfeedtokens")),
       shareTokens: createClient(buildTableName(input.tablePrefix, "sharetokens")),
@@ -611,6 +636,15 @@ export class AzureTablePrimaryStore {
       passwordHash: parseString(entity.passwordHash),
       name: parseString(entity.name),
       role: parseRequiredString(entity.role, "role"),
+      complimentaryPro: parseBoolean(entity.complimentaryPro, false),
+      billingProvider: parseString(entity.billingProvider),
+      billingCustomerId: parseString(entity.billingCustomerId),
+      billingSubscriptionId: parseString(entity.billingSubscriptionId),
+      billingPlanCode: parseString(entity.billingPlanCode) || "STARTER",
+      billingStatus: parseString(entity.billingStatus) || "NONE",
+      billingCurrentPeriodEnd: parseDate(entity.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd: parseBoolean(entity.billingCancelAtPeriodEnd, false),
+      billingUpdatedAt: parseDate(entity.billingUpdatedAt),
       isPaid: parseBoolean(entity.isPaid, false),
       submissionCount: parseNumber(entity.submissionCount, 0),
       extraSubmissionCredits: parseNumber(entity.extraSubmissionCredits, 0),
@@ -626,6 +660,22 @@ export class AzureTablePrimaryStore {
       lastSeenCity: parseString(entity.lastSeenCity),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toBillingWebhookEvent(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryBillingWebhookEvent {
+    return {
+      id: parseRequiredString(entity.id, "id"),
+      provider: parseRequiredString(entity.provider, "provider"),
+      providerEventId: parseRequiredString(entity.providerEventId, "providerEventId"),
+      eventType: parseRequiredString(entity.eventType, "eventType"),
+      userId: parseString(entity.userId),
+      customerId: parseString(entity.customerId),
+      subscriptionId: parseString(entity.subscriptionId),
+      status: parseString(entity.status) || "PROCESSED",
+      errorMessage: parseString(entity.errorMessage),
+      processedAt: parseDate(entity.processedAt),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
 
@@ -892,6 +942,14 @@ export class AzureTablePrimaryStore {
     return entity ? this.toUser(entity) : null;
   }
 
+  async findUserByBillingCustomerId(customerId: string): Promise<AzureTablePrimaryUser | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "users",
+      joinFilters(filterEquals("PartitionKey", "user"), filterEquals("billingCustomerId", customerId))
+    );
+    return entity ? this.toUser(entity) : null;
+  }
+
   async listUsers(limit = 100): Promise<AzureTablePrimaryUser[]> {
     if (limit <= 0) {
       return [];
@@ -905,12 +963,62 @@ export class AzureTablePrimaryStore {
     return rows.length;
   }
 
+  async findBillingWebhookEvent(
+    provider: string,
+    providerEventId: string
+  ): Promise<AzureTablePrimaryBillingWebhookEvent | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("billingWebhookEvents", provider, providerEventId);
+    return entity ? this.toBillingWebhookEvent(entity) : null;
+  }
+
+  async createBillingWebhookEvent(input: {
+    id: string;
+    provider: string;
+    providerEventId: string;
+    eventType: string;
+    userId?: string | null;
+    customerId?: string | null;
+    subscriptionId?: string | null;
+    status?: string;
+    errorMessage?: string | null;
+    processedAt?: Date | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimaryBillingWebhookEvent> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: input.provider,
+      rowKey: input.providerEventId,
+      id: input.id,
+      provider: input.provider,
+      providerEventId: input.providerEventId,
+      eventType: input.eventType,
+      userId: input.userId ?? null,
+      customerId: input.customerId ?? null,
+      subscriptionId: input.subscriptionId ?? null,
+      status: input.status ?? "PROCESSED",
+      errorMessage: input.errorMessage ?? null,
+      processedAt: isoOrNull(input.processedAt ?? createdAt),
+      createdAt: createdAt.toISOString()
+    };
+    await this.createEntity("billingWebhookEvents", entity);
+    return this.toBillingWebhookEvent(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
   async createUser(input: {
     id: string;
     email: string;
     passwordHash?: string | null;
     name?: string | null;
     role: string;
+    complimentaryPro?: boolean;
+    billingProvider?: string | null;
+    billingCustomerId?: string | null;
+    billingSubscriptionId?: string | null;
+    billingPlanCode?: string;
+    billingStatus?: string;
+    billingCurrentPeriodEnd?: Date | null;
+    billingCancelAtPeriodEnd?: boolean;
+    billingUpdatedAt?: Date | null;
     isPaid?: boolean;
     submissionCount?: number;
     extraSubmissionCredits?: number;
@@ -926,6 +1034,15 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash ?? null,
       name: input.name ?? null,
       role: input.role,
+      complimentaryPro: input.complimentaryPro ?? false,
+      billingProvider: input.billingProvider ?? null,
+      billingCustomerId: input.billingCustomerId ?? null,
+      billingSubscriptionId: input.billingSubscriptionId ?? null,
+      billingPlanCode: input.billingPlanCode ?? "STARTER",
+      billingStatus: input.billingStatus ?? "NONE",
+      billingCurrentPeriodEnd: isoOrNull(input.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? false,
+      billingUpdatedAt: isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? false,
       submissionCount: input.submissionCount ?? 0,
       extraSubmissionCredits: input.extraSubmissionCredits ?? 0,
@@ -945,6 +1062,15 @@ export class AzureTablePrimaryStore {
       passwordHash: string | null;
       name: string | null;
       role: string;
+      complimentaryPro: boolean;
+      billingProvider: string | null;
+      billingCustomerId: string | null;
+      billingSubscriptionId: string | null;
+      billingPlanCode: string;
+      billingStatus: string;
+      billingCurrentPeriodEnd: Date | null;
+      billingCancelAtPeriodEnd: boolean;
+      billingUpdatedAt: Date | null;
       isPaid: boolean;
       submissionCount: number;
       extraSubmissionCredits: number;
@@ -974,6 +1100,17 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash === undefined ? current.passwordHash : input.passwordHash,
       name: input.name === undefined ? current.name : input.name,
       role: input.role ?? current.role,
+      complimentaryPro: input.complimentaryPro ?? current.complimentaryPro,
+      billingProvider: input.billingProvider === undefined ? current.billingProvider : input.billingProvider,
+      billingCustomerId: input.billingCustomerId === undefined ? current.billingCustomerId : input.billingCustomerId,
+      billingSubscriptionId:
+        input.billingSubscriptionId === undefined ? current.billingSubscriptionId : input.billingSubscriptionId,
+      billingPlanCode: input.billingPlanCode ?? current.billingPlanCode,
+      billingStatus: input.billingStatus ?? current.billingStatus,
+      billingCurrentPeriodEnd:
+        input.billingCurrentPeriodEnd === undefined ? current.billingCurrentPeriodEnd : isoOrNull(input.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? current.billingCancelAtPeriodEnd,
+      billingUpdatedAt: input.billingUpdatedAt === undefined ? current.billingUpdatedAt : isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? current.isPaid,
       submissionCount: input.submissionCount ?? current.submissionCount,
       extraSubmissionCredits: input.extraSubmissionCredits ?? current.extraSubmissionCredits,

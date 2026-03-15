@@ -29,7 +29,11 @@ Set passwords via environment variables before seeding (see `.env.example`):
 - Free-tier quota:
   - non-paid users get `FREE_TRIAL_SUBMISSION_LIMIT` free submissions (default `2`)
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
-  - admin can grant extra submission credits or mark users paid from `/admin`
+  - admin can grant extra submission credits or add complimentary Pro access from `/admin`
+- Billing:
+  - `/pricing` supports self-serve upgrade to Pro through Stripe-hosted Checkout when billing env vars are configured
+  - `/app/settings` shows current billing state and links to Stripe Customer Portal for self-serve management
+  - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod
 - Feedback suggestions:
   - `/app/feedback` collects required freeform message plus optional type/feature metadata.
   - contact checkbox defaults to opt-in per submission.

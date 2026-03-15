@@ -96,6 +96,32 @@ Digest compatibility checks:
 ./scripts/verify_podcast_contract.sh "http://127.0.0.1:4100/rss/digest/<digest_token>.xml"
 ```
 
+## Billing operations
+Required Stripe env for recurring billing:
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_PRO_MONTHLY`
+
+Local webhook forwarding example:
+```bash
+stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
+```
+
+Expected webhook behavior:
+- `checkout.session.completed` links the Stripe customer back to the local user.
+- `customer.subscription.created|updated|deleted` sync plan/status and recompute effective paid access.
+- duplicate Stripe event ids are ignored after the first successful local apply.
+
+Troubleshooting checks:
+```bash
+curl -X GET "$APP_URL/api/billing/status" \
+  -H "cookie: articlepod_session=<session-cookie>"
+```
+
+```bash
+rg 'billing' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 100
+```
+
 ## Serverless metadata migration runbook
 Backfill queue/item/digest projections into Azure Table mirror:
 ```bash

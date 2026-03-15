@@ -11,6 +11,16 @@ type SubmissionQuotaSnapshot = {
   remainingFreeSubmissions: number | null;
 };
 
+type BillingSnapshot = {
+  planCode: "STARTER" | "PRO_MONTHLY";
+  status: "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+  complimentaryPro: boolean;
+  hasPaidAccess: boolean;
+  accessReason: "billing" | "complimentary" | null;
+};
+
 type AdminQuotaUser = {
   id: string;
   email: string;
@@ -18,20 +28,27 @@ type AdminQuotaUser = {
   role: string;
   createdAt: string;
   updatedAt: string;
+  complimentaryPro: boolean;
   isPaid: boolean;
   submissionCount: number;
   extraSubmissionCredits: number;
+  billing: BillingSnapshot;
   quota: SubmissionQuotaSnapshot;
 };
 
 type QuotaDraft = {
-  isPaid: boolean;
+  complimentaryPro: boolean;
   extraSubmissionCredits: number;
 };
 
 function quotaLabel(user: AdminQuotaUser): string {
+  if (user.billing.accessReason === "complimentary") {
+    return "Complimentary Pro access (manual override)";
+  }
+
   if (user.isPaid) {
-    return "Paid account (unlimited submissions)";
+    const endLabel = user.billing.currentPeriodEnd ? ` until ${new Date(user.billing.currentPeriodEnd).toLocaleDateString()}` : "";
+    return `Paid plan via billing (${user.billing.status.toLowerCase()})${endLabel}`;
   }
 
   return `${user.submissionCount}/${user.quota.totalFreeSubmissionAllowance} used, ${user.quota.remainingFreeSubmissions ?? 0} remaining`;
@@ -73,7 +90,7 @@ export function AdminQuotaManager() {
       const nextDrafts: Record<string, QuotaDraft> = {};
       for (const user of payload.users) {
         nextDrafts[user.id] = {
-          isPaid: user.isPaid,
+          complimentaryPro: user.complimentaryPro,
           extraSubmissionCredits: user.extraSubmissionCredits
         };
       }
@@ -95,13 +112,13 @@ export function AdminQuotaManager() {
       if (!draft) {
         return false;
       }
-      return draft.isPaid !== user.isPaid || draft.extraSubmissionCredits !== user.extraSubmissionCredits;
+      return draft.complimentaryPro !== user.complimentaryPro || draft.extraSubmissionCredits !== user.extraSubmissionCredits;
     }).length;
   }, [drafts, users]);
 
   function updateDraft(userId: string, updater: (current: QuotaDraft) => QuotaDraft) {
     setDrafts((current) => {
-      const existing = current[userId] ?? { isPaid: false, extraSubmissionCredits: 0 };
+      const existing = current[userId] ?? { complimentaryPro: false, extraSubmissionCredits: 0 };
       return {
         ...current,
         [userId]: updater(existing)
@@ -126,7 +143,7 @@ export function AdminQuotaManager() {
         },
         body: JSON.stringify({
           userId: user.id,
-          isPaid: draft.isPaid,
+          complimentaryPro: draft.complimentaryPro,
           extraSubmissionCredits: draft.extraSubmissionCredits
         })
       });
@@ -146,7 +163,7 @@ export function AdminQuotaManager() {
       setDrafts((current) => ({
         ...current,
         [payload.user!.id]: {
-          isPaid: payload.user!.isPaid,
+          complimentaryPro: payload.user!.complimentaryPro,
           extraSubmissionCredits: payload.user!.extraSubmissionCredits
         }
       }));
@@ -164,7 +181,7 @@ export function AdminQuotaManager() {
         <div>
           <h2 className="text-lg font-semibold">Submission quota controls</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Free users get a limited number of submissions. Use this table to grant extra tries or mark users as paid.
+            Free users get a limited number of submissions. Use this table to grant extra tries or add complimentary Pro access.
           </p>
         </div>
         <div className="text-xs text-[var(--muted)]">Unsaved rows: {dirtyUsers}</div>
@@ -195,10 +212,10 @@ export function AdminQuotaManager() {
 
         {users.map((user) => {
           const draft = drafts[user.id] ?? {
-            isPaid: user.isPaid,
+            complimentaryPro: user.complimentaryPro,
             extraSubmissionCredits: user.extraSubmissionCredits
           };
-          const isDirty = draft.isPaid !== user.isPaid || draft.extraSubmissionCredits !== user.extraSubmissionCredits;
+          const isDirty = draft.complimentaryPro !== user.complimentaryPro || draft.extraSubmissionCredits !== user.extraSubmissionCredits;
           return (
             <article key={user.id} className="rounded-xl border p-3 sm:p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -208,6 +225,10 @@ export function AdminQuotaManager() {
                     {user.email} · role: {user.role}
                   </p>
                   <p className="text-xs text-[var(--muted)]">{quotaLabel(user)}</p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro" : "Starter"} · status:{" "}
+                    {user.billing.status.toLowerCase()}
+                  </p>
                 </div>
                 {isDirty ? <span className="text-xs text-[#8a5a00]">Unsaved changes</span> : null}
               </div>
@@ -216,16 +237,16 @@ export function AdminQuotaManager() {
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={draft.isPaid}
+                    checked={draft.complimentaryPro}
                     onChange={(event) => {
                       const checked = event.target.checked;
                       updateDraft(user.id, (current) => ({
                         ...current,
-                        isPaid: checked
+                        complimentaryPro: checked
                       }));
                     }}
                   />
-                  Paid user
+                  Complimentary Pro
                 </label>
 
                 <div className="flex flex-wrap items-center gap-2">

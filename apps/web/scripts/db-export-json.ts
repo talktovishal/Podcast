@@ -29,6 +29,7 @@ async function main() {
 
   const data = {
     users: await prisma.user.findMany({ orderBy: { id: "asc" } }),
+    billingWebhookEvents: await prisma.billingWebhookEvent.findMany({ orderBy: { id: "asc" } }),
     sessions: await prisma.session.findMany({ orderBy: { id: "asc" } }),
     feedTokens: await prisma.feedToken.findMany({ orderBy: { id: "asc" } }),
     shareTokens: await prisma.shareToken.findMany({ orderBy: { id: "asc" } }),

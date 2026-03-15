@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUserFromRequest } from "@/lib/auth";
+import { buildBillingSnapshot, buildEffectivePaidState } from "@/lib/billing";
 import { fromError } from "@/lib/http";
 import { findPrimaryUserById, listPrimaryUsers, updatePrimaryUser } from "@/lib/metadata-primary-auth";
 import { buildSubmissionQuotaSnapshot } from "@/lib/submission-quota";
 
 const updateQuotaSchema = z.object({
   userId: z.string().min(1),
-  isPaid: z.boolean(),
+  complimentaryPro: z.boolean(),
   extraSubmissionCredits: z.number().int().min(0).max(100000)
 });
 
@@ -51,9 +52,11 @@ export async function GET(request: NextRequest) {
           role: user.role,
           createdAt: user.createdAt.toISOString(),
           updatedAt: user.updatedAt.toISOString(),
+          complimentaryPro: user.complimentaryPro,
           isPaid: user.isPaid,
           submissionCount: user.submissionCount,
           extraSubmissionCredits: user.extraSubmissionCredits,
+          billing: buildBillingSnapshot(user),
           quota
         };
       })
@@ -75,9 +78,14 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = updateQuotaSchema.parse(await request.json());
+    const currentUser = await findPrimaryUserById(payload.userId);
+    if (!currentUser) {
+      return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "User was not found." }, { status: 404 });
+    }
 
     await updatePrimaryUser(payload.userId, {
-      isPaid: payload.isPaid,
+      complimentaryPro: payload.complimentaryPro,
+      isPaid: buildEffectivePaidState(currentUser, { complimentaryPro: payload.complimentaryPro }),
       extraSubmissionCredits: payload.extraSubmissionCredits
     });
     const user = await findPrimaryUserById(payload.userId);
@@ -103,9 +111,11 @@ export async function POST(request: NextRequest) {
         role: user.role,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
+        complimentaryPro: user.complimentaryPro,
         isPaid: user.isPaid,
         submissionCount: user.submissionCount,
         extraSubmissionCredits: user.extraSubmissionCredits,
+        billing: buildBillingSnapshot(user),
         quota
       }
     });
