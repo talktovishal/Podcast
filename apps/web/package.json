@@ -10,6 +10,7 @@
     "lint": "npm run prisma:generate && next lint",
     "typecheck": "npm run prisma:generate && tsc --noEmit",
     "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npm run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
+    "test:e2e": "npx playwright test --config=playwright.config.ts",
     "export": "tsx scripts/export.ts",
     "seed:demo": "if [ -f ../../.env ]; then tsx --env-file=../../.env scripts/seed-demo.ts; else tsx scripts/seed-demo.ts; fi",
     "tts:precompute": "tsx scripts/precompute-tts-previews.ts",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie": "^0.6.0",
     "@types/node": "^22.10.2",

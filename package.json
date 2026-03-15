@@ -13,6 +13,7 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npx pnpm --filter @articlepod/web run test:e2e",
     "format": "prettier --write .",
     "export": "npx pnpm --filter @articlepod/web run export",
     "seed:demo": "npx pnpm --filter @articlepod/web run seed:demo",
