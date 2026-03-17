@@ -1,11 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@articlepod/core";
-import { hashPassword } from "../src/lib/auth";
+import { ensureUserFeedToken, hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
+import { createPrimaryUser, findPrimaryUserByEmail, updatePrimaryUser } from "../src/lib/metadata-primary-auth";
+import { webPrimaryStore, webUsesAzureTablePrimary } from "../src/lib/metadata-primary-store";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage, normalizeStorageKey } from "../src/lib/storage";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
@@ -100,38 +103,134 @@ async function ensureStarterAudioObject(relativePath: string): Promise<number> {
   return stored.bytes;
 }
 
+function logDemoSeedSummary(feedTokenPlain: string) {
+  // eslint-disable-next-line no-console
+  console.log("Demo seed complete");
+  // eslint-disable-next-line no-console
+  console.log(`Demo user: ${DEMO_EMAIL}`);
+  // eslint-disable-next-line no-console
+  console.log(`Demo password: ${DEMO_PASSWORD}`);
+  // eslint-disable-next-line no-console
+  console.log(`Feed URL: ${env.appUrl}/rss/${feedTokenPlain}.xml`);
+}
+
 async function main() {
   await ensureDataDirs();
   await ensureAdminUser();
 
   const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
-  let user = await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
+  const usesAzureTablePrimary = webUsesAzureTablePrimary() && webPrimaryStore;
+  let user = usesAzureTablePrimary
+    ? await findPrimaryUserByEmail(DEMO_EMAIL)
+    : await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
   if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: DEMO_EMAIL,
-        name: "Demo Listener",
-        passwordHash: demoPasswordHash,
-        role: "USER"
-      }
-    });
+    user = usesAzureTablePrimary
+      ? await createPrimaryUser({
+          email: DEMO_EMAIL,
+          name: "Demo Listener",
+          passwordHash: demoPasswordHash,
+          role: "USER"
+        })
+      : await prisma.user.create({
+          data: {
+            email: DEMO_EMAIL,
+            name: "Demo Listener",
+            passwordHash: demoPasswordHash,
+            role: "USER"
+          }
+        });
+  } else if (usesAzureTablePrimary) {
+    await updatePrimaryUser(user.id, { passwordHash: demoPasswordHash });
   } else {
     await prisma.user.update({ where: { email: DEMO_EMAIL }, data: { passwordHash: demoPasswordHash } });
   }
 
-  const activeFeed = await prisma.feedToken.findFirst({ where: { userId: user.id, active: true } });
-  let feedTokenPlain = activeFeed?.tokenValue;
-  if (!activeFeed) {
-    const token = createSecretToken();
-    await prisma.feedToken.create({
-      data: {
+  const feedTokenPlain = usesAzureTablePrimary
+    ? await ensureUserFeedToken(user.id)
+    : await (async () => {
+        const activeFeed = await prisma.feedToken.findFirst({ where: { userId: user.id, active: true } });
+        if (activeFeed?.tokenValue) {
+          return activeFeed.tokenValue;
+        }
+
+        const token = createSecretToken();
+        await prisma.feedToken.create({
+          data: {
+            userId: user.id,
+            tokenValue: token.plain,
+            tokenHash: token.hash,
+            active: true
+          }
+        });
+        return token.plain;
+      })();
+
+  const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.mp3"));
+  const bytes = await ensureStarterAudioObject(relativePath);
+
+  if (usesAzureTablePrimary) {
+    const store = webPrimaryStore;
+    if (!store) {
+      throw new Error("Azure Table primary mode is enabled but the primary store is not configured.");
+    }
+
+    const existingStarter = await store.listItemsByUser(user.id, 20).then((items) => items.find((item) => item.title === `Welcome to ${BRAND_NAME}`) ?? null);
+
+    if (!existingStarter) {
+      const item = await store.createItem({
+        id: randomUUID(),
         userId: user.id,
-        tokenValue: token.plain,
-        tokenHash: token.hash,
-        active: true
-      }
+        title: `Welcome to ${BRAND_NAME}`,
+        sourceType: "PDF",
+        sourceFilePath: null,
+        status: "READY"
+      });
+      await store.createJob({
+        id: randomUUID(),
+        itemId: item.id,
+        userId: user.id,
+        status: "SUCCEEDED",
+        attempt: 1
+      });
+      await store.upsertEpisode({
+        id: randomUUID(),
+        itemId: item.id,
+        userId: user.id,
+        guid: `episode-${item.id}`,
+        title: `Welcome to ${BRAND_NAME}`,
+        description: DEMO_TEXT,
+        audioPath: relativePath,
+        audioBytes: bytes,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date()
+      });
+      logDemoSeedSummary(feedTokenPlain);
+      return;
+    }
+
+    const episode = await store.findEpisodeByItemId(existingStarter.id);
+    await store.updateItem(existingStarter.id, {
+      title: `Welcome to ${BRAND_NAME}`,
+      status: "READY",
+      errorCode: null,
+      errorMessage: null
     });
-    feedTokenPlain = token.plain;
+    if (!episode || episode.audioPath !== relativePath || episode.audioBytes !== bytes || episode.mimeType !== "audio/mpeg") {
+      await store.upsertEpisode({
+        id: episode?.id ?? randomUUID(),
+        itemId: existingStarter.id,
+        userId: user.id,
+        guid: episode?.guid ?? `episode-${existingStarter.id}`,
+        title: `Welcome to ${BRAND_NAME}`,
+        description: DEMO_TEXT,
+        audioPath: relativePath,
+        audioBytes: bytes,
+        mimeType: "audio/mpeg",
+        publishedAt: episode?.publishedAt ?? new Date()
+      });
+    }
+    logDemoSeedSummary(feedTokenPlain);
+    return;
   }
 
   const existingStarter = await prisma.item.findFirst({
@@ -143,9 +242,6 @@ async function main() {
       episode: true
     }
   });
-
-  const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.mp3"));
-  const bytes = await ensureStarterAudioObject(relativePath);
 
   if (!existingStarter) {
     const item = await prisma.item.create({
@@ -191,31 +287,22 @@ async function main() {
         }
       });
     }
-  } else if (existingStarter.episode) {
-    if (
-      existingStarter.episode.audioPath !== relativePath ||
-      existingStarter.episode.audioBytes !== bytes ||
-      existingStarter.episode.mimeType !== "audio/mpeg"
-    ) {
-      await prisma.episode.update({
-        where: { id: existingStarter.episode.id },
-        data: {
-          audioPath: relativePath,
-          audioBytes: bytes,
-          mimeType: "audio/mpeg"
-        }
-      });
-    }
+    logDemoSeedSummary(feedTokenPlain);
+    return;
   }
 
-  // eslint-disable-next-line no-console
-  console.log("Demo seed complete");
-  // eslint-disable-next-line no-console
-  console.log(`Demo user: ${DEMO_EMAIL}`);
-  // eslint-disable-next-line no-console
-  console.log(`Demo password: ${DEMO_PASSWORD}`);
-  // eslint-disable-next-line no-console
-  console.log(`Feed URL: ${env.appUrl}/rss/${feedTokenPlain}.xml`);
+  if (existingStarter.episode && (existingStarter.episode.audioPath !== relativePath || existingStarter.episode.audioBytes !== bytes || existingStarter.episode.mimeType !== "audio/mpeg")) {
+    await prisma.episode.update({
+      where: { id: existingStarter.episode.id },
+      data: {
+        audioPath: relativePath,
+        audioBytes: bytes,
+        mimeType: "audio/mpeg"
+      }
+    });
+  }
+
+  logDemoSeedSummary(feedTokenPlain);
 }
 
 main()

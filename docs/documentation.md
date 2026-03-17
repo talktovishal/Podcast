@@ -129,7 +129,13 @@ Current implementation baseline:
 - cost guardrail automation scripts are available:
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
-- live Azure cutover certification is still pending because the Azure subscription is currently disabled; local validation and deployment helpers are ready.
+- live Azure low-cost cutover completed on 2026-03-17:
+  - `articlepod.com` now runs on Azure `Standard_B2s`
+  - operational metadata is served from Azure Table
+  - durable media/artifacts are served from Azure Blob
+  - local auxiliary SQLite is used for low-cost admin/runtime data
+  - managed PostgreSQL is stopped and kept out of the hot path
+  - exploratory PostgreSQL data was intentionally not migrated during this fresh-start testing phase
 
 ## Observability status
 Current implementation:

@@ -113,20 +113,24 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Next Milestones
 - Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.
-- Cost optimization track (`C01`-`C07`) remains active until `C06` is closed:
+- Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
-  - overflow worker lane that activates only under queue pressure and can route to external TTS.
-  - metadata migration plan from PostgreSQL to serverless table/blob adapters with guarded cutover.
+  - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.
+  - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
+  - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
 - Billing track (`B01`-`B06`) is now in progress in parallel:
   - Stripe-hosted Pro upgrade flow on `/pricing`
   - Stripe Customer Portal access from `/app/settings`
   - webhook-driven billing entitlement sync with complimentary Pro overrides
-- Cost optimization implementation is now mostly in repo:
+- Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store
   - Azure deploy/runtime helpers that default Azure Table primary mode to local auxiliary SQLite instead of managed PostgreSQL
   - mirror dual-write/backfill/check tooling for rollback certification
-- Live Azure cutover certification is still pending because the Azure subscription is currently disabled.
+- Live Azure cutover completed on 2026-03-17:
+  - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
+  - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
+  - live feed/media contract verification passed (`HEAD 200`, media `206`) after PostgreSQL was disabled.
 - Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in.
 - New work should be added as new dated milestones before implementation starts.
 

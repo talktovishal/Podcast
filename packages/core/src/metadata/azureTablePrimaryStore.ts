@@ -29,6 +29,8 @@ type TableKey =
   | "digestSchedulerTicks"
   | "userDemographicSurveys";
 
+export type AzureTablePrimaryEntityKey = TableKey;
+
 export type AzureTablePrimaryUser = {
   id: string;
   email: string;
@@ -590,6 +592,14 @@ export class AzureTablePrimaryStore {
   ): Promise<void> {
     await this.ready();
     await this.client(key).upsertEntity(entity, mode);
+  }
+
+  async upsertRawEntity(
+    key: AzureTablePrimaryEntityKey,
+    entity: TableEntity<Record<string, unknown>>,
+    mode: "Merge" | "Replace" = "Replace"
+  ): Promise<void> {
+    await this.upsertEntity(key, entity, mode);
   }
 
   private async updateEntity<T extends Record<string, unknown>>(

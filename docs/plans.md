@@ -268,7 +268,7 @@ Milestone metadata contract:
 | C03 | Done | 2026-03-21 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C04 | Done | 2026-03-28 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C06 | In Progress | 2026-04-11 | — | — |
+| C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
 | C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | B01 | In Progress | 2026-04-18 | — | — |
 | B02 | Planned | 2026-04-25 | — | — |
@@ -3260,8 +3260,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C06 - Canary and Full Serverless Metadata Cutover
-- status: In Progress
+- status: Done
 - target_finish: 2026-04-11
+- completed_on: 2026-03-17
+- evidence: live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass (2026-03-17)
 - Scope:
   - Roll out canary reads/writes, then full traffic cutover.
   - Keep bounded rollback window before PostgreSQL decom.
@@ -3273,7 +3275,8 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Serverless metadata path runs stable through full cutover window.
   - PostgreSQL dependency can be disabled without user-facing regressions.
-  - Note: local code paths, Azure env wiring, and podcast contract validation are complete; live Azure stability-window certification is still pending while the subscription remains disabled.
+  - Fresh-start Azure deployment uses Azure Table primary metadata + Azure Blob artifacts + local auxiliary SQLite.
+  - Live Azure feed/media contract passed after PostgreSQL was stopped, and exploratory PostgreSQL data was intentionally left behind.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test`
   - `npx pnpm --filter @articlepod/worker run test`

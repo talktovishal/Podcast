@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { prisma } from "../src/lib/prisma";
+import { databaseSnapshotModelConfigs } from "../src/lib/ops/database-snapshot";
 
 type ExportBundle = {
   formatVersion: number;
@@ -27,23 +28,19 @@ function parseArgs(): { outFile: string } {
 async function main() {
   const { outFile } = parseArgs();
 
-  const data = {
-    users: await prisma.user.findMany({ orderBy: { id: "asc" } }),
-    billingWebhookEvents: await prisma.billingWebhookEvent.findMany({ orderBy: { id: "asc" } }),
-    sessions: await prisma.session.findMany({ orderBy: { id: "asc" } }),
-    feedTokens: await prisma.feedToken.findMany({ orderBy: { id: "asc" } }),
-    shareTokens: await prisma.shareToken.findMany({ orderBy: { id: "asc" } }),
-    items: await prisma.item.findMany({ orderBy: { id: "asc" } }),
-    oauthIdentities: await prisma.oAuthIdentity.findMany({ orderBy: { id: "asc" } }),
-    extensionConnectCodes: await prisma.extensionConnectCode.findMany({ orderBy: { id: "asc" } }),
-    extensionTokens: await prisma.extensionToken.findMany({ orderBy: { id: "asc" } }),
-    jobs: await prisma.job.findMany({ orderBy: { id: "asc" } }),
-    jobEvents: await prisma.jobEvent.findMany({ orderBy: { id: "asc" } }),
-    episodes: await prisma.episode.findMany({ orderBy: { id: "asc" } }),
-    itemArtifacts: await prisma.itemArtifact.findMany({ orderBy: { id: "asc" } }),
-    chunkCaches: await prisma.chunkCache.findMany({ orderBy: { id: "asc" } }),
-    demoExtractionTraces: await prisma.demoExtractionTrace.findMany({ orderBy: { id: "asc" } })
-  };
+  const data = Object.fromEntries(
+    await Promise.all(
+      databaseSnapshotModelConfigs.map(async (config) => {
+        const delegate = (prisma as Record<string, any>)[config.delegate];
+        const rows = await delegate.findMany({
+          orderBy: {
+            [config.orderByField]: "asc"
+          }
+        });
+        return [config.exportKey, rows] as const;
+      })
+    )
+  );
 
   const counts = Object.fromEntries(Object.entries(data).map(([key, rows]) => [key, rows.length]));
 

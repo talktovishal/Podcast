@@ -17,6 +17,10 @@ Current right-sizing baseline for cost-control:
 - VM SKU: `Standard_B2s`
 - local TTS lane: fixed `TTS_WORKERS=1`
 
+Latest verified production state:
+- 2026-03-17: `articlepod.com` was redeployed in fresh-start low-cost mode with Azure Table primary metadata, Azure Blob artifact storage, and local auxiliary SQLite.
+- 2026-03-17: managed PostgreSQL was stopped after live feed/media contract checks passed (`HEAD 200`, media `206`).
+
 ## Prerequisites (local)
 From repo root:
 ```bash
