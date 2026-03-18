@@ -32,6 +32,8 @@ The preflight script verifies:
 - active Azure login
 - SSH key at `~/.ssh/articlepod_azure(.pub)` (creates if missing)
 
+VM bootstrap now also provisions swap by default on Azure hosts. Current low-cost guidance for `Standard_B2s` is to keep a `4 GiB` swapfile enabled so `python-tts` does not get OOM-killed under real synthesis load.
+
 ## Infrastructure provisioning (IaC)
 Template inputs:
 - `infra/main.bicep`
@@ -176,6 +178,7 @@ sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod
 
 Notes:
 - `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
+- `deploy-vm-runtime.sh` also enforces the Azure VM swapfile baseline before service restarts.
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
 - `deploy-vm-runtime.sh` bootstraps the auxiliary SQLite schema automatically when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.

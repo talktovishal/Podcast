@@ -47,7 +47,7 @@
 ### Phase 1 - Compute right-sizing + local TTS hardening
 - [x] Set VM deployment target to `B2s`.
 - [x] Lock local TTS process to `TTS_WORKERS=1`.
-- [ ] Add memory/swap and OOM monitoring guidance.
+- [x] Add memory/swap and OOM monitoring guidance.
 - Files:
   - `infra/main.parameters.json`
   - `infra/systemd/articlepod-python-tts.service`

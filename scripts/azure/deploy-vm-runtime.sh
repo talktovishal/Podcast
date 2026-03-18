@@ -46,6 +46,10 @@ if ! id -u "$APP_USER" >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ "$(id -u)" -eq 0 ]]; then
+  "$ROOT_DIR/scripts/azure/ensure-swap.sh"
+fi
+
 case "$DEPLOY_DEMO_SEED_MODE" in
   auto|always|never)
     ;;
