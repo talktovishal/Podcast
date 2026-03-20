@@ -4,11 +4,10 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-import sys
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 from typing import Iterable
 
 
@@ -20,6 +19,16 @@ class DailyPoint:
     usage_date: date
     cost: float
     currency: str
+
+
+@dataclass(frozen=True)
+class DetailedPoint:
+    usage_date: date
+    cost: float
+    currency: str
+    resource_id: str
+    service_name: str
+    meter_name: str
 
 
 def parse_args() -> argparse.Namespace:
@@ -55,6 +64,17 @@ def parse_args() -> argparse.Namespace:
         default="table",
         help="Print a human-readable table or structured JSON.",
     )
+    parser.add_argument(
+        "--include-breakdown",
+        action="store_true",
+        help="Include top service and resource breakdowns for daily and weekly sections.",
+    )
+    parser.add_argument(
+        "--breakdown-top",
+        type=int,
+        default=5,
+        help="Maximum number of service/resource rows to print for each day/week when --include-breakdown is set.",
+    )
     return parser.parse_args()
 
 
@@ -64,11 +84,22 @@ def require_positive(value: int, flag: str) -> None:
 
 
 def run_az_json(args: list[str], error_message: str) -> dict:
-    completed = subprocess.run(args, check=False, capture_output=True, text=True)
-    if completed.returncode != 0:
+    attempts = 5
+    last_error = ""
+    for attempt in range(1, attempts + 1):
+        completed = subprocess.run(args, check=False, capture_output=True, text=True)
+        if completed.returncode == 0:
+            return json.loads(completed.stdout)
+
         stderr = completed.stderr.strip() or completed.stdout.strip()
+        last_error = stderr
+        if "Too Many Requests" in stderr or '"code":"429"' in stderr or "ERROR: 429" in stderr:
+            if attempt < attempts:
+                time.sleep(2 * attempt)
+                continue
         raise SystemExit(f"{error_message}\n{stderr}")
-    return json.loads(completed.stdout)
+
+    raise SystemExit(f"{error_message}\n{last_error}")
 
 
 def resolve_subscription_id(explicit_subscription_id: str | None) -> str:
@@ -156,6 +187,75 @@ def query_daily_costs(subscription_id: str, resource_group: str | None, start_da
     return sorted(out, key=lambda item: item.usage_date)
 
 
+def query_detailed_costs(
+    subscription_id: str,
+    resource_group: str | None,
+    start_date: date,
+    end_date: date,
+) -> list[DetailedPoint]:
+    scope = (
+        f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+        if resource_group
+        else f"/subscriptions/{subscription_id}"
+    )
+    uri = f"https://management.azure.com{scope}/providers/Microsoft.CostManagement/query?api-version={COST_API_VERSION}"
+    body = {
+        "type": "Usage",
+        "timeframe": "Custom",
+        "timePeriod": {
+            "from": f"{start_date.isoformat()}T00:00:00Z",
+            "to": f"{end_date.isoformat()}T23:59:59Z",
+        },
+        "dataset": {
+            "granularity": "Daily",
+            "aggregation": {
+                "totalCost": {
+                    "name": "PreTaxCost",
+                    "function": "Sum",
+                }
+            },
+            "grouping": [
+                {"type": "Dimension", "name": "ResourceId"},
+                {"type": "Dimension", "name": "ServiceName"},
+                {"type": "Dimension", "name": "Meter"},
+            ],
+        },
+    }
+    payload = run_az_json(
+        [
+            "az",
+            "rest",
+            "--method",
+            "post",
+            "--uri",
+            uri,
+            "--headers",
+            "Content-Type=application/json",
+            "--body",
+            json.dumps(body),
+        ],
+        "Azure Cost Management detailed query failed.",
+    )
+
+    props = payload.get("properties", {})
+    rows = props.get("rows", [])
+    out: list[DetailedPoint] = []
+    for row in rows:
+        cost, usage_date, resource_id, service_name, meter_name, currency = row
+        usage_dt = datetime.strptime(str(int(usage_date)), "%Y%m%d").date()
+        out.append(
+            DetailedPoint(
+                usage_date=usage_dt,
+                cost=float(cost),
+                currency=str(currency),
+                resource_id=str(resource_id or ""),
+                service_name=str(service_name or ""),
+                meter_name=str(meter_name or ""),
+            )
+        )
+    return sorted(out, key=lambda item: (item.usage_date, item.service_name, item.resource_id, item.meter_name))
+
+
 def fill_daily_series(points: Iterable[DailyPoint], start_date: date, end_date: date) -> list[DailyPoint]:
     points_by_day = {point.usage_date: point for point in points}
     currencies = {point.currency for point in points}
@@ -206,6 +306,79 @@ def aggregate_by_month(points: Iterable[DailyPoint]) -> list[dict]:
     return [buckets[key] for key in sorted(buckets)]
 
 
+def resource_label(resource_id: str) -> str:
+    if not resource_id:
+        return "(unattributed)"
+    trimmed = resource_id.rstrip("/")
+    if not trimmed:
+        return "(unattributed)"
+    return trimmed.split("/")[-1]
+
+
+def top_breakdown_entries(entries: dict[str, float], top_n: int) -> list[dict]:
+    return [
+        {"label": label, "cost": cost}
+        for label, cost in sorted(entries.items(), key=lambda item: (-item[1], item[0]))[:top_n]
+    ]
+
+
+def build_daily_breakdowns(points: Iterable[DetailedPoint], expected_dates: Iterable[date], top_n: int) -> list[dict]:
+    by_day_service: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    by_day_resource: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    by_day_currency: dict[date, str] = {}
+
+    for point in points:
+        by_day_currency.setdefault(point.usage_date, point.currency)
+        service_label = point.service_name or "(unknown service)"
+        resource_name = resource_label(point.resource_id)
+        resource_grouped_label = f"{resource_name} [{service_label}]"
+        by_day_service[point.usage_date][service_label] += point.cost
+        by_day_resource[point.usage_date][resource_grouped_label] += point.cost
+
+    out = []
+    for usage_date in sorted(set(expected_dates) | set(by_day_service) | set(by_day_resource)):
+        out.append(
+            {
+                "date": usage_date,
+                "currency": by_day_currency.get(usage_date, "USD"),
+                "services": top_breakdown_entries(by_day_service.get(usage_date, {}), top_n),
+                "resources": top_breakdown_entries(by_day_resource.get(usage_date, {}), top_n),
+            }
+        )
+    return out
+
+
+def build_weekly_breakdowns(points: Iterable[DetailedPoint], expected_week_starts: Iterable[date], top_n: int) -> list[dict]:
+    by_week_service: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    by_week_resource: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    by_week_days: dict[date, set[date]] = defaultdict(set)
+    by_week_currency: dict[date, str] = {}
+
+    for point in points:
+        week_start = point.usage_date - timedelta(days=point.usage_date.weekday())
+        by_week_currency.setdefault(week_start, point.currency)
+        by_week_days[week_start].add(point.usage_date)
+        service_label = point.service_name or "(unknown service)"
+        resource_name = resource_label(point.resource_id)
+        resource_grouped_label = f"{resource_name} [{service_label}]"
+        by_week_service[week_start][service_label] += point.cost
+        by_week_resource[week_start][resource_grouped_label] += point.cost
+
+    out = []
+    for week_start in sorted(set(expected_week_starts) | set(by_week_service) | set(by_week_resource)):
+        out.append(
+            {
+                "week_start": week_start,
+                "week_end": week_start + timedelta(days=6),
+                "days": len(by_week_days.get(week_start, set())),
+                "currency": by_week_currency.get(week_start, "USD"),
+                "services": top_breakdown_entries(by_week_service.get(week_start, {}), top_n),
+                "resources": top_breakdown_entries(by_week_resource.get(week_start, {}), top_n),
+            }
+        )
+    return out
+
+
 def format_money(value: float) -> str:
     return f"{value:,.4f}"
 
@@ -216,6 +389,10 @@ def render_table(
     weekly_buckets: list[dict],
     monthly_buckets: list[dict],
     include_monthly: bool,
+    include_breakdown: bool,
+    breakdown_top: int,
+    daily_breakdowns: list[dict],
+    weekly_breakdowns: list[dict],
     generated_at: datetime,
 ) -> str:
     today_utc = generated_at.date()
@@ -246,6 +423,53 @@ def render_table(
             f"{bucket['days']:>2}/7  {format_money(bucket['total_cost']):>10}  {note}"
         )
 
+    if include_breakdown:
+        lines.extend(
+            [
+                "",
+                f"Daily Breakdown (top {breakdown_top} services/resources for each UTC day)",
+            ]
+        )
+        for breakdown in daily_breakdowns:
+            lines.append(f"{breakdown['date'].isoformat()}:")
+            lines.append("  Services:")
+            if breakdown["services"]:
+                for entry in breakdown["services"]:
+                    lines.append(f"    - {entry['label']}: {format_money(entry['cost'])}")
+            else:
+                lines.append("    - none")
+            lines.append("  Resources:")
+            if breakdown["resources"]:
+                for entry in breakdown["resources"]:
+                    lines.append(f"    - {entry['label']}: {format_money(entry['cost'])}")
+            else:
+                lines.append("    - none")
+
+        lines.extend(
+            [
+                "",
+                f"Weekly Breakdown (top {breakdown_top} services/resources for each ISO week)",
+            ]
+        )
+        for breakdown in weekly_breakdowns:
+            partial_note = " partial" if breakdown["days"] < 7 else ""
+            lines.append(
+                f"{breakdown['week_start'].isoformat()}..{breakdown['week_end'].isoformat()} "
+                f"({breakdown['days']}/7 days){partial_note}:"
+            )
+            lines.append("  Services:")
+            if breakdown["services"]:
+                for entry in breakdown["services"]:
+                    lines.append(f"    - {entry['label']}: {format_money(entry['cost'])}")
+            else:
+                lines.append("    - none")
+            lines.append("  Resources:")
+            if breakdown["resources"]:
+                for entry in breakdown["resources"]:
+                    lines.append(f"    - {entry['label']}: {format_money(entry['cost'])}")
+            else:
+                lines.append("    - none")
+
     if include_monthly:
         lines.extend(
             [
@@ -266,6 +490,7 @@ def main() -> None:
     require_positive(args.daily_days, "--daily-days")
     require_positive(args.weekly_days, "--weekly-days")
     require_positive(args.monthly_months, "--monthly-months")
+    require_positive(args.breakdown_top, "--breakdown-top")
 
     today_utc = datetime.now(UTC).date()
     generated_at = datetime.now(UTC)
@@ -282,6 +507,7 @@ def main() -> None:
 
     queried_points = query_daily_costs(subscription_id, args.resource_group, start_date, end_date)
     all_points = fill_daily_series(queried_points, start_date, end_date)
+    detailed_points = query_detailed_costs(subscription_id, args.resource_group, start_date, end_date) if args.include_breakdown else []
 
     daily_start = daily_window_start(today_utc, args.daily_days)
     weekly_start = weekly_window_start(today_utc, args.weekly_days)
@@ -293,6 +519,18 @@ def main() -> None:
 
     weekly_buckets = aggregate_by_week(weekly_points)
     monthly_buckets = aggregate_by_month(monthly_points) if args.include_monthly and monthly_start else []
+    daily_detailed_points = [point for point in detailed_points if point.usage_date >= daily_start]
+    weekly_detailed_points = [point for point in detailed_points if point.usage_date >= weekly_start]
+    daily_breakdowns = (
+        build_daily_breakdowns(daily_detailed_points, [point.usage_date for point in daily_points], args.breakdown_top)
+        if args.include_breakdown
+        else []
+    )
+    weekly_breakdowns = (
+        build_weekly_breakdowns(weekly_detailed_points, [bucket["week_start"] for bucket in weekly_buckets], args.breakdown_top)
+        if args.include_breakdown
+        else []
+    )
 
     scope_label = (
         f"subscription/{subscription_id}/resourceGroups/{args.resource_group}"
@@ -340,11 +578,44 @@ def main() -> None:
                 }
                 for bucket in monthly_buckets
             ],
+            "daily_breakdown": [
+                {
+                    "date": breakdown["date"].isoformat(),
+                    "currency": breakdown["currency"],
+                    "services": breakdown["services"],
+                    "resources": breakdown["resources"],
+                }
+                for breakdown in daily_breakdowns
+            ],
+            "weekly_breakdown": [
+                {
+                    "week_start": breakdown["week_start"].isoformat(),
+                    "week_end": breakdown["week_end"].isoformat(),
+                    "days_covered": breakdown["days"],
+                    "currency": breakdown["currency"],
+                    "services": breakdown["services"],
+                    "resources": breakdown["resources"],
+                }
+                for breakdown in weekly_breakdowns
+            ],
         }
         print(json.dumps(payload, indent=2))
         return
 
-    print(render_table(scope_label, daily_points, weekly_buckets, monthly_buckets, args.include_monthly, generated_at))
+    print(
+        render_table(
+            scope_label,
+            daily_points,
+            weekly_buckets,
+            monthly_buckets,
+            args.include_monthly,
+            args.include_breakdown,
+            args.breakdown_top,
+            daily_breakdowns,
+            weekly_breakdowns,
+            generated_at,
+        )
+    )
 
 
 if __name__ == "__main__":

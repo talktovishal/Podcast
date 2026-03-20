@@ -100,3 +100,8 @@ Example:
 ```bash
 npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-monthly
 ```
+
+Detailed service/resource breakdown example:
+```bash
+npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-breakdown --breakdown-top 8
+```

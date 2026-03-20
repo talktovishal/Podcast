@@ -35,6 +35,11 @@ Azure cost rollups (daily last week, weekly last 30 days, optional monthly last 
 npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod"
 ```
 
+Add top service/resource breakdowns for each day and ISO week:
+```bash
+npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod" --include-breakdown
+```
+
 Include month-by-month trailing year output:
 ```bash
 npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod" --include-monthly
@@ -43,6 +48,7 @@ npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod" --include
 Notes:
 - The report uses Azure Cost Management UTC usage dates.
 - The current UTC day or month may still be partial when the script is run.
+- Use `--breakdown-top <N>` to change how many service/resource rows appear in each breakdown section.
 
 ## Restore verification
 After VM replacement/redeploy:
