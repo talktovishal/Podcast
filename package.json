@@ -33,6 +33,7 @@
     "ops:pre-drill-snapshot": "./scripts/ops/pre-drill-snapshot.sh",
     "ops:verify-restore": "./scripts/ops/verify-restore.sh",
     "ops:cost-baseline": "./scripts/ops/cost-baseline-snapshot.sh",
+    "ops:azure-cost-report": "python3 scripts/azure/cost-report.py",
     "artifacts:backfill": "npx pnpm --filter @articlepod/web run artifacts:backfill",
     "artifacts:purge": "npx pnpm --filter @articlepod/web run artifacts:purge",
     "audio:backfill-mp3": "npx pnpm --filter @articlepod/web run audio:backfill-mp3",

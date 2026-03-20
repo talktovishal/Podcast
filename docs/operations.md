@@ -30,6 +30,20 @@ AZ_RESOURCE_GROUP="rg-articlepod-prod" \
 npm run ops:cost-baseline
 ```
 
+Azure cost rollups (daily last week, weekly last 30 days, optional monthly last year):
+```bash
+npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod"
+```
+
+Include month-by-month trailing year output:
+```bash
+npm run ops:azure-cost-report -- --resource-group "rg-articlepod-prod" --include-monthly
+```
+
+Notes:
+- The report uses Azure Cost Management UTC usage dates.
+- The current UTC day or month may still be partial when the script is run.
+
 ## Restore verification
 After VM replacement/redeploy:
 ```bash

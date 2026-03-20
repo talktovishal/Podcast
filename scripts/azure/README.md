@@ -88,9 +88,15 @@ Security notes:
 - Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
 - Promote staged files only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
 - Deploy runtime only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
+- Cost report (daily/weekly/monthly rollups): `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/cost-report.py`
 - systemd install: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/install-systemd.sh`
 - runtime naming defaults: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/runtime-naming.sh`
 - Nginx config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
 - TLS config: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`
 - Budget guardrails: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
 - Overflow guardrail validation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
+
+Example:
+```bash
+npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-monthly
+```

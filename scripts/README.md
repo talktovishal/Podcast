@@ -20,6 +20,7 @@
 ## Operations And Diagnostics
 - Pre-drill snapshot: `/Users/vishalchowdhary/Documents/Podcast/scripts/ops/pre-drill-snapshot.sh`
 - Restore verification: `/Users/vishalchowdhary/Documents/Podcast/scripts/ops/verify-restore.sh`
+- Azure cost report: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/cost-report.py`
 - Log collection: `/Users/vishalchowdhary/Documents/Podcast/scripts/logs-collect.mjs`
 - Log triage: `/Users/vishalchowdhary/Documents/Podcast/scripts/logs-triage.mjs`
 - Observability verification: `/Users/vishalchowdhary/Documents/Podcast/scripts/observability-verify.mjs`
