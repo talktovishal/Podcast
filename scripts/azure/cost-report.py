@@ -322,6 +322,26 @@ def top_breakdown_entries(entries: dict[str, float], top_n: int) -> list[dict]:
     ]
 
 
+def top_delta_entries(current_entries: dict[str, float], prior_entries: dict[str, float], top_n: int) -> list[dict]:
+    labels = set(current_entries) | set(prior_entries)
+    out: list[dict] = []
+    for label in labels:
+        current_cost = current_entries.get(label, 0.0)
+        prior_cost = prior_entries.get(label, 0.0)
+        delta = current_cost - prior_cost
+        if abs(delta) < 1e-9:
+            continue
+        out.append(
+            {
+                "label": label,
+                "delta": delta,
+                "current_cost": current_cost,
+                "prior_cost": prior_cost,
+            }
+        )
+    return sorted(out, key=lambda item: (-abs(item["delta"]), item["label"]))[:top_n]
+
+
 def build_daily_breakdowns(points: Iterable[DetailedPoint], expected_dates: Iterable[date], top_n: int) -> list[dict]:
     by_day_service: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     by_day_resource: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
@@ -348,7 +368,7 @@ def build_daily_breakdowns(points: Iterable[DetailedPoint], expected_dates: Iter
     return out
 
 
-def build_weekly_breakdowns(points: Iterable[DetailedPoint], expected_week_starts: Iterable[date], top_n: int) -> list[dict]:
+def build_weekly_cost_maps(points: Iterable[DetailedPoint]) -> dict[date, dict]:
     by_week_service: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     by_week_resource: dict[date, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     by_week_days: dict[date, set[date]] = defaultdict(set)
@@ -364,23 +384,85 @@ def build_weekly_breakdowns(points: Iterable[DetailedPoint], expected_week_start
         by_week_service[week_start][service_label] += point.cost
         by_week_resource[week_start][resource_grouped_label] += point.cost
 
+    out: dict[date, dict] = {}
+    for week_start in sorted(set(by_week_service) | set(by_week_resource)):
+        out[week_start] = {
+            "week_start": week_start,
+            "week_end": week_start + timedelta(days=6),
+            "days": len(by_week_days.get(week_start, set())),
+            "currency": by_week_currency.get(week_start, "USD"),
+            "service_costs": dict(by_week_service.get(week_start, {})),
+            "resource_costs": dict(by_week_resource.get(week_start, {})),
+        }
+    return out
+
+
+def build_weekly_breakdowns(points: Iterable[DetailedPoint], expected_week_starts: Iterable[date], top_n: int) -> list[dict]:
+    weekly_cost_maps = build_weekly_cost_maps(points)
     out = []
-    for week_start in sorted(set(expected_week_starts) | set(by_week_service) | set(by_week_resource)):
+    for week_start in sorted(set(expected_week_starts) | set(weekly_cost_maps)):
+        weekly_map = weekly_cost_maps.get(week_start, {})
         out.append(
             {
                 "week_start": week_start,
                 "week_end": week_start + timedelta(days=6),
-                "days": len(by_week_days.get(week_start, set())),
-                "currency": by_week_currency.get(week_start, "USD"),
-                "services": top_breakdown_entries(by_week_service.get(week_start, {}), top_n),
-                "resources": top_breakdown_entries(by_week_resource.get(week_start, {}), top_n),
+                "days": weekly_map.get("days", 0),
+                "currency": weekly_map.get("currency", "USD"),
+                "services": top_breakdown_entries(weekly_map.get("service_costs", {}), top_n),
+                "resources": top_breakdown_entries(weekly_map.get("resource_costs", {}), top_n),
             }
         )
     return out
 
 
+def select_weekly_delta_pair(weekly_buckets: list[dict]) -> tuple[dict, dict] | None:
+    full_weeks = [bucket for bucket in weekly_buckets if bucket["days"] == 7]
+    if len(full_weeks) >= 2:
+        return full_weeks[-1], full_weeks[-2]
+    if len(weekly_buckets) >= 2:
+        return weekly_buckets[-1], weekly_buckets[-2]
+    return None
+
+
+def build_weekly_delta_summary(weekly_cost_maps: dict[date, dict], weekly_buckets: list[dict], top_n: int) -> dict | None:
+    pair = select_weekly_delta_pair(weekly_buckets)
+    if not pair:
+        return None
+
+    current_bucket, prior_bucket = pair
+    current_breakdown = weekly_cost_maps.get(current_bucket["week_start"])
+    prior_breakdown = weekly_cost_maps.get(prior_bucket["week_start"])
+    if not current_breakdown or not prior_breakdown:
+        return None
+
+    return {
+        "current_week_start": current_bucket["week_start"],
+        "current_week_end": current_bucket["week_end"],
+        "current_days": current_bucket["days"],
+        "prior_week_start": prior_bucket["week_start"],
+        "prior_week_end": prior_bucket["week_end"],
+        "prior_days": prior_bucket["days"],
+        "currency": current_bucket["currency"],
+        "total_delta": current_bucket["total_cost"] - prior_bucket["total_cost"],
+        "services": top_delta_entries(
+            current_breakdown.get("service_costs", {}),
+            prior_breakdown.get("service_costs", {}),
+            top_n,
+        ),
+        "resources": top_delta_entries(
+            current_breakdown.get("resource_costs", {}),
+            prior_breakdown.get("resource_costs", {}),
+            top_n,
+        ),
+    }
+
+
 def format_money(value: float) -> str:
     return f"{value:,.4f}"
+
+
+def format_signed_money(value: float) -> str:
+    return f"{value:+,.4f}"
 
 
 def render_table(
@@ -393,6 +475,7 @@ def render_table(
     breakdown_top: int,
     daily_breakdowns: list[dict],
     weekly_breakdowns: list[dict],
+    weekly_delta_summary: dict | None,
     generated_at: datetime,
 ) -> str:
     today_utc = generated_at.date()
@@ -470,6 +553,46 @@ def render_table(
             else:
                 lines.append("    - none")
 
+        lines.extend(
+            [
+                "",
+                f"Weekly Delta vs Prior Week (top {breakdown_top} service/resource movers)",
+            ]
+        )
+        if weekly_delta_summary:
+            current_partial = " partial" if weekly_delta_summary["current_days"] < 7 else ""
+            prior_partial = " partial" if weekly_delta_summary["prior_days"] < 7 else ""
+            lines.append(
+                "Comparing "
+                f"{weekly_delta_summary['current_week_start'].isoformat()}..{weekly_delta_summary['current_week_end'].isoformat()} "
+                f"({weekly_delta_summary['current_days']}/7 days){current_partial} "
+                f"to {weekly_delta_summary['prior_week_start'].isoformat()}..{weekly_delta_summary['prior_week_end'].isoformat()} "
+                f"({weekly_delta_summary['prior_days']}/7 days){prior_partial}"
+            )
+            lines.append(f"Total delta: {format_signed_money(weekly_delta_summary['total_delta'])}")
+            lines.append("  Services:")
+            if weekly_delta_summary["services"]:
+                for entry in weekly_delta_summary["services"]:
+                    lines.append(
+                        "    - "
+                        f"{entry['label']}: {format_signed_money(entry['delta'])} "
+                        f"(current {format_money(entry['current_cost'])} vs prior {format_money(entry['prior_cost'])})"
+                    )
+            else:
+                lines.append("    - none")
+            lines.append("  Resources:")
+            if weekly_delta_summary["resources"]:
+                for entry in weekly_delta_summary["resources"]:
+                    lines.append(
+                        "    - "
+                        f"{entry['label']}: {format_signed_money(entry['delta'])} "
+                        f"(current {format_money(entry['current_cost'])} vs prior {format_money(entry['prior_cost'])})"
+                    )
+            else:
+                lines.append("    - none")
+        else:
+            lines.append("Not enough weekly data to compare against a prior week.")
+
     if include_monthly:
         lines.extend(
             [
@@ -530,6 +653,12 @@ def main() -> None:
         build_weekly_breakdowns(weekly_detailed_points, [bucket["week_start"] for bucket in weekly_buckets], args.breakdown_top)
         if args.include_breakdown
         else []
+    )
+    weekly_cost_maps = build_weekly_cost_maps(weekly_detailed_points) if args.include_breakdown else {}
+    weekly_delta_summary = (
+        build_weekly_delta_summary(weekly_cost_maps, weekly_buckets, args.breakdown_top)
+        if args.include_breakdown
+        else None
     )
 
     scope_label = (
@@ -598,6 +727,22 @@ def main() -> None:
                 }
                 for breakdown in weekly_breakdowns
             ],
+            "weekly_delta_vs_prior": (
+                {
+                    "current_week_start": weekly_delta_summary["current_week_start"].isoformat(),
+                    "current_week_end": weekly_delta_summary["current_week_end"].isoformat(),
+                    "current_days_covered": weekly_delta_summary["current_days"],
+                    "prior_week_start": weekly_delta_summary["prior_week_start"].isoformat(),
+                    "prior_week_end": weekly_delta_summary["prior_week_end"].isoformat(),
+                    "prior_days_covered": weekly_delta_summary["prior_days"],
+                    "currency": weekly_delta_summary["currency"],
+                    "total_delta": weekly_delta_summary["total_delta"],
+                    "services": weekly_delta_summary["services"],
+                    "resources": weekly_delta_summary["resources"],
+                }
+                if weekly_delta_summary
+                else None
+            ),
         }
         print(json.dumps(payload, indent=2))
         return
@@ -613,6 +758,7 @@ def main() -> None:
             args.breakdown_top,
             daily_breakdowns,
             weekly_breakdowns,
+            weekly_delta_summary,
             generated_at,
         )
     )

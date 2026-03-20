@@ -105,3 +105,5 @@ Detailed service/resource breakdown example:
 ```bash
 npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-breakdown --breakdown-top 8
 ```
+
+The breakdown output also includes a latest week-versus-prior-week delta summary so the biggest movers are easy to spot.
