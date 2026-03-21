@@ -2943,14 +2943,16 @@ Milestone metadata contract:
     access logs. Quick, operational fix only — tokens still appear elsewhere.
   - **Option B (chosen):** At RSS serve time, generate short-lived signed media URLs: `HMAC-SHA256`
     of `{tokenHash}:{storagePath}:{expiresAt}` with a server-side `MEDIA_SIGNING_KEY`. Enclosure URL
-    becomes `/api/media/{path}?sig={signature}&exp={expiresAt}`. Long-lived feed token stays off the wire.
-    Podcast apps cache the feed for ≤ 24h, so a 48h signature TTL covers all normal clients.
+    becomes `/api/media/{path}?mt={signedToken}` where the signed token embeds the expiry timestamp.
+    Long-lived feed token stays off the wire.
+    Podcast apps and libraries can hold older enclosure URLs for days, so a 14-day signature TTL
+    covers slower-refreshing clients while keeping the long-lived feed token off media requests.
   - **Option C:** Move the feed token into the URL path segment instead of a query param
     (e.g., `/api/media/{feedToken}/{path}`). Simpler than HMAC but token still appears in logs.
 - Accepted approach: Option B.
 - Scope:
   - `packages/core/src/rss/buildFeed.ts`: accept a `signMediaUrl(path) => string` callback.
-  - New `packages/core/src/security/signedUrl.ts`: `signMediaUrl`, `verifySignedUrl` using HMAC-SHA256.
+  - New `packages/core/src/security/signedUrl.ts`: `signMediaUrl`, `verifyMediaUrl` using HMAC-SHA256.
   - `apps/web/src/app/rss/[token]/route.ts`: inject `signMediaUrl` into feed builder.
   - `apps/web/src/app/api/media/[...path]/route.ts`: verify signature instead of feed token query param.
   - Add `MEDIA_SIGNING_KEY` env var (min 32 bytes).

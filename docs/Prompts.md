@@ -85,6 +85,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.
+  - RSS-generated media enclosure URLs now stay valid for 14 days to better tolerate slower podcast app feed refresh behavior.
 - Feed resilience and deletion consistency hardening are implemented:
   - RSS feed generation now skips episodes whose media object is missing and auto-queues regeneration.
   - media 404 paths now auto-queue item regeneration after clearing stale chunk cache metadata.

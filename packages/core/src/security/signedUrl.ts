@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const SIGNED_URL_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const SIGNED_URL_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 /**
  * Generate an HMAC-signed media URL token.

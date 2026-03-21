@@ -56,6 +56,7 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
+- RSS-generated media URLs are HMAC-signed and remain valid for 14 days so slower-refreshing podcast apps can keep playing existing enclosures.
 - Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
 - Episode descriptions are normalized to concise sentence summaries before RSS publication.
 - Missing media self-heal:
