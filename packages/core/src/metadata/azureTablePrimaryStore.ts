@@ -151,6 +151,7 @@ export type AzureTablePrimaryItem = {
   sourceHtml: string | null;
   sourceCapturedAt: Date | null;
   status: string;
+  priority: string;
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
@@ -837,6 +838,7 @@ export class AzureTablePrimaryStore {
       sourceHtml: parseString(entity.sourceHtml),
       sourceCapturedAt: parseDate(entity.sourceCapturedAt),
       status: parseRequiredString(entity.status, "status"),
+      priority: parseString(entity.priority) ?? "LOW",
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
@@ -1618,6 +1620,7 @@ export class AzureTablePrimaryStore {
     sourceHtml?: string | null;
     sourceCapturedAt?: Date | null;
     status: string;
+    priority?: string | null;
     errorCode?: string | null;
     errorMessage?: string | null;
     textHash?: string | null;
@@ -1635,6 +1638,7 @@ export class AzureTablePrimaryStore {
       sourceHtml: input.sourceHtml ?? null,
       sourceCapturedAt: isoOrNull(input.sourceCapturedAt ?? null),
       status: input.status,
+      priority: input.priority ?? "LOW",
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
       textHash: input.textHash ?? null,
@@ -1653,6 +1657,7 @@ export class AzureTablePrimaryStore {
       sourceFilePath: string | null;
       sourceHtml: string | null;
       status: string;
+      priority: string;
       errorCode: string | null;
       errorMessage: string | null;
       textHash: string | null;
@@ -1673,6 +1678,7 @@ export class AzureTablePrimaryStore {
       sourceFilePath: input.sourceFilePath === undefined ? current.sourceFilePath : input.sourceFilePath,
       sourceHtml: input.sourceHtml === undefined ? current.sourceHtml : input.sourceHtml,
       status: input.status ?? current.status,
+      priority: input.priority ?? current.priority ?? "LOW",
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
       textHash: input.textHash === undefined ? current.textHash : input.textHash,

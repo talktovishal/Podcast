@@ -1,10 +1,16 @@
 import { rm } from "node:fs/promises";
+import { z } from "zod";
 import { NextRequest, NextResponse } from "next/server";
+import { fromError } from "@/lib/http";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { deleteQueueProjectionByItemId } from "@/lib/metadata-projection";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
+
+const updateItemPrioritySchema = z.object({
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"])
+});
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   const user = await getAuthUserFromRequest(request);
@@ -77,4 +83,37 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+  const requestId = request.headers.get("x-request-id") || undefined;
+  try {
+    const user = await getAuthUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
+    }
+
+    const { priority } = updateItemPrioritySchema.parse(await request.json());
+
+    const item = webUsesAzureTablePrimary() && webPrimaryStore
+      ? await webPrimaryStore.findItemById(context.params.id)
+      : await prisma.item.findUnique({ where: { id: context.params.id } });
+
+    if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
+      return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
+    }
+
+    if (webUsesAzureTablePrimary() && webPrimaryStore) {
+      await webPrimaryStore.updateItem(context.params.id, { priority });
+    } else {
+      await prisma.item.update({ where: { id: context.params.id }, data: { priority } });
+    }
+
+    return NextResponse.json({ ok: true, priority });
+  } catch (error) {
+    return fromError(error, {
+      requestId,
+      route: "/api/items/[id]"
+    });
+  }
 }

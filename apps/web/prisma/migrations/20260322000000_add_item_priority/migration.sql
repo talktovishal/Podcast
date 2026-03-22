@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Item" ADD COLUMN "priority" TEXT NOT NULL DEFAULT 'LOW';

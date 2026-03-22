@@ -104,6 +104,7 @@ model Item {
   sourceHtml    String?
   sourceCapturedAt DateTime?
   status        String      @default("QUEUED")
+  priority      String      @default("LOW")
   errorCode     String?
   errorMessage  String?
   textHash      String?

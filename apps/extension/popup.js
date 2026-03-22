@@ -16,6 +16,7 @@ const els = {
   connectBtn: document.getElementById("connect-btn"),
   disconnectBtn: document.getElementById("disconnect-btn"),
   captureBtn: document.getElementById("capture-btn"),
+  capturePriority: document.getElementById("capture-priority"),
   status: document.getElementById("status"),
   tokenState: document.getElementById("token-state")
 };
@@ -384,7 +385,8 @@ async function captureCurrentPage() {
         url: snapshot.url,
         title: snapshot.title || undefined,
         html: snapshot.html,
-        capturedAt: new Date().toISOString()
+        capturedAt: new Date().toISOString(),
+        priority: els.capturePriority?.value || "LOW"
       })
     });
 
