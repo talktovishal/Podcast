@@ -35,6 +35,15 @@ GitHub Actions production deploys now run automatically on every push to `main` 
 Required repo secret for that gate:
 - `APP_SMOKE_FEED_TOKEN` (valid RSS feed token used to verify media HEAD/range and legacy `feed_token` compatibility)
 
+Production deploy workflow env assumptions:
+- metadata primary is `azure_table`, using `APP_AZURE_STORAGE_CONNECTION_STRING` for both Blob and Table access
+- `DATABASE_URL` is intentionally omitted so VM env rendering falls back to local auxiliary SQLite
+- Azure OpenAI summary settings come from production environment secrets:
+  - `APP_AZURE_OPENAI_BASE_URL`
+  - `APP_AZURE_OPENAI_API_KEY`
+  - `APP_AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
+  - `APP_AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
+
 Default deploy mode is incremental:
 - skips `pnpm install` when `pnpm-lock.yaml` is unchanged
 - skips python-tts package/model provisioning when requirements/assets are unchanged

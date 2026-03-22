@@ -290,6 +290,17 @@ AZURE_RESOURCE_GROUP="$RG" \
   ./scripts/azure/deploy-changes.sh --render-env --resource-group "$RG"
 ```
 
+## GitHub Actions production deploy
+The `Deploy to Azure` workflow now assumes the same live topology as the VM:
+- `METADATA_PRIMARY_BACKEND=azure_table`
+- auxiliary `DATABASE_URL` omitted so render-env falls back to `file:/var/lib/articlepod/db.sqlite`
+- `APP_AZURE_STORAGE_CONNECTION_STRING` is reused for Azure Blob and Azure Table access
+- Azure OpenAI summary settings must be present in the production environment secrets:
+  - `APP_AZURE_OPENAI_BASE_URL`
+  - `APP_AZURE_OPENAI_API_KEY`
+  - `APP_AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
+  - `APP_AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
+
 ## GitHub Actions deploy guardrails
 `Deploy to Azure` now auto-runs on every push to `main` and enforces post-deploy smoke checks. Configure this secret in GitHub repository settings:
 - `APP_SMOKE_FEED_TOKEN`: valid feed token for smoke validation.
