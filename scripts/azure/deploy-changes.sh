@@ -122,13 +122,30 @@ check_health_with_retries() {
   local retries="$2"
   local delay_secs="$3"
   local attempt
+  local http_code
+  local curl_exit
+
+  HEALTH_LAST_HTTP_CODE=""
+  HEALTH_LAST_CURL_EXIT=0
 
   for ((attempt = 1; attempt <= retries; attempt++)); do
-    if curl -fsS "$url"; then
+    set +e
+    http_code="$(curl -sS -o /dev/null -w "%{http_code}" "$url")"
+    curl_exit=$?
+    set -e
+
+    HEALTH_LAST_HTTP_CODE="$http_code"
+    HEALTH_LAST_CURL_EXIT="$curl_exit"
+
+    if [[ "$curl_exit" -eq 0 && "$http_code" == "200" ]]; then
       return 0
     fi
     if (( attempt < retries )); then
-      echo "[deploy-changes] health check attempt ${attempt}/${retries} failed; retrying in ${delay_secs}s"
+      if [[ "$curl_exit" -eq 0 ]]; then
+        echo "[deploy-changes] health check attempt ${attempt}/${retries} returned HTTP ${http_code}; retrying in ${delay_secs}s"
+      else
+        echo "[deploy-changes] health check attempt ${attempt}/${retries} failed (curl exit ${curl_exit}, http ${http_code}); retrying in ${delay_secs}s"
+      fi
       sleep "$delay_secs"
     fi
   done
@@ -404,5 +421,9 @@ if [[ "$HEALTH_URL_EXPLICIT" == "0" ]] && is_ip_host "$TARGET_HOST"; then
   fi
 fi
 
-echo "[deploy-changes] deployment finished but health check failed"
+if [[ "${HEALTH_LAST_CURL_EXIT:-0}" -eq 0 ]]; then
+  echo "[deploy-changes] deployment finished but health check failed (last HTTP ${HEALTH_LAST_HTTP_CODE:-unknown})"
+else
+  echo "[deploy-changes] deployment finished but health check failed (last curl exit ${HEALTH_LAST_CURL_EXIT:-unknown}, http ${HEALTH_LAST_HTTP_CODE:-unknown})"
+fi
 exit 1

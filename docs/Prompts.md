@@ -32,7 +32,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - VM python-tts provisioning enforces CPU-only torch wheels with no pip cache to avoid disk exhaustion on standard VM sizes.
   - VM runtime deploy now uses incremental patch defaults (dependency/python setup only when tracked inputs change) with a manual full-deploy override.
   - systemd installer now reconciles stale `listenlater-*` unit files before enabling compatibility aliases.
-  - Deploy helper health checks now retry by default and only use `:3000` fallback for direct IP targets.
+  - Deploy helper health checks now retry by default, tolerate transient HTTP error responses during ingress/TLS handoff, and only use `:3000` fallback for direct IP targets.
   - Deploy helper now supports automated canonical-domain ingress/TLS reconciliation (`CANONICAL_HOST` + `HOST_ALIASES` + `LETSENCRYPT_EMAIL`) on each deploy.
   - nginx/TLS automation now enforces canonical-domain redirects (`www` -> apex) and SAN certificates for both hosts.
   - nginx ingress automation now applies idempotent `server_names_hash_*` fallback tuning in `nginx.conf` only when needed, preventing certbot duplicate-directive failures on reruns.

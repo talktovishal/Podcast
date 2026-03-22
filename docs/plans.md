@@ -20,7 +20,7 @@
 - Azure python-tts provisioning now installs CPU-only torch wheels with pip cache disabled to prevent VM disk exhaustion during deploy.
 - Azure runtime deploy now supports incremental patch mode (skip unchanged pnpm/python setup, seed auto-once) with explicit full-deploy override.
 - Systemd install now removes stale legacy `listenlater-*` unit files before enabling compatibility aliases.
-- Deploy helper health checks now retry by default and avoid unreachable `:3000` fallback for FQDN targets.
+- Deploy helper health checks now retry by default, tolerate transient HTTP error responses during ingress/TLS handoff, and avoid unreachable `:3000` fallback for FQDN targets.
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
@@ -1900,7 +1900,7 @@ Milestone metadata contract:
   - Deploy helper can configure nginx for canonical + alias hosts with deterministic redirects.
   - TLS helper requests/renews cert for both hosts and re-applies canonical redirects.
   - CI deploy flow forwards canonical host, alias list, and Let’s Encrypt email.
-  - Health checks default to canonical host when configured.
+  - Health checks default to canonical host when configured and retry through transient post-ingress HTTP errors instead of failing on the first `curl -f`-style response.
   - nginx hash-size fallback remains certbot-compatible on repeat deploys (no duplicate directive failure).
 - Verification commands:
   - `bash -n scripts/azure/configure-nginx.sh scripts/azure/configure-tls.sh scripts/azure/deploy-changes.sh`
