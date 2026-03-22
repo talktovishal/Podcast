@@ -9,6 +9,7 @@ import { webPrimaryStore } from "./metadata-primary-store";
 export async function enqueueItem(input: {
   userId: string;
   title?: string;
+  priority?: string;
   sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
   sourceUrl?: string;
   sourceFilePath?: string;
@@ -26,6 +27,7 @@ export async function enqueueItem(input: {
             id: randomUUID(),
             userId: input.userId,
             title: input.title,
+            priority: input.priority ?? "LOW",
             sourceType: input.sourceType,
             sourceUrl: input.sourceUrl,
             sourceFilePath: input.sourceFilePath,
@@ -71,6 +73,7 @@ export async function enqueueItem(input: {
             data: {
               userId: input.userId,
               title: input.title,
+              priority: input.priority ?? "LOW",
               sourceType: input.sourceType,
               sourceUrl: input.sourceUrl,
               sourceFilePath: input.sourceFilePath,

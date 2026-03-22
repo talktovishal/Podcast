@@ -3,6 +3,9 @@ import { z } from "zod";
 export const itemStatusValues = ["queued", "processing", "ready", "failed"] as const;
 export type ItemStatus = (typeof itemStatusValues)[number];
 
+export const itemPriorityValues = ["LOW", "MEDIUM", "HIGH"] as const;
+export type ItemPriority = (typeof itemPriorityValues)[number];
+
 export const jobStatusValues = ["queued", "processing", "succeeded", "failed"] as const;
 export type JobStatus = (typeof jobStatusValues)[number];
 
@@ -42,18 +45,21 @@ export type DigestDayOfWeek = (typeof digestDayOfWeekValues)[number];
 export const submitUrlSchema = z.object({
   url: z.string().url(),
   title: z.string().trim().min(1).max(200).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW"),
   mode: z.enum(["full", "summary"]).default("full")
 });
 
 export const submitPdfSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional()
+  title: z.string().trim().min(1).max(200).optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
 });
 
 export const submitHtmlSnapshotSchema = z.object({
   url: z.string().url().max(2048),
   title: z.string().trim().min(1).max(200).optional(),
   html: z.string().trim().min(1).max(2_000_000),
-  capturedAt: z.string().datetime().optional()
+  capturedAt: z.string().datetime().optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
 });
 
 export const extensionConnectCodeSchema = z.object({

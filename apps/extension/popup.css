@@ -131,3 +131,23 @@ body.state-connected .state-pill {
 [hidden] {
   display: none !important;
 }
+
+.capture-options {
+  display: none;
+}
+
+body.state-connected .capture-options {
+  display: grid;
+  gap: 6px;
+}
+
+select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #b7c3d8;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  background: #fff;
+  color: #0f172a;
+}

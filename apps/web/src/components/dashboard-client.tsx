@@ -222,6 +222,7 @@ export function DashboardClient({
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
+  const [priorityInput, setPriorityInput] = useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -341,7 +342,7 @@ export function DashboardClient({
         headers: {
           "content-type": "application/json"
         },
-        body: JSON.stringify({ url: urlInput, title: titleInput.trim() || undefined })
+        body: JSON.stringify({ url: urlInput, title: titleInput.trim() || undefined, priority: priorityInput })
       });
       const json = await response.json();
 
@@ -353,6 +354,7 @@ export function DashboardClient({
       setStatusMessage("URL received. Processing has started and status will update automatically.");
       setUrlInput("");
       setTitleInput("");
+      setPriorityInput("LOW");
       await refreshItems();
     } finally {
       setIsBusy(false);
@@ -373,6 +375,7 @@ export function DashboardClient({
       if (titleInput.trim()) {
         formData.set("title", titleInput.trim());
       }
+      formData.set("priority", priorityInput);
 
       const response = await fetch("/api/items/pdf", {
         method: "POST",
@@ -388,6 +391,7 @@ export function DashboardClient({
       setStatusMessage("PDF uploaded. Processing has started and status will update automatically.");
       setPdfFile(null);
       setTitleInput("");
+      setPriorityInput("LOW");
       if (pdfInputRef.current) {
         pdfInputRef.current.value = "";
       }
@@ -1224,6 +1228,19 @@ export function DashboardClient({
                     onChange={(event) => setTitleInput(event.target.value)}
                   />
                 </label>
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Priority</span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={priorityInput}
+                    onChange={(event) => setPriorityInput(event.target.value as "LOW" | "MEDIUM" | "HIGH")}
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                  </select>
+                </label>
               </article>
             ) : (
               <article>
@@ -1247,6 +1264,19 @@ export function DashboardClient({
                     value={titleInput}
                     onChange={(event) => setTitleInput(event.target.value)}
                   />
+                </label>
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Priority</span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={priorityInput}
+                    onChange={(event) => setPriorityInput(event.target.value as "LOW" | "MEDIUM" | "HIGH")}
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                  </select>
                 </label>
               </article>
             )}

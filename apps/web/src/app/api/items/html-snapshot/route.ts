@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
     const item = await enqueueItem({
       userId: user.id,
       title: payload.title,
+      priority: payload.priority,
       sourceType: "HTML_SNAPSHOT",
       sourceUrl: payload.url,
       sourceFilePath: snapshotKey,
