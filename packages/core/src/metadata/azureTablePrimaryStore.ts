@@ -26,6 +26,9 @@ type TableKey =
   | "digestSettings"
   | "digestRuns"
   | "digestEpisodes"
+  | "summaryRuns"
+  | "summaryRunItems"
+  | "summaryEpisodes"
   | "digestSchedulerTicks"
   | "userDemographicSurveys";
 
@@ -242,6 +245,11 @@ export type AzureTablePrimaryDigestRun = {
   sourceItemCount: number;
   summaryStorageKey: string | null;
   summaryBytes: number | null;
+  summaryProvider: string | null;
+  summaryModel: string | null;
+  summaryDeployment: string | null;
+  summaryInputTokens: number | null;
+  summaryOutputTokens: number | null;
   emailEnabled: boolean;
   emailStatus: string | null;
   emailSubject: string | null;
@@ -260,6 +268,59 @@ export type AzureTablePrimaryDigestRun = {
 export type AzureTablePrimaryDigestEpisode = {
   id: string;
   digestRunId: string;
+  userId: string;
+  guid: string;
+  title: string;
+  description: string;
+  audioPath: string;
+  audioBytes: number;
+  mimeType: string;
+  publishedAt: Date;
+  createdAt: Date;
+};
+
+export type AzureTablePrimarySummaryRun = {
+  id: string;
+  userId: string;
+  requestedTitle: string | null;
+  title: string | null;
+  windowStart: Date;
+  windowEnd: Date;
+  status: string;
+  attempt: number;
+  lockedAt: Date | null;
+  nextRetryAt: Date | null;
+  targetLengthMinutes: number;
+  selectedItemCount: number;
+  podcastEnabled: boolean;
+  podcastStatus: string | null;
+  podcastError: string | null;
+  summaryStorageKey: string | null;
+  summaryBytes: number | null;
+  summaryProvider: string | null;
+  summaryModel: string | null;
+  summaryDeployment: string | null;
+  summaryInputTokens: number | null;
+  summaryOutputTokens: number | null;
+  fallbackUsed: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  completedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimarySummaryRunItem = {
+  id: string;
+  summaryRunId: string;
+  itemId: string;
+  orderIndex: number;
+  createdAt: Date;
+};
+
+export type AzureTablePrimarySummaryEpisode = {
+  id: string;
+  summaryRunId: string;
   userId: string;
   guid: string;
   title: string;
@@ -512,6 +573,9 @@ export class AzureTablePrimaryStore {
       digestSettings: createClient(buildTableName(input.tablePrefix, "digestsettings")),
       digestRuns: createClient(buildTableName(input.tablePrefix, "digestruns")),
       digestEpisodes: createClient(buildTableName(input.tablePrefix, "digestepisodes")),
+      summaryRuns: createClient(buildTableName(input.tablePrefix, "summaryruns")),
+      summaryRunItems: createClient(buildTableName(input.tablePrefix, "summaryrunitems")),
+      summaryEpisodes: createClient(buildTableName(input.tablePrefix, "summaryepisodes")),
       digestSchedulerTicks: createClient(buildTableName(input.tablePrefix, "digestschedticks")),
       userDemographicSurveys: createClient(buildTableName(input.tablePrefix, "demographics"))
     };
@@ -879,6 +943,13 @@ export class AzureTablePrimaryStore {
       sourceItemCount: parseNumber(entity.sourceItemCount, 0),
       summaryStorageKey: parseString(entity.summaryStorageKey),
       summaryBytes: entity.summaryBytes === null || entity.summaryBytes === undefined ? null : parseNumber(entity.summaryBytes, 0),
+      summaryProvider: parseString(entity.summaryProvider),
+      summaryModel: parseString(entity.summaryModel),
+      summaryDeployment: parseString(entity.summaryDeployment),
+      summaryInputTokens:
+        entity.summaryInputTokens === null || entity.summaryInputTokens === undefined ? null : parseNumber(entity.summaryInputTokens, 0),
+      summaryOutputTokens:
+        entity.summaryOutputTokens === null || entity.summaryOutputTokens === undefined ? null : parseNumber(entity.summaryOutputTokens, 0),
       emailEnabled: parseBoolean(entity.emailEnabled, false),
       emailStatus: parseString(entity.emailStatus),
       emailSubject: parseString(entity.emailSubject),
@@ -899,6 +970,67 @@ export class AzureTablePrimaryStore {
     return {
       id: String(entity.rowKey),
       digestRunId: parseRequiredString(entity.digestRunId, "digestRunId"),
+      userId: parseRequiredString(entity.userId, "userId"),
+      guid: parseRequiredString(entity.guid, "guid"),
+      title: parseRequiredString(entity.title, "title"),
+      description: parseRequiredString(entity.description, "description"),
+      audioPath: parseRequiredString(entity.audioPath, "audioPath"),
+      audioBytes: parseNumber(entity.audioBytes, 0),
+      mimeType: parseRequiredString(entity.mimeType, "mimeType"),
+      publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt")
+    };
+  }
+
+  private toSummaryRun(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySummaryRun {
+    return {
+      id: String(entity.rowKey),
+      userId: parseRequiredString(entity.userId, "userId"),
+      requestedTitle: parseString(entity.requestedTitle),
+      title: parseString(entity.title),
+      windowStart: parseRequiredDate(entity.windowStart, "windowStart"),
+      windowEnd: parseRequiredDate(entity.windowEnd, "windowEnd"),
+      status: parseRequiredString(entity.status, "status"),
+      attempt: parseNumber(entity.attempt, 0),
+      lockedAt: parseDate(entity.lockedAt),
+      nextRetryAt: parseDate(entity.nextRetryAt),
+      targetLengthMinutes: parseNumber(entity.targetLengthMinutes, 15),
+      selectedItemCount: parseNumber(entity.selectedItemCount, 0),
+      podcastEnabled: parseBoolean(entity.podcastEnabled, true),
+      podcastStatus: parseString(entity.podcastStatus),
+      podcastError: parseString(entity.podcastError),
+      summaryStorageKey: parseString(entity.summaryStorageKey),
+      summaryBytes: entity.summaryBytes === null || entity.summaryBytes === undefined ? null : parseNumber(entity.summaryBytes, 0),
+      summaryProvider: parseString(entity.summaryProvider),
+      summaryModel: parseString(entity.summaryModel),
+      summaryDeployment: parseString(entity.summaryDeployment),
+      summaryInputTokens:
+        entity.summaryInputTokens === null || entity.summaryInputTokens === undefined ? null : parseNumber(entity.summaryInputTokens, 0),
+      summaryOutputTokens:
+        entity.summaryOutputTokens === null || entity.summaryOutputTokens === undefined ? null : parseNumber(entity.summaryOutputTokens, 0),
+      fallbackUsed: parseBoolean(entity.fallbackUsed, false),
+      errorCode: parseString(entity.errorCode),
+      errorMessage: parseString(entity.errorMessage),
+      completedAt: parseDate(entity.completedAt),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toSummaryRunItem(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySummaryRunItem {
+    return {
+      id: parseRequiredString(entity.id, "id"),
+      summaryRunId: parseRequiredString(entity.summaryRunId, "summaryRunId"),
+      itemId: parseRequiredString(entity.itemId, "itemId"),
+      orderIndex: parseNumber(entity.orderIndex, 0),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt")
+    };
+  }
+
+  private toSummaryEpisode(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySummaryEpisode {
+    return {
+      id: String(entity.rowKey),
+      summaryRunId: parseRequiredString(entity.summaryRunId, "summaryRunId"),
       userId: parseRequiredString(entity.userId, "userId"),
       guid: parseRequiredString(entity.guid, "guid"),
       title: parseRequiredString(entity.title, "title"),
@@ -2104,6 +2236,11 @@ export class AzureTablePrimaryStore {
       sourceItemCount: input.sourceItemCount ?? 0,
       summaryStorageKey: null,
       summaryBytes: null,
+      summaryProvider: null,
+      summaryModel: null,
+      summaryDeployment: null,
+      summaryInputTokens: null,
+      summaryOutputTokens: null,
       emailEnabled: input.emailEnabled,
       emailStatus: null,
       emailSubject: null,
@@ -2265,6 +2402,11 @@ export class AzureTablePrimaryStore {
       sourceItemCount: number;
       summaryStorageKey: string | null;
       summaryBytes: number | null;
+      summaryProvider: string | null;
+      summaryModel: string | null;
+      summaryDeployment: string | null;
+      summaryInputTokens: number | null;
+      summaryOutputTokens: number | null;
       emailStatus: string | null;
       emailSubject: string | null;
       emailStorageKey: string | null;
@@ -2294,6 +2436,11 @@ export class AzureTablePrimaryStore {
       sourceItemCount: input.sourceItemCount ?? current.sourceItemCount,
       summaryStorageKey: input.summaryStorageKey === undefined ? current.summaryStorageKey : input.summaryStorageKey,
       summaryBytes: input.summaryBytes === undefined ? current.summaryBytes : input.summaryBytes,
+      summaryProvider: input.summaryProvider === undefined ? current.summaryProvider : input.summaryProvider,
+      summaryModel: input.summaryModel === undefined ? current.summaryModel : input.summaryModel,
+      summaryDeployment: input.summaryDeployment === undefined ? current.summaryDeployment : input.summaryDeployment,
+      summaryInputTokens: input.summaryInputTokens === undefined ? current.summaryInputTokens : input.summaryInputTokens,
+      summaryOutputTokens: input.summaryOutputTokens === undefined ? current.summaryOutputTokens : input.summaryOutputTokens,
       emailStatus: input.emailStatus === undefined ? current.emailStatus : input.emailStatus,
       emailSubject: input.emailSubject === undefined ? current.emailSubject : input.emailSubject,
       emailStorageKey: input.emailStorageKey === undefined ? current.emailStorageKey : input.emailStorageKey,
@@ -2373,6 +2520,302 @@ export class AzureTablePrimaryStore {
       joinFilters(filterEquals("PartitionKey", "digestEpisode"), filterEquals("userId", userId))
     );
     return sortByDateDesc(rows.map((row) => this.toDigestEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listSummaryRunsByUser(userId: string, limit = 20): Promise<AzureTablePrimarySummaryRun[]> {
+    if (limit <= 0) {
+      return [];
+    }
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "summaryRuns",
+      joinFilters(filterEquals("PartitionKey", "summaryRun"), filterEquals("userId", userId))
+    );
+    return sortByTwoDatesDesc(rows.map((row) => this.toSummaryRun(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(0, limit);
+  }
+
+  async listNextEligibleSummaryRuns(now: Date, maxRetryAttempts: number): Promise<AzureTablePrimarySummaryRun[]> {
+    const queued = await this.listEntities<Record<string, unknown>>(
+      "summaryRuns",
+      joinFilters(filterEquals("PartitionKey", "summaryRun"), filterEquals("status", "QUEUED"))
+    );
+    const retryable = await this.listEntities<Record<string, unknown>>(
+      "summaryRuns",
+      joinFilters(
+        filterEquals("PartitionKey", "summaryRun"),
+        filterEquals("status", "FAILED"),
+        filterLessThan("attempt", maxRetryAttempts),
+        filterLessThanOrEqual("nextRetryAt", now)
+      )
+    );
+    return sortByTwoDatesDesc(
+      [...queued, ...retryable].map((row) => this.toSummaryRun(row)),
+      (entry) => entry.createdAt,
+      (entry) => entry.updatedAt
+    );
+  }
+
+  async createSummaryRun(input: {
+    id: string;
+    userId: string;
+    requestedTitle?: string | null;
+    title?: string | null;
+    windowStart: Date;
+    windowEnd: Date;
+    status: string;
+    attempt?: number;
+    targetLengthMinutes: number;
+    selectedItemCount: number;
+    podcastEnabled: boolean;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimarySummaryRun> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "summaryRun",
+      rowKey: input.id,
+      userId: input.userId,
+      requestedTitle: input.requestedTitle ?? null,
+      title: input.title ?? null,
+      windowStart: input.windowStart.toISOString(),
+      windowEnd: input.windowEnd.toISOString(),
+      status: input.status,
+      attempt: input.attempt ?? 0,
+      lockedAt: null,
+      nextRetryAt: null,
+      targetLengthMinutes: input.targetLengthMinutes,
+      selectedItemCount: input.selectedItemCount,
+      podcastEnabled: input.podcastEnabled,
+      podcastStatus: null,
+      podcastError: null,
+      summaryStorageKey: null,
+      summaryBytes: null,
+      summaryProvider: null,
+      summaryModel: null,
+      summaryDeployment: null,
+      summaryInputTokens: null,
+      summaryOutputTokens: null,
+      fallbackUsed: false,
+      errorCode: null,
+      errorMessage: null,
+      completedAt: null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("summaryRuns", entity);
+    return this.toSummaryRun(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async findSummaryRunById(runId: string): Promise<EntityWithEtag<AzureTablePrimarySummaryRun> | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("summaryRuns", "summaryRun", runId);
+    return entity ? { ...this.toSummaryRun(entity), etag: entity.etag } : null;
+  }
+
+  async listStaleSummaryRuns(staleBefore: Date): Promise<Array<EntityWithEtag<AzureTablePrimarySummaryRun>>> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "summaryRuns",
+      joinFilters(filterEquals("PartitionKey", "summaryRun"), filterEquals("status", "PROCESSING"), filterLessThan("lockedAt", staleBefore))
+    );
+    return rows.map((row) => ({ ...this.toSummaryRun(row), etag: row.etag }));
+  }
+
+  async claimSummaryRun(runId: string, now: Date, maxRetryAttempts: number): Promise<AzureTablePrimarySummaryRun | null> {
+    const current = await this.getEntity<Record<string, unknown>>("summaryRuns", "summaryRun", runId);
+    if (!current) {
+      return null;
+    }
+    const run = this.toSummaryRun(current);
+    const retryable =
+      run.status === "FAILED" &&
+      run.attempt < maxRetryAttempts &&
+      run.nextRetryAt !== null &&
+      run.nextRetryAt.getTime() <= now.getTime();
+    if (!(run.status === "QUEUED" || retryable)) {
+      return null;
+    }
+
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "summaryRun",
+      rowKey: runId,
+      status: "PROCESSING",
+      attempt: run.attempt + 1,
+      lockedAt: now.toISOString(),
+      errorCode: null,
+      errorMessage: null,
+      updatedAt: now.toISOString()
+    };
+    const success = await this.updateEntity("summaryRuns", entity, current.etag);
+    if (!success) {
+      return null;
+    }
+    return this.toSummaryRun(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateSummaryRun(
+    runId: string,
+    input: Partial<{
+      requestedTitle: string | null;
+      title: string | null;
+      status: string;
+      attempt: number;
+      lockedAt: Date | null;
+      nextRetryAt: Date | null;
+      targetLengthMinutes: number;
+      selectedItemCount: number;
+      podcastEnabled: boolean;
+      podcastStatus: string | null;
+      podcastError: string | null;
+      summaryStorageKey: string | null;
+      summaryBytes: number | null;
+      summaryProvider: string | null;
+      summaryModel: string | null;
+      summaryDeployment: string | null;
+      summaryInputTokens: number | null;
+      summaryOutputTokens: number | null;
+      fallbackUsed: boolean;
+      errorCode: string | null;
+      errorMessage: string | null;
+      completedAt: Date | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimarySummaryRun | null> {
+    const current = await this.getEntity<Record<string, unknown>>("summaryRuns", "summaryRun", runId);
+    if (!current) {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "summaryRun",
+      rowKey: runId,
+      requestedTitle: input.requestedTitle === undefined ? current.requestedTitle : input.requestedTitle,
+      title: input.title === undefined ? current.title : input.title,
+      status: input.status ?? current.status,
+      attempt: input.attempt ?? current.attempt,
+      lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
+      targetLengthMinutes: input.targetLengthMinutes ?? current.targetLengthMinutes,
+      selectedItemCount: input.selectedItemCount ?? current.selectedItemCount,
+      podcastEnabled: input.podcastEnabled ?? current.podcastEnabled,
+      podcastStatus: input.podcastStatus === undefined ? current.podcastStatus : input.podcastStatus,
+      podcastError: input.podcastError === undefined ? current.podcastError : input.podcastError,
+      summaryStorageKey: input.summaryStorageKey === undefined ? current.summaryStorageKey : input.summaryStorageKey,
+      summaryBytes: input.summaryBytes === undefined ? current.summaryBytes : input.summaryBytes,
+      summaryProvider: input.summaryProvider === undefined ? current.summaryProvider : input.summaryProvider,
+      summaryModel: input.summaryModel === undefined ? current.summaryModel : input.summaryModel,
+      summaryDeployment: input.summaryDeployment === undefined ? current.summaryDeployment : input.summaryDeployment,
+      summaryInputTokens: input.summaryInputTokens === undefined ? current.summaryInputTokens : input.summaryInputTokens,
+      summaryOutputTokens: input.summaryOutputTokens === undefined ? current.summaryOutputTokens : input.summaryOutputTokens,
+      fallbackUsed: input.fallbackUsed === undefined ? current.fallbackUsed : input.fallbackUsed,
+      errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
+      errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
+      completedAt: input.completedAt === undefined ? current.completedAt : isoOrNull(input.completedAt),
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("summaryRuns", entity, current.etag);
+    if (!success) {
+      return this.findSummaryRunById(runId).then((row) => (row ? { ...row } : null));
+    }
+    return this.toSummaryRun(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async deleteSummaryRun(runId: string): Promise<void> {
+    await this.deleteEntity("summaryRuns", "summaryRun", runId);
+  }
+
+  async createSummaryRunItem(input: {
+    id: string;
+    summaryRunId: string;
+    itemId: string;
+    orderIndex: number;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimarySummaryRunItem> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "summaryRunItem",
+      rowKey: `${input.summaryRunId}::${input.itemId}`,
+      id: input.id,
+      summaryRunId: input.summaryRunId,
+      itemId: input.itemId,
+      orderIndex: input.orderIndex,
+      createdAt: createdAt.toISOString()
+    };
+    await this.upsertEntity("summaryRunItems", entity);
+    return this.toSummaryRunItem(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async listSummaryRunItems(summaryRunId: string): Promise<AzureTablePrimarySummaryRunItem[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "summaryRunItems",
+      joinFilters(filterEquals("PartitionKey", "summaryRunItem"), filterEquals("summaryRunId", summaryRunId))
+    );
+    return [...rows.map((row) => this.toSummaryRunItem(row))].sort((a, b) => a.orderIndex - b.orderIndex || a.itemId.localeCompare(b.itemId));
+  }
+
+  async deleteSummaryRunItemsByRunId(summaryRunId: string): Promise<number> {
+    return this.deleteEntitiesByFilter<Record<string, unknown>>(
+      "summaryRunItems",
+      joinFilters(filterEquals("PartitionKey", "summaryRunItem"), filterEquals("summaryRunId", summaryRunId)) as string,
+      "summaryRunItem"
+    );
+  }
+
+  async upsertSummaryEpisode(input: {
+    id: string;
+    summaryRunId: string;
+    userId: string;
+    guid: string;
+    title: string;
+    description: string;
+    audioPath: string;
+    audioBytes: number;
+    mimeType: string;
+    publishedAt: Date;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimarySummaryEpisode> {
+    const existing = await this.findSummaryEpisodeByRunId(input.summaryRunId);
+    const createdAt = input.createdAt ?? new Date();
+    const rowKey = existing?.id ?? input.id;
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "summaryEpisode",
+      rowKey,
+      summaryRunId: input.summaryRunId,
+      userId: input.userId,
+      guid: input.guid,
+      title: input.title,
+      description: input.description,
+      audioPath: input.audioPath,
+      audioBytes: input.audioBytes,
+      mimeType: input.mimeType,
+      publishedAt: input.publishedAt.toISOString(),
+      createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
+    };
+    await this.upsertEntity("summaryEpisodes", entity);
+    return this.toSummaryEpisode(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async findSummaryEpisodeByRunId(summaryRunId: string): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "summaryEpisodes",
+      joinFilters(filterEquals("PartitionKey", "summaryEpisode"), filterEquals("summaryRunId", summaryRunId))
+    );
+    return entity ? this.toSummaryEpisode(entity) : null;
+  }
+
+  async findSummaryEpisodeById(id: string): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("summaryEpisodes", "summaryEpisode", id);
+    return entity ? this.toSummaryEpisode(entity) : null;
+  }
+
+  async deleteSummaryEpisode(id: string): Promise<void> {
+    await this.deleteEntity("summaryEpisodes", "summaryEpisode", id);
+  }
+
+  async listSummaryEpisodesForUser(userId: string): Promise<AzureTablePrimarySummaryEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "summaryEpisodes",
+      joinFilters(filterEquals("PartitionKey", "summaryEpisode"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
   }
 
   async findUserDemographicSurvey(userId: string): Promise<AzureTablePrimaryUserDemographicSurvey | null> {

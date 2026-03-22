@@ -21,6 +21,7 @@ Primary entities:
 - `UserDigestSettings` (per-user digest cadence/length/timezone defaults)
 - `DigestFeedToken` (private digest RSS access token with rotation)
 - `DigestRun` + `DigestEpisode` (daily/weekly digest execution state + published digest audio metadata)
+- `SummaryRun` + `SummaryRunItem` + `SummaryEpisode` (manual Summary Studio execution state, selected source items, and optional published summary audio)
 - `DigestSchedulerTick` (external scheduler signal queue)
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
 - `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
@@ -60,6 +61,7 @@ Current behavior (`M57`-`M64` implemented):
 - worker persists dual artifacts in object storage:
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
   - markdown artifact (`MARKDOWN`) retained for downstream workflows
+  - summary markdown artifacts (`summaries/<user>/<run>/summary.md`) for manual summary publishing and reuse
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - narration input contract uses markdown-derived normalized text while preserving deterministic chunk/hash behavior.
@@ -87,10 +89,19 @@ Current behavior (`M57`-`M64` implemented):
 2. Worker scheduler pass evaluates due windows from `UserDigestSettings`.
 3. Scheduler enqueues idempotent `DigestRun` rows keyed by `(userId, cadence, periodKey)`.
 4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
-5. Summary provider adapter generates digest markdown/text (stub provider default; proxy-ready contract for OpenAI/Gemini style backends).
+5. Summary provider adapter generates digest markdown/text (stub, proxy, or Azure OpenAI depending on runtime env), while persisting provider/model/deployment/token usage metadata.
 6. Processor persists summary/email artifacts to object storage; email sender adapter records stub delivery status.
 7. When enabled, processor synthesizes digest audio with existing TTS selection and upserts `DigestEpisode`.
 8. Digest RSS route renders separate digest feed using `DigestFeedToken`; media served via digest media range route.
+
+## Manual Summary Studio pipeline (`M86`-`M91`)
+1. Signed-in user opens `/app/summary`.
+2. Web lists READY items with markdown artifacts, default-selecting the last 7 days up to 30 items.
+3. User optionally refines selection, title, target length (`5 / 15 / 30`), and podcast toggle, then creates a `SummaryRun`.
+4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
+5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
+6. Worker stores `summary.md` plus optional episode audio under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
+7. When podcast generation is enabled, the resulting `SummaryEpisode` is published into the existing private digest RSS/media surface.
 
 ## Admin analytics pipeline (`M66`-`M70`)
 Event sources:
@@ -136,6 +147,7 @@ Critical artifacts in object storage:
 - exported media copies
 - raw-source snapshots/artifacts (`RAW_HTML`, `RAW_PDF`) with retention policy
 - markdown artifacts (`MARKDOWN`) for diagnostics/reuse
+- manual summary markdown/audio artifacts for Summary Studio runs
 
 ## Media delivery contract
 `/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
@@ -144,6 +156,7 @@ Critical artifacts in object storage:
 - `GET` with byte-range `206 Partial Content`
 - stable enclosure URLs from episode object keys
 - published episode artifacts default to MP3 (`audio/mpeg`) for broader client codec support
+- `/api/digest-media/[...path]` now serves both scheduled digest episodes and manual Summary Studio episodes
 - missing-object repair path:
   - item media 404s can enqueue regeneration jobs and clear stale chunk cache references when source material is still available
   - if the expected key is missing but sibling `.mp3`/`.m4a` exists, episode metadata is reconciled in-place and served immediately
@@ -175,6 +188,7 @@ Locked target architecture:
 - Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
 - Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
 - Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
+- Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)
 - Rollback/canary metadata path: optional Prisma/PostgreSQL when explicitly enabled
 - Durable artifacts: Azure Blob Storage
 - Auxiliary local data: SQLite on VM for low-signal/admin-only state that does not need to sit in Azure Table

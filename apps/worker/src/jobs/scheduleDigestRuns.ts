@@ -26,6 +26,16 @@ function isPrismaUniqueError(error: unknown): boolean {
   );
 }
 
+function isPrismaForeignKeyError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof (error as { code?: unknown }).code === "string" &&
+      (error as { code: string }).code === "P2003"
+  );
+}
+
 async function ensureDigestSettingsDefaults(now: Date): Promise<void> {
   if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
     const usersWithoutSettings = await workerPrimaryStore.listUsersWithoutDigestSettings();
@@ -117,7 +127,7 @@ async function ensureDigestSettingsDefaults(now: Date): Promise<void> {
         }
       });
     } catch (error) {
-      if (!isPrismaUniqueError(error)) {
+      if (!isPrismaUniqueError(error) && !isPrismaForeignKeyError(error)) {
         throw error;
       }
     }

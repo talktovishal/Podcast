@@ -167,6 +167,27 @@ export const databaseSnapshotModelConfigs = [
     dateFields: ["publishedAt", "createdAt"]
   },
   {
+    modelName: "SummaryRun",
+    exportKey: "summaryRuns",
+    delegate: "summaryRun",
+    orderByField: "id",
+    dateFields: ["windowStart", "windowEnd", "lockedAt", "nextRetryAt", "completedAt", "createdAt", "updatedAt"]
+  },
+  {
+    modelName: "SummaryRunItem",
+    exportKey: "summaryRunItems",
+    delegate: "summaryRunItem",
+    orderByField: "id",
+    dateFields: ["createdAt"]
+  },
+  {
+    modelName: "SummaryEpisode",
+    exportKey: "summaryEpisodes",
+    delegate: "summaryEpisode",
+    orderByField: "id",
+    dateFields: ["publishedAt", "createdAt"]
+  },
+  {
     modelName: "DigestSchedulerTick",
     exportKey: "digestSchedulerTicks",
     delegate: "digestSchedulerTick",

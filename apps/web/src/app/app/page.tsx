@@ -49,6 +49,9 @@ export default async function AppDashboardPage() {
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/app/summary">
+              Summary Studio
+            </Link>
             <Link className="rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white" href="/app/settings">
               Settings
             </Link>

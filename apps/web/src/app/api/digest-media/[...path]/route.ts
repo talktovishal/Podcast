@@ -61,19 +61,30 @@ function parseRangeHeader(range: string, size: number): { start: number; end: nu
   return { start, end: Math.min(end, size - 1) };
 }
 
-async function authorizeDigestEpisode(digestEpisodeId: string | null): Promise<boolean> {
-  if (!digestEpisodeId) {
+async function authorizeScopedEpisode(path: string, digestEpisodeId: string | null, summaryEpisodeId: string | null): Promise<boolean> {
+  if (!digestEpisodeId && !summaryEpisodeId) {
     return true;
   }
 
-  const episode =
+  if (digestEpisodeId) {
+    const digestEpisode =
+      webUsesAzureTablePrimary() && webPrimaryStore
+        ? await webPrimaryStore.findDigestEpisodeById(digestEpisodeId)
+        : await prisma.digestEpisode.findFirst({
+            where: { id: digestEpisodeId },
+            select: { id: true, audioPath: true }
+          });
+    return Boolean(digestEpisode && digestEpisode.audioPath === path);
+  }
+
+  const summaryEpisode =
     webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findDigestEpisodeById(digestEpisodeId)
-      : await prisma.digestEpisode.findFirst({
-          where: { id: digestEpisodeId },
-          select: { id: true }
+      ? await webPrimaryStore.findSummaryEpisodeById(summaryEpisodeId as string)
+      : await prisma.summaryEpisode.findFirst({
+          where: { id: summaryEpisodeId as string },
+          select: { id: true, audioPath: true }
         });
-  return Boolean(episode);
+  return Boolean(summaryEpisode && summaryEpisode.audioPath === path);
 }
 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
@@ -96,7 +107,8 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   }
 
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
-  if (!(await authorizeDigestEpisode(digestEpisodeId))) {
+  const summaryEpisodeId = request.nextUrl.searchParams.get("seid");
+  if (!(await authorizeScopedEpisode(rawKey, digestEpisodeId, summaryEpisodeId))) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
@@ -104,7 +116,8 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         status: 401,
         media_kind: "digest",
         reason: "digest_episode_scope_mismatch",
-        digest_episode_id: digestEpisodeId
+        digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId
       });
     }
     return new NextResponse(null, { status: 401 });
@@ -136,6 +149,7 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         media_kind: "digest",
         media_key: key,
         digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId,
         mime_type: head.contentType || contentTypeForPath(key),
         total_bytes: head.bytes,
         served_bytes: 0,
@@ -161,6 +175,7 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         media_kind: "digest",
         media_key: key,
         digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId,
         duration_ms: Date.now() - startedAt
       });
     }
@@ -189,7 +204,8 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   }
 
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
-  if (!(await authorizeDigestEpisode(digestEpisodeId))) {
+  const summaryEpisodeId = request.nextUrl.searchParams.get("seid");
+  if (!(await authorizeScopedEpisode(rawKey, digestEpisodeId, summaryEpisodeId))) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request unauthorized", {
         ...requestMeta,
@@ -197,7 +213,8 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         status: 401,
         media_kind: "digest",
         reason: "digest_episode_scope_mismatch",
-        digest_episode_id: digestEpisodeId
+        digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId
       });
     }
     return new NextResponse("Unauthorized", { status: 401 });
@@ -235,6 +252,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
           media_kind: "digest",
           media_key: key,
           digest_episode_id: digestEpisodeId,
+          summary_episode_id: summaryEpisodeId,
           mime_type: mimeType,
           total_bytes: size,
           served_bytes: size,
@@ -261,6 +279,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
           media_kind: "digest",
           media_key: key,
           digest_episode_id: digestEpisodeId,
+          summary_episode_id: summaryEpisodeId,
           total_bytes: size,
           duration_ms: Date.now() - startedAt
         });
@@ -284,6 +303,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         media_kind: "digest",
         media_key: key,
         digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId,
         mime_type: mimeType,
         total_bytes: size,
         served_bytes: chunkSize,
@@ -312,6 +332,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         media_kind: "digest",
         media_key: key,
         digest_episode_id: digestEpisodeId,
+        summary_episode_id: summaryEpisodeId,
         duration_ms: Date.now() - startedAt
       });
     }

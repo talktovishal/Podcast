@@ -416,6 +416,11 @@ export const azureTablePrimaryBackfillConfigs = [
         sourceItemCount: row.sourceItemCount,
         summaryStorageKey: row.summaryStorageKey ?? null,
         summaryBytes: row.summaryBytes ?? null,
+        summaryProvider: row.summaryProvider ?? null,
+        summaryModel: row.summaryModel ?? null,
+        summaryDeployment: row.summaryDeployment ?? null,
+        summaryInputTokens: row.summaryInputTokens ?? null,
+        summaryOutputTokens: row.summaryOutputTokens ?? null,
         emailEnabled: row.emailEnabled,
         emailStatus: row.emailStatus ?? null,
         emailSubject: row.emailSubject ?? null,
@@ -442,6 +447,84 @@ export const azureTablePrimaryBackfillConfigs = [
         partitionKey: "digestEpisode",
         rowKey: row.id,
         digestRunId: row.digestRunId,
+        userId: row.userId,
+        guid: row.guid,
+        title: row.title,
+        description: row.description,
+        audioPath: row.audioPath,
+        audioBytes: row.audioBytes,
+        mimeType: row.mimeType,
+        publishedAt: row.publishedAt.toISOString(),
+        createdAt: row.createdAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "SummaryRun",
+    delegate: "summaryRun",
+    orderByField: "id",
+    tableKey: "summaryRuns",
+    buildEntity(row) {
+      return {
+        partitionKey: "summaryRun",
+        rowKey: row.id,
+        userId: row.userId,
+        requestedTitle: row.requestedTitle ?? null,
+        title: row.title ?? null,
+        windowStart: row.windowStart.toISOString(),
+        windowEnd: row.windowEnd.toISOString(),
+        status: row.status,
+        attempt: row.attempt,
+        lockedAt: isoOrNull(row.lockedAt),
+        nextRetryAt: isoOrNull(row.nextRetryAt),
+        targetLengthMinutes: row.targetLengthMinutes,
+        selectedItemCount: row.selectedItemCount,
+        podcastEnabled: row.podcastEnabled,
+        podcastStatus: row.podcastStatus ?? null,
+        podcastError: row.podcastError ?? null,
+        summaryStorageKey: row.summaryStorageKey ?? null,
+        summaryBytes: row.summaryBytes ?? null,
+        summaryProvider: row.summaryProvider ?? null,
+        summaryModel: row.summaryModel ?? null,
+        summaryDeployment: row.summaryDeployment ?? null,
+        summaryInputTokens: row.summaryInputTokens ?? null,
+        summaryOutputTokens: row.summaryOutputTokens ?? null,
+        fallbackUsed: row.fallbackUsed,
+        errorCode: row.errorCode ?? null,
+        errorMessage: row.errorMessage ?? null,
+        completedAt: isoOrNull(row.completedAt),
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "SummaryRunItem",
+    delegate: "summaryRunItem",
+    orderByField: "id",
+    tableKey: "summaryRunItems",
+    buildEntity(row) {
+      return {
+        partitionKey: "summaryRunItem",
+        rowKey: `${row.summaryRunId}::${row.itemId}`,
+        id: row.id,
+        summaryRunId: row.summaryRunId,
+        itemId: row.itemId,
+        orderIndex: row.orderIndex,
+        createdAt: row.createdAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "SummaryEpisode",
+    delegate: "summaryEpisode",
+    orderByField: "id",
+    tableKey: "summaryEpisodes",
+    buildEntity(row) {
+      return {
+        partitionKey: "summaryEpisode",
+        rowKey: row.id,
+        summaryRunId: row.summaryRunId,
         userId: row.userId,
         guid: row.guid,
         title: row.title,

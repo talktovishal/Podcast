@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-02-28)
+## Spec Status (as of 2026-03-21)
 
-### Implemented (as of 2026-02-28)
+### Implemented (as of 2026-03-21)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -111,9 +111,15 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - fast polling while jobs are actively processing
   - slower visible-tab polling while idle
   - immediate refresh on tab focus/visibility return for external captures (for example Chrome extension submits)
+- Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
+  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable article selection, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
+  - manual summary runs persist polished markdown artifacts plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
+  - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
+  - existing digest RSS/media pipeline now also publishes manual summary episodes on the private digest feed.
+  - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
 
 ### Next Milestones
-- Current milestone set (`M00`-`M85`) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M91`) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.

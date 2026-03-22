@@ -6,6 +6,9 @@ param prefix string = 'articlepod'
 @description('Azure region for all resources.')
 param location string = resourceGroup().location
 
+@description('Azure region for Azure OpenAI resources.')
+param openAiLocation string = 'eastus'
+
 @description('Linux VM size for web/worker/python-tts runtime.')
 param vmSize string = 'Standard_B2s'
 
@@ -36,6 +39,7 @@ var publicIpName = '${prefix}-pip'
 var nicName = '${prefix}-nic'
 var vmName = '${prefix}-vm'
 var postgresServerName = '${prefix}-pg-${uniqueString(resourceGroup().id)}'
+var openAiAccountName = take(toLower(replace('${prefix}aoai${uniqueString(subscription().subscriptionId, resourceGroup().id)}', '-', '')), 64)
 var blobContainerName = 'articlepod'
 var databaseName = 'articlepod'
 
@@ -95,6 +99,19 @@ resource postgresDb 'Microsoft.DBforPostgreSQL/flexibleServers/databases@2023-06
   properties: {
     charset: 'UTF8'
     collation: 'en_US.utf8'
+  }
+}
+
+resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: openAiAccountName
+  location: openAiLocation
+  kind: 'OpenAI'
+  sku: {
+    name: 'S0'
+  }
+  properties: {
+    customSubDomainName: openAiAccountName
+    publicNetworkAccess: 'Enabled'
   }
 }
 
@@ -275,3 +292,6 @@ output postgresDatabase string = postgresDb.name
 output postgresHost string = '${postgres.name}.postgres.database.azure.com'
 output postgresAdminUser string = '${postgresAdminLogin}'
 output recommendedDatabaseUrl string = 'postgresql://${postgresAdminLogin}:${'<password>'}@${postgres.name}.postgres.database.azure.com:5432/${databaseName}?sslmode=require'
+output openAiAccountName string = openAi.name
+output openAiEndpoint string = 'https://${openAi.name}.openai.azure.com'
+output openAiLocation string = openAiLocation

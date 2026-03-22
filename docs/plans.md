@@ -70,6 +70,10 @@
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
   - private GitHub mirror support is env-gated and excludes submitter email from mirrored issue bodies.
+- Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
+  - manual `/app/summary` workflow supports explicit article selection, default last-7-days preselection, length presets, and optional podcast creation.
+  - summary runs persist markdown/audio artifacts separately from scheduled digest runs while reusing the existing digest feed/media surface.
+  - Azure OpenAI is now a first-class summary provider in deploy/runtime automation with nano-first routing and mini fallback.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
@@ -125,6 +129,7 @@
 | Global geo snapshots + optional demographic profile capture | M83 |
 | Smart feed shortcuts + admin-only markdown controls | M84 |
 | Message-first feedback inbox + admin triage + private GitHub mirror | M85 |
+| Manual Summary Studio + Azure OpenAI nano/mini summary generation | M86, M87, M88, M89, M90, M91 |
 | 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration) | C01, C02, C03, C04, C05, C06, C07 |
 | Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
 | PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
@@ -245,6 +250,12 @@ Milestone metadata contract:
 | M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M84 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
 | M85 | Done | 2026-03-01 | 2026-03-01 | local validation + implementation pass (2026-03-01) |
+| M86 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
+| M87 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
+| M88 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
+| M89 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
+| M90 | Done | 2026-03-21 | 2026-03-21 | local validation + Azure provisioning pass (2026-03-21) |
+| M91 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2403,6 +2414,163 @@ Milestone metadata contract:
   - `pnpm run lint`
   - `pnpm run test`
   - `pnpm run build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M86 - Summary Studio Data Models and Contracts
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + implementation pass (2026-03-21)
+- Scope:
+  - Add manual summary entities separate from scheduled digest runs.
+  - Extend shared summary contracts to support manual summary generation metadata and structured outputs.
+  - Persist provider/model/deployment/token metadata for scheduled digests and manual summaries.
+- Key files/modules:
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/digest/summary.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+- Acceptance criteria:
+  - Manual summary runs, selected items, and published episodes are represented independently of scheduled digests.
+  - Shared summary request/response types support Azure OpenAI metadata and markdown/plain-text outputs.
+  - Azure Table and Prisma stores can persist the new summary entities and digest summary metadata.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/core run typecheck`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+
+### M87 - Summary Studio APIs and Manual UX
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + implementation pass (2026-03-21)
+- Scope:
+  - Add signed-in Summary Studio UI at `/app/summary`.
+  - Add APIs for selectable items, run creation/history, and generated markdown retrieval.
+  - Enforce default last-7-days selection, ready-item filtering, and a 30-item cap.
+- Key files/modules:
+  - `apps/web/src/app/app/summary/page.tsx`
+  - `apps/web/src/components/summary-studio-client.tsx`
+  - `apps/web/src/lib/summaries.ts`
+  - `apps/web/src/app/api/summary/items/route.ts`
+  - `apps/web/src/app/api/summary/runs/route.ts`
+  - `apps/web/src/app/api/summary/runs/[id]/markdown/route.ts`
+  - `apps/web/tests/summary-routes.test.ts`
+- Acceptance criteria:
+  - `/app/summary` supports explicit summary creation, custom title, `5 / 15 / 30` presets, and optional podcast generation.
+  - Default item selection is limited to READY items from the last 7 days and can be manually refined.
+  - Summary Studio APIs are authenticated and restricted to the current user’s items/runs.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- summary-routes`
+  - `npx pnpm --filter @articlepod/web run build`
+
+### M88 - Azure OpenAI Summary Provider and Worker Routing
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + implementation pass (2026-03-21)
+- Scope:
+  - Add direct Azure OpenAI summary provider support in the worker.
+  - Route `5` and `15` minute summaries to nano, `30` minute summaries to mini, with nano retry on mini for invalid/empty/timeout failures.
+  - Process manual summary runs asynchronously and persist markdown/audio artifacts with observability metadata.
+- Key files/modules:
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/src/lib/summary.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/jobs/processSummaryRunJob.ts`
+  - `apps/worker/src/index.ts`
+  - `apps/worker/tests/summary-provider.test.ts`
+  - `apps/worker/tests/summary-jobs.test.ts`
+- Acceptance criteria:
+  - Worker can generate summary markdown/plain-text through Azure OpenAI with deterministic source clipping and structured output parsing.
+  - Manual summary runs are claimed/retried like other worker work and store audio only when requested.
+  - Nano fallback behavior is covered by tests and provider/model/deployment/token usage is persisted.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/worker run test -- summary-provider`
+  - `npx pnpm --filter @articlepod/worker run test -- summary-jobs`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+
+### M89 - Digest Feed and Media Integration for Manual Summaries
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + implementation pass (2026-03-21)
+- Scope:
+  - Publish manual summary episodes into the existing private digest feed.
+  - Extend digest media authorization and range handling to summary episodes.
+  - Ensure account deletion and operational backfill paths include manual summary records/artifacts.
+- Key files/modules:
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
+  - `apps/web/src/app/api/account/delete/route.ts`
+  - `apps/web/src/lib/ops/database-snapshot.ts`
+  - `apps/web/src/lib/ops/azure-table-primary-backfill.ts`
+  - `apps/web/tests/digest-routes.test.ts`
+  - `apps/web/tests/storage-cutover-config.test.ts`
+- Acceptance criteria:
+  - Digest RSS includes scheduled digest episodes and manual summary episodes in newest-first order with unique enclosure URLs.
+  - Digest media route serves manual summary episodes with the same `HEAD` and byte-range `206` contract.
+  - Summary records are included in lifecycle cleanup and metadata backfill coverage.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- digest-routes`
+  - `npx pnpm --filter @articlepod/web run test -- storage-cutover-config`
+
+### M90 - Azure OpenAI Provisioning and Deploy Automation
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + Azure provisioning pass (2026-03-21)
+- Scope:
+  - Add Azure OpenAI account provisioning to IaC-adjacent deploy automation.
+  - Provision nano and mini summary deployments with model-version fallback.
+  - Teach env rendering and deploy helpers to auto-discover or provision Azure OpenAI configuration.
+- Key files/modules:
+  - `infra/main.bicep`
+  - `scripts/azure/provision-openai.sh`
+  - `scripts/azure/discover-resources.sh`
+  - `scripts/azure/render-env.sh`
+  - `scripts/azure/deploy-changes.sh`
+  - `scripts/check-env.mjs`
+- Acceptance criteria:
+  - Azure OpenAI account can be created or reused in the production resource group with deployments for both nano and mini summary lanes.
+  - Azure env rendering fails clearly when Azure OpenAI vars are required but missing.
+  - Daily deploy helper can provision/discover Azure OpenAI settings when rendering VM env.
+- Verification commands:
+  - `npm run check:env:azure`
+  - `./scripts/azure/provision-openai.sh --resource-group rg-articlepod-prod`
+
+### M91 - Summary Studio Validation and Docs Sync
+- status: Done
+- target_finish: 2026-03-21
+- completed_on: 2026-03-21
+- evidence: local validation + implementation pass (2026-03-21)
+- Scope:
+  - Add regression coverage for Summary Studio routes, feed/media integration, and worker provider routing.
+  - Sync prompts/plans/architecture/documentation/env/deploy guides and env examples to the new summary flow and Azure OpenAI runtime contract.
+  - Record verification evidence and user prompt context for the new milestone track.
+- Key files/modules:
+  - `apps/web/tests/summary-routes.test.ts`
+  - `apps/web/tests/digest-routes.test.ts`
+  - `apps/worker/tests/summary-provider.test.ts`
+  - `apps/worker/tests/summary-jobs.test.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `docs/azure-deploy.md`
+  - `docs/implement.md`
+  - `docs/chat_log.md`
+- Acceptance criteria:
+  - Repo docs describe Summary Studio, Azure OpenAI provisioning, env vars, and digest-feed integration without drift.
+  - Verification evidence covers lint, typecheck, test, build, and updated route surfaces.
+  - Change history includes a concise summary of the user request and exact prompts.
+- Verification commands:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run test`
+  - `npm run build`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ---

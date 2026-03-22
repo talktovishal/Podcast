@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const [items, digestRuns, digestEpisodes] =
+  const [items, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await Promise.all([
           (async () => {
@@ -40,7 +40,9 @@ export async function DELETE(request: NextRequest) {
             );
           })(),
           webPrimaryStore.listDigestRunsByUser(user.id, 200),
-          webPrimaryStore.listDigestEpisodesForUser(user.id)
+          webPrimaryStore.listDigestEpisodesForUser(user.id),
+          webPrimaryStore.listSummaryRunsByUser(user.id, 200),
+          webPrimaryStore.listSummaryEpisodesForUser(user.id)
         ])
       : await Promise.all([
           prisma.item.findMany({
@@ -56,6 +58,20 @@ export async function DELETE(request: NextRequest) {
             }
           }),
           prisma.digestEpisode.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true,
+              audioPath: true
+            }
+          }),
+          prisma.summaryRun.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true,
+              summaryStorageKey: true
+            }
+          }),
+          prisma.summaryEpisode.findMany({
             where: { userId: user.id },
             select: {
               id: true,
@@ -78,6 +94,8 @@ export async function DELETE(request: NextRequest) {
       ),
       ...digestRuns.map((run) => store.deleteDigestRun(run.id)),
       ...digestEpisodes.map((episode) => store.deleteDigestEpisode(episode.id)),
+      ...summaryRuns.map((run) => Promise.all([store.deleteSummaryRunItemsByRunId(run.id), store.deleteSummaryRun(run.id)])),
+      ...summaryEpisodes.map((episode) => store.deleteSummaryEpisode(episode.id)),
       store.deleteUser(user.id)
     ]);
   } else {
@@ -115,6 +133,16 @@ export async function DELETE(request: NextRequest) {
   }
 
   for (const episode of digestEpisodes) {
+    await storage.deleteObject(episode.audioPath).catch(() => undefined);
+  }
+
+  for (const run of summaryRuns) {
+    if (run.summaryStorageKey) {
+      await storage.deleteObject(run.summaryStorageKey).catch(() => undefined);
+    }
+  }
+
+  for (const episode of summaryEpisodes) {
     await storage.deleteObject(episode.audioPath).catch(() => undefined);
   }
 

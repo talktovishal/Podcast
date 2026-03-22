@@ -29,6 +29,7 @@ Options:
   --health-delay <secs>  Delay between health retries (default: 2)
   --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
   --render-env           Generate and upload runtime env file to VM before deploying
+  --resource-group <rg>  Azure resource group used to auto-discover/provision Azure OpenAI when rendering env
   --canonical-host <h>   Canonical public host for ingress/TLS (default: host from APP_URL)
   --host-aliases <list>  Comma-separated alias hosts redirected to canonical host
   --letsencrypt-email <e> Email used for certbot when ingress/TLS automation is enabled
@@ -47,13 +48,13 @@ Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
   HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE,
   CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES,
-  ENABLE_OVERFLOW_WORKER_SERVICE
+  ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
   AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, TTS_WORKERS,
   METADATA_PRIMARY_BACKEND, METADATA_MIRROR_*, AZURE_TABLE_*, WORKER_OVERFLOW_*, OVERFLOW_PYTHON_TTS_*,
-  ADMIN_PASSWORD, DEMO_PASSWORD
+  ADMIN_PASSWORD, DEMO_PASSWORD, DIGEST_SUMMARY_PROVIDER, AZURE_OPENAI_*
 EOF
 }
 
@@ -106,6 +107,7 @@ CANONICAL_HOST="${CANONICAL_HOST:-}"
 HOST_ALIASES="${HOST_ALIASES:-${APP_DOMAIN_ALIASES:-}}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 DEPLOY_CONFIGURE_INGRESS="${DEPLOY_CONFIGURE_INGRESS:-1}"
+AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
 
 is_ip_host() {
   local host="$1"
@@ -180,6 +182,10 @@ while [[ $# -gt 0 ]]; do
     --render-env)
       DEPLOY_RENDER_ENV=1
       shift
+      ;;
+    --resource-group)
+      AZURE_RESOURCE_GROUP="${2:-}"
+      shift 2
       ;;
     --canonical-host)
       CANONICAL_HOST="${2:-}"
@@ -317,6 +323,11 @@ REMOTE="${TARGET_USER}@${TARGET_HOST}"
 # --- Render and upload runtime env file if requested ---
 if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
   echo "[deploy-changes] rendering runtime env file locally and uploading to VM"
+  if [[ ( -z "${DIGEST_SUMMARY_PROVIDER:-}" || "${DIGEST_SUMMARY_PROVIDER:-}" == "azure_openai" ) && -n "$AZURE_RESOURCE_GROUP" ]]; then
+    echo "[deploy-changes] ensuring Azure OpenAI deployments exist in resource group '$AZURE_RESOURCE_GROUP'"
+    # shellcheck disable=SC1091
+    eval "$("$ROOT_DIR/scripts/azure/provision-openai.sh" --resource-group "$AZURE_RESOURCE_GROUP")"
+  fi
   RENDER_ENV_TEMP="$(mktemp)"
   OUT_FILE="$RENDER_ENV_TEMP" "$ROOT_DIR/scripts/azure/render-env.sh"
 

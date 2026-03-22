@@ -9,6 +9,10 @@
 - Durable data:
   - Azure Table (primary operational metadata when `METADATA_PRIMARY_BACKEND=azure_table`)
   - Azure Blob Storage
+- Azure OpenAI summary inference:
+  - Azure OpenAI account in `eastus`
+  - `digest-summary-nano` deployment for `5`/`15` minute summary runs
+  - `digest-summary-mini` deployment for `30` minute runs and nano fallback
 - Auxiliary local state:
   - SQLite on the VM for low-cost/admin-only data that does not need to live in Azure Table
 
@@ -64,7 +68,8 @@ az deployment group what-if \
 RG="<AZURE_RESOURCE_GROUP>"
 eval "$(./scripts/azure/discover-resources.sh \
   --resource-group "$RG" \
-  --print-connection-string)"
+  --print-connection-string \
+  --include-openai)"
 ```
 
 This exports:
@@ -72,10 +77,29 @@ This exports:
 - `PG_NAME`
 - `STORAGE_ACCOUNT`
 - `STORAGE_CONNECTION_STRING` (secret)
+- optionally `AZURE_OPENAI_ACCOUNT`, `AZURE_OPENAI_BASE_URL`
 
 Notes:
 - `PG_NAME` is only needed if you are still keeping PostgreSQL around for rollback/canary work.
 - In the low-cost Azure Table primary path, PostgreSQL is not required for day-to-day runtime.
+
+## Azure OpenAI provisioning
+Provision or reuse Azure OpenAI resources in the production resource group:
+```bash
+RG="<AZURE_RESOURCE_GROUP>"
+eval "$(./scripts/azure/provision-openai.sh --resource-group "$RG")"
+```
+
+This exports:
+- `AZURE_OPENAI_ACCOUNT`
+- `AZURE_OPENAI_BASE_URL`
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
+- `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
+
+Notes:
+- The Azure OpenAI account is intentionally placed in `eastus` even though the VM/resource group stay in `centralus`.
+- The provisioning helper attempts `gpt-5-nano` and `gpt-5-mini` first, then falls back to `gpt-4.1-nano` and `gpt-4.1-mini` if deployment creation fails.
 
 ## Domain + DNS (production)
 For canonical production URLs, use:
@@ -144,6 +168,11 @@ sudo APP_URL="https://articlepod.com" \
   TTS_WORKERS="1" \
   METADATA_PRIMARY_BACKEND="azure_table" \
   AZURE_TABLE_CONNECTION_STRING="<TABLE_CONNECTION_STRING>" \
+  DIGEST_SUMMARY_PROVIDER="azure_openai" \
+  AZURE_OPENAI_BASE_URL="${AZURE_OPENAI_BASE_URL}" \
+  AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY}" \
+  AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT="${AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT}" \
+  AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT="${AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT}" \
   /opt/articlepod/scripts/azure/render-env.sh
 ```
 Optional PostgreSQL rollback/canary input:
@@ -257,7 +286,8 @@ LETSENCRYPT_EMAIL="<EMAIL>" \
 APP_URL="https://articlepod.com" \
 TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ENABLE_OVERFLOW_WORKER_SERVICE="0" \
-  ./scripts/azure/deploy-changes.sh
+AZURE_RESOURCE_GROUP="$RG" \
+  ./scripts/azure/deploy-changes.sh --render-env --resource-group "$RG"
 ```
 
 ## GitHub Actions deploy guardrails

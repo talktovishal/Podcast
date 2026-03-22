@@ -6,11 +6,15 @@
 2. Provision infra (outside this folder, with `azd up`).
 3. Discover runtime resources:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/discover-resources.sh`
-4. Bootstrap VM:
+   - add `--include-openai` to export Azure OpenAI account metadata
+   - add `--provision-openai` to create/reuse Azure OpenAI resources and export runtime vars
+4. Provision Azure OpenAI summary deployments directly when needed:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-openai.sh --resource-group <RG>`
+5. Bootstrap VM:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
-5. Existing VM migration (if upgrading from legacy runtime names):
+6. Existing VM migration (if upgrading from legacy runtime names):
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/migrate-runtime-naming.sh`
-6. Render runtime env:
+7. Render runtime env:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh`
 
 See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
@@ -23,7 +27,8 @@ CANONICAL_HOST=articlepod.com \
 HOST_ALIASES=www.articlepod.com \
 LETSENCRYPT_EMAIL=<email> \
 APP_URL=https://articlepod.com \
-/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh
+AZURE_RESOURCE_GROUP=rg-articlepod-prod \
+/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh --render-env --resource-group rg-articlepod-prod
 ```
 
 GitHub Actions production deploys now run automatically on every push to `main` (not only commits with `[deploy]`), plus a mandatory post-deploy smoke gate.
@@ -58,6 +63,12 @@ What it runs:
 4. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`
 5. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-nginx.sh`
 6. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`
+
+When `--render-env --resource-group <RG>` is used, `deploy-changes.sh` can auto-provision Azure OpenAI and forward:
+- `AZURE_OPENAI_BASE_URL`
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
+- `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
 
 ### Domain/TLS deploy variables
 - `CANONICAL_HOST`: required when ingress automation is enabled (defaults from `APP_URL` host if present).

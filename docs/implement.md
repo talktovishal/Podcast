@@ -139,6 +139,19 @@ If parity/azure runtime paths changed, also run:
 - expand core/web/worker tests for digest behavior.
 - run podcast contract gates for main + digest feeds and sync docs.
 
+## M86-M91 implementation sequence (completed)
+1. M86/M87
+- add Summary Studio data models, shared contracts, and authenticated API/UI surfaces.
+- keep manual summary runs separate from scheduled digests while reusing the existing digest feed.
+
+2. M88/M89
+- add Azure OpenAI summary provider support with nano/mini routing and retry fallback.
+- process manual summary runs asynchronously and publish optional summary episodes through digest RSS/media.
+
+3. M90/M91
+- provision Azure OpenAI through deploy helpers and env rendering.
+- sync docs/env examples/chat log and run full repo verification.
+
 ## C01-C07 implementation sequence
 1. C01/C02
 - set Azure VM baseline defaults to `Standard_B2s`.
@@ -175,6 +188,10 @@ If parity/azure runtime paths changed, also run:
   - `azd up`
 - Discover VM/Postgres/storage (+ optional firewall + connection string):
   - `./scripts/azure/discover-resources.sh --resource-group "<RG>" --open-firewall --print-connection-string`
+  - add `--include-openai` to also export any existing Azure OpenAI account metadata
+  - add `--provision-openai` to create/reuse Azure OpenAI account + deployments and export runtime vars
+- Provision/reuse Azure OpenAI summary deployments directly:
+  - `./scripts/azure/provision-openai.sh --resource-group "<RG>"`
 - Sync code to VM:
   - `TARGET_HOST=<vm-ip> TARGET_PATH=/home/azureuser/articlepod TARGET_SSH_KEY=~/.ssh/articlepod_azure ./scripts/azure/push-to-vm.sh`
   - excludes app-local `.env` files from sync payload
@@ -191,6 +208,7 @@ If parity/azure runtime paths changed, also run:
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
   - ensures runtime directories (`/var/lib/articlepod/{storage,media,uploads}`) and precomputes Kokoro voice previews
   - in Azure Table primary mode, `render-env.sh` defaults `DATABASE_URL=file:/var/lib/articlepod/db.sqlite` and low-cost diagnostics off
+  - when Azure OpenAI vars are present, `render-env.sh` can default `DIGEST_SUMMARY_PROVIDER=azure_openai`
 - Configure ingress + TLS on VM:
   - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com /opt/articlepod/scripts/azure/configure-nginx.sh`
   - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> /opt/articlepod/scripts/azure/configure-tls.sh`

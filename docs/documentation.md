@@ -13,7 +13,8 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
-6. Logged-in users can submit message-first product feedback at `/app/feedback`.
+6. Logged-in users can open Summary Studio at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
+7. Logged-in users can submit message-first product feedback at `/app/feedback`.
 
 ## Accounts
 Set passwords via environment variables before seeding (see `.env.example`):
@@ -56,6 +57,7 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
+- Digest feed contains both scheduled digest episodes and manual Summary Studio episodes when generated with podcast enabled.
 - RSS-generated media URLs are HMAC-signed and remain valid for 14 days so slower-refreshing podcast apps can keep playing existing enclosures.
 - Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
 - Episode descriptions are normalized to concise sentence summaries before RSS publication.
@@ -84,6 +86,31 @@ Digest APIs:
 
 Scheduler trigger API (internal automation):
 - `POST /api/internal/digests/tick` (Bearer secret protected via `DIGEST_SCHEDULER_SECRET`)
+
+## Summary Studio
+Available in `/app/summary`:
+- default selection = READY items with markdown artifacts from the last 7 days
+- manual searchable item selection with a 30-item cap
+- optional custom summary title
+- length presets:
+  - `Quick (5)`
+  - `Standard (15)`
+  - `Deep Dive (30)`
+- podcast generation toggle enabled by default
+- recent summary run history with markdown preview for completed runs
+
+Summary output shape:
+- title
+- intro / hook
+- key themes
+- notable developments
+- why it matters
+- source list
+
+Summary Studio APIs:
+- `GET /api/summary/items`
+- `POST /api/summary/runs`
+- `GET /api/summary/runs/[id]/markdown`
 
 ## Runtime profiles
 - `simple`: local SQLite + local object storage
@@ -137,6 +164,10 @@ Current implementation baseline:
   - local auxiliary SQLite is used for low-cost admin/runtime data
   - managed PostgreSQL is stopped and kept out of the hot path
   - exploratory PostgreSQL data was intentionally not migrated during this fresh-start testing phase
+- Azure OpenAI summary generation is now wired as an Azure-native dependency:
+  - `scripts/azure/provision-openai.sh` creates or reuses an Azure OpenAI account in `eastus`
+  - `digest-summary-nano` is the default deployment for `5` and `15` minute summary runs
+  - `digest-summary-mini` is used for `30` minute runs and as a retry fallback when nano returns invalid or empty output
 
 ## Observability status
 Current implementation:

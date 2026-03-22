@@ -51,6 +51,8 @@ model User {
   digestFeedTokens DigestFeedToken[]
   digestRuns      DigestRun[]
   digestEpisodes  DigestEpisode[]
+  summaryRuns     SummaryRun[]
+  summaryEpisodes SummaryEpisode[]
   demographicSurvey UserDemographicSurvey?
   feedbackSubmissions UserFeedback[]
   billingWebhookEvents BillingWebhookEvent[]
@@ -114,6 +116,7 @@ model Item {
   episode       Episode?
   artifacts     ItemArtifact[]
   chunkCaches   ChunkCache[]
+  summaryRunItems SummaryRunItem[]
   demoExtractionTrace DemoExtractionTrace?
   analyticsEvents AnalyticsEvent[]
 
@@ -376,6 +379,11 @@ model DigestRun {
   sourceItemCount     Int      @default(0)
   summaryStorageKey   String?
   summaryBytes        Int?
+  summaryProvider     String?
+  summaryModel        String?
+  summaryDeployment   String?
+  summaryInputTokens  Int?
+  summaryOutputTokens Int?
   emailEnabled        Boolean  @default(false)
   emailStatus         String?
   emailSubject        String?
@@ -414,6 +422,79 @@ model DigestEpisode {
 
   digestRun DigestRun @relation(fields: [digestRunId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, publishedAt])
+}
+
+model SummaryRun {
+  id                  String   @id @default(cuid())
+  userId              String
+  requestedTitle      String?
+  title               String?
+  windowStart         DateTime
+  windowEnd           DateTime
+  status              String   @default("QUEUED")
+  attempt             Int      @default(0)
+  lockedAt            DateTime?
+  nextRetryAt         DateTime?
+  targetLengthMinutes Int
+  selectedItemCount   Int      @default(0)
+  podcastEnabled      Boolean  @default(true)
+  podcastStatus       String?
+  podcastError        String?
+  summaryStorageKey   String?
+  summaryBytes        Int?
+  summaryProvider     String?
+  summaryModel        String?
+  summaryDeployment   String?
+  summaryInputTokens  Int?
+  summaryOutputTokens Int?
+  fallbackUsed        Boolean  @default(false)
+  errorCode           String?
+  errorMessage        String?
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items   SummaryRunItem[]
+  episode SummaryEpisode?
+
+  @@index([status, createdAt])
+  @@index([status, nextRetryAt])
+  @@index([userId, createdAt])
+}
+
+model SummaryRunItem {
+  id           String   @id @default(cuid())
+  summaryRunId String
+  itemId       String
+  orderIndex   Int
+  createdAt    DateTime @default(now())
+
+  summaryRun SummaryRun @relation(fields: [summaryRunId], references: [id], onDelete: Cascade)
+  item       Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([summaryRunId, itemId])
+  @@index([itemId, createdAt])
+  @@index([summaryRunId, orderIndex])
+}
+
+model SummaryEpisode {
+  id          String   @id @default(cuid())
+  summaryRunId String  @unique
+  userId      String
+  guid        String   @unique
+  title       String
+  description String
+  audioPath   String
+  audioBytes  Int
+  mimeType    String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  summaryRun SummaryRun @relation(fields: [summaryRunId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, publishedAt])
 }

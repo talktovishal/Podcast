@@ -45,10 +45,16 @@ Recommended:
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
 - `TTS_WORKERS` (set to `1` for the cost-optimized B2s baseline)
+- If `DIGEST_SUMMARY_PROVIDER=azure_openai`:
+  - `AZURE_OPENAI_BASE_URL`
+  - `AZURE_OPENAI_API_KEY`
+  - `AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
+  - `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
 
 Azure deploy helper behavior:
 - `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
 - when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` now defaults `DATABASE_URL` to `file:/var/lib/articlepod/db.sqlite` if you do not provide one explicitly.
+- when Azure OpenAI vars are present and `DIGEST_SUMMARY_PROVIDER` is unset, `scripts/azure/render-env.sh` defaults the summary provider to `azure_openai`.
 - in Azure Table primary mode, low-cost diagnostics default to:
   - `ANALYTICS_STORAGE_MODE=off`
   - `JOB_EVENT_STORAGE_MODE=off`
@@ -139,10 +145,14 @@ Recommended low-cost Azure setting:
 - `DIGEST_SCHEDULER_TICK_MS` (default `60000`)
 - `DIGEST_SCHEDULER_SECRET` (required to authorize `POST /api/internal/digests/tick`)
 - `DIGEST_RUN_MAX_RETRY_ATTEMPTS` (default `3`)
-- `DIGEST_SUMMARY_PROVIDER` (`stub` default, `proxy` supported)
+- `DIGEST_SUMMARY_PROVIDER` (`stub` default, `proxy` and `azure_openai` supported)
 - `DIGEST_SUMMARY_PROXY_URL` (required when `DIGEST_SUMMARY_PROVIDER=proxy`)
 - `DIGEST_SUMMARY_TIMEOUT_MS` (default `30000`)
 - `DIGEST_EMAIL_PROVIDER` (`stub` default)
+- `AZURE_OPENAI_BASE_URL` (required when `DIGEST_SUMMARY_PROVIDER=azure_openai`)
+- `AZURE_OPENAI_API_KEY` (required when `DIGEST_SUMMARY_PROVIDER=azure_openai`)
+- `AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT` (default `digest-summary-nano`)
+- `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT` (default `digest-summary-mini`)
 
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `.runtime/logs` relative to repo root)

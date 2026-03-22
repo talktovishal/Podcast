@@ -7,6 +7,8 @@
 
 ## Azure
 - Azure scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/README.md`
+- Provision or reuse Azure OpenAI summary resources:
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-openai.sh --resource-group rg-articlepod-prod`
 - Deploy local changes to existing VM:
   - `TARGET_HOST=<vm-ip-or-fqdn> CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> APP_URL=https://articlepod.com /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh`
   - or `TARGET_HOST=<vm-ip-or-fqdn> CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> APP_URL=https://articlepod.com npm run azure:deploy:changes`

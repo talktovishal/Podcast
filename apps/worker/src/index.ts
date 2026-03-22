@@ -3,6 +3,7 @@ import { workerEnv } from "./lib/env.js";
 import { prisma } from "./lib/prisma.js";
 import { processNextQueuedJob } from "./jobs/processItemJob.js";
 import { processNextQueuedDigestRun } from "./jobs/processDigestRunJob.js";
+import { processNextQueuedSummaryRun } from "./jobs/processSummaryRunJob.js";
 import { hasPendingDigestSchedulerTick, scheduleDigestRuns } from "./jobs/scheduleDigestRuns.js";
 import { workerLogger } from "./lib/logger.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "./lib/metadata-primary-store.js";
@@ -159,6 +160,12 @@ async function loop() {
 
   if (!digestProcessingEnabled()) {
     await backoffOnIdle();
+    return;
+  }
+
+  const processedSummary = await processNextQueuedSummaryRun();
+  if (processedSummary) {
+    consecutiveIdle = 0;
     return;
   }
 

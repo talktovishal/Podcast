@@ -9,7 +9,7 @@
     "start": "npm run prisma:generate && tsx src/index.ts",
     "lint": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
     "typecheck": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
-    "test": "DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test tests/**/*.test.ts",
+    "test": "DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/../web/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/**/*.test.ts",
     "prisma:generate": "node ../../scripts/prisma-profile.mjs generate"
   },
   "dependencies": {

@@ -345,6 +345,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     const targetLengthMinutes = normalizeLengthMinutes(claimResult.targetLengthMinutes);
     const targetWords = digestTargetWords(targetLengthMinutes);
     const summary = await summaryProvider.summarize({
+      kind: "digest",
       cadence: claimResult.cadence === "WEEKLY" ? "WEEKLY" : "DAILY",
       timezone: userSettings?.timezone || "UTC",
       periodKey: claimResult.periodKey,
@@ -469,6 +470,11 @@ export async function processDigestRun(runId: string): Promise<boolean> {
         sourceItemCount: sources.length,
         summaryStorageKey: summaryStored.key,
         summaryBytes: summaryStored.bytes,
+        summaryProvider: summary.provider,
+        summaryModel: summary.model,
+        summaryDeployment: summary.deployment ?? null,
+        summaryInputTokens: summary.inputTokens ?? null,
+        summaryOutputTokens: summary.outputTokens ?? null,
         emailStatus,
         emailSubject,
         emailStorageKey,
@@ -490,6 +496,11 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           sourceItemCount: sources.length,
           summaryStorageKey: summaryStored.key,
           summaryBytes: summaryStored.bytes,
+          summaryProvider: summary.provider,
+          summaryModel: summary.model,
+          summaryDeployment: summary.deployment ?? null,
+          summaryInputTokens: summary.inputTokens ?? null,
+          summaryOutputTokens: summary.outputTokens ?? null,
           emailStatus,
           emailSubject,
           emailStorageKey,

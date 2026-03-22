@@ -30,6 +30,12 @@ export type DigestEmailStatus = (typeof digestEmailStatusValues)[number];
 export const digestPodcastStatusValues = ["SUCCEEDED", "FAILED", "SKIPPED"] as const;
 export type DigestPodcastStatus = (typeof digestPodcastStatusValues)[number];
 
+export const summaryRunStatusValues = ["QUEUED", "PROCESSING", "SUCCEEDED", "FAILED", "SKIPPED"] as const;
+export type SummaryRunStatus = (typeof summaryRunStatusValues)[number];
+
+export const summaryPodcastStatusValues = ["SUCCEEDED", "FAILED", "SKIPPED"] as const;
+export type SummaryPodcastStatus = (typeof summaryPodcastStatusValues)[number];
+
 export const digestDayOfWeekValues = [0, 1, 2, 3, 4, 5, 6] as const;
 export type DigestDayOfWeek = (typeof digestDayOfWeekValues)[number];
 
@@ -99,6 +105,13 @@ export const digestSchedulerTickSchema = z.object({
   requestedBy: z.string().trim().max(80).optional()
 });
 
+export const createSummaryRunSchema = z.object({
+  itemIds: z.array(z.string().trim().min(1)).min(1).max(30),
+  requestedTitle: z.string().trim().max(200).optional(),
+  targetLengthMinutes: digestLengthSchema.default(15),
+  podcastEnabled: z.boolean().optional().default(true)
+});
+
 export const previewTtsSchema = z.object({
   providerId: z.string().trim().min(1).max(40).optional(),
   voice: z.string().trim().min(1).max(80),
@@ -127,3 +140,4 @@ export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;
 export type PreviewTtsInput = z.infer<typeof previewTtsSchema>;
 export type UpdateDigestSettingsInput = z.infer<typeof updateDigestSettingsSchema>;
 export type DigestSchedulerTickInput = z.infer<typeof digestSchedulerTickSchema>;
+export type CreateSummaryRunInput = z.infer<typeof createSummaryRunSchema>;

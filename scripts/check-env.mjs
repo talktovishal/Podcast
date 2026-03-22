@@ -81,6 +81,10 @@ function profileRequirements(profile) {
     "DIGEST_SUMMARY_PROVIDER",
     "DIGEST_SUMMARY_PROXY_URL",
     "DIGEST_SUMMARY_TIMEOUT_MS",
+    "AZURE_OPENAI_BASE_URL",
+    "AZURE_OPENAI_API_KEY",
+    "AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT",
+    "AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT",
     "DIGEST_EMAIL_PROVIDER",
     "TTS_WORKERS",
     "ANALYTICS_STORAGE_MODE",
@@ -166,6 +170,27 @@ function run() {
     if (!hasConnString && !hasAccountPair) {
       console.error(
         "[check-env] Azure profile requires AZURE_STORAGE_CONNECTION_STRING or AZURE_STORAGE_ACCOUNT_URL + AZURE_STORAGE_SAS_TOKEN."
+      );
+      process.exit(1);
+    }
+  }
+
+  if (env.DIGEST_SUMMARY_PROVIDER === "proxy" && (!env.DIGEST_SUMMARY_PROXY_URL || String(env.DIGEST_SUMMARY_PROXY_URL).trim() === "")) {
+    console.error("[check-env] DIGEST_SUMMARY_PROVIDER=proxy requires DIGEST_SUMMARY_PROXY_URL.");
+    process.exit(1);
+  }
+
+  if (env.DIGEST_SUMMARY_PROVIDER === "azure_openai") {
+    const requiredAzureSummaryVars = [
+      "AZURE_OPENAI_BASE_URL",
+      "AZURE_OPENAI_API_KEY",
+      "AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT",
+      "AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT"
+    ];
+    const missingAzureSummaryVars = requiredAzureSummaryVars.filter((key) => !env[key] || String(env[key]).trim() === "");
+    if (missingAzureSummaryVars.length > 0) {
+      console.error(
+        `[check-env] DIGEST_SUMMARY_PROVIDER=azure_openai requires: ${missingAzureSummaryVars.join(", ")}`
       );
       process.exit(1);
     }

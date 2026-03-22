@@ -298,3 +298,88 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("digest rss merges manual summary episodes and digest media serves them with summary scope", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `summary-rss-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const token = await ensureUserDigestFeedToken(user.id);
+    const audioKey = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
+    await storage.putObject(audioKey, Buffer.from("abcdefghijklmnop", "utf8"), {
+      contentType: "audio/mpeg"
+    });
+
+    const run = await prisma.summaryRun.create({
+      data: {
+        userId: user.id,
+        requestedTitle: "Manual summary run",
+        title: "Manual summary run",
+        windowStart: new Date("2026-02-20T16:00:00.000Z"),
+        windowEnd: new Date("2026-02-27T16:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 15,
+        selectedItemCount: 2,
+        podcastEnabled: true,
+        podcastStatus: "SUCCEEDED",
+        summaryStorageKey: `summaries/${user.id}/summary-run-${uniq}/summary.md`,
+        summaryBytes: 400,
+        completedAt: new Date("2026-02-27T16:05:00.000Z")
+      }
+    });
+
+    await prisma.summaryEpisode.create({
+      data: {
+        summaryRunId: run.id,
+        userId: user.id,
+        guid: `summary-guid-${uniq}`,
+        title: "Manual summary run",
+        description: "Manual summary description",
+        audioPath: audioKey,
+        audioBytes: 16,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-02-27T16:05:00.000Z")
+      }
+    });
+
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    assert.equal(rssResponse.status, 200);
+    const xml = await rssResponse.text();
+    assert.equal(xml.includes("Manual summary run"), true);
+    const enclosureMatch = /enclosure url="([^"]*seid=[^"]+)"/.exec(xml);
+    assert.ok(enclosureMatch, "summary enclosure URL must include seid");
+    const enclosureUrl = enclosureMatch[1];
+    const enclosurePath = new URL(enclosureUrl).pathname.replace("/api/digest-media/", "");
+    const enclosureSearch = new URL(enclosureUrl).search;
+
+    const headResponse = await digestMediaHead(
+      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
+      { params: { path: enclosurePath.split("/") } }
+    );
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-length"), "16");
+
+    const rangeResponse = await digestMediaGet(
+      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`, {
+        headers: {
+          range: "bytes=0-1"
+        }
+      }),
+      { params: { path: enclosurePath.split("/") } }
+    );
+    assert.equal(rangeResponse.status, 206);
+    assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

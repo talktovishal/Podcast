@@ -38,17 +38,28 @@ export async function GET(request: NextRequest, context: { params: { token: stri
 
   const episodes =
     webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.listDigestEpisodesForUser(user.id)
-      : await prisma.digestEpisode.findMany({
-          where: {
-            userId: user.id
-          },
-          orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-        });
+      ? [
+          ...(await webPrimaryStore.listDigestEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "digest" as const })),
+          ...(await webPrimaryStore.listSummaryEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+        ]
+      : [
+          ...(await prisma.digestEpisode.findMany({
+            where: {
+              userId: user.id
+            },
+            orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+          })).map((episode) => ({ ...episode, feedKind: "digest" as const })),
+          ...(await prisma.summaryEpisode.findMany({
+            where: {
+              userId: user.id
+            },
+            orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+          })).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+        ];
 
   const xml = buildRssXml({
     title: `${user.name || user.email} - ${BRAND_NAME} Digest`,
-    description: `Private ${BRAND_NAME} daily/weekly digest feed`,
+    description: `Private ${BRAND_NAME} digest and summary feed`,
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/digest/${token}.xml`,
     language: "en-us",
@@ -61,7 +72,9 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         title: episode.title,
         description: episode.description,
         pubDate: episode.publishedAt,
-        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&deid=${episode.id}`,
+        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&${
+          episode.feedKind === "summary" ? "seid" : "deid"
+        }=${episode.id}`,
         enclosureLength: episode.audioBytes,
         enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
       };
@@ -71,11 +84,11 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   if (env.podcastRequestLoggingEnabled) {
     await logger.info("Podcast feed request served", {
       ...requestMeta,
-      route: DIGEST_FEED_ROUTE,
-      feed_kind: "digest",
-      status: 200,
-      user_id: user.id,
-      episode_count: episodes.length,
+        route: DIGEST_FEED_ROUTE,
+        feed_kind: "digest",
+        status: 200,
+        user_id: user.id,
+        episode_count: episodes.length,
       enclosure_mime_types: Array.from(new Set(episodes.map((episode) => episode.mimeType))).sort(),
       duration_ms: Date.now() - startedAt
     });

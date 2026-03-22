@@ -36,6 +36,9 @@ test("azure table primary backfill covers the operational metadata model set", (
     "OAuthIdentity",
     "Session",
     "ShareToken",
+    "SummaryEpisode",
+    "SummaryRun",
+    "SummaryRunItem",
     "User",
     "UserDemographicSurvey",
     "UserDigestSettings"

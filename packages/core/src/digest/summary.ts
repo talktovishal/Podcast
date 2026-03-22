@@ -1,6 +1,8 @@
 import { AppError, errorCodes } from "../errors/codes";
 import type { DigestCadence, DigestLengthMinutes } from "../types/domain";
 
+export type SummaryGenerationKind = "digest" | "summary_studio";
+
 export type DigestSummarySource = {
   itemId: string;
   title: string | null;
@@ -11,6 +13,7 @@ export type DigestSummarySource = {
 };
 
 export type DigestSummaryRequest = {
+  kind?: SummaryGenerationKind;
   cadence: DigestCadence;
   timezone: string;
   periodKey: string;
@@ -18,6 +21,7 @@ export type DigestSummaryRequest = {
   windowEnd: Date;
   targetLengthMinutes: DigestLengthMinutes;
   targetWords: number;
+  requestedTitle?: string | null;
   sources: DigestSummarySource[];
 };
 
@@ -27,13 +31,16 @@ export type DigestSummaryResponse = {
   plainText: string;
   provider: string;
   model: string;
+  deployment?: string | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
 };
 
 export interface SummaryProvider {
   summarize(input: DigestSummaryRequest): Promise<DigestSummaryResponse>;
 }
 
-function normalizeSnippet(markdown: string): string {
+export function normalizeSummarySnippet(markdown: string): string {
   return markdown
     .replace(/\r\n/g, "\n")
     .replace(/```[\s\S]*?```/g, " ")
@@ -46,8 +53,8 @@ function normalizeSnippet(markdown: string): string {
     .trim();
 }
 
-function markdownToPlainText(markdown: string): string {
-  return normalizeSnippet(markdown);
+export function summaryMarkdownToPlainText(markdown: string): string {
+  return normalizeSummarySnippet(markdown);
 }
 
 function cadenceLabel(cadence: DigestCadence): string {
@@ -67,7 +74,7 @@ function sourceLabel(sourceType: DigestSummarySource["sourceType"]): string {
   }
 }
 
-function stableSourceSort(a: DigestSummarySource, b: DigestSummarySource): number {
+export function stableSummarySourceSort(a: DigestSummarySource, b: DigestSummarySource): number {
   const dateDiff = b.createdAt.getTime() - a.createdAt.getTime();
   if (dateDiff !== 0) {
     return dateDiff;
@@ -75,15 +82,25 @@ function stableSourceSort(a: DigestSummarySource, b: DigestSummarySource): numbe
   return a.itemId.localeCompare(b.itemId);
 }
 
+function fallbackTitle(input: DigestSummaryRequest): string {
+  if (input.requestedTitle?.trim()) {
+    return input.requestedTitle.trim();
+  }
+  if (input.kind === "summary_studio") {
+    return `Summary Studio - ${input.periodKey}`;
+  }
+  return `${cadenceLabel(input.cadence)} Digest - ${input.periodKey}`;
+}
+
 export class StubSummaryProvider implements SummaryProvider {
   async summarize(input: DigestSummaryRequest): Promise<DigestSummaryResponse> {
-    const sorted = [...input.sources].sort(stableSourceSort);
+    const sorted = [...input.sources].sort(stableSummarySourceSort);
     const maxChars = Math.max(800, input.targetWords * 6);
     const lines: string[] = [];
 
     for (const source of sorted) {
       const normalizedTitle = source.title?.trim() || "Untitled";
-      const snippet = normalizeSnippet(source.markdown).slice(0, 240);
+      const snippet = normalizeSummarySnippet(source.markdown).slice(0, 240);
       if (!snippet) {
         continue;
       }
@@ -95,19 +112,35 @@ export class StubSummaryProvider implements SummaryProvider {
       lines.push(line);
     }
 
-    const title = `${cadenceLabel(input.cadence)} Digest - ${input.periodKey}`;
+    const title = fallbackTitle(input);
     const heading = `# ${title}`;
     const intro = `Generated from ${sorted.length} source item(s), target length ${input.targetLengthMinutes} minutes (${input.targetWords} words).`;
-    const markdown = [heading, "", intro, "", "## Key updates", "", ...(lines.length > 0 ? lines : ["- No source summaries found."])].join(
-      "\n"
-    );
+    const markdown =
+      input.kind === "summary_studio"
+        ? [
+            heading,
+            "",
+            intro,
+            "",
+            "## Key themes",
+            "",
+            ...(lines.length > 0 ? lines : ["- No source summaries found."]),
+            "",
+            "## Why it matters",
+            "",
+            "- This placeholder summary uses the deterministic stub provider."
+          ].join("\n")
+        : [heading, "", intro, "", "## Key updates", "", ...(lines.length > 0 ? lines : ["- No source summaries found."])].join("\n");
 
     return {
       title,
       markdown,
-      plainText: markdownToPlainText(markdown),
+      plainText: summaryMarkdownToPlainText(markdown),
       provider: "stub",
-      model: "stub-deterministic-v1"
+      model: "stub-deterministic-v1",
+      deployment: null,
+      inputTokens: null,
+      outputTokens: null
     };
   }
 }
@@ -144,7 +177,7 @@ export class ProxySummaryProvider implements SummaryProvider {
     }
 
     const parsed = (await response.json()) as Partial<DigestSummaryResponse>;
-    const title = parsed.title?.trim() || `${cadenceLabel(input.cadence)} Digest - ${input.periodKey}`;
+    const title = parsed.title?.trim() || fallbackTitle(input);
     const markdown = parsed.markdown?.trim() || "";
     if (!markdown) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, "Digest summary provider returned empty content.", 502);
@@ -153,9 +186,12 @@ export class ProxySummaryProvider implements SummaryProvider {
     return {
       title,
       markdown,
-      plainText: parsed.plainText?.trim() || markdownToPlainText(markdown),
+      plainText: parsed.plainText?.trim() || summaryMarkdownToPlainText(markdown),
       provider: parsed.provider?.trim() || this.providerLabel,
-      model: parsed.model?.trim() || "proxy"
+      model: parsed.model?.trim() || "proxy",
+      deployment: parsed.deployment?.trim() || null,
+      inputTokens: parsed.inputTokens ?? null,
+      outputTokens: parsed.outputTokens ?? null
     };
   }
 }
