@@ -10,10 +10,10 @@ TARGET_USER="${TARGET_USER:-azureuser}"
 TARGET_PATH="${TARGET_PATH:-$RUNTIME_STAGING_DIR}"
 TARGET_PORT="${TARGET_PORT:-22}"
 TARGET_SSH_KEY="${TARGET_SSH_KEY:-}"
-PUSH_TO_VM_SSH_CONNECT_TIMEOUT="${PUSH_TO_VM_SSH_CONNECT_TIMEOUT:-15}"
+LEGACY_RSYNC_CONNECT_TIMEOUT="${PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT:-}"
+PUSH_TO_VM_SSH_CONNECT_TIMEOUT="${PUSH_TO_VM_SSH_CONNECT_TIMEOUT:-${LEGACY_RSYNC_CONNECT_TIMEOUT:-15}}"
 PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL="${PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL:-15}"
 PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX="${PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX:-4}"
-PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT="${PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT:-30}"
 PUSH_TO_VM_RSYNC_TIMEOUT="${PUSH_TO_VM_RSYNC_TIMEOUT:-300}"
 
 if [[ -z "$TARGET_HOST" ]]; then
@@ -36,11 +36,12 @@ SSH_ARGS+=(
 
 ssh "${SSH_ARGS[@]}" "$REMOTE" "mkdir -p '$TARGET_PATH'"
 
-echo "[push-to-vm] syncing with rsync timeouts connect=${PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT}s io=${PUSH_TO_VM_RSYNC_TIMEOUT}s"
+# rsync's --contimeout only applies to daemon transport, not the SSH transport used here.
+# Keep the legacy env name as an alias for SSH connect timeout so CI/local callers remain compatible.
+echo "[push-to-vm] syncing with ssh connect timeout=${PUSH_TO_VM_SSH_CONNECT_TIMEOUT}s and rsync io timeout=${PUSH_TO_VM_RSYNC_TIMEOUT}s"
 
 rsync -az --delete \
   -e "ssh ${SSH_ARGS[*]}" \
-  --contimeout="$PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT" \
   --timeout="$PUSH_TO_VM_RSYNC_TIMEOUT" \
   --stats \
   --exclude '.git' \

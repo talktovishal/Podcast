@@ -127,15 +127,15 @@ TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ./scripts/azure/push-to-vm.sh
 ```
 `push-to-vm.sh` excludes app-local `.env` files so VM runtime config only comes from `/etc/articlepod/articlepod.env`.
-It now also uses SSH keep-alive plus rsync connect/I/O timeouts by default so stalled syncs fail fast instead of waiting indefinitely.
+It now also uses SSH keep-alive, SSH connect timeout, and rsync I/O timeout by default so stalled syncs fail fast instead of waiting indefinitely.
 
 Optional timeout tuning:
 ```bash
-PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT=30 \
-PUSH_TO_VM_RSYNC_TIMEOUT=300 \
 PUSH_TO_VM_SSH_CONNECT_TIMEOUT=15 \
+PUSH_TO_VM_RSYNC_TIMEOUT=300 \
 ./scripts/azure/push-to-vm.sh
 ```
+`PUSH_TO_VM_RSYNC_CONNECT_TIMEOUT` remains accepted as a legacy alias for `PUSH_TO_VM_SSH_CONNECT_TIMEOUT`.
 
 ## VM bootstrap + promotion to runtime path
 SSH into VM:

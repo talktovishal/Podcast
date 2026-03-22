@@ -43,7 +43,7 @@ Default deploy mode is incremental:
 - configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
 - auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
 - removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives
-- hardens VM sync with SSH keep-alive + rsync connect/I/O timeouts (`PUSH_TO_VM_SSH_*`, `PUSH_TO_VM_RSYNC_*`) to fail fast instead of hanging indefinitely
+- hardens VM sync with SSH keep-alive, SSH connect timeout, and rsync I/O timeout (`PUSH_TO_VM_SSH_*`, `PUSH_TO_VM_RSYNC_TIMEOUT`) to fail fast instead of hanging indefinitely
 - keeps overflow worker service disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`)
 
 Force a full runtime refresh:
