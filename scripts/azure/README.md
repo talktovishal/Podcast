@@ -49,7 +49,7 @@ Default deploy mode is incremental:
 - skips python-tts package/model provisioning when requirements/assets are unchanged
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
 - retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)
-- treats transient HTTP error responses from the health endpoint as retryable probes, so post-ingress `502` windows do not abort the deploy on the first curl failure
+- treats transient HTTP error responses from the health endpoint as retryable probes in both deploy and TLS verification paths, so post-ingress `502` windows do not abort the deploy on the first curl failure
 - configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
 - auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
 - removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives

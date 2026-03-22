@@ -237,7 +237,7 @@ curl -sf "https://articlepod.com/api/health"
 ```
 
 Notes:
-- `deploy-changes.sh` now treats HTTP error responses from the health endpoint as retryable deploy-time checks, so a brief post-ingress `502` during nginx/TLS reconciliation does not fail CI on the first probe.
+- `deploy-changes.sh` and `configure-tls.sh` now treat HTTP error responses from the health endpoint as retryable deploy-time checks, so a brief post-ingress `502` during nginx/TLS reconciliation does not fail CI on the first probe.
 
 Verify redirects:
 ```bash
