@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
+  BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   buildEpisodeDescription,
   chunkText,
   errorCodes,
@@ -16,6 +17,7 @@ import {
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
+  shouldSuggestHtmlSnapshotForError,
   withLogContext,
   sha256,
   type TtsProviderId,
@@ -493,6 +495,9 @@ async function extractItemText(item: {
 export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage">): boolean {
   const message = error.userMessage.toLowerCase();
   if (error.code === errorCodes.TTS_FAILED && message.includes("ffmpeg")) {
+    return false;
+  }
+  if (error.code === errorCodes.EXTRACTION_FAILED && message.includes("blocked server-side access")) {
     return false;
   }
 
@@ -1174,7 +1179,11 @@ export async function processJob(jobId: string): Promise<boolean> {
       }
     );
   } catch (error) {
-    const err = mapUnexpectedWorkerError(error, stage);
+    const mappedError = mapUnexpectedWorkerError(error, stage);
+    const err =
+      stage === "extract" && shouldSuggestHtmlSnapshotForError(error)
+        ? new AppError(mappedError.code, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE, mappedError.status)
+        : mappedError;
     const diagnostic = formatDiagnostic(error);
     const retryRecommended =
       shouldRecommendRetry(err) && claimResult.attempt < workerEnv.maxRetryAttempts;

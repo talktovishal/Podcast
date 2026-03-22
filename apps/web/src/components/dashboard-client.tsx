@@ -13,6 +13,7 @@ import {
   type UserDemographicSurveyView
 } from "@/lib/demographics";
 import { mergeItemsPreservingEpisodeTokens } from "@/lib/dashboard-items";
+import { recommendsChromeExtensionCapture } from "@/lib/item-errors";
 import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
 
 type DashboardItem = {
@@ -1315,7 +1316,7 @@ export function DashboardClient({
                 ? `/api/media/${item.episode.audioPath}?mt=${encodeURIComponent(item.episode.mediaToken)}&eid=${encodeURIComponent(item.episode.id)}`
                 : null;
               const helpText = statusHelpText(item.status, item.errorMessage);
-              const showRetry = statusText === "FAILED";
+              const showRetry = statusText === "FAILED" && !recommendsChromeExtensionCapture(item.errorMessage);
 
               return (
                 <article key={item.id} className="rounded-xl border p-3 sm:p-4">

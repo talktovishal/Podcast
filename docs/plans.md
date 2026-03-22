@@ -59,6 +59,7 @@
 - Pinned-lookup callback compatibility remains in place for both single-address and all-address (happy-eyeballs) DNS modes in Dockerized runtimes.
 - URL extraction error semantics now normalize invalid pinned-address failures to explicit connection guidance (instead of generic fetch-failed wording) for clearer user retry behavior and operator triage.
 - The extraction bot user-agent now points to the canonical `https://articlepod.com` domain.
+- Only confirmed server-blocked URL failures now surface Chrome extension capture guidance and suppress retry affordances; broader extraction failures still use the standard retry messaging.
 - Production URL extraction diagnostics now include a manual GitHub Actions VM probe workflow (`Probe URL Extraction (VM)`) that executes DNS/HEAD/core extraction checks from the VM network path without exposing public debug endpoints.
 - Geo + demographics profile track (`M83`) is implemented:
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.

@@ -20,3 +20,13 @@ test("keeps transient TTS failures retryable", () => {
 
   assert.equal(retry, true);
 });
+
+test("marks confirmed site-blocked URL failures as non-retryable", () => {
+  const retry = shouldRecommendRetry({
+    code: errorCodes.EXTRACTION_FAILED,
+    userMessage:
+      "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly."
+  });
+
+  assert.equal(retry, false);
+});

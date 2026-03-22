@@ -26,6 +26,9 @@ export type HtmlFetchDiagnostics = {
   finalFetchStrategy: HtmlFetchStrategy;
 };
 
+export const BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE =
+  "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly.";
+
 type HtmlExtractionResult = {
   title: string;
   text: string;
@@ -269,6 +272,27 @@ export function getHtmlFetchDiagnostics(error: unknown): HtmlFetchDiagnostics | 
     return null;
   }
   return diagnostics as HtmlFetchDiagnostics;
+}
+
+function isBlockedFetchStatus(status: number | null | undefined): boolean {
+  return status === 401 || status === 403;
+}
+
+export function shouldSuggestHtmlSnapshotForError(error: unknown): boolean {
+  if (!(error instanceof AppError) || error.code !== errorCodes.EXTRACTION_FAILED) {
+    return false;
+  }
+
+  const diagnostics = getHtmlFetchDiagnostics(error);
+  if (!diagnostics) {
+    return false;
+  }
+
+  if (diagnostics.fallbackAttempted) {
+    return isBlockedFetchStatus(diagnostics.fallbackStatus);
+  }
+
+  return diagnostics.pinnedStatuses.length > 0 && diagnostics.pinnedStatuses.every((status) => isBlockedFetchStatus(status));
 }
 
 function createFetchDiagnostics(pinnedCandidates: string[]): HtmlFetchDiagnostics {

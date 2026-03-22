@@ -82,6 +82,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Node lookup callback variants (single-address and all-address/happy-eyeballs modes) remain supported in Docker/runtime environments.
   - Invalid-address network failures in pinned lookup paths are now mapped to actionable connection guidance instead of generic fetch-failed messaging.
   - The bot user-agent now advertises the canonical `articlepod.com` domain instead of a local-only hostname.
+  - Only confirmed server-blocked URL failures (for example pinned and hostname fetches both `403`) now steer users toward Chrome extension capture; generic extraction failures keep the normal retry path.
 - Production URL extraction diagnostics automation is implemented:
   - manual GitHub Actions workflow `Probe URL Extraction (VM)` runs DNS/HEAD/extraction probes for an arbitrary URL from the production VM path using existing SSH secrets (no new public debug endpoint).
 - Podcast compatibility and feed quality hardening are implemented:

@@ -3,7 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import http from "node:http";
-import { extractHtmlFromUrl, extractHtmlFromUrlWithDiagnostics, extractHtmlSnapshot } from "../src/extract/html";
+import {
+  extractHtmlFromUrl,
+  extractHtmlFromUrlWithDiagnostics,
+  extractHtmlSnapshot,
+  shouldSuggestHtmlSnapshotForError
+} from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
@@ -440,14 +445,71 @@ test("extractHtmlFromUrl preserves blocked-site errors when pinned and hostname 
   }) as typeof http.request;
 
   try {
-    await assert.rejects(
-      () => extractHtmlFromUrl("http://example.com/article", ["203.0.113.7"]),
-      (error: unknown) =>
+    let caught: unknown = null;
+    await assert.rejects(() => extractHtmlFromUrl("http://example.com/article", ["203.0.113.7"]), (error: unknown) => {
+      caught = error;
+      return (
         error instanceof AppError &&
         error.code === errorCodes.EXTRACTION_FAILED &&
         error.userMessage.toLowerCase().includes("blocked access")
-    );
+      );
+    });
     assert.equal(fallbackCalls, 1);
+    assert.equal(shouldSuggestHtmlSnapshotForError(caught), true);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl does not suggest html snapshot when fallback failed for another reason", async () => {
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async () => {
+    const err = new Error("fetch failed");
+    (err as Error & { cause?: { code?: string } }).cause = { code: "UND_ERR_HEADERS_TIMEOUT" };
+    throw err;
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 403;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    let caught: unknown = null;
+    await assert.rejects(() => extractHtmlFromUrl("http://example.com/article", ["203.0.113.7"]), (error: unknown) => {
+      caught = error;
+      return error instanceof AppError && error.code === errorCodes.EXTRACTION_FAILED;
+    });
+    assert.equal(shouldSuggestHtmlSnapshotForError(caught), false);
   } finally {
     http.request = originalRequest;
     globalThis.fetch = originalFetch;
