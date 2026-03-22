@@ -154,7 +154,7 @@ test("media route accepts legacy feed_token for matching owner and rejects other
       status: "READY"
     }
   });
-  const key = `items/${item.id}/episode.mp3`;
+  const key = `items/legacy-slug-${uniq}/episode.mp3`;
   const payload = Buffer.from("legacy-media-token-fallback", "utf8");
   await storage.putObject(key, payload, { contentType: "audio/mpeg" });
 

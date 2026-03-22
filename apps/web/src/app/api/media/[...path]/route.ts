@@ -34,18 +34,8 @@ function validateMediaToken(path: string, token: string | null): boolean {
   return result.valid;
 }
 
-function extractItemIdFromMediaPath(path: string): string | null {
-  const match = /^items\/([^/]+)\/.+$/.exec(path);
-  return match?.[1] ?? null;
-}
-
 async function validateLegacyFeedTokenForPath(path: string, feedToken: string | null): Promise<boolean> {
   if (!feedToken) {
-    return false;
-  }
-
-  const itemId = extractItemIdFromMediaPath(path);
-  if (!itemId) {
     return false;
   }
 
@@ -58,10 +48,9 @@ async function validateLegacyFeedTokenForPath(path: string, feedToken: string | 
 
   const episode =
     webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findEpisodeByItemAudioPathForUser(itemId, path, user.id)
+      ? await webPrimaryStore.findEpisodeByAudioPathForUser(path, user.id)
       : await prisma.episode.findFirst({
           where: {
-            itemId,
             audioPath: path,
             item: {
               userId: user.id

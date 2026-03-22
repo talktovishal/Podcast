@@ -2086,12 +2086,11 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt).slice(0, limit);
   }
 
-  async findEpisodeByItemAudioPathForUser(itemId: string, audioPath: string, userId: string): Promise<AzureTablePrimaryEpisode | null> {
+  async findEpisodeByAudioPathForUser(audioPath: string, userId: string): Promise<AzureTablePrimaryEpisode | null> {
     const entity = await this.firstEntity<Record<string, unknown>>(
       "episodes",
       joinFilters(
         filterEquals("PartitionKey", "episode"),
-        filterEquals("itemId", itemId),
         filterEquals("audioPath", audioPath),
         filterEquals("userId", userId)
       )
