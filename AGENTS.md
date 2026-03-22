@@ -154,6 +154,30 @@ No hard-coded vendor logic scattered throughout the code.
 
 ---
 
+## Persistent data & schema migration policy (mandatory)
+Users now depend on existing data. Treat every persisted store as upgrade-in-place unless the user explicitly asks for a disposable local reset.
+
+- Never use table drops, destructive resets, or “start from scratch” as the rollout plan for schema/data changes.
+- Forbidden as a migration strategy for shared, staging, or production-like environments:
+  - `prisma migrate reset`
+  - `prisma db push --force-reset`
+  - ad hoc `DROP TABLE`, `TRUNCATE`, or delete-and-recreate flows for populated persistent stores
+- Any PR that changes a persisted contract MUST include a forward migration plan that preserves existing user data. This includes:
+  - Prisma schema changes
+  - SQL migrations
+  - Azure Table entities, partition/row-key strategy, or durable metadata shape
+  - queue/job payloads persisted across deploys
+  - object-storage key/layout changes or durable artifact metadata
+- Required PR content for schema/data-affecting changes:
+  - what existing data is impacted
+  - the exact migration/backfill steps
+  - how old and new code remain compatible during rollout
+  - rollback or safe-disable steps when the change is non-trivial
+- Prefer expand → backfill/dual-read/dual-write → contract. Destructive cleanup belongs in a later, explicit migration after the new path is proven.
+- If the migration chain is broken or production state is uncertain, STOP and document a safe remediation plan. Do not bypass the problem with a reset.
+
+---
+
 ## Git / PR / change rules
 - Small, reviewable diffs.
 - Avoid scope creep.
@@ -184,6 +208,10 @@ No hard-coded vendor logic scattered throughout the code.
     - `docs/plans.md`
     - impacted docs (`docs/architecture.md`, `docs/documentation.md`, `docs/implement.md`, `docs/env.md`, etc.)
   - Do not leave docs drift for a follow-up commit.
+- PR Migration Gate (mandatory):
+  - Every PR MUST state whether persisted schema/data contracts changed.
+  - If yes, the PR MUST include the forward migration plan, compatibility/backfill notes, and validation evidence.
+  - A schema/data PR is incomplete if the only rollout story is “reset the database”, “drop the table”, or “recreate from scratch”.
 - Milestone Date Discipline (mandatory):
   - Every milestone in `docs/plans.md` MUST include `target_finish`.
   - `Done` milestones MUST include `completed_on` and evidence reference (best-effort commit/date trace).

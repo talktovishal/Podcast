@@ -7,6 +7,8 @@ This checklist is mandatory for every change.
 - Read relevant sections in `docs/Prompts.md`.
 - Confirm scope and keep the change minimal.
 - Identify impacted milestone(s) in `docs/plans.md`.
+- Decide whether the change affects any persisted schema or durable data contract.
+- If it does, write the forward migration/backfill plan before editing code and explicitly rule out reset/drop-table shortcuts.
 - Identify docs that must be kept in sync in this same change set:
   - `docs/Prompts.md`
   - `docs/plans.md`
@@ -16,6 +18,7 @@ This checklist is mandatory for every change.
 - Make small, reviewable diffs.
 - Keep logging and error handling clear.
 - Add or update tests when behavior changes.
+- For schema/data changes, prefer expand -> backfill/compatibility -> contract; do not make rollout depend on destructive resets.
 - Keep milestone metadata consistent:
   - `target_finish` required for every milestone.
   - `completed_on` + evidence required when status becomes `Done`.
@@ -24,6 +27,12 @@ This checklist is mandatory for every change.
 - Run required validation (`lint`, `test`, `build`) for touched areas.
 - Run podcast compatibility gate when applicable:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+- For schema/data changes, confirm the PR/change note includes:
+  - impacted stores/contracts
+  - migration/backfill steps
+  - compatibility/rollout notes
+  - rollback or safe-disable notes when needed
+- Confirm the change does not require dropping tables, force-resetting databases, or asking operators to start from scratch.
 - Update milestone status table and per-milestone metadata in `docs/plans.md`.
 - Run cross-doc consistency check:
   - status in `docs/Prompts.md` matches `docs/plans.md`
