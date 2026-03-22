@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file");
-    const title = typeof formData.get("title") === "string" ? (formData.get("title") as string) : undefined;
-    const priorityRaw = typeof formData.get("priority") === "string" ? (formData.get("priority") as string) : undefined;
-    submitPdfSchema.parse({ title, priority: priorityRaw });
+    const rawTitle = typeof formData.get("title") === "string" ? (formData.get("title") as string) : undefined;
+    const rawPriority = typeof formData.get("priority") === "string" ? (formData.get("priority") as string) : undefined;
+    const parsed = submitPdfSchema.parse({ title: rawTitle, priority: rawPriority });
+    const { title, priority } = parsed;
 
     if (!(file instanceof File)) {
       return NextResponse.json({ ok: false, error_code: "INVALID_INPUT", error_message: "PDF file is required." }, { status: 400 });
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     const item = await enqueueItem({
       userId: user.id,
       title,
-      priority: priorityRaw ?? "LOW",
+      priority,
       sourceType: "PDF",
       sourceFilePath: relativePath
     });
