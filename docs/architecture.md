@@ -51,7 +51,7 @@ Monetization/quota fields on `User`:
 - `HTML_SNAPSHOT` (Chrome extension captured HTML)
 
 The worker extraction adapter branches by source type:
-- URL: backend fetch + readability + cleanup
+- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup
 - PDF: uploaded bytes from artifact storage + text extraction
 - HTML snapshot: parse raw HTML directly, no server-side fetch
 

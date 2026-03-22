@@ -9,6 +9,35 @@ import http from "node:http";
 
 const FETCH_TIMEOUT_MS = 30_000;
 
+type FetchResponseLike = {
+  status: number;
+  ok: boolean;
+  text: () => Promise<string>;
+};
+
+export type HtmlFetchStrategy = "hostname" | "pinned" | "hostname_fallback";
+
+export type HtmlFetchDiagnostics = {
+  pinnedCandidateCount: number;
+  pinnedAttempted: boolean;
+  pinnedStatuses: number[];
+  fallbackAttempted: boolean;
+  fallbackStatus: number | null;
+  finalFetchStrategy: HtmlFetchStrategy;
+};
+
+type HtmlExtractionResult = {
+  title: string;
+  text: string;
+  markdown: string;
+  rawHtml: string;
+  byline?: string | null;
+};
+
+type HtmlExtractionResultWithDiagnostics = HtmlExtractionResult & {
+  diagnostics: HtmlFetchDiagnostics;
+};
+
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
@@ -68,7 +97,7 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
 function extractFromHtml(input: {
   html: string;
   sourceUrl: string;
-}): { title: string; byline: string | null; text: string; markdown: string; rawHtml: string } {
+}): HtmlExtractionResult {
   const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
   const text = normalizeExtracted(extracted.text);
   const markdown = extracted.markdown && extracted.markdown.length >= 40 ? extracted.markdown : normalizeExtracted(text);
@@ -174,11 +203,90 @@ function mapNetworkErrorToAppError(error: unknown): AppError {
   );
 }
 
+function mapHtmlExtractionError(error: unknown, fallbackMessage: string): AppError {
+  if (error instanceof AppError) {
+    return error;
+  }
+  return new AppError(errorCodes.EXTRACTION_EMPTY, fallbackMessage, 400);
+}
+
+function errorSpecificityScore(error: AppError): number {
+  const message = error.userMessage.toLowerCase();
+  if (message.includes("blocked access")) {
+    return 90;
+  }
+  if (error.status === 429 || message.includes("rate-limiting")) {
+    return 80;
+  }
+  if (error.status === 404) {
+    return 70;
+  }
+  if (error.code === errorCodes.EXTRACTION_EMPTY) {
+    return 60;
+  }
+  if (error.status === 504 || message.includes("timed out")) {
+    return 50;
+  }
+  if (message.includes("cannot currently reach") || message.includes("could not connect") || message.includes("could not resolve")) {
+    return 45;
+  }
+  if (error.status >= 500) {
+    return 40;
+  }
+  return 10;
+}
+
+function preferMoreSpecificError(current: AppError | null, candidate: AppError): AppError {
+  if (!current) {
+    return candidate;
+  }
+  return errorSpecificityScore(candidate) > errorSpecificityScore(current) ? candidate : current;
+}
+
+function cloneDiagnostics(diagnostics: HtmlFetchDiagnostics): HtmlFetchDiagnostics {
+  return {
+    pinnedCandidateCount: diagnostics.pinnedCandidateCount,
+    pinnedAttempted: diagnostics.pinnedAttempted,
+    pinnedStatuses: [...diagnostics.pinnedStatuses],
+    fallbackAttempted: diagnostics.fallbackAttempted,
+    fallbackStatus: diagnostics.fallbackStatus,
+    finalFetchStrategy: diagnostics.finalFetchStrategy
+  };
+}
+
+function attachFetchDiagnostics(error: AppError, diagnostics: HtmlFetchDiagnostics): AppError {
+  return Object.assign(error, {
+    fetchDiagnostics: cloneDiagnostics(diagnostics)
+  }) as AppError;
+}
+
+export function getHtmlFetchDiagnostics(error: unknown): HtmlFetchDiagnostics | null {
+  if (!error || typeof error !== "object" || !("fetchDiagnostics" in error)) {
+    return null;
+  }
+  const diagnostics = (error as { fetchDiagnostics?: unknown }).fetchDiagnostics;
+  if (!diagnostics || typeof diagnostics !== "object") {
+    return null;
+  }
+  return diagnostics as HtmlFetchDiagnostics;
+}
+
+function createFetchDiagnostics(pinnedCandidates: string[]): HtmlFetchDiagnostics {
+  return {
+    pinnedCandidateCount: pinnedCandidates.length,
+    pinnedAttempted: pinnedCandidates.length > 0,
+    pinnedStatuses: [],
+    fallbackAttempted: false,
+    fallbackStatus: null,
+    finalFetchStrategy: pinnedCandidates.length > 0 ? "pinned" : "hostname"
+  };
+}
+
 /**
  * Fetch a URL while pinning the TCP connection to a pre-resolved IP address.
  * This closes the TOCTOU DNS-rebinding window between validation and fetch.
  */
-function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number): Promise<{ status: number; ok: boolean; text: () => Promise<string> }> {
+function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number): Promise<FetchResponseLike> {
   return new Promise((resolve, reject) => {
     const parsedUrl = new URL(urlStr);
     const isHttps = parsedUrl.protocol === "https:";
@@ -243,6 +351,19 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
   });
 }
 
+async function fetchWithHostname(urlStr: string, timeoutMs: number): Promise<FetchResponseLike> {
+  const response = await fetch(urlStr, {
+    method: "GET",
+    headers: { "user-agent": BRAND_BOT_USER_AGENT },
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+  return {
+    status: response.status,
+    ok: response.ok,
+    text: () => response.text()
+  };
+}
+
 function normalizePinnedIpCandidates(resolvedIp?: string | string[]): string[] {
   const candidates = Array.isArray(resolvedIp) ? resolvedIp : resolvedIp ? [resolvedIp] : [];
   const unique = new Set<string>();
@@ -277,60 +398,123 @@ function shouldTryNextPinnedIp(error: unknown): boolean {
   );
 }
 
-export async function extractHtmlFromUrl(url: string, resolvedIp?: string | string[]): Promise<{
-  title: string;
-  text: string;
-  markdown: string;
-  rawHtml: string;
-  byline?: string | null;
-}> {
-  let response: { status: number; ok: boolean; text: () => Promise<string> };
-  const pinnedCandidates = normalizePinnedIpCandidates(resolvedIp);
-  try {
-    if (pinnedCandidates.length > 0) {
-      let lastNetworkError: unknown = null;
-      let pinnedResponse: { status: number; ok: boolean; text: () => Promise<string> } | null = null;
-      for (let index = 0; index < pinnedCandidates.length; index += 1) {
-        try {
-          pinnedResponse = await fetchWithPinnedIp(url, pinnedCandidates[index]!, FETCH_TIMEOUT_MS);
-          break;
-        } catch (error) {
-          lastNetworkError = error;
-          const isLastCandidate = index === pinnedCandidates.length - 1;
-          if (!shouldTryNextPinnedIp(error) || isLastCandidate) {
-            throw error;
-          }
-        }
-      }
+function shouldTryNextPinnedResponse(status: number): boolean {
+  return status === 403 || status === 429 || status >= 500;
+}
 
-      if (!pinnedResponse) {
-        throw lastNetworkError || new Error("fetch failed");
-      }
-      response = pinnedResponse;
-    } else {
-      const r = await fetch(url, {
-        method: "GET",
-        headers: { "user-agent": BRAND_BOT_USER_AGENT },
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-      });
-      response = { status: r.status, ok: r.ok, text: () => r.text() };
-    }
+async function attemptHostnameFallback(
+  url: string,
+  diagnostics: HtmlFetchDiagnostics,
+  preferredError: AppError
+): Promise<HtmlExtractionResultWithDiagnostics> {
+  diagnostics.fallbackAttempted = true;
+  diagnostics.finalFetchStrategy = "hostname_fallback";
+
+  let response: FetchResponseLike;
+  try {
+    response = await fetchWithHostname(url, FETCH_TIMEOUT_MS);
   } catch (error) {
-    throw mapNetworkErrorToAppError(error);
+    throw attachFetchDiagnostics(preferMoreSpecificError(preferredError, mapNetworkErrorToAppError(error)), diagnostics);
   }
 
+  diagnostics.fallbackStatus = response.status;
   if (!response.ok) {
-    throw mapFetchStatusToAppError(response.status);
+    throw attachFetchDiagnostics(preferMoreSpecificError(preferredError, mapFetchStatusToAppError(response.status)), diagnostics);
   }
 
   const html = await response.text();
   try {
-    return extractFromHtml({ html, sourceUrl: url });
+    return {
+      ...extractFromHtml({ html, sourceUrl: url }),
+      diagnostics: cloneDiagnostics(diagnostics)
+    };
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
+    const extractionError = mapHtmlExtractionError(error, "Could not extract readable content from this URL.");
+    throw attachFetchDiagnostics(preferMoreSpecificError(preferredError, extractionError), diagnostics);
+  }
+}
+
+export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?: string | string[]): Promise<HtmlExtractionResultWithDiagnostics> {
+  const pinnedCandidates = normalizePinnedIpCandidates(resolvedIp);
+  const diagnostics = createFetchDiagnostics(pinnedCandidates);
+
+  if (pinnedCandidates.length === 0) {
+    let response: FetchResponseLike;
+    try {
+      response = await fetchWithHostname(url, FETCH_TIMEOUT_MS);
+    } catch (error) {
+      throw attachFetchDiagnostics(mapNetworkErrorToAppError(error), diagnostics);
     }
-    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this URL.", 400);
+
+    if (!response.ok) {
+      throw attachFetchDiagnostics(mapFetchStatusToAppError(response.status), diagnostics);
+    }
+
+    const html = await response.text();
+    try {
+      return {
+        ...extractFromHtml({ html, sourceUrl: url }),
+        diagnostics: cloneDiagnostics(diagnostics)
+      };
+    } catch (error) {
+      throw attachFetchDiagnostics(mapHtmlExtractionError(error, "Could not extract readable content from this URL."), diagnostics);
+    }
+  }
+
+  let preferredError: AppError | null = null;
+  let pinnedResponse: FetchResponseLike | null = null;
+
+  for (let index = 0; index < pinnedCandidates.length; index += 1) {
+    const candidate = pinnedCandidates[index]!;
+    const isLastCandidate = index === pinnedCandidates.length - 1;
+    try {
+      const response = await fetchWithPinnedIp(url, candidate, FETCH_TIMEOUT_MS);
+      diagnostics.pinnedStatuses.push(response.status);
+
+      if (!response.ok) {
+        preferredError = preferMoreSpecificError(preferredError, mapFetchStatusToAppError(response.status));
+        if (shouldTryNextPinnedResponse(response.status) && !isLastCandidate) {
+          continue;
+        }
+      }
+
+      pinnedResponse = response;
+      break;
+    } catch (error) {
+      preferredError = preferMoreSpecificError(preferredError, mapNetworkErrorToAppError(error));
+      if (shouldTryNextPinnedIp(error) && !isLastCandidate) {
+        continue;
+      }
+      break;
+    }
+  }
+
+  if (!pinnedResponse) {
+    return attemptHostnameFallback(
+      url,
+      diagnostics,
+      preferredError ??
+        new AppError(
+          errorCodes.EXTRACTION_FAILED,
+          "Could not fetch this URL. Retry once; if it fails again, the site likely blocks automated access.",
+          400
+        )
+    );
+  }
+
+  if (!pinnedResponse.ok) {
+    return attemptHostnameFallback(url, diagnostics, preferMoreSpecificError(preferredError, mapFetchStatusToAppError(pinnedResponse.status)));
+  }
+
+  const html = await pinnedResponse.text();
+  try {
+    return {
+      ...extractFromHtml({ html, sourceUrl: url }),
+      diagnostics: cloneDiagnostics(diagnostics)
+    };
+  } catch (error) {
+    const extractionError = mapHtmlExtractionError(error, "Could not extract readable content from this URL.");
+    return attemptHostnameFallback(url, diagnostics, preferMoreSpecificError(preferredError, extractionError));
   }
 }
 
@@ -344,9 +528,17 @@ export function extractHtmlSnapshot(input: {
       sourceUrl: input.url || BRAND_SNAPSHOT_FALLBACK_URL
     });
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Could not extract readable content from this page snapshot.", 400);
+    throw mapHtmlExtractionError(error, "Could not extract readable content from this page snapshot.");
   }
+}
+
+export async function extractHtmlFromUrl(url: string, resolvedIp?: string | string[]): Promise<HtmlExtractionResult> {
+  const extracted = await extractHtmlFromUrlWithDiagnostics(url, resolvedIp);
+  return {
+    title: extracted.title,
+    text: extracted.text,
+    markdown: extracted.markdown,
+    rawHtml: extracted.rawHtml,
+    byline: extracted.byline
+  };
 }

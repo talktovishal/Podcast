@@ -98,8 +98,8 @@ Requirements:
 What it does:
 1. Copies `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/probe-url-extract.ts` to the VM.
 2. Runs DNS + HTTP HEAD checks from the VM.
-3. Runs core extraction (`validateFetchableUrl` + `extractHtmlFromUrl`) on the target URL.
-4. Outputs structured JSON with either extraction metrics or actionable error details.
+3. Runs core extraction (`validateFetchableUrl` + `extractHtmlFromUrlWithDiagnostics`) on the target URL.
+4. Outputs structured JSON with extraction metrics or actionable error details plus fetch diagnostics (`pinnedStatuses`, `fallbackAttempted`, `fallbackStatus`, `finalFetchStrategy`).
 
 Security notes:
 - Uses existing SSH key auth and VM host secrets; no inbound port changes or debug routes.

@@ -9,9 +9,10 @@ import {
   buildEpisodeDescription,
   chunkText,
   errorCodes,
-  extractHtmlFromUrl,
+  extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
   extractTextFromPdf,
+  getHtmlFetchDiagnostics,
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
@@ -340,15 +341,41 @@ async function extractItemText(item: {
       sourceUrl: item.sourceUrl
     });
     const { resolvedIp, resolvedIps } = await validateFetchableUrl(item.sourceUrl);
-    appendExtractionLog(item.logs, "extract:url", "URL validation passed");
+    const pinnedCandidates = resolvedIps && resolvedIps.length > 0 ? resolvedIps : resolvedIp ? [resolvedIp] : [];
+    appendExtractionLog(item.logs, "extract:url", "URL validation passed", {
+      pinnedCandidateCount: pinnedCandidates.length
+    });
 
-    appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML");
-    const pinnedCandidates = resolvedIps && resolvedIps.length > 0 ? resolvedIps : resolvedIp ? [resolvedIp] : undefined;
-    const extracted = await extractHtmlFromUrl(item.sourceUrl, pinnedCandidates);
+    appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML", {
+      pinnedCandidateCount: pinnedCandidates.length
+    });
+
+    let extracted: Awaited<ReturnType<typeof extractHtmlFromUrlWithDiagnostics>>;
+    try {
+      extracted = await extractHtmlFromUrlWithDiagnostics(item.sourceUrl, pinnedCandidates);
+    } catch (error) {
+      const fetchDiagnostics = getHtmlFetchDiagnostics(error);
+      if (fetchDiagnostics) {
+        appendExtractionLog(item.logs, "extract:url", "HTML extraction failed", {
+          pinnedCandidateCount: fetchDiagnostics.pinnedCandidateCount,
+          pinnedStatuses: fetchDiagnostics.pinnedStatuses,
+          fallbackAttempted: fetchDiagnostics.fallbackAttempted,
+          fallbackStatus: fetchDiagnostics.fallbackStatus,
+          finalFetchStrategy: fetchDiagnostics.finalFetchStrategy
+        });
+      }
+      throw error;
+    }
+
     const extractedTitle = extracted.title ?? "";
     appendExtractionLog(item.logs, "extract:url", "HTML extraction complete", {
       extractedTitleLength: extractedTitle.length,
-      extractedTextLength: extracted.text.length
+      extractedTextLength: extracted.text.length,
+      pinnedCandidateCount: extracted.diagnostics.pinnedCandidateCount,
+      pinnedStatuses: extracted.diagnostics.pinnedStatuses,
+      fallbackAttempted: extracted.diagnostics.fallbackAttempted,
+      fallbackStatus: extracted.diagnostics.fallbackStatus,
+      finalFetchStrategy: extracted.diagnostics.finalFetchStrategy
     });
 
     return {

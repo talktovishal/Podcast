@@ -16,9 +16,9 @@
     "@azure/data-tables": "^13.3.1",
     "@azure/storage-blob": "^12.28.0",
     "@mozilla/readability": "^0.6.0",
-    "jsdom": "^25.0.1",
+    "jsdom": "^29.0.1",
     "pdfjs-dist": "^4.10.38",
-    "turndown": "^7.2.0",
+    "turndown": "^7.2.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {

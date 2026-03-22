@@ -16,7 +16,8 @@ const NOISE_SELECTORS = [
   "[data-testid*='caption']"
 ];
 
-const BLOCK_SELECTORS = "p, div, section, article, blockquote, li";
+// Keep the block break behavior aligned with abogen's current HTML extraction helper.
+const BLOCK_SELECTORS = "p, div, section, article, blockquote, li, h1, h2, h3, h4, h5, h6";
 
 function removeNoise(document: Document): void {
   for (const selector of NOISE_SELECTORS) {

@@ -78,8 +78,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Podcast playback diagnostics are implemented in web structured logs:
   - RSS and media routes now emit token-safe request traces (method, user-agent, range header, response status, bytes, content-range, and latency) to aid podcast app playback debugging.
 - URL extraction reliability hardening is implemented:
-  - URL fetch now safely retries across validated DNS candidate IPs (IPv4-preferred) and supports Node lookup callback variants (single-address and all-address/happy-eyeballs modes) used by Docker/runtime environments, preventing broad false `EXTRACTION_FAILED` fetch errors after SSRF pinning changes.
+  - URL fetch now safely retries across validated DNS candidate IPs (IPv4-preferred), retries the next candidate on `403` / `429` / `5xx`, and performs one hostname-based fallback when the pinned path is blocked or yields unreadable HTML while the validated hostname path can still succeed.
+  - Node lookup callback variants (single-address and all-address/happy-eyeballs modes) remain supported in Docker/runtime environments.
   - Invalid-address network failures in pinned lookup paths are now mapped to actionable connection guidance instead of generic fetch-failed messaging.
+  - The bot user-agent now advertises the canonical `articlepod.com` domain instead of a local-only hostname.
 - Production URL extraction diagnostics automation is implemented:
   - manual GitHub Actions workflow `Probe URL Extraction (VM)` runs DNS/HEAD/extraction probes for an arbitrary URL from the production VM path using existing SSH secrets (no new public debug endpoint).
 - Podcast compatibility and feed quality hardening are implemented:
@@ -240,7 +242,7 @@ B) Ingest content
 
 C) Convert to audio (worker)
 - Worker extracts readable text:
-  - URL: Readability extraction with abogen-derived cleanup.
+  - URL: SSRF-validated fetch (pinned IP candidates first, hostname fallback when needed) plus Readability extraction with abogen-derived cleanup.
   - PDF: deterministic text extraction (pdfjs path) with markdown output for downstream reuse.
   - Reuse as much as possible from reputable upstream repos (abogen first) and keep attribution in docs.
 - Worker generates audio with a pluggable TTS provider:

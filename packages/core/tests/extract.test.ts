@@ -3,10 +3,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import http from "node:http";
-import { extractHtmlFromUrl, extractHtmlSnapshot } from "../src/extract/html";
+import { extractHtmlFromUrl, extractHtmlFromUrlWithDiagnostics, extractHtmlSnapshot } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
+
+function makeMockResponse(status: number, body: string): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body
+  } as unknown as Response;
+}
 
 test("extractHtmlFromUrl extracts fixture", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
@@ -149,7 +157,15 @@ test("extractHtmlFromUrl maps invalid pinned IP errors to actionable extraction 
 test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachable fallback", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
   const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
   let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
   http.request = ((...args: unknown[]) => {
     requestCalls += 1;
     const callback =
@@ -193,11 +209,248 @@ test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachabl
   try {
     const result = await extractHtmlFromUrl("http://example.com/article", ["203.0.113.7", "198.51.100.9"]);
     assert.equal(requestCalls, 2);
+    assert.equal(fallbackCalls, 0);
     assert.ok(result.text.length > 100);
     assert.ok(result.markdown.length > 80);
     assert.ok(result.title.length > 0);
   } finally {
     http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl retries the next pinned candidate after a blocked response", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = requestCalls === 1 ? 403 : 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        if (requestCalls > 1) {
+          responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        }
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["203.0.113.7", "198.51.100.9"]);
+    assert.equal(requestCalls, 2);
+    assert.equal(fallbackCalls, 0);
+    assert.equal(result.diagnostics.finalFetchStrategy, "pinned");
+    assert.deepEqual(result.diagnostics.pinnedStatuses, [403, 200]);
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl falls back to hostname fetch after pinned blocked responses", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    return makeMockResponse(200, html);
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 403;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["203.0.113.7", "198.51.100.9"]);
+    assert.equal(requestCalls, 2);
+    assert.equal(fallbackCalls, 1);
+    assert.equal(result.diagnostics.finalFetchStrategy, "hostname_fallback");
+    assert.equal(result.diagnostics.fallbackAttempted, true);
+    assert.equal(result.diagnostics.fallbackStatus, 200);
+    assert.deepEqual(result.diagnostics.pinnedStatuses, [403, 403]);
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl falls back to hostname fetch when pinned HTML is unreadable", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const unreadableHtml = "<html><body><p>Too short.</p></body></html>";
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    return makeMockResponse(200, html);
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(unreadableHtml, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["203.0.113.7"]);
+    assert.equal(requestCalls, 1);
+    assert.equal(fallbackCalls, 1);
+    assert.equal(result.diagnostics.finalFetchStrategy, "hostname_fallback");
+    assert.equal(result.diagnostics.fallbackStatus, 200);
+    assert.deepEqual(result.diagnostics.pinnedStatuses, [200]);
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl preserves blocked-site errors when pinned and hostname fetches both fail", async () => {
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    return makeMockResponse(403, "");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 403;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    await assert.rejects(
+      () => extractHtmlFromUrl("http://example.com/article", ["203.0.113.7"]),
+      (error: unknown) =>
+        error instanceof AppError &&
+        error.code === errorCodes.EXTRACTION_FAILED &&
+        error.userMessage.toLowerCase().includes("blocked access")
+    );
+    assert.equal(fallbackCalls, 1);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
   }
 });
 

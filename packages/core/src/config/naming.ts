@@ -4,7 +4,7 @@ export const BRAND = {
   "name": "ArticlePod",
   "slug": "articlepod",
   "legacySlug": "listenlater",
-  "botUserAgent": "ArticlePodBot/0.1 (+https://articlepod.local)",
+  "botUserAgent": "ArticlePodBot/0.1 (+https://articlepod.com)",
   "snapshotFallbackUrl": "https://snapshot.articlepod.local/",
   "defaultDemoEmail": "demo@articlepod.local",
   "defaultAdminEmail": "admin@articlepod.local"
