@@ -20,7 +20,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - standalone MV3 extension package under `apps/extension`.
   - popup now uses packaged runtime server configuration (no user-entered server URL) with connected/capture state cues.
   - packaged runtime config defaults extension connections to `https://articlepod.com` (override in `apps/extension/runtime-config.js` for local debugging).
-  - signed-in `/app` and `/app/settings` now both include extension controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
+  - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
@@ -106,7 +106,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - settings UI includes optional demographic profile controls.
   - admin users analytics and CSV exports include coarse geo and (PII-gated) demographic fields.
 - Dashboard feed shortcut and markdown access track (`M84`) is implemented:
-  - `/app` signed-in header now includes copy-first feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
+  - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with direct shortcuts into Settings for `Podcast Apps` and `Chrome Extension`.
+  - `/app/settings` is the canonical home for private feed actions, podcast-app onboarding shortcuts, and extension setup.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
@@ -267,16 +268,17 @@ D) Podcast RSS feed
 E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
-  - signed-in header with compact RSS feed URL visibility
-  - top-of-page Chrome extension install CTA + connect/revoke controls for fast capture onboarding
+  - compact signed-in header focused on navigation, with highlighted `Feedback`
+  - direct shortcuts to `/app/settings#podcast-apps` and `/app/settings#chrome-extension`
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/settings`:
-  - full private feed controls (copy, rotate token, create read-only share link)
+  - full podcast app controls (private feed copy/open shortcuts, rotate token, create read-only share link, digest feed access)
   - Chrome extension install + connect/revoke controls
   - voice settings (preview + save default)
+  - self-serve delete is hidden from the UI for now
 - Strong empty states, toasts, clear failure messages, modern UI.
 
 F) Admin Module

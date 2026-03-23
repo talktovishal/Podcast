@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DeleteAccountButton } from "@/components/delete-account-button";
 import { FeedbackForm } from "@/components/feedback-form";
 import { LogoutButton } from "@/components/logout-button";
 import { getAuthUserFromCookies } from "@/lib/auth";
@@ -38,7 +37,6 @@ export default async function FeedbackPage() {
                 Admin
               </Link>
             ) : null}
-            {user.role !== "ADMIN" ? <DeleteAccountButton /> : null}
             <LogoutButton />
           </div>
         </header>

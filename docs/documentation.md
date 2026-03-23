@@ -47,9 +47,20 @@ Set passwords via environment variables before seeding (see `.env.example`):
 - Local load: `chrome://extensions` -> Developer mode -> Load unpacked
 
 Connect flow:
-1. In `/app`, generate one-time extension connect code (24-hour default).
+1. In `/app/settings#chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
 3. Capture current page; item is enqueued to your account feed.
+
+## Workspace layout
+- `/app` is a focused creation workspace:
+  - `Add New Episode`
+  - `Recent items`
+  - top shortcuts for `Podcast Apps`, `Chrome Extension`, `Summary Studio`, and highlighted `Feedback`
+- `/app/settings` is the canonical tools/configuration home:
+  - `#podcast-apps` for private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation
+  - `#chrome-extension` for extension install/connect/revoke controls
+  - billing, digest scheduling, demographic profile, and voice settings
+- Self-serve `Delete account` is intentionally hidden from the UI for now, while the protected backend route remains in place.
 
 ## Feed and media
 - Auth explainer: `/Users/vishalchowdhary/Documents/Podcast/docs/feed-auth-model.md`

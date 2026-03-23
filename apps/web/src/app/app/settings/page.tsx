@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
+import { AccountOverflowMenu } from "@/components/account-overflow-menu";
 import { BillingActionButton } from "@/components/billing-action-button";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
-import { DeleteAccountButton } from "@/components/delete-account-button";
-import { LogoutButton } from "@/components/logout-button";
 import { ensureUserDigestFeedTokenAccess, ensureUserDigestSettings, ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { billingPlanLabel, billingStatusLabel, getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
 import { getRecentDigestRuns, getUserDemographicSurvey, getUserTtsSettings } from "@/lib/dashboard";
@@ -43,6 +42,9 @@ export default async function AppSettingsPage() {
     "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
   const digestFeedUrlMessage =
     "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace the URL in your podcast app.";
+  const neutralActionClass = "rounded-lg border px-3 py-2 text-center text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50";
+  const emphasizedActionClass = "rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white transition hover:opacity-95";
+  const accountLinks = user.role === "ADMIN" ? [{ href: "/admin", label: "Admin" }] : [];
 
   return (
     <main className="py-5 sm:py-8">
@@ -54,20 +56,19 @@ export default async function AppSettingsPage() {
             <p className="mt-1 text-sm text-[var(--muted)]">Manage feed access, digest settings, extension auth, and default voice.</p>
           </div>
 
-          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
-            <Link className="rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white" href="/app">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+            <Link className={neutralActionClass} href="/app">
               Back to episodes
             </Link>
-            <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/app/feedback">
+            <Link className={neutralActionClass} href="/app/summary">
+              Summary Studio
+            </Link>
+            <Link className={emphasizedActionClass} href="/app/feedback">
               Feedback
             </Link>
-            {user.role === "ADMIN" ? (
-              <Link className="rounded-lg border px-3 py-2 text-center text-sm" href="/admin">
-                Admin
-              </Link>
-            ) : null}
-            {user.role !== "ADMIN" ? <DeleteAccountButton /> : null}
-            <LogoutButton />
+            <div className="col-span-2 sm:col-span-1 sm:justify-self-end">
+              <AccountOverflowMenu links={accountLinks} />
+            </div>
           </div>
         </header>
 

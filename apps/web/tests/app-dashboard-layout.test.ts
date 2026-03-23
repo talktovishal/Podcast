@@ -2,17 +2,19 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-test("app dashboard links to settings and renders smart feed actions", () => {
+test("app dashboard focuses on workspace shortcuts and account overflow", () => {
   const source = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
 
-  assert.equal(source.includes('href="/app/settings"'), true);
+  assert.equal(source.includes('href="/app/settings#podcast-apps"'), true);
+  assert.equal(source.includes('href="/app/settings#chrome-extension"'), true);
+  assert.equal(source.includes('href="/app/summary"'), true);
   assert.equal(source.includes('href="/app/feedback"'), true);
-  assert.equal(source.includes("FeedUrlActions"), true);
-  assert.equal(source.includes("<FeedUrlActions feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />"), true);
+  assert.equal(source.includes("AccountOverflowMenu"), true);
+  assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes('viewMode="workspace"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('user.role !== "ADMIN" ? <DeleteAccountButton /> : null'), true);
+  assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {
@@ -30,10 +32,12 @@ test("settings page exists and renders settings-only dashboard mode", () => {
 
   const source = readFileSync(pagePath, "utf8");
   assert.equal(source.includes('href="/app"'), true);
+  assert.equal(source.includes('href="/app/summary"'), true);
   assert.equal(source.includes('href="/app/feedback"'), true);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('user.role !== "ADMIN" ? <DeleteAccountButton /> : null'), true);
+  assert.equal(source.includes("AccountOverflowMenu"), true);
+  assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
 test("feedback page exists and keeps message as the first field", () => {
@@ -56,12 +60,15 @@ test("dashboard client gates markdown controls to admins", () => {
   assert.equal(source.includes("{showItemsSection && isAdmin && markdownPreview ? ("), true);
 });
 
-test("dashboard client includes chrome web store install CTA and extension controls in workspace", () => {
+test("dashboard client keeps podcast tools anchored in settings and hides extension controls from workspace", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes('id={isSettingsView ? "podcast-apps" : undefined}'), true);
+  assert.equal(source.includes('id="chrome-extension"'), true);
+  assert.equal(source.includes("Podcast Apps"), true);
   assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
   assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
   assert.equal(source.includes("Open extension settings"), false);
-  assert.equal(source.includes("const showExtensionSection = !readOnly;"), true);
+  assert.equal(source.includes("const showExtensionSection = showSettingsSection;"), true);
   assert.equal(source.includes("stays valid for 24 hours"), true);
   assert.equal(source.includes("stays authorized for 1 year"), true);
   assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
@@ -71,9 +78,9 @@ test("dashboard client includes chrome web store install CTA and extension contr
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={previewAudioUrl} />'), true);
-  assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={mediaUrl} />'), true);
-  assert.equal(source.includes("Rotate the token only when you are ready to replace it in your podcast app."), true);
+  assert.equal(source.includes('preload="metadata" src={previewAudioUrl}'), true);
+  assert.equal(source.includes('preload="metadata" src={mediaUrl}'), true);
+  assert.equal(source.includes("manage feed rotation only when you are ready to"), true);
 });
 
 test("login redirects admins directly to admin dashboard", () => {

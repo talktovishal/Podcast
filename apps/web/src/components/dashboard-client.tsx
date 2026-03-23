@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CopyableValueBox } from "@/components/copyable-value-box";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
+import { FeedUrlActions } from "@/components/feed-url-actions";
 import {
   DEMOGRAPHIC_AGE_BANDS,
   DEMOGRAPHIC_GENDER_IDENTITIES,
@@ -248,7 +249,7 @@ export function DashboardClient({
   const showFeedSection = readOnly || isSettingsView;
   const showSettingsSection = !readOnly && isSettingsView;
   const showSubmissionSection = !readOnly && !isSettingsView;
-  const showExtensionSection = !readOnly;
+  const showExtensionSection = showSettingsSection;
   const showItemsSection = !isSettingsView;
   const showDiagnosticsSection = !readOnly && isDemoAccount && !isSettingsView;
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
@@ -699,24 +700,14 @@ export function DashboardClient({
   return (
     <div className="space-y-4 sm:space-y-6">
       {showFeedSection ? (
-        <section className="card p-4 sm:p-5">
+        <section className="card scroll-mt-24 p-4 sm:p-5" id={isSettingsView ? "podcast-apps" : undefined}>
+          <h2 className="text-lg font-semibold">Podcast Apps</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Copy your private feed URL, open your podcast app&apos;s Add by URL flow, and manage feed rotation only when you are ready to
+            replace the subscription.
+          </p>
           <div className="space-y-3">
-            {feedUrl ? (
-              <CopyableValueBox
-                copiedMessage="Feed URL copied."
-                idleMessage="Tap or click the box to copy your private feed URL."
-                label="Private feed URL"
-                value={feedUrl}
-              />
-            ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3">
-                <p className="text-sm font-medium text-slate-900">Private feed URL</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  {feedUrlMessage ||
-                    "Your current private feed is still active, but this legacy URL can no longer be shown here. Rotate the token only when you are ready to replace it in your podcast app."}
-                </p>
-              </div>
-            )}
+            <FeedUrlActions feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
             <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
               {!readOnly ? (
                 <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
@@ -729,41 +720,45 @@ export function DashboardClient({
                 </button>
               ) : null}
             </div>
-          </div>
-        </section>
-      ) : null}
 
-      {showSettingsSection ? (
-        <section className="card p-4 sm:p-5">
-          <div className="space-y-3">
-            {digestFeedUrl ? (
-              <CopyableValueBox
-                copiedMessage="Digest feed URL copied."
-                idleMessage="Tap or click the box to copy your private digest feed URL."
-                label="Digest feed URL"
-                value={digestFeedUrl}
-              />
-            ) : (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3">
-                <p className="text-sm font-medium text-slate-900">Digest feed URL</p>
+            {showSettingsSection ? (
+              <div className="rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-50/50 p-4">
+                <h3 className="text-sm font-semibold">Digest podcast feed</h3>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  {digestFeedUrlMessage ||
-                    "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace it in your podcast app."}
+                  Use this separate feed for scheduled summaries and manual Summary Studio podcast episodes.
                 </p>
+                <div className="mt-3">
+                  {digestFeedUrl ? (
+                    <CopyableValueBox
+                      copiedMessage="Digest feed URL copied."
+                      idleMessage="Tap or click the box to copy your private digest feed URL."
+                      label="Digest feed URL"
+                      value={digestFeedUrl}
+                    />
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3">
+                      <p className="text-sm font-medium text-slate-900">Digest feed URL</p>
+                      <p className="mt-1 text-sm text-[var(--muted)]">
+                        {digestFeedUrlMessage ||
+                          "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace it in your podcast app."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+                  <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
+                    Rotate digest token
+                  </button>
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
-                Rotate digest token
-              </button>
-            </div>
+            ) : null}
           </div>
         </section>
       ) : null}
 
       {showExtensionSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Chrome Extension</h2>
+        <section className="card scroll-mt-24 p-4 sm:p-5" id="chrome-extension">
+          <h2 className="text-lg font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code that stays valid for 24 hours. After you connect once, the extension stays authorized for 1 year unless you revoke it.
           </p>
@@ -1163,7 +1158,8 @@ export function DashboardClient({
 
       {showSubmissionSection ? (
         <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Add New Episode</h2>
+          <h2 className="text-lg font-semibold">Add New Episode</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Paste a URL or upload a PDF to turn it into a private podcast episode.</p>
           {showSubmissionQuota ? (
             <div
               className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
@@ -1326,7 +1322,12 @@ export function DashboardClient({
 
       {showItemsSection ? (
         <section className="card p-4 sm:p-5">
-          <h2 className="mb-4 text-lg font-semibold">Recent items</h2>
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Recent items</h2>
+              <p className="text-sm text-[var(--muted)]">Track processing, play finished audio, and clean up older saves from one list.</p>
+            </div>
+          </div>
 
           <div className="space-y-3">
             {newestFirst.length === 0 ? (

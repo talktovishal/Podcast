@@ -28,9 +28,9 @@
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
 - Extension packaged runtime config default now points to `https://articlepod.com` (local debugging can still override `apps/extension/runtime-config.js`).
-- `/app` episodes workspace now surfaces Chrome Web Store install CTA and extension connect/revoke controls at the top (mirrored in `/app/settings`).
+- `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
-- Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
+- Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (podcast apps/feed tools, extension auth, digest controls, billing, voice settings), with direct `/app` shortcuts into anchored Settings sections.
 - `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
@@ -1518,7 +1518,7 @@ Milestone metadata contract:
 
 ### 00:20-00:45 - Show Immediate Value
 1. Show starter episode already present and playable.
-2. Highlight private feed URL in the signed-in header, then open `/app/settings` for copy/rotation controls.
+2. Highlight the focused `/app` workspace, then open `/app/settings#podcast-apps` for copy/rotation controls.
 
 ### 00:45-01:15 - Verify Feed
 1. Open `/rss/<feed_token>.xml`.
