@@ -84,8 +84,8 @@ export async function GET(request: NextRequest) {
   });
   const user = oauthResult.user;
 
-  await ensureUserFeedToken(user.id);
   if (oauthResult.created) {
+    await ensureUserFeedToken(user.id);
     await recordAnalyticsEventBestEffort({
       eventType: "USER_SIGNUP",
       userId: user.id,

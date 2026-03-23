@@ -2710,6 +2710,10 @@ Milestone metadata contract:
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
+- Compatibility hold (2026-03-23):
+  - Newly created and rotated feed/digest tokens still persist `tokenValue` because `/app/settings` currently re-displays the private RSS URL.
+  - Legacy hash-only feed/digest rows must remain active until the user explicitly rotates them.
+  - A partial hash-only rollout caused surprise feed-token churn for active subscribers, so plaintext feed-token persistence remains in place until the replacement UX and migration plan are implemented.
 - Audit finding:
   - `FeedToken.tokenValue`, `DigestFeedToken.tokenValue`, `ShareToken.tokenValue`, and
     `ExtensionToken.tokenValue` all store plaintext tokens alongside their SHA-256 hash.

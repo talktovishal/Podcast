@@ -6,7 +6,7 @@ import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { LogoutButton } from "@/components/logout-button";
-import { ensureUserDigestFeedToken, ensureUserDigestSettings, ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
+import { ensureUserDigestFeedTokenAccess, ensureUserDigestSettings, ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { billingPlanLabel, billingStatusLabel, getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
 import { getRecentDigestRuns, getUserDemographicSurvey, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
@@ -22,9 +22,9 @@ export default async function AppSettingsPage() {
     redirect("/login");
   }
 
-  const [feedToken, digestFeedToken, digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
-    ensureUserFeedToken(user.id),
-    ensureUserDigestFeedToken(user.id),
+  const [feedAccess, digestFeedAccess, digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
+    ensureUserFeedTokenAccess(user.id),
+    ensureUserDigestFeedTokenAccess(user.id),
     ensureUserDigestSettings(user.id),
     getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
@@ -37,8 +37,12 @@ export default async function AppSettingsPage() {
     voice: ttsSettings.voice
   });
   const ttsCatalog = getTtsCatalog();
-  const feedUrl = `${env.appUrl}/rss/${feedToken}.xml`;
-  const digestFeedUrl = `${env.appUrl}/rss/digest/${digestFeedToken}.xml`;
+  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
+  const digestFeedUrl = digestFeedAccess.tokenValue ? `${env.appUrl}/rss/digest/${digestFeedAccess.tokenValue}.xml` : null;
+  const feedUrlMessage =
+    "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
+  const digestFeedUrlMessage =
+    "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace the URL in your podcast app.";
 
   return (
     <main className="py-5 sm:py-8">
@@ -112,8 +116,10 @@ export default async function AppSettingsPage() {
         <DashboardClient
           viewMode="settings"
           feedUrl={feedUrl}
+          feedUrlMessage={feedUrl ? null : feedUrlMessage}
           isAdmin={user.role === "ADMIN"}
           digestFeedUrl={digestFeedUrl}
+          digestFeedUrlMessage={digestFeedUrl ? null : digestFeedUrlMessage}
           initialDigestSettings={{
             timezone: digestSettings.timezone,
             dailyEmailEnabled: digestSettings.dailyEmailEnabled,

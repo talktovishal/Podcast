@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTtsCatalog, hashIncomingToken, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
+import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { FeedUrlActions } from "@/components/feed-url-actions";
 import { LogoutButton } from "@/components/logout-button";
-import { ensureUserFeedToken, getAuthUserFromCookies } from "@/lib/auth";
+import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getSubmissionQuotaSnapshot } from "@/lib/submission-quota";
@@ -23,8 +23,8 @@ export default async function AppDashboardPage() {
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedToken, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota] = await Promise.all([
-    ensureUserFeedToken(user.id),
+  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota] = await Promise.all([
+    ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
@@ -36,8 +36,10 @@ export default async function AppDashboardPage() {
     voice: ttsSettings.voice
   });
   const ttsCatalog = getTtsCatalog();
-  const feedUrl = `${env.appUrl}/rss/${feedToken}.xml`;
-  const feedTokenHash = hashIncomingToken(feedToken);
+  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
+  const feedUrlMessage =
+    "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
+  const feedTokenHash = feedAccess.tokenHash;
 
   return (
     <main className="py-5 sm:py-8">
@@ -46,7 +48,7 @@ export default async function AppDashboardPage() {
           <div>
             <p className="text-sm text-[var(--muted)]">Signed in as</p>
             <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-            <FeedUrlActions feedUrl={feedUrl} />
+            <FeedUrlActions feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
           </div>
 
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
@@ -72,6 +74,7 @@ export default async function AppDashboardPage() {
         <DashboardClient
           viewMode="workspace"
           feedUrl={feedUrl}
+          feedUrlMessage={feedUrl ? null : feedUrlMessage}
           isAdmin={user.role === "ADMIN"}
           isDemoAccount={isDemoUser}
           initialSubmissionQuota={submissionQuota}

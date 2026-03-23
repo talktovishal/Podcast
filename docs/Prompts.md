@@ -491,6 +491,7 @@ No item may be marked Done without passing the verification commands listed in i
 - `FeedToken`, `DigestFeedToken`, `ShareToken`, and `ExtensionToken` MUST NOT store `tokenValue` (plaintext) in the database.
 - Only `tokenHash` may be persisted. Plaintext token is returned once at creation time only.
 - A DB migration MUST invalidate all existing plaintext-stored tokens and trigger re-issuance.
+- Compatibility note: this migration is not complete today. Newly created and rotated item/digest feed tokens still persist `tokenValue` so `/app/settings` can re-display the same private RSS URL. Legacy hash-only feed rows must remain active until the user explicitly rotates them; do not silently rotate subscribers onto a new feed URL. Do not treat S02 as done until that replacement UX and migration path exist.
 
 ### SSRF and URL Fetching (S08)
 - After DNS resolution in `validateFetchableUrl`, the resolved IP MUST be passed through to the actual fetch call.

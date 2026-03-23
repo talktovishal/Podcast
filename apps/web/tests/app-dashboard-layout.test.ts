@@ -8,7 +8,7 @@ test("app dashboard links to settings and renders smart feed actions", () => {
   assert.equal(source.includes('href="/app/settings"'), true);
   assert.equal(source.includes('href="/app/feedback"'), true);
   assert.equal(source.includes("FeedUrlActions"), true);
-  assert.equal(source.includes("<FeedUrlActions feedUrl={feedUrl} />"), true);
+  assert.equal(source.includes("<FeedUrlActions feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />"), true);
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes('viewMode="workspace"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
@@ -21,6 +21,7 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
   assert.equal(source.includes("CopyableValueBox"), true);
   assert.equal(source.includes("Tap or click the box to copy your private feed URL."), true);
   assert.equal(source.includes("Feed URL copied."), true);
+  assert.equal(source.includes("this legacy URL can no longer be shown here"), true);
 });
 
 test("settings page exists and renders settings-only dashboard mode", () => {
@@ -72,6 +73,7 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={previewAudioUrl} />'), true);
   assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={mediaUrl} />'), true);
+  assert.equal(source.includes("Rotate the token only when you are ready to replace it in your podcast app."), true);
 });
 
 test("login redirects admins directly to admin dashboard", () => {

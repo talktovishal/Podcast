@@ -12,6 +12,7 @@ import {
   createPrimaryExtensionConnectCode,
   createPrimaryExtensionToken,
   createPrimaryFeedToken,
+  type PrimaryFeedTokenRecord,
   createPrimarySession,
   createPrimaryShareToken,
   createPrimaryOAuthIdentity,
@@ -43,6 +44,8 @@ const LEGACY_OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.legacyOauthPrefix;
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 24 * 60);
 const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 365);
 const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
+
+export type FeedTokenAccess = Pick<PrimaryFeedTokenRecord, "tokenHash" | "tokenValue">;
 
 export type AuthUser = {
   id: string;
@@ -117,42 +120,51 @@ export async function verifyPassword(plain: string, passwordHash: string): Promi
   return bcrypt.compare(plain, passwordHash);
 }
 
-export async function ensureUserFeedToken(userId: string): Promise<string> {
-  const active = await findPrimaryActiveFeedTokenByUserId(userId, "item");
-  if (active?.tokenValue) {
-    // Legacy row with plaintext still present — return it as-is.
-    return active.tokenValue;
-  }
+async function ensureUserFeedTokenAccessRecord(userId: string, kind: "item" | "digest"): Promise<FeedTokenAccess> {
+  const active = await findPrimaryActiveFeedTokenByUserId(userId, kind);
   if (active) {
-    // Active token exists but no plaintext stored; rotate to get a returnable plain value.
-    await deactivatePrimaryFeedTokens(userId, "item", new Date());
+    return {
+      tokenHash: active.tokenHash,
+      tokenValue: active.tokenValue
+    };
   }
 
   const token = createSecretToken();
   await createPrimaryFeedToken({
     userId,
     tokenHash: token.hash,
-    kind: "item"
+    tokenValue: token.plain,
+    kind
   });
-  return token.plain;
+
+  return {
+    tokenHash: token.hash,
+    tokenValue: token.plain
+  };
+}
+
+export async function ensureUserFeedTokenAccess(userId: string): Promise<FeedTokenAccess> {
+  return ensureUserFeedTokenAccessRecord(userId, "item");
+}
+
+export async function ensureUserFeedToken(userId: string): Promise<string> {
+  const active = await ensureUserFeedTokenAccess(userId);
+  if (!active.tokenValue) {
+    throw new Error("Active item feed token exists, but its private URL is not displayable. Rotate it explicitly to generate a new URL.");
+  }
+  return active.tokenValue;
+}
+
+export async function ensureUserDigestFeedTokenAccess(userId: string): Promise<FeedTokenAccess> {
+  return ensureUserFeedTokenAccessRecord(userId, "digest");
 }
 
 export async function ensureUserDigestFeedToken(userId: string): Promise<string> {
-  const active = await findPrimaryActiveFeedTokenByUserId(userId, "digest");
-  if (active?.tokenValue) {
-    return active.tokenValue;
+  const active = await ensureUserDigestFeedTokenAccess(userId);
+  if (!active.tokenValue) {
+    throw new Error("Active digest feed token exists, but its private URL is not displayable. Rotate it explicitly to generate a new URL.");
   }
-  if (active) {
-    await deactivatePrimaryFeedTokens(userId, "digest", new Date());
-  }
-
-  const token = createSecretToken();
-  await createPrimaryFeedToken({
-    userId,
-    tokenHash: token.hash,
-    kind: "digest"
-  });
-  return token.plain;
+  return active.tokenValue;
 }
 
 export async function ensureUserDigestSettings(userId: string) {
@@ -347,6 +359,7 @@ export async function rotateFeedToken(userId: string): Promise<string> {
   await createPrimaryFeedToken({
     userId,
     tokenHash: token.hash,
+    tokenValue: token.plain,
     kind: "item"
   });
 
@@ -360,6 +373,7 @@ export async function rotateDigestFeedToken(userId: string): Promise<string> {
   await createPrimaryFeedToken({
     userId,
     tokenHash: token.hash,
+    tokenValue: token.plain,
     kind: "digest"
   });
 

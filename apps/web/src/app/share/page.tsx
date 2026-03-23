@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { getTtsCatalog, hashIncomingToken, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
+import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
-import { getActiveFeedTokenForUser, getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
+import { getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
+import { findPrimaryActiveFeedTokenByUserId } from "@/lib/metadata-primary-auth";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
 export default async function SharePage({ searchParams }: { searchParams: { token?: string } }) {
@@ -25,8 +26,8 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
     );
   }
 
-  const feedToken = await getActiveFeedTokenForUser(user.id);
-  if (!feedToken) {
+  const feedAccess = await findPrimaryActiveFeedTokenByUserId(user.id, "item");
+  if (!feedAccess) {
     return (
       <main className="container-shell py-8">
         <p>No active feed for this user.</p>
@@ -44,7 +45,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice
   });
-  const feedTokenHash = hashIncomingToken(feedToken);
+  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
 
   return (
     <main className="py-5 sm:py-8">
@@ -60,7 +61,12 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
 
         <DashboardClient
           readOnly
-          feedUrl={`${env.appUrl}/rss/${feedToken}.xml`}
+          feedUrl={feedUrl}
+          feedUrlMessage={
+            feedUrl
+              ? null
+              : "This shared workspace can still play episodes, but the owner's current private feed URL is not available for display here."
+          }
           isAdmin={false}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
@@ -83,7 +89,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
                   mediaToken: signStableMediaUrl(
                     item.episode.audioPath,
                     env.mediaSigningKey || item.episode.guid,
-                    feedTokenHash,
+                    feedAccess.tokenHash,
                     item.episode.id
                   )
                 }

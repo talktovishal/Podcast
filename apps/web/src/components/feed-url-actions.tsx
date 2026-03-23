@@ -5,7 +5,8 @@ import { CopyableValueBox } from "@/components/copyable-value-box";
 import { copyText } from "@/lib/copy-text";
 
 type Props = {
-  feedUrl: string;
+  feedUrl: string | null;
+  unavailableMessage?: string | null;
 };
 
 type Platform = "ios" | "android" | "desktop";
@@ -29,11 +30,14 @@ function openUrl(url: string): void {
   }
 }
 
-export function FeedUrlActions({ feedUrl }: Props) {
+export function FeedUrlActions({ feedUrl, unavailableMessage = null }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const platform = useMemo(() => detectPlatform(), []);
 
   const copyFeedUrl = useCallback(async (): Promise<boolean> => {
+    if (!feedUrl) {
+      return false;
+    }
     return copyText(feedUrl);
   }, [feedUrl]);
 
@@ -63,6 +67,17 @@ export function FeedUrlActions({ feedUrl }: Props) {
     openUrl("https://music.youtube.com/");
     setStatusMessage(`${copyPrefix} Opened YouTube Music.`);
   }, [copyFeedUrl]);
+
+  if (!feedUrl) {
+    return (
+      <div className="mt-2">
+        <p className="text-sm text-[var(--muted)]">
+          {unavailableMessage ||
+            "Your current private feed is still active, but this legacy URL can no longer be shown here. Rotate the token from Settings only when you are ready to re-add the new URL in your podcast app."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>

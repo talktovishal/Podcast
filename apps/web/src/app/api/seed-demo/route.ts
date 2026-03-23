@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashIncomingToken, signStableMediaUrl } from "@articlepod/core";
-import { ensureUserFeedToken, getAuthUserFromRequest } from "@/lib/auth";
+import { signStableMediaUrl } from "@articlepod/core";
+import { ensureUserFeedTokenAccess, getAuthUserFromRequest } from "@/lib/auth";
 import { getDashboardItems, getDemoExtractionDiagnostics } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 
@@ -11,12 +11,12 @@ export async function GET(request: NextRequest) {
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedToken, items, extractionDiagnostics] = await Promise.all([
-    ensureUserFeedToken(user.id),
+  const [feedAccess, items, extractionDiagnostics] = await Promise.all([
+    ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([])
   ]);
-  const feedTokenHash = hashIncomingToken(feedToken);
+  const feedTokenHash = feedAccess.tokenHash;
   return NextResponse.json({
     ok: true,
     isDemoUser,

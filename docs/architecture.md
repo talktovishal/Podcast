@@ -154,6 +154,8 @@ Critical artifacts in object storage:
 `/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
 - stable media-token authorization scoped to the active feed token hash until the feed token is rotated
 - RSS feed lookup prefers the token hash, but can self-heal legacy rows by matching the active plaintext token value and rewriting the stored hash when the two drift apart
+- Newly created and rotated feed-token rows still retain plaintext `tokenValue` in the current implementation so authenticated settings pages can re-display the same private feed URL without forcing a surprise rotation
+- Legacy hash-only feed-token rows remain active and are not auto-rotated; users must opt into a manual token rotation before ArticlePod replaces that URL
 - `HEAD` with accurate `Content-Length`
 - `GET` with byte-range `206 Partial Content`
 - stable enclosure URLs from episode object keys
