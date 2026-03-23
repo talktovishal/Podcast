@@ -59,6 +59,7 @@ Connect flow:
 - Media route supports `HEAD` and byte-range `206 Partial Content`
 - Digest feed contains both scheduled digest episodes and manual Summary Studio episodes when generated with podcast enabled.
 - RSS-generated media URLs are HMAC-signed per episode and remain stable until the owning feed token is rotated, so enclosure URLs do not churn between feed refreshes.
+- RSS feed routes also include a compatibility fallback for legacy token rows whose stored plaintext token and stored hash drifted apart during storage cutovers: the feed request repairs the hash in place and continues serving the same feed URL instead of returning `404`.
 - RSS feeds emit deterministic channel `pubDate` and `lastBuildDate`, and RSS `HEAD` mirrors the same feed headers as `GET`.
 - Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
 - Episode descriptions are normalized to concise sentence summaries before RSS publication.

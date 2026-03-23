@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { POST as rotateDigestFeedTokenPost } from "../src/app/api/digest-feed-token/rotate/route";
 import { GET as digestRunsGet } from "../src/app/api/digest/runs/route";
@@ -301,6 +302,86 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), "bytes 12-15/16");
     assert.equal(Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8"), "cdef");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("digest rss self-heals mismatched digest feed token hashes without changing the URL", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-digest-repair`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `digest-repair-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  const storedRow = await prisma.digestFeedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: `broken-digest-${uniq}`,
+      active: true
+    }
+  });
+
+  try {
+    const audioKey = `digests/${user.id}/weekly/${uniq}/episode.mp3`;
+    await storage.putObject(audioKey, Buffer.from("0123456789abcdef", "utf8"), {
+      contentType: "audio/mpeg"
+    });
+
+    const run = await prisma.digestRun.create({
+      data: {
+        userId: user.id,
+        cadence: "WEEKLY",
+        periodKey: `repair-${uniq}`,
+        windowStart: new Date("2026-02-20T16:00:00.000Z"),
+        windowEnd: new Date("2026-02-27T16:00:00.000Z"),
+        scheduledFor: new Date("2026-02-27T16:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 15,
+        sourceItemCount: 1,
+        summaryStorageKey: `digests/${user.id}/weekly/${uniq}/summary.md`,
+        summaryBytes: 120,
+        emailEnabled: false,
+        emailStatus: "SKIPPED",
+        podcastEnabled: true,
+        podcastStatus: "SUCCEEDED",
+        completedAt: new Date("2026-02-27T16:05:00.000Z")
+      }
+    });
+
+    await prisma.digestEpisode.create({
+      data: {
+        digestRunId: run.id,
+        userId: user.id,
+        guid: `digest-repair-guid-${uniq}`,
+        title: "Digest Repair",
+        description: "Digest repair description",
+        audioPath: audioKey,
+        audioBytes: 16,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-02-27T16:05:00.000Z")
+      }
+    });
+
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    assert.equal(rssResponse.status, 200);
+
+    const refreshed = await prisma.digestFeedToken.findUnique({
+      where: { id: storedRow.id },
+      select: { tokenHash: true }
+    });
+    assert.equal(refreshed?.tokenHash, feedToken.hash);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

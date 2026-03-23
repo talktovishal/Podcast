@@ -2618,6 +2618,7 @@ Milestone metadata contract:
   - Repeated RSS fetches for the same unchanged episode emit the same enclosure URL.
   - Item and digest media routes still honor `HEAD` + byte-range `206`, while supporting stable episode-scoped media tokens and legacy expiring tokens during rollout.
   - RSS `HEAD` returns the same feed headers as `GET`.
+  - Legacy feed URLs keep working when an active feed-token row still has the correct plaintext token but its persisted hash drifted during storage cutover; the feed request repairs the hash and serves the same URL.
   - Dashboard audio players show duration without requiring the user to press play first.
   - Extension connect codes default to 24 hours and extension tokens default to 365 days unless env overrides are supplied.
 - Verification commands:

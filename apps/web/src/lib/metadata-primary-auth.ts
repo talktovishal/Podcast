@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { hashIncomingToken } from "@articlepod/core";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 
@@ -17,6 +18,16 @@ export type PrimaryAuthSessionWithUser = {
   expiresAt: Date;
   createdAt: Date;
   user: PrimaryAuthUserRecord;
+};
+
+export type PrimaryFeedTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  tokenValue: string | null;
+  active: boolean;
+  createdAt: Date;
+  rotatedAt: Date | null;
 };
 
 function requirePrimaryStore() {
@@ -322,6 +333,23 @@ export async function findPrimaryActiveFeedTokenByUserId(userId: string, kind: "
   return requirePrimaryStore().findActiveFeedTokenByUserId(userId, kind);
 }
 
+export async function findPrimaryActiveFeedTokenByValue(
+  tokenValue: string,
+  kind: "item" | "digest"
+): Promise<PrimaryFeedTokenRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return kind === "item"
+      ? prisma.feedToken.findFirst({
+          where: { tokenValue, active: true }
+        })
+      : prisma.digestFeedToken.findFirst({
+          where: { tokenValue, active: true }
+        });
+  }
+
+  return requirePrimaryStore().findFeedTokenByValue(tokenValue, kind);
+}
+
 export async function deactivatePrimaryFeedTokens(userId: string, kind: "item" | "digest", rotatedAt: Date) {
   if (!webUsesAzureTablePrimary()) {
     return kind === "item"
@@ -415,6 +443,67 @@ export async function findPrimaryUserByFeedTokenHash(tokenHash: string, kind: "i
     name: user.name,
     role: user.role,
     createdAt: user.createdAt
+  };
+}
+
+export async function repairPrimaryFeedTokenHashFromValue(
+  tokenValue: string,
+  kind: "item" | "digest"
+): Promise<(PrimaryAuthUserRecord & { repairedTokenHash: string }) | null> {
+  const token = await findPrimaryActiveFeedTokenByValue(tokenValue, kind);
+  if (!token) {
+    return null;
+  }
+
+  const repairedTokenHash = hashIncomingToken(tokenValue);
+  if (token.tokenHash !== repairedTokenHash || token.tokenValue !== tokenValue) {
+    if (!webUsesAzureTablePrimary()) {
+      if (kind === "item") {
+        await prisma.feedToken.update({
+          where: { id: token.id },
+          data: {
+            tokenHash: repairedTokenHash,
+            tokenValue
+          }
+        });
+      } else {
+        await prisma.digestFeedToken.update({
+          where: { id: token.id },
+          data: {
+            tokenHash: repairedTokenHash,
+            tokenValue
+          }
+        });
+      }
+    } else {
+      const tableKey = kind === "item" ? "feedTokens" : "digestFeedTokens";
+      const partitionKey = kind === "item" ? "feed" : "digestFeed";
+      await requirePrimaryStore().upsertRawEntity(tableKey, {
+        partitionKey,
+        rowKey: token.id,
+        id: token.id,
+        userId: token.userId,
+        tokenHash: repairedTokenHash,
+        tokenValue,
+        active: token.active,
+        createdAt: token.createdAt.toISOString(),
+        rotatedAt: token.rotatedAt?.toISOString() ?? null
+      });
+    }
+  }
+
+  const user = await findPrimaryUserById(token.userId);
+  if (!user) {
+    return null;
+  }
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    name: user.name,
+    role: user.role,
+    createdAt: user.createdAt,
+    repairedTokenHash
   };
 }
 

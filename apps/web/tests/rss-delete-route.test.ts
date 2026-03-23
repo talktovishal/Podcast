@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { DELETE as deleteItemRoute } from "../src/app/api/items/[id]/route";
+import { HEAD as mediaHead } from "../src/app/api/media/[...path]/route";
 import { GET as rssGet, HEAD as rssHead } from "../src/app/rss/[token]/route";
 import { createSession } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
@@ -186,6 +187,80 @@ test("rss feed keeps enclosure URLs stable and HEAD mirrors feed headers", async
     assert.ok(firstEnclosure);
     assert.equal(firstEnclosure, secondEnclosure);
     assert.match(firstXml, /<lastBuildDate>[A-Z][a-z]{2}, 22 Mar 2026 12:00:00 GMT<\/lastBuildDate>/);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("rss feed self-heals mismatched feed token hashes without changing the URL", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-repair`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `rss-repair-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  const storedRow = await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: `broken-${uniq}`,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/repair/${uniq}`,
+      status: "READY"
+    }
+  });
+  const audioPath = `items/${item.id}/episode.mp3`;
+  await storage.putObject(audioPath, Buffer.from("rss-repair-audio", "utf8"), {
+    contentType: "audio/mpeg"
+  });
+
+  await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Repair RSS ${uniq}`,
+      description: "repair rss",
+      audioPath,
+      audioBytes: 16,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date("2026-03-22T12:00:00.000Z")
+    }
+  });
+
+  try {
+    const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    assert.equal(response.status, 200);
+    const xml = await response.text();
+    const enclosure = /enclosure url="([^"]+)"/.exec(xml)?.[1];
+    assert.ok(enclosure);
+
+    const refreshed = await prisma.feedToken.findUnique({
+      where: { id: storedRow.id },
+      select: { tokenHash: true }
+    });
+    assert.equal(refreshed?.tokenHash, feedToken.hash);
+
+    const enclosureUrl = new URL(enclosure!);
+    const mediaResponse = await mediaHead(
+      new NextRequest(`http://localhost${enclosureUrl.pathname}${enclosureUrl.search}`, { method: "HEAD" }),
+      { params: { path: enclosureUrl.pathname.replace("/api/media/", "").split("/") } }
+    );
+    assert.equal(mediaResponse.status, 200);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
+import { findPrimaryUserByFeedTokenHash, repairPrimaryFeedTokenHashFromValue } from "@/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
@@ -19,14 +19,33 @@ function normalizeFeedToken(value: string): string {
   return value.replace(/\.xml$/i, "");
 }
 
+async function resolveDigestFeedAccess(token: string) {
+  const tokenHash = hashIncomingToken(token);
+  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "digest");
+  if (user) {
+    return { user, tokenHash, repaired: false };
+  }
+
+  const repaired = await repairPrimaryFeedTokenHashFromValue(token, "digest");
+  if (!repaired) {
+    return null;
+  }
+
+  return {
+    user: repaired,
+    tokenHash: repaired.repairedTokenHash,
+    repaired: true
+  };
+}
+
 export async function GET(request: NextRequest, context: { params: { token: string } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const token = normalizeFeedToken(context.params.token);
-  const tokenHash = hashIncomingToken(token);
-  const user = await findPrimaryUserByFeedTokenHash(tokenHash, "digest");
+  const resolvedAccess = await resolveDigestFeedAccess(token);
 
-  if (!user) {
+  if (!resolvedAccess) {
+    const tokenHash = hashIncomingToken(token);
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast feed request not found", {
         ...requestMeta,
@@ -39,6 +58,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     }
     return new NextResponse("Digest feed not found", { status: 404 });
   }
+  const { user, tokenHash, repaired } = resolvedAccess;
 
   const episodes =
     webUsesAzureTablePrimary() && webPrimaryStore
@@ -93,6 +113,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         status: 200,
         user_id: user.id,
         episode_count: episodes.length,
+      feed_token_repaired: repaired,
       enclosure_mime_types: Array.from(new Set(episodes.map((episode) => episode.mimeType))).sort(),
       duration_ms: Date.now() - startedAt
     });
@@ -107,8 +128,9 @@ export async function GET(request: NextRequest, context: { params: { token: stri
 export async function HEAD(request: NextRequest, context: { params: { token: string } }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const tokenHash = hashIncomingToken(normalizeFeedToken(context.params.token));
-  const exists = Boolean(await findPrimaryUserByFeedTokenHash(tokenHash, "digest"));
+  const token = normalizeFeedToken(context.params.token);
+  const tokenHash = hashIncomingToken(token);
+  const exists = Boolean(await resolveDigestFeedAccess(token));
   if (env.podcastRequestLoggingEnabled) {
     await logger.info("Podcast feed request served", {
       ...requestMeta,

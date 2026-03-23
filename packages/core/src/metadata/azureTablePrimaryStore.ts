@@ -1400,6 +1400,16 @@ export class AzureTablePrimaryStore {
     return entity ? this.toTokenRow(entity) : null;
   }
 
+  async findFeedTokenByValue(tokenValue: string, kind: "item" | "digest"): Promise<AzureTablePrimaryTokenRow | null> {
+    const table = kind === "item" ? "feedTokens" : "digestFeedTokens";
+    const partitionKey = kind === "item" ? "feed" : "digestFeed";
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      table,
+      joinFilters(filterEquals("PartitionKey", partitionKey), filterEquals("tokenValue", tokenValue), filterEquals("active", true))
+    );
+    return entity ? this.toTokenRow(entity) : null;
+  }
+
   async countFeedTokens(kind: "item" | "digest" = "item"): Promise<number> {
     const table = kind === "item" ? "feedTokens" : "digestFeedTokens";
     const partitionKey = kind === "item" ? "feed" : "digestFeed";

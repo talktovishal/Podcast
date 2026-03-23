@@ -153,6 +153,7 @@ Critical artifacts in object storage:
 ## Media delivery contract
 `/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
 - stable media-token authorization scoped to the active feed token hash until the feed token is rotated
+- RSS feed lookup prefers the token hash, but can self-heal legacy rows by matching the active plaintext token value and rewriting the stored hash when the two drift apart
 - `HEAD` with accurate `Content-Length`
 - `GET` with byte-range `206 Partial Content`
 - stable enclosure URLs from episode object keys
