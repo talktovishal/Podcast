@@ -325,3 +325,54 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("workspace refresh does not rotate a hidden legacy feed token", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: `seed-demo-legacy-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const legacy = await prisma.feedToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: sha256(`legacy-feed-${uniq}`),
+        tokenValue: null,
+        active: true
+      }
+    });
+    const sessionToken = await createSession(user.id);
+
+    const refreshRequest = new NextRequest("http://localhost/api/seed-demo?refresh=items", {
+      headers: {
+        cookie: `articlepod_session=${sessionToken}`
+      }
+    });
+    const refreshResponse = await seedDemoGet(refreshRequest);
+    assert.equal(refreshResponse.status, 200);
+
+    const payload = (await refreshResponse.json()) as {
+      ok: boolean;
+      items: Array<unknown>;
+    };
+    assert.equal(payload.ok, true);
+    assert.deepEqual(payload.items, []);
+
+    const activeRows = await prisma.feedToken.findMany({
+      where: { userId: user.id, active: true },
+      select: { id: true, tokenHash: true, tokenValue: true }
+    });
+    assert.equal(activeRows.length, 1);
+    assert.equal(activeRows[0]?.id, legacy.id);
+    assert.equal(activeRows[0]?.tokenHash, legacy.tokenHash);
+    assert.equal(activeRows[0]?.tokenValue, null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

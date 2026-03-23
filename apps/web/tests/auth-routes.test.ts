@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { AUTH_COOKIE_NAMES } from "@articlepod/core";
+import { AUTH_COOKIE_NAMES, createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
@@ -222,6 +222,102 @@ test("facebook callback creates a linked user and session", async () => {
         email
       }
     });
+    env.facebookAppId = previousAppId;
+    env.facebookAppSecret = previousAppSecret;
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("facebook callback does not rotate an existing user's hidden legacy feed token", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const email = `facebook-existing-${uniq}@articlepod.local`;
+  const previousAppId = env.facebookAppId;
+  const previousAppSecret = env.facebookAppSecret;
+  const previousFetch = globalThis.fetch;
+  const legacyToken = createSecretToken();
+
+  env.facebookAppId = "fb-app-id";
+  env.facebookAppSecret = "fb-app-secret";
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart",
+      oauthIdentities: {
+        create: {
+          provider: "facebook",
+          providerUserId: `fb-existing-${uniq}`,
+          emailAtLink: email
+        }
+      },
+      feedTokens: {
+        create: {
+          tokenHash: legacyToken.hash,
+          tokenValue: null,
+          active: true
+        }
+      }
+    },
+    include: {
+      feedTokens: true
+    }
+  });
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.startsWith("https://graph.facebook.com/oauth/access_token")) {
+      return new Response(JSON.stringify({ access_token: "facebook-access-token" }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      });
+    }
+
+    if (url.startsWith("https://graph.facebook.com/me")) {
+      return new Response(
+        JSON.stringify({
+          id: `fb-existing-${uniq}`,
+          email,
+          name: "Existing Facebook User"
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json"
+          }
+        }
+      );
+    }
+
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=expected-state", {
+      method: "GET",
+      headers: {
+        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+      }
+    });
+
+    const response = await facebookCallbackGet(request);
+    assert.equal(response.status, 307);
+    assert.equal(response.headers.get("location"), `${env.appUrl}/app`);
+
+    const activeRows = await prisma.feedToken.findMany({
+      where: { userId: user.id, active: true },
+      select: { id: true, tokenHash: true, tokenValue: true }
+    });
+    assert.equal(activeRows.length, 1);
+    assert.equal(activeRows[0]?.id, user.feedTokens[0]?.id);
+    assert.equal(activeRows[0]?.tokenHash, legacyToken.hash);
+    assert.equal(activeRows[0]?.tokenValue, null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
     env.facebookAppId = previousAppId;
     env.facebookAppSecret = previousAppSecret;
     globalThis.fetch = previousFetch;
