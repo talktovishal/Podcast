@@ -1309,6 +1309,14 @@ export class AzureTablePrimaryStore {
     return entity ? this.toSession(entity) : null;
   }
 
+  async listSessionsByUser(userId: string): Promise<AzureTablePrimarySession[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "sessions",
+      joinFilters(filterEquals("PartitionKey", "session"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toSession(row)), (entry) => entry.createdAt);
+  }
+
   async deleteSessionByTokenHash(tokenHash: string): Promise<void> {
     await this.deleteEntity("sessions", "session", tokenHash);
   }
@@ -1439,6 +1447,14 @@ export class AzureTablePrimaryStore {
       `${provider}::${providerUserId}`
     );
     return entity ? this.toOAuthIdentity(entity) : null;
+  }
+
+  async listOAuthIdentitiesByUser(userId: string): Promise<AzureTablePrimaryOAuthIdentity[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "oauthIdentities",
+      joinFilters(filterEquals("PartitionKey", "oauth"), filterEquals("userId", userId))
+    );
+    return rows.map((row) => this.toOAuthIdentity(row));
   }
 
   async createOAuthIdentity(input: {

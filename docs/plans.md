@@ -37,6 +37,7 @@
   - role-gated analytics APIs + CSV exports
   - tabbed investor+ops admin dashboard with masked-by-default user table
   - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
+  - Azure Table primary deployments now derive admin dashboard signup/session/item/job metrics from live primary-store data so the dashboard does not fall back to an empty auxiliary SQLite view.
 - Admin safety hardening: admin login redirects to `/admin`, and admin account deletion is blocked in API/UI.
 - Submission monetization controls (`M71`) are implemented:
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)

@@ -58,6 +58,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - event instrumentation for signup/login/submit/ready/fail/playback.
   - KPI/retention/users APIs and CSV export endpoints.
   - hybrid analytics backfill script with coverage metadata (`npm run analytics:backfill`).
+  - in Azure Table primary mode, admin analytics now derives live signup/session/item/job metrics from the primary store so dashboards remain populated even when auxiliary analytics event storage is disabled for cost control.
 - Submission monetization baseline is implemented:
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`

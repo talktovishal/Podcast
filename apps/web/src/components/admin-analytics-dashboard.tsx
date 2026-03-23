@@ -85,6 +85,9 @@ function coverageBadge(summary: AdminAnalyticsSummary | null): string {
   if (!playbackCoverage) {
     return "Coverage metadata available";
   }
+  if (playbackCoverage.notes?.trim()) {
+    return playbackCoverage.notes;
+  }
   if (playbackCoverage.isBackfilled) {
     return "Playback metrics include historical backfill";
   }

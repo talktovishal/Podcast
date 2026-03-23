@@ -9,6 +9,13 @@ import type {
   AdminAnalyticsTimeseriesPoint,
   AdminAnalyticsUsers
 } from "./types";
+import {
+  getAzurePrimaryAdminAnalyticsRetention,
+  getAzurePrimaryAdminAnalyticsSummary,
+  getAzurePrimaryAdminAnalyticsTimeseries,
+  getAzurePrimaryAdminAnalyticsUsers
+} from "./azure-primary";
+import { webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -191,6 +198,10 @@ async function firstEventByUser(input: {
 }
 
 export async function getAdminAnalyticsSummary(filters: AdminAnalyticsFilters): Promise<AdminAnalyticsSummary> {
+  if (webUsesAzureTablePrimary()) {
+    return getAzurePrimaryAdminAnalyticsSummary(filters);
+  }
+
   const previousWindowDays = Math.max(1, Math.ceil((filters.to.getTime() - filters.from.getTime() + 1) / DAY_MS));
   const prevTo = new Date(filters.from.getTime() - 1);
   const prevFrom = new Date(prevTo.getTime() - previousWindowDays * DAY_MS + 1);
@@ -450,6 +461,10 @@ export async function getAdminAnalyticsSummary(filters: AdminAnalyticsFilters): 
 }
 
 export async function getAdminAnalyticsTimeseries(filters: AdminAnalyticsFilters): Promise<AdminAnalyticsTimeseries> {
+  if (webUsesAzureTablePrimary()) {
+    return getAzurePrimaryAdminAnalyticsTimeseries(filters);
+  }
+
   const coverage = await loadCoverage();
   const events = await prisma.analyticsEvent.findMany({
     where: buildEventWhere(filters, [
@@ -551,6 +566,10 @@ export async function getAdminAnalyticsTimeseries(filters: AdminAnalyticsFilters
 }
 
 export async function getAdminAnalyticsRetention(filters: AdminAnalyticsFilters): Promise<AdminAnalyticsRetention> {
+  if (webUsesAzureTablePrimary()) {
+    return getAzurePrimaryAdminAnalyticsRetention(filters);
+  }
+
   const coverage = await loadCoverage();
   const users = await prisma.user.findMany({
     where: buildUserWhere(filters),
@@ -682,6 +701,10 @@ export async function getAdminAnalyticsUsers(input: {
   pageSize: number;
   pii: boolean;
 }): Promise<AdminAnalyticsUsers> {
+  if (webUsesAzureTablePrimary()) {
+    return getAzurePrimaryAdminAnalyticsUsers(input);
+  }
+
   const { filters, page, pageSize, pii } = input;
   const baseWhere: Prisma.UserWhereInput = {
     ...(filters.role !== "ALL" ? { role: filters.role } : {}),

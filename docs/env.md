@@ -164,6 +164,7 @@ Recommended low-cost Azure setting:
 - `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
 - `PODCAST_REQUEST_LOGGING` (default: `1`; set `0` to disable detailed RSS/media request diagnostics in web logs)
 - `ANALYTICS_STORAGE_MODE` (`full` default; set `off` in cost-optimized Azure mode to keep analytics out of the primary metadata store)
+  - with `METADATA_PRIMARY_BACKEND=azure_table`, admin analytics still derives signup/session/item/job views from primary-store data; `PLAYBACK_STARTED` remains unavailable unless auxiliary analytics storage is enabled.
 - `JOB_EVENT_STORAGE_MODE` (`database` default; set `off` to keep worker job-event firehose in local logs only)
 - `DEMO_EXTRACTION_TRACE_ENABLED` (`1` default; set `0` to disable persisted demo extraction traces)
 - Legacy fallback: `LISTENLATER_CONSOLE_LOGS`

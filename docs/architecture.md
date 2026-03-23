@@ -113,6 +113,7 @@ Event sources:
 Storage/query model:
 - write path records raw `AnalyticsEvent` rows plus `AnalyticsDailyRollup` updates.
 - analytics APIs compute KPI/retention from indexed raw events with rollups available for additive trend acceleration.
+- when Azure Table is the primary metadata backend, admin analytics can also derive signup/session/item/job state directly from primary entities so cost-optimized deployments do not render empty dashboards when auxiliary analytics event storage is disabled.
 - `AnalyticsCoverage` surfaces historical/backfill confidence:
   - signups/logins/submissions/ready/failed can be backfilled
   - playback starts are forward-only from instrumentation start date.

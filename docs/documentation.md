@@ -187,6 +187,7 @@ Current implementation:
   - `/api/admin/analytics/retention`
   - `/api/admin/analytics/users`
   - `/api/admin/analytics/export`
+- when `METADATA_PRIMARY_BACKEND=azure_table`, admin analytics derives signup/session/item/job metrics directly from Azure Table primary data so `/admin` stays accurate even when `ANALYTICS_STORAGE_MODE=off`; playback starts remain dependent on auxiliary analytics events.
 - analytics backfill/coverage command:
   - `npm run analytics:backfill`
 - admin feedback inbox:
