@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { DELETE as deleteItemRoute } from "../src/app/api/items/[id]/route";
-import { GET as rssGet } from "../src/app/rss/[token]/route";
+import { GET as rssGet, HEAD as rssHead } from "../src/app/rss/[token]/route";
 import { createSession } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
@@ -108,6 +108,84 @@ test("deleted item is removed from RSS feed output", async () => {
     assert.equal(afterDelete.status, 200);
     const afterXml = await afterDelete.text();
     assert.equal(afterXml.includes(episode.guid), false);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("rss feed keeps enclosure URLs stable and HEAD mirrors feed headers", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-stable`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `rss-stable-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/stable/${uniq}`,
+      status: "READY"
+    }
+  });
+  const audioPath = `items/${item.id}/episode.mp3`;
+  await storage.putObject(audioPath, Buffer.from("rss-stable-audio", "utf8"), {
+    contentType: "audio/mpeg"
+  });
+
+  await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Stable RSS ${uniq}`,
+      description: "stable rss",
+      audioPath,
+      audioBytes: 16,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date("2026-03-22T12:00:00.000Z")
+    }
+  });
+
+  try {
+    const firstResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    const secondResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    const headResponse = await rssHead(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`, { method: "HEAD" }), {
+      params: { token: feedToken.plain }
+    });
+
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 200);
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-type"), "application/rss+xml; charset=utf-8");
+    assert.equal(headResponse.headers.get("cache-control"), "private, no-store");
+
+    const firstXml = await firstResponse.text();
+    const secondXml = await secondResponse.text();
+    const firstEnclosure = /enclosure url="([^"]+)"/.exec(firstXml)?.[1];
+    const secondEnclosure = /enclosure url="([^"]+)"/.exec(secondXml)?.[1];
+
+    assert.ok(firstEnclosure);
+    assert.equal(firstEnclosure, secondEnclosure);
+    assert.match(firstXml, /<lastBuildDate>[A-Z][a-z]{2}, 22 Mar 2026 12:00:00 GMT<\/lastBuildDate>/);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

@@ -243,17 +243,23 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
     });
 
     const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const repeatRssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
     assert.equal(rssResponse.status, 200);
+    assert.equal(repeatRssResponse.status, 200);
     const xml = await rssResponse.text();
+    const repeatXml = await repeatRssResponse.text();
     assert.equal(xml.includes("Weekly Digest"), true);
     assert.equal(xml.includes("/api/digest-media/"), true);
     assert.equal(xml.includes("<itunes:image "), true);
     assert.equal(xml.includes("<image>"), true);
     assert.equal(xml.includes("/brand/podcast-cover-1400.png"), true);
+    assert.equal(xml.includes("<lastBuildDate>Fri, 27 Feb 2026 16:05:00 GMT</lastBuildDate>"), true);
 
     // Extract media URL from XML enclosure
     const enclosureMatch = /enclosure url="([^"]+)"/.exec(xml);
+    const repeatEnclosureMatch = /enclosure url="([^"]+)"/.exec(repeatXml);
     assert.ok(enclosureMatch, "enclosure URL must be present in RSS XML");
+    assert.equal(enclosureMatch?.[1], repeatEnclosureMatch?.[1]);
     const enclosureUrl = enclosureMatch[1];
     const enclosurePath = new URL(enclosureUrl).pathname.replace("/api/digest-media/", "");
     const enclosureSearch = new URL(enclosureUrl).search;
@@ -263,6 +269,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
       { params: { path: enclosurePath.split("/") } }
     );
     assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-type"), "audio/mpeg");
     assert.equal(headResponse.headers.get("content-length"), "16");
     assert.equal(headResponse.headers.get("accept-ranges"), "bytes");
 

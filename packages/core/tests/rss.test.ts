@@ -47,6 +47,8 @@ test("buildRssXml keeps deterministic ordering and escapes XML", () => {
   assert.ok(xml.includes("<image>"));
   assert.ok(xml.includes("<link>http://localhost:3000</link>"));
   assert.ok(xml.includes("<atom:link "));
+  assert.ok(xml.includes("<pubDate>Thu, 02 Jan 2025 00:00:00 GMT</pubDate>"));
+  assert.ok(xml.includes("<lastBuildDate>Thu, 02 Jan 2025 00:00:00 GMT</lastBuildDate>"));
   assert.ok(/<guid isPermaLink="false">a<\/guid>/.test(xml));
   assert.ok(/<enclosure url="http:\/\/localhost\/media\/1\.m4a" length="111" type="audio\/mp4" \/>/.test(xml));
   assert.ok(/<pubDate>[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT<\/pubDate>/.test(xml));

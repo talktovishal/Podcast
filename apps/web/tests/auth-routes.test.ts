@@ -184,6 +184,13 @@ test("extension connect-code accepts legacy session cookie name", async () => {
     assert.equal(payload.ok, true);
     assert.ok(payload.connect_code.length >= 20);
     assert.ok(payload.expires_at.length > 0);
+    const expiresAt = Date.parse(payload.expires_at);
+    const now = Date.now();
+    const twentyThreeHoursMs = 23 * 60 * 60 * 1000;
+    const twentyFiveHoursMs = 25 * 60 * 60 * 1000;
+    assert.equal(Number.isFinite(expiresAt), true);
+    assert.equal(expiresAt >= now + twentyThreeHoursMs, true);
+    assert.equal(expiresAt <= now + twentyFiveHoursMs, true);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

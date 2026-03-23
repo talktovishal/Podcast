@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-21)
+## Spec Status (as of 2026-03-22)
 
-### Implemented (as of 2026-03-21)
+### Implemented (as of 2026-03-22)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -14,6 +14,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - OAuth provider gating + callback hardening with provider-subject identity linking is implemented.
 - Chrome extension baseline is implemented:
   - one-time connect code -> extension token exchange
+  - connect codes now default to 24 hours, and exchanged extension tokens now default to 365 days unless overridden by env.
   - raw HTML snapshot ingest endpoint
   - worker extraction path for `HTML_SNAPSHOT`
   - standalone MV3 extension package under `apps/extension`.
@@ -88,7 +89,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.
-  - RSS-generated media enclosure URLs now stay valid for 14 days to better tolerate slower podcast app feed refresh behavior.
+  - RSS-generated media enclosure URLs are now stable per episode until the corresponding feed token is rotated, preventing enclosure churn between feed refreshes.
+  - RSS item and digest channel output now includes deterministic channel `pubDate` and `lastBuildDate`, and RSS `HEAD` returns the same feed headers as `GET`.
+  - dashboard audio controls now preload metadata so durations render without requiring playback first.
 - Feed resilience and deletion consistency hardening are implemented:
   - RSS feed generation now skips episodes whose media object is missing and auto-queues regeneration.
   - media 404 paths now auto-queue item regeneration after clearing stale chunk cache metadata.

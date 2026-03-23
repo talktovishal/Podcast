@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getTtsCatalog, normalizeTtsSelection, signMediaUrl } from "@articlepod/core";
+import { getTtsCatalog, hashIncomingToken, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { FeedUrlActions } from "@/components/feed-url-actions";
@@ -37,6 +37,7 @@ export default async function AppDashboardPage() {
   });
   const ttsCatalog = getTtsCatalog();
   const feedUrl = `${env.appUrl}/rss/${feedToken}.xml`;
+  const feedTokenHash = hashIncomingToken(feedToken);
 
   return (
     <main className="py-5 sm:py-8">
@@ -93,7 +94,12 @@ export default async function AppDashboardPage() {
                   audioPath: item.episode.audioPath,
                   audioBytes: item.episode.audioBytes,
                   mimeType: item.episode.mimeType,
-                  mediaToken: signMediaUrl(item.episode.audioPath, env.mediaSigningKey || item.episode.guid)
+                  mediaToken: signStableMediaUrl(
+                    item.episode.audioPath,
+                    env.mediaSigningKey || item.episode.guid,
+                    feedTokenHash,
+                    item.episode.id
+                  )
                 }
               : null
           }))}

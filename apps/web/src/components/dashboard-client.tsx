@@ -477,7 +477,7 @@ export function DashboardClient({
 
       setExtensionConnectCode(json.connect_code);
       setExtensionCodeExpiresAt(json.expires_at);
-      setStatusMessage("Extension connect code generated. Paste it into the Chrome extension popup.");
+      setStatusMessage("Extension connect code generated. It stays valid for 24 hours, and the extension stays connected for 1 year after pairing.");
     } finally {
       setIsBusy(false);
     }
@@ -738,7 +738,7 @@ export function DashboardClient({
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code to authorize page capture.
+            Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code that stays valid for 24 hours. After you connect once, the extension stays authorized for 1 year unless you revoke it.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <a
@@ -766,7 +766,7 @@ export function DashboardClient({
           </div>
           {extensionConnectCode ? (
             <div className="mt-3 rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code</p>
+              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code (24 hours)</p>
               <code className="mt-1 block overflow-x-auto text-sm">{extensionConnectCode}</code>
               <p className="mt-2 text-xs text-[var(--muted)]">
                 Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
@@ -1131,7 +1131,7 @@ export function DashboardClient({
 
           {previewAudioUrl ? (
             <div className="mt-3">
-              <audio controls className="w-full" preload="none" src={previewAudioUrl} />
+              <audio controls className="w-full" preload="metadata" src={previewAudioUrl} />
             </div>
           ) : null}
         </section>
@@ -1351,7 +1351,7 @@ export function DashboardClient({
 
                   {mediaUrl ? (
                     <div className="mt-3 space-y-2">
-                      <audio controls className="w-full" preload="none" src={mediaUrl} />
+                      <audio controls className="w-full" preload="metadata" src={mediaUrl} />
                       <a className="text-sm underline" href={mediaUrl}>
                         Download
                       </a>

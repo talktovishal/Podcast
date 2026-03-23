@@ -47,7 +47,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 - Local load: `chrome://extensions` -> Developer mode -> Load unpacked
 
 Connect flow:
-1. In `/app`, generate one-time extension connect code.
+1. In `/app`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
 3. Capture current page; item is enqueued to your account feed.
 
@@ -58,7 +58,8 @@ Connect flow:
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
 - Digest feed contains both scheduled digest episodes and manual Summary Studio episodes when generated with podcast enabled.
-- RSS-generated media URLs are HMAC-signed and remain valid for 14 days so slower-refreshing podcast apps can keep playing existing enclosures.
+- RSS-generated media URLs are HMAC-signed per episode and remain stable until the owning feed token is rotated, so enclosure URLs do not churn between feed refreshes.
+- RSS feeds emit deterministic channel `pubDate` and `lastBuildDate`, and RSS `HEAD` mirrors the same feed headers as `GET`.
 - Published episodes default to MP3 (`audio/mpeg`) for feed compatibility across podcast clients.
 - Episode descriptions are normalized to concise sentence summaries before RSS publication.
 - Missing media self-heal:

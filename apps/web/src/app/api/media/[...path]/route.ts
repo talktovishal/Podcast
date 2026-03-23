@@ -1,10 +1,10 @@
-import { hashIncomingToken, verifyMediaUrl } from "@articlepod/core";
+import { hashIncomingToken, verifyMediaUrl, verifyStableMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
-import { findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
+import { findPrimaryActiveFeedTokenByUserId, findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +22,7 @@ function contentTypeForPath(path: string): string {
   return "audio/mp4";
 }
 
-function validateMediaToken(path: string, token: string | null): boolean {
+function validateLegacyMediaToken(path: string, token: string | null): boolean {
   if (!token) {
     return false;
   }
@@ -32,6 +32,69 @@ function validateMediaToken(path: string, token: string | null): boolean {
   }
   const result = verifyMediaUrl(path, token, env.mediaSigningKey);
   return result.valid;
+}
+
+async function resolveEpisodeAccess(path: string, episodeId: string | null): Promise<{ id: string; userId: string } | null> {
+  if (!episodeId) {
+    return null;
+  }
+
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const episode = await webPrimaryStore.findEpisodeById(episodeId);
+    if (!episode || episode.audioPath !== path) {
+      return null;
+    }
+    return {
+      id: episode.id,
+      userId: episode.userId
+    };
+  }
+
+  const episode = await prisma.episode.findFirst({
+    where: {
+      id: episodeId
+    },
+    select: {
+      id: true,
+      audioPath: true,
+      item: {
+        select: {
+          userId: true
+        }
+      }
+    }
+  });
+
+  if (!episode || episode.audioPath !== path) {
+    return null;
+  }
+
+  return {
+    id: episode.id,
+    userId: episode.item.userId
+  };
+}
+
+async function validateStableMediaToken(path: string, token: string | null, episodeId: string | null): Promise<boolean> {
+  if (!token || !episodeId) {
+    return false;
+  }
+
+  const episode = await resolveEpisodeAccess(path, episodeId);
+  if (!episode) {
+    return false;
+  }
+
+  if (!env.mediaSigningKey) {
+    return token.length > 0;
+  }
+
+  const activeFeedToken = await findPrimaryActiveFeedTokenByUserId(episode.userId, "item");
+  if (!activeFeedToken) {
+    return false;
+  }
+
+  return verifyStableMediaUrl(path, token, env.mediaSigningKey, activeFeedToken.tokenHash, episode.id).valid;
 }
 
 async function validateLegacyFeedTokenForPath(path: string, feedToken: string | null): Promise<boolean> {
@@ -115,8 +178,10 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
 
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
+  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
   const isAuthorized =
-    validateMediaToken(rawKey, mediaToken) ||
+    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId)) ||
+    validateLegacyMediaToken(rawKey, mediaToken) ||
     (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
   if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
@@ -133,7 +198,6 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   }
 
   const key = rawKey;
-  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
   try {
     const storage = getArtifactStorage();
@@ -232,8 +296,10 @@ export async function GET(request: NextRequest, context: { params: { path: strin
 
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
+  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
   const isAuthorized =
-    validateMediaToken(rawKey, mediaToken) ||
+    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId)) ||
+    validateLegacyMediaToken(rawKey, mediaToken) ||
     (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
   if (!isAuthorized) {
     if (env.podcastRequestLoggingEnabled) {
@@ -251,7 +317,6 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   }
 
   const key = rawKey;
-  const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
 
   try {
     const storage = getArtifactStorage();

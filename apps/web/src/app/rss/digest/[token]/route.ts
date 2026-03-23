@@ -1,4 +1,4 @@
-import { buildRssXml, hashIncomingToken, signMediaUrl } from "@articlepod/core";
+import { buildRssXml, hashIncomingToken, signStableMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { env } from "@/lib/env";
@@ -10,6 +10,10 @@ import { prisma } from "@/lib/prisma";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
 
 const DIGEST_FEED_ROUTE = "/rss/digest/[token]";
+const FEED_HEADERS = {
+  "content-type": "application/rss+xml; charset=utf-8",
+  "cache-control": "private, no-store"
+};
 
 function normalizeFeedToken(value: string): string {
   return value.replace(/\.xml$/i, "");
@@ -66,7 +70,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     imageUrl: absoluteBrandAssetUrl(env.appUrl, BRAND_PODCAST_COVER_PATH),
     episodes: episodes.map((episode) => {
       const mediaPath = episode.audioPath;
-      const mediaToken = signMediaUrl(mediaPath, env.mediaSigningKey || episode.guid);
+      const mediaToken = signStableMediaUrl(mediaPath, env.mediaSigningKey || episode.guid, tokenHash, episode.id);
       return {
         guid: episode.guid,
         title: episode.title,
@@ -96,10 +100,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
 
   return new NextResponse(xml, {
     status: 200,
-    headers: {
-      "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "private, no-store"
-    }
+    headers: FEED_HEADERS
   });
 }
 
@@ -119,5 +120,5 @@ export async function HEAD(request: NextRequest, context: { params: { token: str
       duration_ms: Date.now() - startedAt
     });
   }
-  return new NextResponse(null, { status: exists ? 200 : 404 });
+  return new NextResponse(null, { status: exists ? 200 : 404, headers: exists ? FEED_HEADERS : undefined });
 }

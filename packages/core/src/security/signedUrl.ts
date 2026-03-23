@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SIGNED_URL_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const STABLE_MEDIA_TOKEN_PREFIX = "v2";
 
 /**
  * Generate an HMAC-signed media URL token.
@@ -16,6 +17,40 @@ export function signMediaUrl(path: string, signingKey: string, ttlMs = SIGNED_UR
 }
 
 export type VerifyMediaUrlResult = { valid: true } | { valid: false; reason: string };
+
+function stableMediaPayload(path: string, scopeKey: string, resourceId: string): string {
+  return `${scopeKey}:${resourceId}:${path}`;
+}
+
+export function signStableMediaUrl(path: string, signingKey: string, scopeKey: string, resourceId: string): string {
+  const payload = stableMediaPayload(path, scopeKey, resourceId);
+  const hmac = createHmac("sha256", signingKey).update(payload).digest("base64url");
+  return `${STABLE_MEDIA_TOKEN_PREFIX}.${hmac}`;
+}
+
+export function verifyStableMediaUrl(
+  path: string,
+  token: string,
+  signingKey: string,
+  scopeKey: string,
+  resourceId: string
+): VerifyMediaUrlResult {
+  const [version, providedHmac, ...extraParts] = token.split(".");
+  if (version !== STABLE_MEDIA_TOKEN_PREFIX || !providedHmac || extraParts.length > 0) {
+    return { valid: false, reason: "malformed_token" };
+  }
+
+  const payload = stableMediaPayload(path, scopeKey, resourceId);
+  const expectedHmac = createHmac("sha256", signingKey).update(payload).digest("base64url");
+  const expected = Buffer.from(expectedHmac, "utf8");
+  const provided = Buffer.from(providedHmac, "utf8");
+
+  if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
+    return { valid: false, reason: "invalid_signature" };
+  }
+
+  return { valid: true };
+}
 
 /**
  * Verify an HMAC-signed media URL token.

@@ -68,6 +68,13 @@ export function buildRssXml(input: FeedInput): string {
     }
     return a.guid.localeCompare(b.guid);
   });
+  const latestPubDate = sorted[0]?.pubDate;
+  const channelDateXml = latestPubDate
+    ? [
+        `    <pubDate>${toRfc2822(latestPubDate)}</pubDate>`,
+        `    <lastBuildDate>${toRfc2822(latestPubDate)}</lastBuildDate>`
+      ]
+    : [];
 
   const items = sorted
     .map((episode) => {
@@ -102,6 +109,7 @@ export function buildRssXml(input: FeedInput): string {
     `    <description>${escapeXml(input.description)}</description>`,
     `    <link>${escapeXml(input.link)}</link>`,
     `    <language>${escapeXml(input.language)}</language>`,
+    ...channelDateXml,
     `    <atom:link href=\"${escapeXml(input.feedUrl)}\" rel=\"self\" type=\"application/rss+xml\" xmlns:atom=\"http://www.w3.org/2005/Atom\" />`,
     `    <itunes:author>${escapeXml(input.title)}</itunes:author>`,
     `    <itunes:summary>${escapeXml(input.description)}</itunes:summary>`,

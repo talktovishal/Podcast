@@ -73,6 +73,8 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
+- `EXTENSION_CONNECT_CODE_TTL_MINUTES` (default `1440`; one-time connect code lifetime)
+- `EXTENSION_TOKEN_TTL_DAYS` (default `365`; extension token lifetime after pairing)
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`

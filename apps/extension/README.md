@@ -83,7 +83,7 @@ This flow works the same whether you are using the local development server or y
 1. Sign in to the ArticlePod web app at `/app`.
 
 2. Scroll down to the **Chrome Extension** section on the dashboard and click **Generate connect code**.
-   The code expires in a few minutes — copy it right away (use the **Copy code** button that appears).
+   The one-time code stays valid for 24 hours, and the extension token issued after pairing stays valid for 1 year unless you revoke it.
 
 3. Click the ArticlePod Capture icon in your Chrome toolbar.
 
@@ -91,7 +91,7 @@ This flow works the same whether you are using the local development server or y
    - Paste the **One-time connect code** from step 2.
    - Click **Connect**.
 
-5. The popup switches to **Configured** state (blue) and shows **"Connected. Token expires: …"**.
+5. The popup switches to **Configured** state (blue) and shows **"Connected. Token expires: …"** for the 1-year extension token.
    The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
@@ -235,8 +235,8 @@ The extension communicates with these ArticlePod API endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/auth/extension/connect-code` | Generate a one-time connect code (called from the web app) |
-| `POST` | `/api/auth/extension/exchange` | Exchange connect code for an extension token |
+| `POST` | `/api/auth/extension/connect-code` | Generate a one-time connect code (24-hour default, called from the web app) |
+| `POST` | `/api/auth/extension/exchange` | Exchange connect code for an extension token (365-day default) |
 | `POST` | `/api/items/html-snapshot` | Submit a captured page HTML snapshot |
 
 Authentication uses a scoped **extension token** (Bearer) obtained during the connect flow.

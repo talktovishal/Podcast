@@ -53,6 +53,14 @@ test("dashboard client includes chrome web store install CTA and extension contr
   assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
   assert.equal(source.includes("Open extension settings"), false);
   assert.equal(source.includes("const showExtensionSection = !readOnly;"), true);
+  assert.equal(source.includes("stays valid for 24 hours"), true);
+  assert.equal(source.includes("stays authorized for 1 year"), true);
+});
+
+test("dashboard client preloads audio metadata for preview and recent items", () => {
+  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={previewAudioUrl} />'), true);
+  assert.equal(source.includes('<audio controls className="w-full" preload="metadata" src={mediaUrl} />'), true);
 });
 
 test("login redirects admins directly to admin dashboard", () => {

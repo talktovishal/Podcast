@@ -77,6 +77,11 @@
   - manual `/app/summary` workflow supports explicit article selection, default last-7-days preselection, length presets, and optional podcast creation.
   - summary runs persist markdown/audio artifacts separately from scheduled digest runs while reusing the existing digest feed/media surface.
   - Azure OpenAI is now a first-class summary provider in deploy/runtime automation with nano-first routing and mini fallback.
+- Feed stability + extension lifetime UX track (`M92`) is implemented:
+  - item and digest RSS now emit stable episode-scoped enclosure URLs until feed-token rotation instead of per-request signature churn.
+  - RSS `HEAD` mirrors `GET` content headers, and RSS channel output now includes deterministic `pubDate` and `lastBuildDate`.
+  - dashboard audio controls preload metadata for visible duration.
+  - extension connect codes default to 24 hours and extension tokens default to 365 days.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
@@ -2576,6 +2581,47 @@ Milestone metadata contract:
   - `npm run build`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
+### M92 - Feed Stability + Extension Lifetime UX
+- status: Done
+- target_finish: 2026-03-22
+- completed_on: 2026-03-22
+- evidence: local validation + implementation pass (2026-03-22)
+- Scope:
+  - Replace per-request RSS enclosure signing with stable episode-scoped media tokens that stay valid until feed-token rotation.
+  - Make RSS `HEAD` mirror feed headers and add deterministic channel `pubDate` + `lastBuildDate`.
+  - Preload dashboard audio metadata so durations render before playback starts.
+  - Extend extension auth defaults to 24-hour connect codes and 365-day extension tokens, and sync docs/env examples.
+- Key files/modules:
+  - `packages/core/src/security/signedUrl.ts`
+  - `packages/core/src/rss/buildFeed.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/lib/auth.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `apps/extension/README.md`
+  - `.env.example`
+  - `.env.simple.example`
+  - `.env.parity.example`
+- Acceptance criteria:
+  - Repeated RSS fetches for the same unchanged episode emit the same enclosure URL.
+  - Item and digest media routes still honor `HEAD` + byte-range `206`, while supporting stable episode-scoped media tokens and legacy expiring tokens during rollout.
+  - RSS `HEAD` returns the same feed headers as `GET`.
+  - Dashboard audio players show duration without requiring the user to press play first.
+  - Extension connect codes default to 24 hours and extension tokens default to 365 days unless env overrides are supplied.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm lint`
+  - `pnpm build`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
 ---
 
 ## Security Hardening Track (S01–S18)
@@ -3102,9 +3148,11 @@ Milestone metadata contract:
 ---
 
 ### S16 — Feed Token Signed-URL Pattern (Tokens Out of Enclosure URLs)
-- status: Planned
+- status: Done
 - priority: P3 (Medium-Long)
 - target_finish: 2026-03-28
+- completed_on: 2026-03-22
+- evidence: implemented via M92 stable episode-scoped media token rollout + validation pass (2026-03-22)
 - Audit finding:
   - Every `<enclosure>` URL embeds `?feed_token=TOKEN` — a long-lived secret exposed in server logs,
     CDN logs, podcast app request logs, and browser history.
@@ -3112,30 +3160,31 @@ Milestone metadata contract:
 - Options considered:
   - **Option A:** Keep tokens in URL query params but configure nginx to mask query strings in
     access logs. Quick, operational fix only — tokens still appear elsewhere.
-  - **Option B (chosen):** At RSS serve time, generate short-lived signed media URLs: `HMAC-SHA256`
-    of `{tokenHash}:{storagePath}:{expiresAt}` with a server-side `MEDIA_SIGNING_KEY`. Enclosure URL
-    becomes `/api/media/{path}?mt={signedToken}` where the signed token embeds the expiry timestamp.
-    Long-lived feed token stays off the wire.
-    Podcast apps and libraries can hold older enclosure URLs for days, so a 14-day signature TTL
-    covers slower-refreshing clients while keeping the long-lived feed token off media requests.
+  - **Option B (chosen):** At RSS serve time, generate stable episode-scoped signed media URLs:
+    `HMAC-SHA256` of `{tokenHash}:{episodeId}:{storagePath}` with a server-side `MEDIA_SIGNING_KEY`.
+    Enclosure URL becomes `/api/media/{path}?mt=v2.<signedToken>&eid=<episodeId>` (digest URLs use
+    `deid`/`seid`). Long-lived feed tokens stay off the wire, enclosure URLs remain stable across
+    repeated feed fetches, and rotating the feed token invalidates prior media URLs.
   - **Option C:** Move the feed token into the URL path segment instead of a query param
     (e.g., `/api/media/{feedToken}/{path}`). Simpler than HMAC but token still appears in logs.
 - Accepted approach: Option B.
 - Scope:
-  - `packages/core/src/rss/buildFeed.ts`: accept a `signMediaUrl(path) => string` callback.
-  - New `packages/core/src/security/signedUrl.ts`: `signMediaUrl`, `verifyMediaUrl` using HMAC-SHA256.
-  - `apps/web/src/app/rss/[token]/route.ts`: inject `signMediaUrl` into feed builder.
-  - `apps/web/src/app/api/media/[...path]/route.ts`: verify signature instead of feed token query param.
+  - `packages/core/src/security/signedUrl.ts`: add stable token signing/verification alongside legacy expiring-token validation for rollout compatibility.
+  - `apps/web/src/app/rss/[token]/route.ts` and `apps/web/src/app/rss/digest/[token]/route.ts`: emit stable episode-scoped media tokens keyed to the active feed token hash.
+  - `apps/web/src/app/api/media/[...path]/route.ts` and `apps/web/src/app/api/digest-media/[...path]/route.ts`: verify stable tokens first, then legacy expiring tokens during rollout.
   - Add `MEDIA_SIGNING_KEY` env var (min 32 bytes).
 - Key files/modules:
   - `packages/core/src/security/signedUrl.ts` (new)
   - `packages/core/src/rss/buildFeed.ts`
   - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
   - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
 - Acceptance criteria:
   - Enclosure URLs in RSS XML contain no `feed_token` query parameter.
   - A valid signed URL plays audio successfully.
-  - An expired or tampered signed URL returns 401.
+  - Rotating a feed token invalidates previously issued stable media URLs for that feed kind.
+  - Tampered signed URLs return 401.
   - Existing podcast contract tests pass.
 - Verification commands:
   - `pnpm --filter @articlepod/web test -- media`

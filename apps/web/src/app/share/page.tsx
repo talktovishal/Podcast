@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTtsCatalog, normalizeTtsSelection, signMediaUrl } from "@articlepod/core";
+import { getTtsCatalog, hashIncomingToken, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
 import { getActiveFeedTokenForUser, getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
@@ -44,6 +44,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice
   });
+  const feedTokenHash = hashIncomingToken(feedToken);
 
   return (
     <main className="py-5 sm:py-8">
@@ -79,7 +80,12 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
                   audioPath: item.episode.audioPath,
                   audioBytes: item.episode.audioBytes,
                   mimeType: item.episode.mimeType,
-                  mediaToken: signMediaUrl(item.episode.audioPath, env.mediaSigningKey || item.episode.guid)
+                  mediaToken: signStableMediaUrl(
+                    item.episode.audioPath,
+                    env.mediaSigningKey || item.episode.guid,
+                    feedTokenHash,
+                    item.episode.id
+                  )
                 }
               : null
           }))}

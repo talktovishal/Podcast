@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { signMediaUrl, verifyMediaUrl } from "../src/security/signedUrl";
+import { signMediaUrl, signStableMediaUrl, verifyMediaUrl, verifyStableMediaUrl } from "../src/security/signedUrl";
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -28,5 +28,31 @@ test("verifyMediaUrl rejects tokens once they expire", async () => {
   assert.deepEqual(verifyMediaUrl("items/example/episode.mp3", token, "test-signing-key"), {
     valid: false,
     reason: "token_expired"
+  });
+});
+
+test("signStableMediaUrl stays deterministic for the same scope", () => {
+  const token = signStableMediaUrl("items/example/episode.mp3", "test-signing-key", "feed-hash-1", "episode-1");
+
+  assert.equal(token, signStableMediaUrl("items/example/episode.mp3", "test-signing-key", "feed-hash-1", "episode-1"));
+  assert.deepEqual(verifyStableMediaUrl("items/example/episode.mp3", token, "test-signing-key", "feed-hash-1", "episode-1"), {
+    valid: true
+  });
+});
+
+test("verifyStableMediaUrl rejects tokens after feed rotation or scope mismatch", () => {
+  const token = signStableMediaUrl("items/example/episode.mp3", "test-signing-key", "feed-hash-1", "episode-1");
+
+  assert.deepEqual(verifyStableMediaUrl("items/example/episode.mp3", token, "test-signing-key", "feed-hash-2", "episode-1"), {
+    valid: false,
+    reason: "invalid_signature"
+  });
+  assert.deepEqual(verifyStableMediaUrl("items/example/episode.mp3", token, "test-signing-key", "feed-hash-1", "episode-2"), {
+    valid: false,
+    reason: "invalid_signature"
+  });
+  assert.deepEqual(verifyStableMediaUrl("items/example/other.mp3", token, "test-signing-key", "feed-hash-1", "episode-1"), {
+    valid: false,
+    reason: "invalid_signature"
   });
 });
