@@ -15,6 +15,14 @@ test("app dashboard links to settings and renders smart feed actions", () => {
   assert.equal(source.includes('user.role !== "ADMIN" ? <DeleteAccountButton /> : null'), true);
 });
 
+test("feed url actions use a tappable copy box with inline feedback", () => {
+  const source = readFileSync(new URL("../src/components/feed-url-actions.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("CopyableValueBox"), true);
+  assert.equal(source.includes("Tap or click the box to copy your private feed URL."), true);
+  assert.equal(source.includes("Feed URL copied."), true);
+});
+
 test("settings page exists and renders settings-only dashboard mode", () => {
   const pagePath = new URL("../src/app/app/settings/page.tsx", import.meta.url);
   assert.equal(existsSync(pagePath), true);
@@ -55,6 +63,9 @@ test("dashboard client includes chrome web store install CTA and extension contr
   assert.equal(source.includes("const showExtensionSection = !readOnly;"), true);
   assert.equal(source.includes("stays valid for 24 hours"), true);
   assert.equal(source.includes("stays authorized for 1 year"), true);
+  assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
+  assert.equal(source.includes("Extension connect code copied."), true);
+  assert.equal(source.includes("Copy code"), false);
 });
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {

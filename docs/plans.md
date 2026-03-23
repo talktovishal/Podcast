@@ -68,6 +68,7 @@
   - admin user analytics and CSV exports now include coarse geo and PII-gated demographic fields.
 - Dashboard feed shortcut + markdown access track (`M84`) is implemented:
   - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
+  - private feed URL and extension connect code boxes now copy directly on tap/click with inline confirmation feedback for desktop and mobile users.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
 - Feedback suggestions track (`M85`) is implemented:

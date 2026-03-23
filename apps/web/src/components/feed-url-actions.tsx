@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { CopyableValueBox } from "@/components/copyable-value-box";
+import { copyText } from "@/lib/copy-text";
 
 type Props = {
   feedUrl: string;
@@ -27,41 +29,12 @@ function openUrl(url: string): void {
   }
 }
 
-async function copyText(text: string): Promise<boolean> {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fall back to textarea copy path.
-    }
-  }
-
-  try {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "true");
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    const copied = document.execCommand("copy");
-    document.body.removeChild(textarea);
-    return copied;
-  } catch {
-    return false;
-  }
-}
-
 export function FeedUrlActions({ feedUrl }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const platform = useMemo(() => detectPlatform(), []);
 
   const copyFeedUrl = useCallback(async (): Promise<boolean> => {
-    const copied = await copyText(feedUrl);
-    setStatusMessage(copied ? "Feed URL copied." : "Could not copy automatically. Please copy manually.");
-    return copied;
+    return copyText(feedUrl);
   }, [feedUrl]);
 
   const openApplePodcasts = useCallback(async () => {
@@ -93,22 +66,13 @@ export function FeedUrlActions({ feedUrl }: Props) {
 
   return (
     <div>
-      <p className="mt-2 text-xs text-[var(--muted)]">Private feed URL</p>
-      <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-start">
-        <code className="block max-w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs">{feedUrl}</code>
-        <button
-          aria-label="Copy private feed URL"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border"
-          onClick={() => {
-            void copyFeedUrl();
-          }}
-          title="Copy private feed URL"
-        >
-          <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-            <rect height="13" rx="2" width="13" x="9" y="9" />
-            <rect height="13" rx="2" width="13" x="2" y="2" />
-          </svg>
-        </button>
+      <div className="mt-2">
+        <CopyableValueBox
+          copiedMessage="Feed URL copied."
+          idleMessage="Tap or click the box to copy your private feed URL."
+          label="Private feed URL"
+          value={feedUrl}
+        />
       </div>
       <div className="mt-2 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         <button

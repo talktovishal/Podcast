@@ -107,6 +107,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - admin users analytics and CSV exports include coarse geo and (PII-gated) demographic fields.
 - Dashboard feed shortcut and markdown access track (`M84`) is implemented:
   - `/app` signed-in header now includes copy-first feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
+  - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
 - Feedback suggestions track (`M85`) is implemented:

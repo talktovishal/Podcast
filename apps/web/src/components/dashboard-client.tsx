@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CopyableValueBox } from "@/components/copyable-value-box";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import {
   DEMOGRAPHIC_AGE_BANDS,
@@ -695,41 +696,43 @@ export function DashboardClient({
     <div className="space-y-4 sm:space-y-6">
       {showFeedSection ? (
         <section className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <p className="text-sm text-[var(--muted)]">Private feed URL</p>
-            <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{feedUrl}</code>
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={() => navigator.clipboard.writeText(feedUrl)}>
-              Copy
-            </button>
-            {!readOnly ? (
-              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
-                Rotate token
-              </button>
-            ) : null}
-            {!readOnly ? (
-              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
-                Create read-only link
-              </button>
-            ) : null}
+          <div className="space-y-3">
+            <CopyableValueBox
+              copiedMessage="Feed URL copied."
+              idleMessage="Tap or click the box to copy your private feed URL."
+              label="Private feed URL"
+              value={feedUrl}
+            />
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              {!readOnly ? (
+                <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
+                  Rotate token
+                </button>
+              ) : null}
+              {!readOnly ? (
+                <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
+                  Create read-only link
+                </button>
+              ) : null}
+            </div>
           </div>
         </section>
       ) : null}
 
       {showSettingsSection ? (
         <section className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <p className="text-sm text-[var(--muted)]">Digest feed URL</p>
-            <code className="block w-full flex-1 overflow-x-auto rounded-md bg-slate-100 p-2 text-xs sm:w-auto">{digestFeedUrl}</code>
-            <button
-              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
-              onClick={() => navigator.clipboard.writeText(digestFeedUrl)}
-              disabled={!digestFeedUrl}
-            >
-              Copy
-            </button>
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
-              Rotate digest token
-            </button>
+          <div className="space-y-3">
+            <CopyableValueBox
+              copiedMessage="Digest feed URL copied."
+              idleMessage="Tap or click the box to copy your private digest feed URL."
+              label="Digest feed URL"
+              value={digestFeedUrl}
+            />
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
+                Rotate digest token
+              </button>
+            </div>
           </div>
         </section>
       ) : null}
@@ -755,19 +758,16 @@ export function DashboardClient({
             <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={revokeExtensionTokens} disabled={isBusy}>
               Revoke extension tokens
             </button>
-            {extensionConnectCode ? (
-              <button
-                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
-                onClick={() => navigator.clipboard.writeText(extensionConnectCode)}
-              >
-                Copy code
-              </button>
-            ) : null}
           </div>
           {extensionConnectCode ? (
-            <div className="mt-3 rounded-lg border bg-slate-50 p-3">
-              <p className="text-xs uppercase tracking-wide text-[var(--muted)]">One-time connect code (24 hours)</p>
-              <code className="mt-1 block overflow-x-auto text-sm">{extensionConnectCode}</code>
+            <div className="mt-3">
+              <CopyableValueBox
+                copiedMessage="Extension connect code copied."
+                idleMessage="Tap or click the box to copy the one-time connect code."
+                label="One-time connect code (24 hours)"
+                value={extensionConnectCode}
+                valueClassName="text-sm"
+              />
               <p className="mt-2 text-xs text-[var(--muted)]">
                 Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
               </p>
