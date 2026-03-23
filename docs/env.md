@@ -78,6 +78,8 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
+  - `FACEBOOK_APP_ID`
+  - `FACEBOOK_APP_SECRET`
   - `APPLE_CLIENT_ID`
   - `APPLE_CLIENT_SECRET`
 - Optional geo header overrides (defaults already support Vercel + Cloudflare):

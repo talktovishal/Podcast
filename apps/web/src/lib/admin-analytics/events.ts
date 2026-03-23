@@ -49,6 +49,9 @@ export async function resolveUserAnalyticsProfile(userId: string): Promise<UserA
   if (providers.size === 1 && providers.has("google")) {
     return { authMethod: "GOOGLE", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
   }
+  if (providers.size === 1 && providers.has("facebook")) {
+    return { authMethod: "FACEBOOK", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
+  }
   if (providers.size === 1 && providers.has("apple")) {
     return { authMethod: "APPLE", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
   }

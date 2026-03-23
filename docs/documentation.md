@@ -230,10 +230,10 @@ Current (`M57`-`M64` implemented):
   - `npm run artifacts:backfill`
 
 ## OAuth setup
-Google + Apple setup guide:
+Google + Facebook + Apple setup guide:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 
-OAuth buttons show unavailable until provider env vars are configured.
+Only configured OAuth buttons are shown on `/login`; unconfigured providers stay hidden until their env vars are set.
 
 ## Known boundaries
 - No OCR for scanned/image-heavy PDFs.

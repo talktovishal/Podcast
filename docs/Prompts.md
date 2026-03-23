@@ -2,16 +2,16 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-22)
+## Spec Status (as of 2026-03-23)
 
-### Implemented (as of 2026-03-22)
+### Implemented (as of 2026-03-23)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
 - Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.
-- OAuth provider gating + callback hardening with provider-subject identity linking is implemented.
+- OAuth provider gating + callback hardening with provider-subject identity linking is implemented, including social-first login UX plus Google/Facebook/Apple provider support.
 - Chrome extension baseline is implemented:
   - one-time connect code -> extension token exchange
   - connect codes now default to 24 hours, and exchanged extension tokens now default to 365 days unless overridden by env.
@@ -177,7 +177,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - no required external hosted services
   - local DB + local storage
   - local TTS provider supported so the demo works without paid APIs (current default: Kokoro via python-tts; `say` can remain optional fallback).
-- Have Auth integration with Google, Apple (env-gated locally; local credential auth remains available).
+- Have Auth integration with Google, Facebook, Apple (env-gated locally; local credential auth remains available).
 - I should have a private account that I can setup in a manner that I point someone to a url and they should be able to run as a read only mode so that it's easily demoable to anyone.
 
 **Remote run experience (Azure-ready)**
@@ -265,7 +265,7 @@ D) Podcast RSS feed
 - Enclosure points to a media URL that supports HEAD + Range
 
 E) Web UI (polished)
-- `/login`: signup/login
+- `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
   - signed-in header with compact RSS feed URL visibility
   - top-of-page Chrome extension install CTA + connect/revoke controls for fast capture onboarding
@@ -293,7 +293,7 @@ F) Admin Module
 - Global filters:
   - time window (`7d`, `30d`, `90d`, custom)
   - source (`URL`, `PDF`, `HTML_SNAPSHOT`, all)
-  - auth (`LOCAL`, `OAUTH_LINKED`, `GOOGLE`, `APPLE`, all)
+  - auth (`LOCAL`, `OAUTH_LINKED`, `GOOGLE`, `FACEBOOK`, `APPLE`, all)
   - role (`USER`, `ADMIN`, all)
 - User analytics table masks PII by default, with admin-only reveal toggle.
 - CSV export endpoints for summary, timeseries, and users datasets.

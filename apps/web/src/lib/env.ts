@@ -122,6 +122,8 @@ export const env = {
   freeTrialSubmissionLimit: parseNonNegativeInt(process.env.FREE_TRIAL_SUBMISSION_LIMIT, 2),
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  facebookAppId: process.env.FACEBOOK_APP_ID,
+  facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
   appleClientId: process.env.APPLE_CLIENT_ID,
   appleClientSecret: process.env.APPLE_CLIENT_SECRET,
   geoHeaderCountry: process.env.GEO_HEADER_COUNTRY,

@@ -1,13 +1,15 @@
-# OAuth Setup Guide (Google + Apple)
+# OAuth Setup Guide (Google + Facebook + Apple)
 
 This guide explains how to enable Google and Apple login for ArticlePod.
 
 Current app callback paths:
 - Google: `<APP_URL>/api/auth/google/callback`
+- Facebook: `<APP_URL>/api/auth/facebook/callback`
 - Apple: `<APP_URL>/api/auth/apple/callback`
 
 With your default local `.env`, `APP_URL` is `http://localhost:3000`, so callbacks are:
 - `http://localhost:3000/api/auth/google/callback`
+- `http://localhost:3000/api/auth/facebook/callback`
 - `http://localhost:3000/api/auth/apple/callback`
 
 ## 1) Environment Variables
@@ -16,6 +18,8 @@ Set these in `/Users/vishalchowdhary/Documents/Podcast/.env`:
 ```bash
 GOOGLE_CLIENT_ID="..."
 GOOGLE_CLIENT_SECRET="..."
+FACEBOOK_APP_ID="..."
+FACEBOOK_APP_SECRET="..."
 APPLE_CLIENT_ID="..."
 APPLE_CLIENT_SECRET="..."
 ```
@@ -50,7 +54,25 @@ Do not commit secrets. `.env` should stay local.
 
 ---
 
-## 3) Apple Sign in Setup
+## 3) Facebook Login Setup
+
+1. Open the Meta app dashboard and create/select an app.
+2. Add the `Facebook Login` product to the app.
+3. In Facebook Login settings, add a Valid OAuth Redirect URI:
+- `http://localhost:3000/api/auth/facebook/callback` (or your actual `APP_URL` callback).
+4. Copy credentials:
+- App ID -> `FACEBOOK_APP_ID`
+- App Secret -> `FACEBOOK_APP_SECRET`
+5. Restart app:
+- `./run.sh`
+6. Verify:
+- Open `http://localhost:3000/api/auth/providers`
+- Confirm `providers.facebook.configured` is `true`
+- Login page should show Facebook button once configured.
+
+---
+
+## 4) Apple Sign in Setup
 
 Important: Apple Sign in for web generally requires HTTPS and a real reachable domain. `localhost` often fails for Apple flows.
 
@@ -141,22 +163,26 @@ Copy printed JWT into `APPLE_CLIENT_SECRET`.
 
 ---
 
-## 4) Quick Verification Checklist
+## 5) Quick Verification Checklist
 
 1. `GET /api/auth/providers` returns `configured: true` for providers you set.
-2. Login page no longer shows `Google unavailable` / `Apple unavailable`.
+2. Login page shows only the providers you configured.
 3. Clicking provider starts redirect flow.
 4. Callback lands on `/app` with session cookie set.
 
 ---
 
-## 5) Common Errors
+## 6) Common Errors
 
 - `oauth_error=google_not_configured`
   - Missing/empty `GOOGLE_CLIENT_ID` or `GOOGLE_CLIENT_SECRET`.
+- `oauth_error=facebook_not_configured`
+  - Missing/empty `FACEBOOK_APP_ID` or `FACEBOOK_APP_SECRET`.
 - `oauth_error=apple_not_configured`
   - Missing/empty `APPLE_CLIENT_ID` or `APPLE_CLIENT_SECRET`.
-- `oauth_error=google_state` or `oauth_error=apple_state`
+- `oauth_error=google_state`, `oauth_error=facebook_state`, or `oauth_error=apple_state`
   - Callback URL mismatch, stale cookies, or restarted app mid-flow.
+- `oauth_error=facebook_access_denied`
+  - User canceled the Facebook consent screen or denied access.
 - Apple callback/token errors on localhost
   - Use HTTPS `APP_URL` (tunnel) and update Apple return URL/domain config.

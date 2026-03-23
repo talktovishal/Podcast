@@ -12,7 +12,7 @@ export type AnalyticsEventType = (typeof analyticsEventTypes)[number];
 export const analyticsSourceTypes = ["URL", "PDF", "HTML_SNAPSHOT"] as const;
 export type AnalyticsSourceType = (typeof analyticsSourceTypes)[number];
 
-export const analyticsAuthMethods = ["LOCAL", "OAUTH_LINKED", "GOOGLE", "APPLE"] as const;
+export const analyticsAuthMethods = ["LOCAL", "OAUTH_LINKED", "GOOGLE", "FACEBOOK", "APPLE"] as const;
 export type AnalyticsAuthMethod = (typeof analyticsAuthMethods)[number];
 
 export const analyticsSegmentAuths = ["LOCAL_ONLY", "OAUTH_LINKED"] as const;

@@ -9,11 +9,14 @@ import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
 import { POST as exchangePost } from "../src/app/api/auth/extension/exchange/route";
 import { POST as extensionRevokePost } from "../src/app/api/auth/extension/revoke/route";
+import { GET as facebookCallbackGet } from "../src/app/api/auth/facebook/callback/route";
+import { GET as facebookStartGet } from "../src/app/api/auth/facebook/start/route";
 import { GET as googleStartGet } from "../src/app/api/auth/google/start/route";
 import { GET as providersGet } from "../src/app/api/auth/providers/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
 import { GET as itemMarkdownGet } from "../src/app/api/items/[id]/markdown/route";
 import { createSession } from "../src/lib/auth";
+import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 
@@ -47,12 +50,14 @@ test("providers endpoint reports configuration flags", async () => {
     ok: boolean;
     providers: {
       google: { configured: boolean };
+      facebook: { configured: boolean };
       apple: { configured: boolean };
     };
   };
 
   assert.equal(payload.ok, true);
   assert.equal(typeof payload.providers.google.configured, "boolean");
+  assert.equal(typeof payload.providers.facebook.configured, "boolean");
   assert.equal(typeof payload.providers.apple.configured, "boolean");
 });
 
@@ -61,6 +66,7 @@ test("oauth start routes redirect based on provider configuration", async () => 
   const providerPayload = (await providerResponse.json()) as {
     providers: {
       google: { configured: boolean };
+      facebook: { configured: boolean };
       apple: { configured: boolean };
     };
   };
@@ -74,6 +80,15 @@ test("oauth start routes redirect based on provider configuration", async () => 
     assert.ok(googleLocation.includes("/login?oauth_error=google_not_configured"));
   }
 
+  const facebookResponse = await facebookStartGet();
+  assert.equal(facebookResponse.status, 307);
+  const facebookLocation = facebookResponse.headers.get("location") || "";
+  if (providerPayload.providers.facebook.configured) {
+    assert.ok(facebookLocation.startsWith("https://www.facebook.com/dialog/oauth?"));
+  } else {
+    assert.ok(facebookLocation.includes("/login?oauth_error=facebook_not_configured"));
+  }
+
   const appleResponse = await appleStartGet();
   assert.equal(appleResponse.status, 307);
   const appleLocation = appleResponse.headers.get("location") || "";
@@ -81,6 +96,135 @@ test("oauth start routes redirect based on provider configuration", async () => 
     assert.ok(appleLocation.startsWith("https://appleid.apple.com/auth/authorize?"));
   } else {
     assert.ok(appleLocation.includes("/login?oauth_error=apple_not_configured"));
+  }
+});
+
+test("facebook callback rejects invalid oauth state", async () => {
+  const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=wrong-state", {
+    method: "GET",
+    headers: {
+      cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+    }
+  });
+
+  const response = await facebookCallbackGet(request);
+  assert.equal(response.status, 307);
+  assert.equal(
+    response.headers.get("location"),
+    `${env.appUrl}/login?oauth_error=facebook_state`
+  );
+});
+
+test("facebook callback maps token exchange failures back to login", async () => {
+  const previousAppId = env.facebookAppId;
+  const previousAppSecret = env.facebookAppSecret;
+  const previousFetch = globalThis.fetch;
+
+  env.facebookAppId = "fb-app-id";
+  env.facebookAppSecret = "fb-app-secret";
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify({ error: { message: "bad token" } }), {
+      status: 500,
+      headers: {
+        "content-type": "application/json"
+      }
+    })) as typeof fetch;
+
+  try {
+    const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=expected-state", {
+      method: "GET",
+      headers: {
+        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+      }
+    });
+
+    const response = await facebookCallbackGet(request);
+    assert.equal(response.status, 307);
+    assert.equal(
+      response.headers.get("location"),
+      `${env.appUrl}/login?oauth_error=facebook_token`
+    );
+  } finally {
+    env.facebookAppId = previousAppId;
+    env.facebookAppSecret = previousAppSecret;
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("facebook callback creates a linked user and session", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const email = `facebook-callback-${uniq}@articlepod.local`;
+  const previousAppId = env.facebookAppId;
+  const previousAppSecret = env.facebookAppSecret;
+  const previousFetch = globalThis.fetch;
+
+  env.facebookAppId = "fb-app-id";
+  env.facebookAppSecret = "fb-app-secret";
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.startsWith("https://graph.facebook.com/oauth/access_token")) {
+      return new Response(JSON.stringify({ access_token: "facebook-access-token" }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      });
+    }
+
+    if (url.startsWith("https://graph.facebook.com/me")) {
+      return new Response(
+        JSON.stringify({
+          id: `fb-${uniq}`,
+          email,
+          name: "Facebook Callback User"
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json"
+          }
+        }
+      );
+    }
+
+    throw new Error(`Unexpected fetch URL: ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=expected-state", {
+      method: "GET",
+      headers: {
+        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+      }
+    });
+
+    const response = await facebookCallbackGet(request);
+    assert.equal(response.status, 307);
+    assert.equal(response.headers.get("location"), `${env.appUrl}/app`);
+    assert.match(response.headers.get("set-cookie") || "", /articlepod_session=/);
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        oauthIdentities: true
+      }
+    });
+
+    assert.ok(user);
+    assert.equal(user?.passwordHash, null);
+    assert.equal(user?.oauthIdentities.length, 1);
+    assert.equal(user?.oauthIdentities[0]?.provider, "facebook");
+  } finally {
+    await prisma.user.deleteMany({
+      where: {
+        email
+      }
+    });
+    env.facebookAppId = previousAppId;
+    env.facebookAppSecret = previousAppSecret;
+    globalThis.fetch = previousFetch;
   }
 });
 

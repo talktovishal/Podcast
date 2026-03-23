@@ -7,6 +7,7 @@ import type { AnalyticsAuthMethod } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { resolveGeoSnapshotFromHeaders } from "./geo";
+import type { OAuthProvider } from "./oauth-providers";
 import {
   createPrimaryExtensionConnectCode,
   createPrimaryExtensionToken,
@@ -42,8 +43,6 @@ const LEGACY_OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.legacyOauthPrefix;
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 24 * 60);
 const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 365);
 const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
-
-export type OAuthProvider = "google" | "apple";
 
 export type AuthUser = {
   id: string;
@@ -452,6 +451,9 @@ export function clearOAuthStateCookie(response: NextResponse, provider: OAuthPro
 export function isOAuthProviderConfigured(provider: OAuthProvider): boolean {
   if (provider === "google") {
     return Boolean(env.googleClientId && env.googleClientSecret);
+  }
+  if (provider === "facebook") {
+    return Boolean(env.facebookAppId && env.facebookAppSecret);
   }
 
   return Boolean(env.appleClientId && env.appleClientSecret);

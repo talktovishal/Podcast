@@ -44,32 +44,41 @@ test("findOrCreateOAuthUser links identities by provider subject and email", asy
   const email = `oauth-${uniq}@articlepod.local`;
 
   const first = await findOrCreateOAuthUser({
-    provider: "google",
-    providerUserId: `g-${uniq}`,
+    provider: "facebook",
+    providerUserId: `fb-${uniq}`,
     email,
-    name: "OAuth One"
+    name: "Facebook First"
   });
 
   const again = await findOrCreateOAuthUser({
-    provider: "google",
-    providerUserId: `g-${uniq}`,
+    provider: "facebook",
+    providerUserId: `fb-${uniq}`,
     email,
-    name: "OAuth Updated"
+    name: "Facebook Updated"
   });
 
   assert.equal(again.user.id, first.user.id);
-  assert.equal(again.user.name, "OAuth Updated");
+  assert.equal(again.user.name, "Facebook Updated");
   assert.equal(first.created, true);
   assert.equal(again.created, false);
 
   const secondProvider = await findOrCreateOAuthUser({
+    provider: "google",
+    providerUserId: `g-${uniq}`,
+    email,
+    name: "OAuth Google"
+  });
+
+  assert.equal(secondProvider.user.id, first.user.id);
+
+  const thirdProvider = await findOrCreateOAuthUser({
     provider: "apple",
     providerUserId: `a-${uniq}`,
     email,
     name: "OAuth Apple"
   });
 
-  assert.equal(secondProvider.user.id, first.user.id);
+  assert.equal(thirdProvider.user.id, first.user.id);
 
   const identities = await prisma.oAuthIdentity.findMany({
     where: {
@@ -77,9 +86,47 @@ test("findOrCreateOAuthUser links identities by provider subject and email", asy
     }
   });
 
-  assert.equal(identities.length, 2);
+  assert.equal(identities.length, 3);
 
   await prisma.user.delete({ where: { id: first.user.id } });
+});
+
+test("findOrCreateOAuthUser links facebook sign-in to an existing local user by email", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const email = `oauth-local-${uniq}@articlepod.local`;
+  const localUser = await prisma.user.create({
+    data: {
+      email,
+      passwordHash: "hash",
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const facebookUser = await findOrCreateOAuthUser({
+      provider: "facebook",
+      providerUserId: `fb-local-${uniq}`,
+      email,
+      name: "Facebook Local Link"
+    });
+
+    assert.equal(facebookUser.user.id, localUser.id);
+    assert.equal(facebookUser.created, false);
+
+    const identities = await prisma.oAuthIdentity.findMany({
+      where: {
+        userId: localUser.id
+      }
+    });
+
+    assert.equal(identities.length, 1);
+    assert.equal(identities[0]?.provider, "facebook");
+  } finally {
+    await prisma.user.delete({ where: { id: localUser.id } });
+  }
 });
 
 test("extension connect + html snapshot submission reaches user feed", async () => {

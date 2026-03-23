@@ -31,6 +31,7 @@
 - `/app` episodes workspace now surfaces Chrome Web Store install CTA and extension connect/revoke controls at the top (mirrored in `/app/settings`).
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/settings` (feed token, extension auth, voice settings), with compact feed URL visibility in the signed-in header.
+- `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -100,7 +101,7 @@
 |---|---|
 | One-command local startup (`pnpm dev`) | M01, M04 |
 | Local-first operation (no paid services) | M04, M12, M13 |
-| Google + Apple auth integration | M06 |
+| Google + Facebook + Apple auth integration | M06, M93 |
 | OAuth hardening completion (env-gated production-ready) | M23 |
 | Shareable read-only demo access | M07, M17 |
 | Async pipeline only (no heavy request work) | M09 |
@@ -266,6 +267,8 @@ Milestone metadata contract:
 | M89 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
 | M90 | Done | 2026-03-21 | 2026-03-21 | local validation + Azure provisioning pass (2026-03-21) |
 | M91 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
+| M92 | Done | 2026-03-22 | 2026-03-22 | local validation + implementation pass (2026-03-22) |
+| M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2623,6 +2626,39 @@ Milestone metadata contract:
   - `pnpm lint`
   - `pnpm build`
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+
+### M93 - Social-First Auth UX + Facebook OAuth
+- status: Done
+- target_finish: 2026-03-23
+- completed_on: 2026-03-23
+- evidence: local validation + social-first auth + Facebook OAuth pass (2026-03-23)
+- Scope:
+  - Redesign `/login` so configured social providers appear first and local email auth becomes a secondary fallback.
+  - Add Facebook OAuth start/callback routes and env-gated provider detection alongside Google and Apple.
+  - Extend auth analytics/admin filters/docs so Facebook-authenticated users are tracked consistently.
+- Key files/modules:
+  - `apps/web/src/app/login/page.tsx`
+  - `apps/web/src/app/api/auth/facebook/*`
+  - `apps/web/src/app/api/auth/providers/route.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/oauth-providers.ts`
+  - `apps/web/src/lib/admin-analytics/*`
+  - `packages/core/src/analytics/types.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/oauth-setup.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - `/login` presents configured social providers in Google, Facebook, Apple order and hides unconfigured providers.
+  - First-time Facebook sign-in creates an account automatically, repeat sign-in reuses the same identity, and same-email local/OAuth accounts link safely.
+  - Admin analytics filters and derived auth profiles include `FACEBOOK`.
+- Verification commands:
+  - `pnpm --filter @articlepod/web lint`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm --filter @articlepod/web build`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
 
 ---
 

@@ -293,6 +293,7 @@ export function AdminAnalyticsDashboard() {
               <option value="LOCAL">Local only</option>
               <option value="OAUTH_LINKED">OAuth linked</option>
               <option value="GOOGLE">Google</option>
+              <option value="FACEBOOK">Facebook</option>
               <option value="APPLE">Apple</option>
             </select>
           </label>

@@ -101,6 +101,9 @@ function authWhereClauseForUsers(auth: AdminAnalyticsFilters["auth"]): Prisma.Us
   if (auth === "GOOGLE") {
     return { oauthIdentities: { some: { provider: "google" } } };
   }
+  if (auth === "FACEBOOK") {
+    return { oauthIdentities: { some: { provider: "facebook" } } };
+  }
   return { oauthIdentities: { some: { provider: "apple" } } };
 }
 

@@ -144,6 +144,9 @@ function resolveAuthProfile(
   if (providers.size === 1 && providers.has("google")) {
     return { authMethod: "GOOGLE", segmentAuth: "OAUTH_LINKED", userRole };
   }
+  if (providers.size === 1 && providers.has("facebook")) {
+    return { authMethod: "FACEBOOK", segmentAuth: "OAUTH_LINKED", userRole };
+  }
   if (providers.size === 1 && providers.has("apple")) {
     return { authMethod: "APPLE", segmentAuth: "OAUTH_LINKED", userRole };
   }

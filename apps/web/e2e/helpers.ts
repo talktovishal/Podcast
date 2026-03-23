@@ -28,20 +28,18 @@ export async function loginViaUI(
   await page.waitForLoadState("networkidle");
 
   if (opts.mode === "signup") {
-    // Click the "Sign up" mode toggle
-    await page.getByRole("button", { name: "Sign up" }).click();
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
     if (opts.name) {
       await page.locator("label", { hasText: "Name" }).locator("input").fill(opts.name);
     }
+  } else {
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
   }
-  // "login" mode is the default — no need to click a toggle
 
   await page.locator("input[type='email']").fill(opts.email);
   await page.locator("input[type='password']").fill(opts.password);
 
-  // The submit button is the full-width one with accent background.
-  // In login mode it says "Login"; in signup mode "Create account".
-  const submitLabel = opts.mode === "signup" ? "Create account" : "Login";
+  const submitLabel = opts.mode === "signup" ? "Create account with email" : "Log in with email";
   await page.locator("button.w-full", { hasText: submitLabel }).click();
 
   // Wait for redirect to /app or /admin
