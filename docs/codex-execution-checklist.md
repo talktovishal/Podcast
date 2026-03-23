@@ -5,6 +5,7 @@ This checklist is mandatory for every change.
 ## Before editing
 - Read this file fully.
 - Read relevant sections in `docs/Prompts.md`.
+- If the task touches RSS, feed tokens, media URLs, extension auth, or any private-link behavior, read `docs/feed-auth-model.md`.
 - Confirm scope and keep the change minimal.
 - Identify impacted milestone(s) in `docs/plans.md`.
 - Decide whether the change affects any persisted schema or durable data contract.
@@ -27,6 +28,7 @@ This checklist is mandatory for every change.
 - Run required validation (`lint`, `test`, `build`) for touched areas.
 - Run podcast compatibility gate when applicable:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+- If the task touched feed/media auth, confirm normal read paths did not mutate externally visible podcast auth (dashboard, settings, refresh, existing-user auth callbacks).
 - For schema/data changes, confirm the PR/change note includes:
   - impacted stores/contracts
   - migration/backfill steps

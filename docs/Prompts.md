@@ -560,7 +560,16 @@ Before marking any milestone complete, run and record the results for:
 - Run:
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 
-4. Demo flow gate
+4. Feed auth stability gate
+- Confirm feed URL is unchanged after:
+  - loading `/app`
+  - loading `/app/settings`
+  - background item refresh
+  - existing-user OAuth callback/sign-in
+- Confirm enclosure URLs remain unchanged across repeated RSS fetches for the same unchanged episode set.
+- Confirm only explicit rotate/revoke flows issue a new externally visible podcast auth token.
+
+5. Demo flow gate
 - Confirm seeded demo user can login and see starter item.
 - Confirm starter item plays in browser and seek works.
 - Confirm tabbed admin dashboard loads and shows investor + reliability + users metrics.

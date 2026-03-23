@@ -4,6 +4,7 @@ Use this as the entry point for repo documentation.
 
 ## Start Here
 - Product + user-facing behavior: `/Users/vishalchowdhary/Documents/Podcast/docs/documentation.md`
+- Feed/private-auth mental model: `/Users/vishalchowdhary/Documents/Podcast/docs/feed-auth-model.md`
 - Requirements and verification prompts: `/Users/vishalchowdhary/Documents/Podcast/docs/Prompts.md`
 - Environment configuration: `/Users/vishalchowdhary/Documents/Podcast/docs/env.md`
 

@@ -52,6 +52,7 @@ Connect flow:
 3. Capture current page; item is enqueued to your account feed.
 
 ## Feed and media
+- Auth explainer: `/Users/vishalchowdhary/Documents/Podcast/docs/feed-auth-model.md`
 - Feed URL: `/rss/<feed_token>.xml`
 - Digest feed URL: `/rss/digest/<digest_feed_token>.xml`
 - Media URL: `/api/media/...`

@@ -9,6 +9,7 @@ Codex reads `AGENTS.md` before doing any work. Keep this file practical and enfo
 
 ## Source of truth & precedence (important)
 - If you need product requirements, API contracts, UX flows, MVP scope, or acceptance criteria, **read docs/Prompts.md**.
+- If you touch RSS/feed/media/extension auth or private-link behavior, **read docs/feed-auth-model.md first**.
 - Do **not** rewrite docs/Prompts.md unless explicitly asked.
 - If docs/Prompts.md conflicts with code/tests, **surface the mismatch** and propose the smallest fix.
 
@@ -133,6 +134,11 @@ No hard-coded vendor logic scattered throughout the code.
   - Don’t log them
   - Don’t leak them into client-visible error messages
   - Provide rotation that invalidates prior URLs (as required by docs/Prompts.md)
+- Preserve podcast-app stability:
+  - From the podcast app perspective, feed URLs and enclosure URLs MUST stay stable during normal usage.
+  - Opening dashboard/settings, background refresh, or existing-user auth callbacks MUST NOT rotate or replace externally visible podcast auth.
+  - Only explicit user-initiated rotate/revoke flows or first-time token creation for a user with no existing token may change externally visible podcast auth.
+  - Internal metadata repairs are allowed only if they preserve the same public URL.
 
 ### Data minimization
 - Store only what’s needed to operate/debug.
