@@ -55,7 +55,8 @@ Connect flow:
 - `/app` is a focused creation workspace:
   - `Add New Episode`
   - `Recent items`
-  - single-row desktop nav for `Episodes`, `Podcasts`, `Extension`, `Studio`, `Feedback`, `Settings`, plus logout
+  - single-row desktop nav for the other signed-in pages, plus a logout icon
+  - `Feedback` stays lightly accented instead of using the darkest accent treatment
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation
   - setup notes and future walkthrough/video space

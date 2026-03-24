@@ -20,28 +20,18 @@ const NAV_ITEMS: ReadonlyArray<{
 const baseItemClass =
   "shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
 const neutralItemClass = `${baseItemClass} text-[var(--ink)] hover:border-slate-300 hover:bg-slate-50`;
-const activeItemClass = `${baseItemClass} border-slate-300 bg-slate-100 text-[var(--ink)]`;
-const feedbackItemClass = `${baseItemClass} border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-95`;
-const feedbackActiveItemClass = `${baseItemClass} border-[var(--accent)] bg-[var(--accent)] text-white ring-2 ring-[var(--accent)]/20`;
+const feedbackItemClass = `${baseItemClass} border-emerald-300 bg-emerald-50 text-emerald-900 hover:border-emerald-400 hover:bg-emerald-100`;
 
 export function AppShellNav({ current }: { current: AppShellNavKey }) {
   return (
     <nav aria-label="Workspace navigation" className="max-w-full">
       <div className="flex items-center justify-end gap-2 overflow-x-auto pb-1 sm:flex-nowrap sm:pb-0">
-        {NAV_ITEMS.map((item) => {
-          const className =
-            item.key === "feedback" && item.key === current
-              ? feedbackActiveItemClass
-              : item.key === current
-                ? activeItemClass
-                : item.key === "feedback"
-                  ? feedbackItemClass
-                  : neutralItemClass;
+        {NAV_ITEMS.filter((item) => item.key !== current).map((item) => {
+          const className = item.key === "feedback" ? feedbackItemClass : neutralItemClass;
 
           return (
             <Link
               key={item.key}
-              aria-current={item.key === current ? "page" : undefined}
               className={className}
               href={item.href}
               title={item.title}

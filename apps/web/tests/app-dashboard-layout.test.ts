@@ -23,6 +23,8 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes('label: "Podcasts"'), true);
   assert.equal(source.includes('label: "Extension"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
+  assert.equal(source.includes("NAV_ITEMS.filter((item) => item.key !== current)"), true);
+  assert.equal(source.includes("bg-emerald-50"), true);
   assert.equal(source.includes('variant="icon"'), true);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });

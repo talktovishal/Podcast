@@ -269,8 +269,8 @@ D) Podcast RSS feed
 E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
-  - compact signed-in header focused on navigation, with highlighted `Feedback`
-  - dedicated top-nav links for `Podcasts`, `Extension`, `Studio`, `Feedback`, and `Settings`, plus a logout icon
+  - compact signed-in header focused on navigation, with a lightly highlighted `Feedback` shortcut
+  - dedicated top-nav links for the other signed-in pages plus a logout icon, omitting the current page link
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)
