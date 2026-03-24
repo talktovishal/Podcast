@@ -49,8 +49,12 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(source.includes('current="settings"'), true);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('href="/app/podcast-apps"'), true);
-  assert.equal(source.includes('href="/app/chrome-extension"'), true);
+  assert.equal(source.includes('settingsSections={["voice", "digest"]}'), true);
+  assert.equal(source.includes('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.includes('href="/app/podcast-apps"'), false);
+  assert.equal(source.includes('href="/app/chrome-extension"'), false);
+  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>"), true);
+  assert.equal(source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
@@ -63,10 +67,14 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(podcastPageSource.includes("Podcast Apps"), true);
   assert.equal(podcastPageSource.includes("Quick start"), true);
   assert.equal(podcastPageSource.includes("Walkthroughs"), true);
+  assert.equal(podcastPageSource.indexOf('viewMode="podcast-apps"') < podcastPageSource.indexOf("Walkthroughs"), true);
+  assert.equal(podcastPageSource.indexOf("Walkthroughs") < podcastPageSource.indexOf("Quick start"), true);
   assert.equal(extensionPageSource.includes('viewMode="chrome-extension"'), true);
   assert.equal(extensionPageSource.includes("Chrome Extension"), true);
   assert.equal(extensionPageSource.includes("Quick start"), true);
   assert.equal(extensionPageSource.includes("Walkthroughs"), true);
+  assert.equal(extensionPageSource.indexOf('viewMode="chrome-extension"') < extensionPageSource.indexOf("Walkthroughs"), true);
+  assert.equal(extensionPageSource.indexOf("Walkthroughs") < extensionPageSource.indexOf("Quick start"), true);
   assert.equal(summaryPageSource.includes("Summaries"), true);
   assert.equal(summaryPageSource.includes('<h1 className="font-bold text-2xl">Summary Studio</h1>'), false);
 });
@@ -94,6 +102,8 @@ test("dashboard client gates markdown controls to admins", () => {
 test("dashboard client supports dedicated podcast and extension setup pages", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension"'), true);
+  assert.equal(source.includes('type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";'), true);
+  assert.equal(source.includes('settingsSections?: ReadonlyArray<SettingsSection>;'), true);
   assert.equal(source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'), true);
   assert.equal(source.includes('const isChromeExtensionView = viewMode === "chrome-extension";'), true);
   assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
@@ -105,6 +115,8 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
   assert.equal(source.includes("Open extension settings"), false);
   assert.equal(source.includes("const showFeedSection = readOnly || isPodcastAppsView;"), true);
   assert.equal(source.includes("const showExtensionSection = !readOnly && isChromeExtensionView;"), true);
+  assert.equal(source.includes('const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");'), true);
+  assert.equal(source.includes('const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");'), true);
   assert.equal(source.includes("stays valid for 24 hours"), true);
   assert.equal(source.includes("stays authorized for 1 year"), true);
   assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);

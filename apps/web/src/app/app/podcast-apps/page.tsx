@@ -47,27 +47,10 @@ export default async function PodcastAppsPage() {
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Podcast Apps</h1>
-              <p className="text-sm text-[var(--muted)]">Copy your private feed, add it in Apple Podcasts or YouTube Music, and keep digest feed tools in one clean place.</p>
+              <p className="text-sm text-[var(--muted)]">Copy your private feed, add it in Apple Podcasts or YouTube Music, and keep the live feed tools front and center.</p>
             </div>
           </div>
         </header>
-
-        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Quick start</h2>
-            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>1. Copy your private feed URL below.</li>
-              <li>2. Open your podcast app and use its Add by URL flow.</li>
-              <li>3. Only rotate the feed token when you are ready to replace the subscription inside the podcast app.</li>
-            </ol>
-          </div>
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Walkthroughs</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              This page is now dedicated to podcast app setup, so we can add Apple Podcasts and YouTube Music walkthrough videos here next without crowding the main workspace.
-            </p>
-          </div>
-        </section>
 
         <DashboardClient
           viewMode="podcast-apps"
@@ -81,6 +64,23 @@ export default async function PodcastAppsPage() {
           ttsAvailability={ttsAvailability}
           initialItems={[]}
         />
+
+        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
+          <div className="card p-4 sm:p-5">
+            <h2 className="text-lg font-semibold">Walkthroughs</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              This page now starts with the live feed controls, so the setup videos and app-specific screenshots can stay below as optional guidance instead of competing with the feed itself.
+            </p>
+          </div>
+          <div className="card p-4 sm:p-5">
+            <h2 className="text-lg font-semibold">Quick start</h2>
+            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+              <li>1. Copy your private feed URL above.</li>
+              <li>2. Open your podcast app and use its Add by URL flow.</li>
+              <li>3. Only rotate the feed token when you are ready to replace the subscription inside the podcast app.</li>
+            </ol>
+          </div>
+        </section>
       </div>
     </main>
   );

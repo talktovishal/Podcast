@@ -58,13 +58,14 @@ Connect flow:
   - single-row desktop nav for the other signed-in pages, plus a logout icon
   - `Feedback` stays lightly accented instead of using the darkest accent treatment
 - `/app/podcast-apps` is the dedicated feed-setup page:
-  - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation
-  - setup notes and future walkthrough/video space
+  - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
+  - setup notes and future walkthrough/video space below the live tools
 - `/app/chrome-extension` is the dedicated capture-setup page:
-  - extension install/connect/revoke controls
-  - setup notes and future walkthrough/video space
+  - extension install/connect/revoke controls at the top
+  - setup notes and future walkthrough/video space below the live tools
 - `/app/settings` is the account/configuration home:
-  - billing, digest scheduling, demographic profile, and voice settings
+  - voice settings first, then digest scheduling, then billing
+  - demographic profile and digest history follow the core settings
 - Self-serve `Delete account` is intentionally hidden from the UI for now, while the protected backend route remains in place.
 
 ## Feed and media

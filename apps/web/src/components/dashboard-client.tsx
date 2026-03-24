@@ -107,6 +107,8 @@ type DigestRun = {
   podcastStatus: string | null;
 };
 
+type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";
+
 const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
   { label: "Sunday", value: 0 },
   { label: "Monday", value: 1 },
@@ -118,6 +120,7 @@ const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
 ];
 
 const LENGTH_OPTIONS: ReadonlyArray<5 | 15 | 30> = [5, 15, 30];
+const DEFAULT_SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = ["voice", "digest", "demographics", "digest-runs"];
 const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp";
 const ACTIVE_REFRESH_INTERVAL_MS = 3000;
 const IDLE_REFRESH_INTERVAL_MS = 20000;
@@ -175,6 +178,7 @@ type Props = {
   ttsAvailability: TtsAvailability;
   readOnly?: boolean;
   viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension";
+  settingsSections?: ReadonlyArray<SettingsSection>;
   initialDemoDiagnostics?: DemoExtractionDiagnostic[];
   initialItems: DashboardItem[];
 };
@@ -220,6 +224,7 @@ export function DashboardClient({
   ttsAvailability,
   readOnly = false,
   viewMode = "workspace",
+  settingsSections = DEFAULT_SETTINGS_SECTIONS,
   initialDemoDiagnostics = [],
   initialItems
 }: Props) {
@@ -257,6 +262,11 @@ export function DashboardClient({
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
   const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
+  const requestedSettingsSections = useMemo(() => new Set(settingsSections), [settingsSections]);
+  const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
+  const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
+  const showDemographicSection = showSettingsSection && requestedSettingsSections.has("demographics");
+  const showDigestRunsSection = showSettingsSection && requestedSettingsSections.has("digest-runs");
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -798,7 +808,63 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {showSettingsSection ? (
+      {showVoiceSettingsSection ? (
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Voice Settings</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Choose your default Kokoro voice for new episodes.</p>
+
+          <div className="mt-3">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium">Voice</span>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={ttsVoice}
+                disabled={isTtsBusy || ttsVoicesForProvider.length === 0}
+                onChange={(event) => {
+                  setTtsVoice(event.target.value);
+                  setPreviewAudioUrl(null);
+                }}
+              >
+                {ttsVoicesForProvider.map((voice) => (
+                  <option key={voice.id} value={voice.id}>
+                    {voice.label}
+                    {voice.gender ? ` (${voice.gender})` : ""}
+                    {voice.locale ? ` - ${voice.locale}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {selectedProviderAvailability && !selectedProviderAvailability.available ? (
+            <p className="mt-2 text-xs text-[var(--danger)]">
+              {selectedProviderAvailability.reason || "Selected provider is unavailable in this environment."}
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs text-[var(--muted)]">Preview uses a fixed sample clip generated at startup and cached on disk.</p>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" disabled={isTtsBusy} onClick={previewVoice}>
+              Preview Voice
+            </button>
+            <button
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+              disabled={isTtsBusy || !ttsVoice}
+              onClick={saveTtsSettings}
+            >
+              Save Default
+            </button>
+          </div>
+
+          {previewAudioUrl ? (
+            <div className="mt-3">
+              <audio controls className="w-full" preload="metadata" src={previewAudioUrl} />
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {showDigestSettingsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Digest Settings</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Configure daily and weekly summary email/podcast generation.</p>
@@ -976,7 +1042,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {showSettingsSection ? (
+      {showDemographicSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Optional Demographic Profile</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
@@ -1076,7 +1142,7 @@ export function DashboardClient({
         </section>
       ) : null}
 
-      {showSettingsSection ? (
+      {showDigestRunsSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-base font-semibold">Recent Digest Runs</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">Daily and weekly summary generation history.</p>
@@ -1100,62 +1166,6 @@ export function DashboardClient({
               </article>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      {showSettingsSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Voice Settings</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Choose your default Kokoro voice for new episodes.</p>
-
-          <div className="mt-3">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Voice</span>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
-                value={ttsVoice}
-                disabled={isTtsBusy || ttsVoicesForProvider.length === 0}
-                onChange={(event) => {
-                  setTtsVoice(event.target.value);
-                  setPreviewAudioUrl(null);
-                }}
-              >
-                {ttsVoicesForProvider.map((voice) => (
-                  <option key={voice.id} value={voice.id}>
-                    {voice.label}
-                    {voice.gender ? ` (${voice.gender})` : ""}
-                    {voice.locale ? ` - ${voice.locale}` : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {selectedProviderAvailability && !selectedProviderAvailability.available ? (
-            <p className="mt-2 text-xs text-[var(--danger)]">
-              {selectedProviderAvailability.reason || "Selected provider is unavailable in this environment."}
-            </p>
-          ) : null}
-          <p className="mt-2 text-xs text-[var(--muted)]">Preview uses a fixed sample clip generated at startup and cached on disk.</p>
-
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" disabled={isTtsBusy} onClick={previewVoice}>
-              Preview Voice
-            </button>
-            <button
-              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-              disabled={isTtsBusy || !ttsVoice}
-              onClick={saveTtsSettings}
-            >
-              Save Default
-            </button>
-          </div>
-
-          {previewAudioUrl ? (
-            <div className="mt-3">
-              <audio controls className="w-full" preload="metadata" src={previewAudioUrl} />
-            </div>
-          ) : null}
         </section>
       ) : null}
 

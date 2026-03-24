@@ -277,13 +277,16 @@ E) Web UI (polished)
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
-  - private feed copy/open shortcuts, rotation, digest feed access, and app-specific setup guidance
+  - private feed copy/open shortcuts, rotation, and digest feed access lead the page
+  - quick start and walkthrough guidance sit below the live feed tools
 - `/app/chrome-extension`:
-  - Chrome extension install + connect/revoke controls plus setup guidance
+  - Chrome extension install + connect/revoke controls lead the page
+  - quick start and walkthrough guidance sit below the live extension tools
 - `/app/settings`:
-  - voice settings (preview + save default)
-  - digest scheduling and demographic profile
-  - billing/account controls
+  - voice settings (preview + save default) first
+  - digest scheduling second
+  - billing controls after voice and digest
+  - demographic profile and recent digest history after billing
   - self-serve delete is hidden from the UI for now
 - Strong empty states, toasts, clear failure messages, modern UI.
 

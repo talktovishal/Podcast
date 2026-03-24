@@ -35,27 +35,10 @@ export default async function ChromeExtensionPage() {
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Chrome Extension</h1>
-              <p className="text-sm text-[var(--muted)]">Install the capture extension, pair it once, and keep setup notes and future walkthrough videos in a page of its own.</p>
+              <p className="text-sm text-[var(--muted)]">Install the capture extension, pair it once, and keep the live extension controls at the top of the page.</p>
             </div>
           </div>
         </header>
-
-        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Quick start</h2>
-            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>1. Install the extension from the Chrome Web Store.</li>
-              <li>2. Generate a one-time connect code here and paste it into the extension.</li>
-              <li>3. Once paired, the extension stays connected for a year unless you revoke it.</li>
-            </ol>
-          </div>
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Walkthroughs</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              We can now add short setup videos and troubleshooting notes here later without competing with episode creation on the main workspace.
-            </p>
-          </div>
-        </section>
 
         <DashboardClient
           viewMode="chrome-extension"
@@ -66,6 +49,23 @@ export default async function ChromeExtensionPage() {
           ttsAvailability={ttsAvailability}
           initialItems={[]}
         />
+
+        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
+          <div className="card p-4 sm:p-5">
+            <h2 className="text-lg font-semibold">Walkthroughs</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              This page now opens with the live extension tools, so setup videos and troubleshooting notes can live below without pushing the core pairing actions out of view.
+            </p>
+          </div>
+          <div className="card p-4 sm:p-5">
+            <h2 className="text-lg font-semibold">Quick start</h2>
+            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+              <li>1. Install the extension from the Chrome Web Store.</li>
+              <li>2. Generate a one-time connect code above and paste it into the extension.</li>
+              <li>3. Once paired, the extension stays connected for a year unless you revoke it.</li>
+            </ol>
+          </div>
+        </section>
       </div>
     </main>
   );

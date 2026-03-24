@@ -45,21 +45,36 @@ export default async function AppSettingsPage() {
             </div>
             <div>
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">Manage billing, digest cadence, demographic profile, and default voice settings.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">Manage your default voice, digest cadence, billing, and the rest of your account preferences.</p>
             </div>
           </div>
         </header>
 
-        <section className="grid gap-4 lg:grid-cols-2">
-          <Link className="card p-4 transition hover:border-slate-300 hover:bg-slate-50 sm:p-5" href="/app/podcast-apps">
-            <h2 className="text-lg font-semibold">Podcast Apps</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Open the dedicated feed setup page for copy actions, app-specific guidance, and future walkthrough videos.</p>
-          </Link>
-          <Link className="card p-4 transition hover:border-slate-300 hover:bg-slate-50 sm:p-5" href="/app/chrome-extension">
-            <h2 className="text-lg font-semibold">Chrome Extension</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Open the extension page for install, pairing, and setup documentation that can evolve independently.</p>
-          </Link>
-        </section>
+        <DashboardClient
+          viewMode="settings"
+          settingsSections={["voice", "digest"]}
+          feedUrl={null}
+          isAdmin={user.role === "ADMIN"}
+          digestFeedUrl={null}
+          initialDigestSettings={{
+            timezone: digestSettings.timezone,
+            dailyEmailEnabled: digestSettings.dailyEmailEnabled,
+            dailyPodcastEnabled: digestSettings.dailyPodcastEnabled,
+            dailyHour: digestSettings.dailyHour,
+            dailyMinute: digestSettings.dailyMinute,
+            dailyLengthMinutes: digestSettings.dailyLengthMinutes as 5 | 15 | 30,
+            weeklyEmailEnabled: digestSettings.weeklyEmailEnabled,
+            weeklyPodcastEnabled: digestSettings.weeklyPodcastEnabled,
+            weeklyDayOfWeek: digestSettings.weeklyDayOfWeek,
+            weeklyHour: digestSettings.weeklyHour,
+            weeklyMinute: digestSettings.weeklyMinute,
+            weeklyLengthMinutes: digestSettings.weeklyLengthMinutes as 5 | 15 | 30
+          }}
+          initialTtsSelection={normalizedSelection}
+          ttsCatalog={ttsCatalog}
+          ttsAvailability={ttsAvailability}
+          initialItems={[]}
+        />
 
         <section className="card p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -105,23 +120,10 @@ export default async function AppSettingsPage() {
 
         <DashboardClient
           viewMode="settings"
+          settingsSections={["demographics", "digest-runs"]}
           feedUrl={null}
           isAdmin={user.role === "ADMIN"}
           digestFeedUrl={null}
-          initialDigestSettings={{
-            timezone: digestSettings.timezone,
-            dailyEmailEnabled: digestSettings.dailyEmailEnabled,
-            dailyPodcastEnabled: digestSettings.dailyPodcastEnabled,
-            dailyHour: digestSettings.dailyHour,
-            dailyMinute: digestSettings.dailyMinute,
-            dailyLengthMinutes: digestSettings.dailyLengthMinutes as 5 | 15 | 30,
-            weeklyEmailEnabled: digestSettings.weeklyEmailEnabled,
-            weeklyPodcastEnabled: digestSettings.weeklyPodcastEnabled,
-            weeklyDayOfWeek: digestSettings.weeklyDayOfWeek,
-            weeklyHour: digestSettings.weeklyHour,
-            weeklyMinute: digestSettings.weeklyMinute,
-            weeklyLengthMinutes: digestSettings.weeklyLengthMinutes as 5 | 15 | 30
-          }}
           initialDigestRuns={digestRuns.map((run) => ({
             id: run.id,
             cadence: run.cadence,
