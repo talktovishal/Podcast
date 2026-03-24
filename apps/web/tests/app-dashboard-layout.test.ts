@@ -121,7 +121,8 @@ test("login redirects admins directly to admin dashboard", () => {
   assert.equal(source.includes("const primaryAuthActionClass ="), true);
   assert.equal(source.includes('className={primaryAuthActionClass} href={provider.startPath}'), true);
   assert.equal(source.includes('className={primaryAuthActionClass} disabled={isLoading} onClick={submit}'), true);
-  assert.equal(source.includes("bg-[#edf8f5]"), true);
+  assert.equal(source.includes("bg-[var(--accent)]"), true);
+  assert.equal(source.includes("text-white"), true);
   assert.equal(source.includes("No social sign-in providers are configured here yet. Use email below."), true);
   assert.equal(source.includes('mode === "login" ? "Log in with email" : "Create account with email"'), true);
   assert.equal(providerSource.indexOf('id: "google"') < providerSource.indexOf('id: "facebook"'), true);

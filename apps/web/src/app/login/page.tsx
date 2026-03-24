@@ -57,7 +57,7 @@ export default function LoginPage() {
     return oauthProviderDefinitions.filter((provider) => oauthProviders[provider.id]?.configured);
   }, [oauthProviders]);
   const primaryAuthActionClass =
-    "w-full rounded-lg border border-[#b9ddd2] bg-[#edf8f5] px-4 py-2 text-center text-sm font-semibold text-[#145c4c] transition hover:border-[#9fcec0] hover:bg-[#e4f3ee] disabled:opacity-60";
+    "w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-center text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60";
 
   useEffect(() => {
     let active = true;
