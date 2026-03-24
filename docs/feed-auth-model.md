@@ -53,15 +53,15 @@ From the podcast app's point of view, both the feed URL and the episode enclosur
 ### Extension connect code
 - Used by: one-time Chrome extension pairing
 - Surface: connect-code exchange flow
-- Expected lifetime: short-lived
+- Expected lifetime: 24 hours, one-time use
 - Rotation trigger: each new connect-code request
 - Podcast app impact: none
 
 ### Extension token
 - Used by: installed Chrome extension after pairing
 - Surface: extension API bearer token
-- Expected lifetime: long-lived
-- Rotation trigger: explicit revoke or expiry
+- Expected lifetime: no automatic expiry
+- Rotation trigger: explicit revoke or disconnect/re-pair
 - Podcast app impact: none
 
 ### Share token
@@ -184,6 +184,6 @@ As of the current implementation:
 - Digest feed URL: stable until explicit user rotation
 - Media/enclosure URLs: stable until feed rotation for unchanged episodes
 - Extension connect code: short-lived and one-time
-- Extension installed token: long-lived
+- Extension installed token: does not expire automatically and stays valid until revoked
 
 If this document and the code ever disagree, treat the disagreement as a release blocker for any feed/media auth work.

@@ -496,7 +496,9 @@ export function DashboardClient({
 
       setExtensionConnectCode(json.connect_code);
       setExtensionCodeExpiresAt(json.expires_at);
-      setStatusMessage("Extension connect code generated. It stays valid for 24 hours, and the extension stays connected for 1 year after pairing.");
+      setStatusMessage(
+        "Extension connect code generated. Use it within 24 hours or generate a new one. Once the extension is connected, it stays connected until you revoke it."
+      );
     } finally {
       setIsBusy(false);
     }
@@ -773,7 +775,7 @@ export function DashboardClient({
         <section className="card scroll-mt-24 p-4 sm:p-5" id={isChromeExtensionView ? "chrome-extension" : undefined}>
           <h2 className="text-lg font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code that stays valid for 24 hours. After you connect once, the extension stays authorized for 1 year unless you revoke it.
+            Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code that is valid for 24 hours. If you do not use it in time, generate a new one. Once you connect the extension, it stays authorized until you revoke it.
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <a
@@ -796,12 +798,15 @@ export function DashboardClient({
               <CopyableValueBox
                 copiedMessage="Extension connect code copied."
                 idleMessage="Tap or click the box to copy the one-time connect code."
-                label="One-time connect code (24 hours)"
+                label="One-time connect code (valid for 24 hours)"
                 value={extensionConnectCode}
                 valueClassName="text-sm"
               />
               <p className="mt-2 text-xs text-[var(--muted)]">
                 Expires: {extensionCodeExpiresAt ? new Date(extensionCodeExpiresAt).toLocaleString() : "soon"}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                After this 24-hour window, the code stops working and you must generate a new one. Once the extension connects, that installed token does not expire automatically.
               </p>
             </div>
           ) : null}

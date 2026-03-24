@@ -87,7 +87,7 @@
   - item and digest RSS now emit stable episode-scoped enclosure URLs until feed-token rotation instead of per-request signature churn.
   - RSS `HEAD` mirrors `GET` content headers, and RSS channel output now includes deterministic `pubDate` and `lastBuildDate`.
   - dashboard audio controls preload metadata for visible duration.
-  - extension connect codes default to 24 hours and extension tokens default to 365 days.
+  - extension connect codes default to 24 hours, and installed extension tokens now stay valid until revoked.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
@@ -2598,7 +2598,7 @@ Milestone metadata contract:
   - Replace per-request RSS enclosure signing with stable episode-scoped media tokens that stay valid until feed-token rotation.
   - Make RSS `HEAD` mirror feed headers and add deterministic channel `pubDate` + `lastBuildDate`.
   - Preload dashboard audio metadata so durations render before playback starts.
-  - Extend extension auth defaults to 24-hour connect codes and 365-day extension tokens, and sync docs/env examples.
+  - Extend extension auth defaults to 24-hour connect codes and long-lived installed tokens, and sync docs/env examples.
 - Key files/modules:
   - `packages/core/src/security/signedUrl.ts`
   - `packages/core/src/rss/buildFeed.ts`
@@ -2623,7 +2623,7 @@ Milestone metadata contract:
   - RSS `HEAD` returns the same feed headers as `GET`.
   - Legacy feed URLs keep working when an active feed-token row still has the correct plaintext token but its persisted hash drifted during storage cutover; the feed request repairs the hash and serves the same URL.
   - Dashboard audio players show duration without requiring the user to press play first.
-  - Extension connect codes default to 24 hours and extension tokens default to 365 days unless env overrides are supplied.
+  - Extension connect codes default to 24 hours, and installed extension tokens remain valid until explicitly revoked.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
   - `pnpm --filter @articlepod/web test`

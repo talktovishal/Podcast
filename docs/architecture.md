@@ -168,7 +168,7 @@ Critical artifacts in object storage:
 ## Extension ingestion path
 1. User is authenticated on web app.
 2. Web mints one-time extension connect code (24-hour default).
-3. Extension exchanges code for scoped token (365-day default).
+3. Extension exchanges code for a scoped token that does not expire automatically.
 4. Extension captures active-tab HTML (`document.documentElement.outerHTML`).
 5. Extension calls `POST /api/items/html-snapshot`.
 6. Item enters normal worker pipeline and appears in user feed.

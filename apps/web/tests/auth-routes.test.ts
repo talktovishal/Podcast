@@ -481,6 +481,57 @@ test("extension exchange validates payload and rejects unknown code", async () =
   assert.equal(unknownPayload.error_code, "UNAUTHORIZED");
 });
 
+test("extension exchange rejects expired connect codes and tells the user to generate a new one", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: `expired-connect-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const connectCode = createSecretToken();
+    await prisma.extensionConnectCode.create({
+      data: {
+        userId: user.id,
+        codeHash: connectCode.hash,
+        label: "expired-connect-code",
+        expiresAt: new Date(Date.now() - 60_000)
+      }
+    });
+
+    const request = new NextRequest("http://localhost/api/auth/extension/exchange", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        connectCode: connectCode.plain,
+        label: "extension-popup"
+      })
+    });
+
+    const response = await exchangePost(request);
+    assert.equal(response.status, 401);
+
+    const payload = (await response.json()) as {
+      ok: boolean;
+      error_code: string;
+      error_message: string;
+    };
+
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "UNAUTHORIZED");
+    assert.equal(payload.error_message.includes("Generate a new one from the web app."), true);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("html snapshot route requires auth", async () => {
   const request = new NextRequest("http://localhost/api/items/html-snapshot", {
     method: "POST",

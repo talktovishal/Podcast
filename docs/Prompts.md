@@ -14,7 +14,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - OAuth provider gating + callback hardening with provider-subject identity linking is implemented, including social-first login UX plus Google/Facebook/Apple provider support.
 - Chrome extension baseline is implemented:
   - one-time connect code -> extension token exchange
-  - connect codes now default to 24 hours, and exchanged extension tokens now default to 365 days unless overridden by env.
+  - connect codes now default to 24 hours, and exchanged extension tokens do not expire automatically after pairing.
   - raw HTML snapshot ingest endpoint
   - worker extraction path for `HTML_SNAPSHOT`
   - standalone MV3 extension package under `apps/extension`.

@@ -42,7 +42,6 @@ const LEGACY_SESSION_COOKIE = AUTH_COOKIE_NAMES.legacySession;
 const OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.oauthPrefix;
 const LEGACY_OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.legacyOauthPrefix;
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 24 * 60);
-const EXTENSION_TOKEN_TTL_DAYS = Number(process.env.EXTENSION_TOKEN_TTL_DAYS ?? 365);
 const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
 
 export type FeedTokenAccess = Pick<PrimaryFeedTokenRecord, "tokenHash" | "tokenValue">;
@@ -80,10 +79,8 @@ function extensionConnectCodeExpiryDate(): Date {
   return new Date(Date.now() + EXTENSION_CONNECT_CODE_TTL_MINUTES * 60_000);
 }
 
-function extensionTokenExpiryDate(): Date {
-  const expires = new Date();
-  expires.setDate(expires.getDate() + EXTENSION_TOKEN_TTL_DAYS);
-  return expires;
+function extensionTokenExpiryDate(): null {
+  return null;
 }
 
 function oauthStateCookieName(prefix: string, provider: OAuthProvider): string {
@@ -565,10 +562,6 @@ export async function getAuthUserFromExtensionTokenRequest(request: NextRequest)
     return null;
   }
 
-  if (extensionToken.expiresAt && extensionToken.expiresAt.getTime() < Date.now()) {
-    return null;
-  }
-
   void touchPrimaryExtensionTokenLastUsed(tokenHash, new Date())
     .catch(() => {
       // Best-effort usage tracking.
@@ -597,7 +590,7 @@ export async function createExtensionConnectCodeForUser(
 export async function exchangeExtensionConnectCode(input: {
   connectCode: string;
   label?: string;
-}): Promise<{ token: string; expiresAt: Date; user: AuthUser }> {
+}): Promise<{ token: string; expiresAt: Date | null; user: AuthUser }> {
   const codeHash = hashIncomingToken(input.connectCode);
   const now = new Date();
   const connectCode = await findPrimaryExtensionConnectCodeWithUserByHash(codeHash);

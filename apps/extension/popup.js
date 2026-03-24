@@ -41,14 +41,6 @@ function normalizeServerUrl(input) {
   return input.trim().replace(/\/$/, "");
 }
 
-function parseExpiryMs(value) {
-  if (!value) {
-    return null;
-  }
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? ms : null;
-}
-
 function uniqueStrings(values) {
   return [...new Set(values.filter(Boolean))];
 }
@@ -136,7 +128,7 @@ async function clearBadge() {
 }
 
 function isStateConnected(state) {
-  return Boolean(state.extensionToken) && !state.tokenExpired;
+  return Boolean(state.extensionToken);
 }
 
 function syncInteractivity() {
@@ -174,10 +166,8 @@ function renderState(state) {
   els.connectSection.hidden = connected;
 
   if (connected) {
-    const expiresAtMs = parseExpiryMs(state.tokenExpiresAt);
-    const expiresAt = expiresAtMs ? new Date(expiresAtMs).toLocaleString() : "unknown";
     const connectionTarget = state.activeServerUrl || "configured server";
-    els.tokenState.textContent = `Connected to ${connectionTarget}. Token expires: ${expiresAt}`;
+    els.tokenState.textContent = `Connected to ${connectionTarget}. This token does not expire automatically.`;
   } else {
     els.tokenState.textContent = "Not connected yet. Paste a one-time code to connect.";
   }
@@ -205,8 +195,6 @@ async function getStoredState() {
   const activeServerUrl = normalizeServerUrl(result[STORAGE_KEYS.activeServerUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "");
   const extensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
   const tokenExpiresAt = result[STORAGE_KEYS.tokenExpiresAt] || result[LEGACY_STORAGE_KEYS.tokenExpiresAt] || "";
-  const expiresAtMs = parseExpiryMs(tokenExpiresAt);
-  const tokenExpired = Boolean(extensionToken && expiresAtMs && expiresAtMs <= Date.now());
   const usedLegacyKeys =
     (!result[STORAGE_KEYS.activeServerUrl] && Boolean(result[LEGACY_STORAGE_KEYS.serverUrl])) ||
     (!result[STORAGE_KEYS.extensionToken] && Boolean(result[LEGACY_STORAGE_KEYS.extensionToken])) ||
@@ -215,8 +203,6 @@ async function getStoredState() {
   return {
     activeServerUrl,
     extensionToken,
-    tokenExpiresAt,
-    tokenExpired,
     usedLegacyKeys
   };
 }
@@ -231,20 +217,16 @@ async function loadState() {
   if (state.usedLegacyKeys) {
     await chrome.storage.local.set({
       [STORAGE_KEYS.activeServerUrl]: state.activeServerUrl,
-      [STORAGE_KEYS.extensionToken]: state.extensionToken,
-      [STORAGE_KEYS.tokenExpiresAt]: state.tokenExpiresAt
+      [STORAGE_KEYS.extensionToken]: state.extensionToken
     });
   }
 
-  if (state.tokenExpired) {
-    await chrome.storage.local.remove([STORAGE_KEYS.extensionToken, STORAGE_KEYS.tokenExpiresAt, LEGACY_STORAGE_KEYS.extensionToken, LEGACY_STORAGE_KEYS.tokenExpiresAt]);
-    setStatus("Connection expired. Paste a new connect code.", "error");
-    state.extensionToken = "";
-    state.tokenExpiresAt = "";
-    state.tokenExpired = false;
-  }
-
-  await chrome.storage.local.remove([LEGACY_STORAGE_KEYS.serverUrl, LEGACY_STORAGE_KEYS.extensionToken, LEGACY_STORAGE_KEYS.tokenExpiresAt]);
+  await chrome.storage.local.remove([
+    STORAGE_KEYS.tokenExpiresAt,
+    LEGACY_STORAGE_KEYS.serverUrl,
+    LEGACY_STORAGE_KEYS.extensionToken,
+    LEGACY_STORAGE_KEYS.tokenExpiresAt
+  ]);
 
   renderState(state);
   setCaptureButtonLabel("idle");
@@ -293,11 +275,10 @@ async function connectExtension() {
         if (response.ok) {
           await setStoredState({
             [STORAGE_KEYS.activeServerUrl]: serverUrl,
-            [STORAGE_KEYS.extensionToken]: payload.extension_token,
-            [STORAGE_KEYS.tokenExpiresAt]: payload.expires_at
+            [STORAGE_KEYS.extensionToken]: payload.extension_token
           });
           els.connectCode.value = "";
-          setStatus("Extension connected successfully.", "success");
+          setStatus("Extension connected successfully. It will stay connected until you revoke or disconnect it.", "success");
           await loadState();
           return;
         }
@@ -335,7 +316,7 @@ async function captureCurrentPage() {
     return;
   }
 
-  if (!extensionToken || state.tokenExpired) {
+  if (!extensionToken) {
     setStatus("Connect the extension first.", "error");
     return;
   }

@@ -117,11 +117,22 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
   assert.equal(source.includes("const showExtensionSection = !readOnly && isChromeExtensionView;"), true);
   assert.equal(source.includes('const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");'), true);
   assert.equal(source.includes('const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");'), true);
-  assert.equal(source.includes("stays valid for 24 hours"), true);
-  assert.equal(source.includes("stays authorized for 1 year"), true);
+  assert.equal(source.includes("is valid for 24 hours"), true);
+  assert.equal(source.includes("If you do not use it in time, generate a new one."), true);
+  assert.equal(source.includes("Once you connect the extension, it stays authorized until you revoke it."), true);
+  assert.equal(source.includes("the code stops working and you must generate a new one"), true);
+  assert.equal(source.includes("does not expire automatically"), true);
   assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
   assert.equal(source.includes("Extension connect code copied."), true);
   assert.equal(source.includes("Copy code"), false);
+});
+
+test("extension popup treats installed tokens as non-expiring until revoked", () => {
+  const source = readFileSync(new URL("../../extension/popup.js", import.meta.url), "utf8");
+  assert.equal(source.includes("This token does not expire automatically."), true);
+  assert.equal(source.includes("Extension connected successfully. It will stay connected until you revoke or disconnect it."), true);
+  assert.equal(source.includes("Token expires:"), false);
+  assert.equal(source.includes("tokenExpired"), false);
 });
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {

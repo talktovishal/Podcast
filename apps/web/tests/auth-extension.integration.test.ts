@@ -176,16 +176,10 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     assert.equal(exchangeResponse.status, 200);
     const exchangePayload = (await exchangeResponse.json()) as {
       extension_token: string;
-      expires_at: string;
+      expires_at: string | null;
     };
     assert.ok(exchangePayload.extension_token.length > 20);
-    const extensionExpiresAt = Date.parse(exchangePayload.expires_at);
-    const now = Date.now();
-    const threeHundredSixtyDaysMs = 360 * 24 * 60 * 60 * 1000;
-    const threeHundredSeventyDaysMs = 370 * 24 * 60 * 60 * 1000;
-    assert.equal(Number.isFinite(extensionExpiresAt), true);
-    assert.equal(extensionExpiresAt >= now + threeHundredSixtyDaysMs, true);
-    assert.equal(extensionExpiresAt <= now + threeHundredSeventyDaysMs, true);
+    assert.equal(exchangePayload.expires_at, null);
 
     const replayExchangeRequest = new NextRequest("http://localhost/api/auth/extension/exchange", {
       method: "POST",

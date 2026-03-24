@@ -730,7 +730,7 @@ export async function createPrimaryExtensionToken(input: {
   tokenValue?: string | null;
   label?: string | null;
   scope?: string;
-  expiresAt?: Date;
+  expiresAt?: Date | null;
 }) {
   if (!webUsesAzureTablePrimary()) {
     return prisma.extensionToken.create({

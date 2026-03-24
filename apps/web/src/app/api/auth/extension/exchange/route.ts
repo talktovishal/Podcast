@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       extension_token: result.token,
-      expires_at: result.expiresAt.toISOString(),
+      expires_at: result.expiresAt ? result.expiresAt.toISOString() : null,
       user: {
         id: result.user.id,
         email: result.user.email,

@@ -61,8 +61,8 @@ export default async function ChromeExtensionPage() {
             <h2 className="text-lg font-semibold">Quick start</h2>
             <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
               <li>1. Install the extension from the Chrome Web Store.</li>
-              <li>2. Generate a one-time connect code above and paste it into the extension.</li>
-              <li>3. Once paired, the extension stays connected for a year unless you revoke it.</li>
+              <li>2. Generate a one-time connect code above and paste it into the extension within 24 hours.</li>
+              <li>3. If that code expires before you use it, generate a new one. Once paired, the extension stays connected until you revoke it.</li>
             </ol>
           </div>
         </section>
