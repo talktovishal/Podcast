@@ -28,7 +28,7 @@
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
 - Extension packaged runtime config default now points to `https://articlepod.com` (local debugging can still override `apps/extension/runtime-config.js`).
-- `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter single-row desktop nav that omits the current page shortcut.
+- `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter desktop nav that omits the current page shortcut and wraps cleanly on smaller screens.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
 - `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.

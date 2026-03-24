@@ -24,8 +24,8 @@ const feedbackItemClass = `${baseItemClass} border-emerald-300 bg-emerald-50 tex
 
 export function AppShellNav({ current }: { current: AppShellNavKey }) {
   return (
-    <nav aria-label="Workspace navigation" className="max-w-full">
-      <div className="flex items-center justify-end gap-2 overflow-x-auto pb-1 sm:flex-nowrap sm:pb-0">
+    <nav aria-label="Workspace navigation" className="w-full max-w-full">
+      <div className="flex flex-wrap items-center justify-start gap-2 md:flex-nowrap md:justify-end md:overflow-x-auto md:pb-1 lg:overflow-visible lg:pb-0">
         {NAV_ITEMS.filter((item) => item.key !== current).map((item) => {
           const className = item.key === "feedback" ? feedbackItemClass : neutralItemClass;
 

@@ -56,6 +56,7 @@ Connect flow:
   - `Add New Episode`
   - `Recent items`
   - single-row desktop nav for the other signed-in pages, plus a logout icon
+  - mobile/smaller screens wrap the nav instead of hiding destinations offscreen
   - `Feedback` stays lightly accented instead of using the darkest accent treatment
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
