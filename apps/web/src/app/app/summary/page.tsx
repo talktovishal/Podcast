@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppShellNav } from "@/components/app-shell-nav";
 import { SummaryStudioClient } from "@/components/summary-studio-client";
 import { getAuthUserFromCookies } from "@/lib/auth";
 import { listSelectableSummaryItems, listSummaryRunsForUser } from "@/lib/summaries";
@@ -20,18 +20,16 @@ export default async function SummaryStudioPage() {
   return (
     <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div>
-            <p className="text-sm text-[var(--muted)]">Manual editorial workspace</p>
-            <h1 className="font-bold text-2xl">Summary Studio</h1>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link className="rounded-lg border px-3 py-2 text-sm" href="/app">
-              Back to library
-            </Link>
-            <Link className="rounded-lg border px-3 py-2 text-sm" href="/app/settings">
-              Digest settings
-            </Link>
+        <header className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <p className="text-sm text-[var(--muted)]">Manual editorial workspace</p>
+              <AppShellNav current="summary" />
+            </div>
+            <div>
+              <h1 className="font-bold text-2xl">Summary Studio</h1>
+              <p className="mt-1 text-sm text-[var(--muted)]">Build curated summary episodes from ready items and publish them into the digest feed.</p>
+            </div>
           </div>
         </header>
 

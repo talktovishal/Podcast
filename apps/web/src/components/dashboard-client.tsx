@@ -174,7 +174,7 @@ type Props = {
   ttsCatalog: TtsCatalog;
   ttsAvailability: TtsAvailability;
   readOnly?: boolean;
-  viewMode?: "workspace" | "settings";
+  viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension";
   initialDemoDiagnostics?: DemoExtractionDiagnostic[];
   initialItems: DashboardItem[];
 };
@@ -246,12 +246,15 @@ export function DashboardClient({
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const isSettingsView = viewMode === "settings";
-  const showFeedSection = readOnly || isSettingsView;
+  const isPodcastAppsView = viewMode === "podcast-apps";
+  const isChromeExtensionView = viewMode === "chrome-extension";
+  const showFeedSection = readOnly || isPodcastAppsView;
   const showSettingsSection = !readOnly && isSettingsView;
-  const showSubmissionSection = !readOnly && !isSettingsView;
-  const showExtensionSection = showSettingsSection;
-  const showItemsSection = !isSettingsView;
-  const showDiagnosticsSection = !readOnly && isDemoAccount && !isSettingsView;
+  const showPodcastAppsSection = !readOnly && isPodcastAppsView;
+  const showSubmissionSection = !readOnly && viewMode === "workspace";
+  const showExtensionSection = !readOnly && isChromeExtensionView;
+  const showItemsSection = viewMode === "workspace";
+  const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
   const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
 
@@ -700,7 +703,7 @@ export function DashboardClient({
   return (
     <div className="space-y-4 sm:space-y-6">
       {showFeedSection ? (
-        <section className="card scroll-mt-24 p-4 sm:p-5" id={isSettingsView ? "podcast-apps" : undefined}>
+        <section className="card scroll-mt-24 p-4 sm:p-5" id={isPodcastAppsView ? "podcast-apps" : undefined}>
           <h2 className="text-lg font-semibold">Podcast Apps</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Copy your private feed URL, open your podcast app&apos;s Add by URL flow, and manage feed rotation only when you are ready to
@@ -721,7 +724,7 @@ export function DashboardClient({
               ) : null}
             </div>
 
-            {showSettingsSection ? (
+            {showPodcastAppsSection ? (
               <div className="rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-50/50 p-4">
                 <h3 className="text-sm font-semibold">Digest podcast feed</h3>
                 <p className="mt-1 text-sm text-[var(--muted)]">
@@ -757,7 +760,7 @@ export function DashboardClient({
       ) : null}
 
       {showExtensionSection ? (
-        <section className="card scroll-mt-24 p-4 sm:p-5" id="chrome-extension">
+        <section className="card scroll-mt-24 p-4 sm:p-5" id={isChromeExtensionView ? "chrome-extension" : undefined}>
           <h2 className="text-lg font-semibold">Chrome Extension</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Install ArticlePod Capture from Chrome Web Store, then generate a one-time connect code that stays valid for 24 hours. After you connect once, the extension stays authorized for 1 year unless you revoke it.

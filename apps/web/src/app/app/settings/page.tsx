@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
-import { AccountOverflowMenu } from "@/components/account-overflow-menu";
 import { BillingActionButton } from "@/components/billing-action-button";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
+import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
-import { ensureUserDigestFeedTokenAccess, ensureUserDigestSettings, ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
+import Link from "next/link";
+import { ensureUserDigestSettings, getAuthUserFromCookies } from "@/lib/auth";
 import { billingPlanLabel, billingStatusLabel, getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
 import { getRecentDigestRuns, getUserDemographicSurvey, getUserTtsSettings } from "@/lib/dashboard";
-import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
 export const metadata: Metadata = {
@@ -21,9 +20,7 @@ export default async function AppSettingsPage() {
     redirect("/login");
   }
 
-  const [feedAccess, digestFeedAccess, digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
-    ensureUserFeedTokenAccess(user.id),
-    ensureUserDigestFeedTokenAccess(user.id),
+  const [digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
     ensureUserDigestSettings(user.id),
     getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
@@ -36,41 +33,33 @@ export default async function AppSettingsPage() {
     voice: ttsSettings.voice
   });
   const ttsCatalog = getTtsCatalog();
-  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
-  const digestFeedUrl = digestFeedAccess.tokenValue ? `${env.appUrl}/rss/digest/${digestFeedAccess.tokenValue}.xml` : null;
-  const feedUrlMessage =
-    "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
-  const digestFeedUrlMessage =
-    "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace the URL in your podcast app.";
-  const neutralActionClass = "rounded-lg border px-3 py-2 text-center text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50";
-  const emphasizedActionClass = "rounded-lg bg-[var(--accent)] px-3 py-2 text-center text-sm font-semibold text-white transition hover:opacity-95";
-  const accountLinks = user.role === "ADMIN" ? [{ href: "/admin", label: "Admin" }] : [];
 
   return (
     <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-          <div>
-            <p className="text-sm text-[var(--muted)]">Account settings</p>
-            <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">Manage feed access, digest settings, extension auth, and default voice.</p>
-          </div>
-
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
-            <Link className={neutralActionClass} href="/app">
-              Back to episodes
-            </Link>
-            <Link className={neutralActionClass} href="/app/summary">
-              Summary Studio
-            </Link>
-            <Link className={emphasizedActionClass} href="/app/feedback">
-              Feedback
-            </Link>
-            <div className="col-span-2 sm:col-span-1 sm:justify-self-end">
-              <AccountOverflowMenu links={accountLinks} />
+        <header className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <p className="text-sm text-[var(--muted)]">Account settings</p>
+              <AppShellNav current="settings" />
+            </div>
+            <div>
+              <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+              <p className="mt-1 text-sm text-[var(--muted)]">Manage billing, digest cadence, demographic profile, and default voice settings.</p>
             </div>
           </div>
         </header>
+
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Link className="card p-4 transition hover:border-slate-300 hover:bg-slate-50 sm:p-5" href="/app/podcast-apps">
+            <h2 className="text-lg font-semibold">Podcast Apps</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Open the dedicated feed setup page for copy actions, app-specific guidance, and future walkthrough videos.</p>
+          </Link>
+          <Link className="card p-4 transition hover:border-slate-300 hover:bg-slate-50 sm:p-5" href="/app/chrome-extension">
+            <h2 className="text-lg font-semibold">Chrome Extension</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Open the extension page for install, pairing, and setup documentation that can evolve independently.</p>
+          </Link>
+        </section>
 
         <section className="card p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -116,11 +105,9 @@ export default async function AppSettingsPage() {
 
         <DashboardClient
           viewMode="settings"
-          feedUrl={feedUrl}
-          feedUrlMessage={feedUrl ? null : feedUrlMessage}
+          feedUrl={null}
           isAdmin={user.role === "ADMIN"}
-          digestFeedUrl={digestFeedUrl}
-          digestFeedUrlMessage={digestFeedUrl ? null : digestFeedUrlMessage}
+          digestFeedUrl={null}
           initialDigestSettings={{
             timezone: digestSettings.timezone,
             dailyEmailEnabled: digestSettings.dailyEmailEnabled,
@@ -155,6 +142,18 @@ export default async function AppSettingsPage() {
           ttsAvailability={ttsAvailability}
           initialItems={[]}
         />
+
+        {user.role === "ADMIN" ? (
+          <section className="card p-4 sm:p-5">
+            <h2 className="text-lg font-semibold">Admin</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">Open the admin dashboard for analytics, feedback triage, and operational tools.</p>
+            <div className="mt-3">
+              <Link className="inline-flex rounded-lg border px-3 py-2 text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50" href="/admin">
+                Open admin dashboard
+              </Link>
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );

@@ -106,8 +106,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - settings UI includes optional demographic profile controls.
   - admin users analytics and CSV exports include coarse geo and (PII-gated) demographic fields.
 - Dashboard feed shortcut and markdown access track (`M84`) is implemented:
-  - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with direct shortcuts into Settings for `Podcast Apps` and `Chrome Extension`.
-  - `/app/settings` is the canonical home for private feed actions, podcast-app onboarding shortcuts, and extension setup.
+  - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with a tighter one-line action nav on desktop.
+  - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
+  - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
@@ -269,15 +270,19 @@ E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with highlighted `Feedback`
-  - direct shortcuts to `/app/settings#podcast-apps` and `/app/settings#chrome-extension`
+  - dedicated top-nav links for `Podcasts`, `Extension`, `Studio`, `Feedback`, and `Settings`, plus a logout icon
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
+- `/app/podcast-apps`:
+  - private feed copy/open shortcuts, rotation, digest feed access, and app-specific setup guidance
+- `/app/chrome-extension`:
+  - Chrome extension install + connect/revoke controls plus setup guidance
 - `/app/settings`:
-  - full podcast app controls (private feed copy/open shortcuts, rotate token, create read-only share link, digest feed access)
-  - Chrome extension install + connect/revoke controls
   - voice settings (preview + save default)
+  - digest scheduling and demographic profile
+  - billing/account controls
   - self-serve delete is hidden from the UI for now
 - Strong empty states, toasts, clear failure messages, modern UI.
 
