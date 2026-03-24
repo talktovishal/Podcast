@@ -68,7 +68,7 @@ test("LinkedIn article — extractHtmlSnapshot extracts without network fetch", 
   const html = await loadFixture("linkedin-article.html");
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
-  globalThis.fetch = (async () => { fetchCalled = true; throw new Error("no network"); }) as typeof fetch;
+  globalThis.fetch = (async () => { fetchCalled = true; return Promise.reject(new Error("no network")); }) as unknown as typeof fetch;
 
   try {
     const result = extractHtmlSnapshot({
