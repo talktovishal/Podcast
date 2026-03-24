@@ -20,9 +20,12 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes('href: "/app/podcast-apps"'), true);
   assert.equal(source.includes('href: "/app/chrome-extension"'), true);
   assert.equal(source.includes('href: "/app/settings"'), true);
-  assert.equal(source.includes('label: "Podcasts"'), true);
-  assert.equal(source.includes('label: "Extension"'), true);
+  assert.equal(source.includes('label: "Episodes"'), true);
+  assert.equal(source.includes('label: "Podcast Apps"'), true);
+  assert.equal(source.includes('label: "Chrome Extension"'), true);
+  assert.equal(source.includes('label: "Summaries"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
+  assert.equal(source.includes('title: "Summaries"'), true);
   assert.equal(source.includes("NAV_ITEMS.filter((item) => item.key !== current)"), true);
   assert.equal(source.includes("bg-emerald-50"), true);
   assert.equal(source.includes('variant="icon"'), true);
@@ -54,13 +57,18 @@ test("settings page exists and renders settings-only dashboard mode", () => {
 test("podcast apps and chrome extension pages exist as dedicated setup pages", () => {
   const podcastPageSource = readFileSync(new URL("../src/app/app/podcast-apps/page.tsx", import.meta.url), "utf8");
   const extensionPageSource = readFileSync(new URL("../src/app/app/chrome-extension/page.tsx", import.meta.url), "utf8");
+  const summaryPageSource = readFileSync(new URL("../src/app/app/summary/page.tsx", import.meta.url), "utf8");
 
   assert.equal(podcastPageSource.includes('viewMode="podcast-apps"'), true);
+  assert.equal(podcastPageSource.includes("Podcast Apps"), true);
   assert.equal(podcastPageSource.includes("Quick start"), true);
   assert.equal(podcastPageSource.includes("Walkthroughs"), true);
   assert.equal(extensionPageSource.includes('viewMode="chrome-extension"'), true);
+  assert.equal(extensionPageSource.includes("Chrome Extension"), true);
   assert.equal(extensionPageSource.includes("Quick start"), true);
   assert.equal(extensionPageSource.includes("Walkthroughs"), true);
+  assert.equal(summaryPageSource.includes("Summaries"), true);
+  assert.equal(summaryPageSource.includes('<h1 className="font-bold text-2xl">Summary Studio</h1>'), false);
 });
 
 test("feedback page exists and keeps message as the first field", () => {
@@ -91,6 +99,7 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
   assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
   assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined}'), true);
   assert.equal(source.includes("Podcast Apps"), true);
+  assert.equal(source.includes("manual summary podcast episodes"), true);
   assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
   assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
   assert.equal(source.includes("Open extension settings"), false);

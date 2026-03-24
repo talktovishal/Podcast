@@ -108,6 +108,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Dashboard feed shortcut and markdown access track (`M84`) is implemented:
   - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with a tighter one-line action nav on desktop.
   - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
+  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - `Demo mode ready` banner is removed from the `/app` workspace.
@@ -270,7 +271,7 @@ E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a lightly highlighted `Feedback` shortcut
-  - dedicated top-nav links for the other signed-in pages plus a logout icon, omitting the current page link
+  - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)

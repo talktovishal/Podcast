@@ -183,7 +183,7 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
         return current.filter((value) => value !== itemId);
       }
       if (current.length >= 30) {
-        setStatusMessage("Summary Studio is capped at 30 selected articles per run.");
+        setStatusMessage("You can select up to 30 articles per summary run.");
         return current;
       }
       return [...current, itemId];
@@ -233,8 +233,8 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
       <section className="card p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
-            <p className="text-sm text-[var(--muted)]">Summary Studio</p>
-            <h1 className="font-bold text-2xl">Create a polished markdown roundup and podcast on demand.</h1>
+            <p className="text-sm text-[var(--muted)]">Summaries</p>
+            <h2 className="font-bold text-2xl">Create a polished markdown roundup and optional podcast on demand.</h2>
             <p className="max-w-3xl text-sm text-[var(--muted)]">
               We preselect ready articles from the last 7 days. You can fine-tune the list, choose a length, and create one markdown summary
               that is easy to reuse for posts or narration.

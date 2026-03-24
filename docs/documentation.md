@@ -13,7 +13,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
-6. Logged-in users can open Summary Studio at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
+6. Logged-in users can open Summaries at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
 7. Logged-in users can submit message-first product feedback at `/app/feedback`.
 
 ## Accounts
@@ -74,7 +74,7 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
-- Digest feed contains both scheduled digest episodes and manual Summary Studio episodes when generated with podcast enabled.
+- Digest feed contains both scheduled digest episodes and manual summary episodes when generated with podcast enabled.
 - RSS-generated media URLs are HMAC-signed per episode and remain stable until the owning feed token is rotated, so enclosure URLs do not churn between feed refreshes.
 - RSS feed routes also include a compatibility fallback for legacy token rows whose stored plaintext token and stored hash drifted apart during storage cutovers: the feed request repairs the hash in place and continues serving the same feed URL instead of returning `404`.
 - Newly created and rotated item/digest feed-token rows currently retain plaintext `tokenValue` for dashboard compatibility, so users can re-open `/app/settings` without silently invalidating an already-subscribed private feed URL.
@@ -108,7 +108,7 @@ Digest APIs:
 Scheduler trigger API (internal automation):
 - `POST /api/internal/digests/tick` (Bearer secret protected via `DIGEST_SCHEDULER_SECRET`)
 
-## Summary Studio
+## Summaries
 Available in `/app/summary`:
 - default selection = READY items with markdown artifacts from the last 7 days
 - manual searchable item selection with a 30-item cap
@@ -128,7 +128,7 @@ Summary output shape:
 - why it matters
 - source list
 
-Summary Studio APIs:
+Summaries APIs:
 - `GET /api/summary/items`
 - `POST /api/summary/runs`
 - `GET /api/summary/runs/[id]/markdown`

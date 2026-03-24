@@ -9,10 +9,10 @@ const NAV_ITEMS: ReadonlyArray<{
   label: string;
   title: string;
 }> = [
-  { key: "workspace", href: "/app", label: "Episodes", title: "Episodes workspace" },
-  { key: "podcast-apps", href: "/app/podcast-apps", label: "Podcasts", title: "Podcast Apps" },
-  { key: "chrome-extension", href: "/app/chrome-extension", label: "Extension", title: "Chrome Extension" },
-  { key: "summary", href: "/app/summary", label: "Studio", title: "Summary Studio" },
+  { key: "workspace", href: "/app", label: "Episodes", title: "Episodes" },
+  { key: "podcast-apps", href: "/app/podcast-apps", label: "Podcast Apps", title: "Podcast Apps" },
+  { key: "chrome-extension", href: "/app/chrome-extension", label: "Chrome Extension", title: "Chrome Extension" },
+  { key: "summary", href: "/app/summary", label: "Summaries", title: "Summaries" },
   { key: "feedback", href: "/app/feedback", label: "Feedback", title: "Feedback" },
   { key: "settings", href: "/app/settings", label: "Settings", title: "Settings" }
 ];

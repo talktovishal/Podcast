@@ -728,7 +728,7 @@ export function DashboardClient({
               <div className="rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-50/50 p-4">
                 <h3 className="text-sm font-semibold">Digest podcast feed</h3>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Use this separate feed for scheduled summaries and manual Summary Studio podcast episodes.
+                  Use this separate feed for scheduled summaries and manual summary podcast episodes.
                 </p>
                 <div className="mt-3">
                   {digestFeedUrl ? (

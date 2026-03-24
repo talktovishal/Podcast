@@ -31,6 +31,7 @@
 - `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter single-row desktop nav that omits the current page shortcut.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
+- Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
 - `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema

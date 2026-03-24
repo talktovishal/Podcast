@@ -27,8 +27,8 @@ export default async function SummaryStudioPage() {
               <AppShellNav current="summary" />
             </div>
             <div>
-              <h1 className="font-bold text-2xl">Summary Studio</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">Build curated summary episodes from ready items and publish them into the digest feed.</p>
+              <h1 className="font-bold text-2xl">Summaries</h1>
+              <p className="mt-1 text-sm text-[var(--muted)]">Build curated summary episodes from ready items, refine the markdown, and publish them into the digest feed.</p>
             </div>
           </div>
         </header>
