@@ -497,6 +497,9 @@ export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage
   if (error.code === errorCodes.TTS_FAILED && message.includes("ffmpeg")) {
     return false;
   }
+  if (error.code === errorCodes.TTS_FAILED && message.includes("timed out after")) {
+    return false;
+  }
   if (error.code === errorCodes.EXTRACTION_FAILED && message.includes("blocked server-side access")) {
     return false;
   }

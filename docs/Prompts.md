@@ -145,6 +145,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Azure Table primary operational metadata store
   - Azure deploy/runtime helpers that default Azure Table primary mode to local auxiliary SQLite instead of managed PostgreSQL
   - mirror dual-write/backfill/check tooling for rollback certification
+- Azure worker stability hotfix is implemented:
+  - Azure Table primary digest scheduler and extension-token paths no longer issue unsupported `eq null` queries.
+  - python-tts client timeouts now scale with chunk size, and Azure env rendering defaults Kokoro requests to a 5-minute timeout on B2s-class hosts.
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.

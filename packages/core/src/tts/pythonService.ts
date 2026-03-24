@@ -89,6 +89,26 @@ function sanitizeServiceDetail(detail: unknown): string {
   return "";
 }
 
+function estimateSynthesisTimeoutMs(baseTimeoutMs: number, text: string): number {
+  // Smaller CPU hosts can take well over two minutes for ~1.7k-character Kokoro chunks.
+  const estimatedFromText = 30_000 + text.length * 100;
+  return Math.max(baseTimeoutMs, estimatedFromText);
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const name = "name" in error && typeof error.name === "string" ? error.name.toLowerCase() : "";
+  const message = "message" in error && typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return name.includes("abort") || name.includes("timeout") || message.includes("abort") || message.includes("timeout");
+}
+
+function providerDisplayName(providerId: PythonProviderId): string {
+  return providerId === "kokoro" ? "Kokoro" : providerId;
+}
+
 function runBinary(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: "ignore" });
@@ -145,6 +165,7 @@ export class PythonModelTtsProvider implements TtsProvider {
     _cbCheck(this.providerId);
     const workspace = await mkdtemp(join(tmpdir(), `articlepod-${this.providerId}-`));
     const wavPath = join(workspace, "speech.wav");
+    const requestTimeoutMs = estimateSynthesisTimeoutMs(this.timeoutMs, text);
     const ctx = getLogContext();
     const requestHeaders: Record<string, string> = {
       "content-type": "application/json",
@@ -170,7 +191,7 @@ export class PythonModelTtsProvider implements TtsProvider {
       const response = await fetch(`${this.baseUrl}/v1/synthesize`, {
         method: "POST",
         headers: requestHeaders,
-        signal: AbortSignal.timeout(this.timeoutMs),
+        signal: AbortSignal.timeout(requestTimeoutMs),
         body: JSON.stringify({
           provider: this.providerId,
           voice,
@@ -212,6 +233,16 @@ export class PythonModelTtsProvider implements TtsProvider {
           _cbFailure();
         }
         throw error;
+      }
+      if (isAbortLikeError(error)) {
+        _cbFailure();
+        throw new AppError(
+          errorCodes.TTS_FAILED,
+          `${providerDisplayName(this.providerId)} synthesis timed out after ${Math.round(
+            requestTimeoutMs / 1000
+          )}s. Increase PYTHON_TTS_TIMEOUT_MS or reduce WORKER_TTS_CHUNK_MAX_CHARS.`,
+          504
+        );
       }
       _cbFailure();
       throw new AppError(

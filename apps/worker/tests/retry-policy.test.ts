@@ -21,6 +21,15 @@ test("keeps transient TTS failures retryable", () => {
   assert.equal(retry, true);
 });
 
+test("marks TTS timeout failures as non-retryable", () => {
+  const retry = shouldRecommendRetry({
+    code: errorCodes.TTS_FAILED,
+    userMessage: "Kokoro synthesis timed out after 205s. Increase PYTHON_TTS_TIMEOUT_MS or reduce WORKER_TTS_CHUNK_MAX_CHARS."
+  });
+
+  assert.equal(retry, false);
+});
+
 test("marks confirmed site-blocked URL failures as non-retryable", () => {
   const retry = shouldRecommendRetry({
     code: errorCodes.EXTRACTION_FAILED,

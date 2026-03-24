@@ -89,6 +89,9 @@
   - dashboard audio controls preload metadata for visible duration.
   - extension connect codes default to 24 hours, and installed extension tokens now stay valid until revoked.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
+- Azure worker stability hotfix (`M94`) is implemented:
+  - Azure Table primary digest scheduler and extension-token paths now avoid unsupported null-equality filters.
+  - python-tts timeout handling now scales to chunk length, and Azure env rendering defaults Kokoro requests to 5 minutes on B2s-class hosts.
 - Security hardening track (`S01`-`S18`) is **planned** (2026-02-28 review):
   - Full audit findings, options, and accepted approaches documented per milestone below.
   - Implementation gated on per-milestone user sign-off.
@@ -272,6 +275,7 @@ Milestone metadata contract:
 | M91 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
 | M92 | Done | 2026-03-22 | 2026-03-22 | local validation + implementation pass (2026-03-22) |
 | M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
+| M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2660,6 +2664,36 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web lint`
   - `pnpm --filter @articlepod/web test`
   - `pnpm --filter @articlepod/web build`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+
+### M94 - Azure Worker Stability Hotfix
+- status: Done
+- target_finish: 2026-03-24
+- completed_on: 2026-03-24
+- evidence: local validation + production Azure worker/TTS hotfix pass (2026-03-24)
+- Scope:
+  - Stop Azure Table primary worker loops from crashing on unsupported null-equality filters.
+  - Prevent false Kokoro worker failures on slower Azure B2s hosts by extending timeout handling for long chunk synthesis.
+  - Document Azure runtime timeout defaults so future deploys keep the fix.
+- Key files/modules:
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/src/tts/pythonService.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `scripts/azure/render-env.sh`
+  - `.env.azure.example`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/env.md`
+  - `docs/azure-deploy.md`
+- Acceptance criteria:
+  - Azure Table primary digest scheduler polling and extension-token revocation do not emit invalid `eq null` OData filters.
+  - Long Kokoro chunk requests on Azure no longer fail at the old fixed 120-second client timeout.
+  - If a python-tts timeout does happen, the worker surfaces actionable guidance instead of claiming the sidecar is down.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/worker test`
   - `pnpm lint`
   - `pnpm test`
   - `pnpm build`

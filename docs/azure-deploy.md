@@ -197,6 +197,7 @@ Defaults now include VM-safe runtime paths:
 - `MEDIA_ROOT=/var/lib/articlepod/media`
 - `UPLOAD_ROOT=/var/lib/articlepod/uploads`
 - When `METADATA_PRIMARY_BACKEND=azure_table` and `DATABASE_URL` is omitted, `render-env.sh` now defaults it to `file:/var/lib/articlepod/db.sqlite`.
+- `PYTHON_TTS_TIMEOUT_MS=300000` and `OVERFLOW_PYTHON_TTS_TIMEOUT_MS=300000` on Azure unless explicitly overridden, which avoids false worker failures on slower B2s Kokoro chunk synthesis.
 
 ## Deploy runtime + systemd services
 On VM:

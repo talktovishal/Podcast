@@ -44,6 +44,7 @@ Recommended:
   - `AZURE_STORAGE_CONNECTION_STRING`
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
+- `PYTHON_TTS_TIMEOUT_MS` (Azure deploy helper defaults to `300000` on the cost-optimized B2s VM profile)
 - `TTS_WORKERS` (set to `1` for the cost-optimized B2s baseline)
 - If `DIGEST_SUMMARY_PROVIDER=azure_openai`:
   - `AZURE_OPENAI_BASE_URL`

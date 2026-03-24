@@ -482,6 +482,10 @@ function parseDate(input: unknown): Date | null {
   return parsed;
 }
 
+function hasUnsetDateValue(input: unknown): boolean {
+  return parseDate(input) === null;
+}
+
 function parseRequiredDate(input: unknown, field: string): Date {
   const value = parseDate(input);
   if (!value) {
@@ -1591,10 +1595,12 @@ export class AzureTablePrimaryStore {
   async revokeExtensionTokensForUser(userId: string, revokedAt: Date): Promise<number> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "extensionTokens",
-      joinFilters(filterEquals("PartitionKey", "extToken"), filterEquals("userId", userId), filterEquals("revokedAt", null))
+      // Azure Table rejects `field eq null` filters, so null-state filtering happens client-side.
+      joinFilters(filterEquals("PartitionKey", "extToken"), filterEquals("userId", userId))
     );
+    const activeRows = rows.filter((row) => hasUnsetDateValue(row.revokedAt));
     await Promise.all(
-      rows.map((row) =>
+      activeRows.map((row) =>
         this.updateEntity(
           "extensionTokens",
           {
@@ -1607,7 +1613,7 @@ export class AzureTablePrimaryStore {
         )
       )
     );
-    return rows.length;
+    return activeRows.length;
   }
 
   async countExtensionTokens(): Promise<number> {
@@ -2337,9 +2343,13 @@ export class AzureTablePrimaryStore {
   async listPendingDigestSchedulerTicks(limit = 20): Promise<AzureTablePrimaryDigestSchedulerTick[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "digestSchedulerTicks",
-      joinFilters(filterEquals("PartitionKey", "digestTick"), filterEquals("processedAt", null))
+      // Azure Table rejects `field eq null` filters, so null-state filtering happens client-side.
+      joinFilters(filterEquals("PartitionKey", "digestTick"))
     );
-    return sortByDateDesc(rows.map((row) => this.toDigestSchedulerTick(row)), (entry) => entry.requestedAt).slice(0, limit);
+    return sortByDateDesc(
+      rows.map((row) => this.toDigestSchedulerTick(row)).filter((tick) => tick.processedAt === null),
+      (entry) => entry.requestedAt
+    ).slice(0, limit);
   }
 
   async createDigestSchedulerTick(input: {
