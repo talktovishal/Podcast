@@ -56,6 +56,8 @@ export default function LoginPage() {
     }
     return oauthProviderDefinitions.filter((provider) => oauthProviders[provider.id]?.configured);
   }, [oauthProviders]);
+  const primaryAuthActionClass =
+    "w-full rounded-lg border border-[#b9ddd2] bg-[#edf8f5] px-4 py-2 text-center text-sm font-semibold text-[#145c4c] transition hover:border-[#9fcec0] hover:bg-[#e4f3ee] disabled:opacity-60";
 
   useEffect(() => {
     let active = true;
@@ -162,7 +164,7 @@ export default function LoginPage() {
               <div className="pt-3">
                 <div className="grid grid-cols-1 gap-2">
                   {configuredProviders.map((provider) => (
-                    <a key={provider.id} className="rounded-lg border px-3 py-2 text-center text-sm font-semibold" href={provider.startPath}>
+                    <a key={provider.id} className={primaryAuthActionClass} href={provider.startPath}>
                       Continue with {provider.label}
                     </a>
                   ))}
@@ -226,7 +228,7 @@ export default function LoginPage() {
                     <input className="w-full rounded-lg border px-3 py-2" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
                   </label>
 
-                  <button disabled={isLoading} onClick={submit} className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                  <button className={primaryAuthActionClass} disabled={isLoading} onClick={submit}>
                     {isLoading ? "Please wait..." : mode === "login" ? "Log in with email" : "Create account with email"}
                   </button>
                 </div>
