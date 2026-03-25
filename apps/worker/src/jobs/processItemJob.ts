@@ -9,20 +9,23 @@ import {
   BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
+  cleanExtractedMarkdown,
   chunkText,
   errorCodes,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
   extractTextFromPdf,
   getHtmlFetchDiagnostics,
+  hasNarratableText,
+  lowSignalExtractionMessage,
+  markdownToNarrationText,
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
   shouldSuggestHtmlSnapshotForError,
   withLogContext,
   sha256,
-  type TtsProviderId,
-  validateFetchableUrl
+  type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
@@ -95,26 +98,6 @@ function appendExtractionLog(
 
 function retentionExpiryDate(days: number): Date {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-}
-
-function markdownToNarrationText(markdown: string, fallbackText: string): string {
-  const stripped = markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/^[-*+]\s+/gm, "")
-    .replace(/^\d+[.)]\s+/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  if (stripped.length < 120) {
-    return fallbackText.trim();
-  }
-  return stripped;
 }
 
 async function maybeStoreDemoExtractionTrace(input: {
@@ -929,9 +912,14 @@ export async function processJob(jobId: string): Promise<boolean> {
       sourceHtml: item.sourceHtml,
       logs: extractionLogs
     });
+    const cleanedMarkdown = cleanExtractedMarkdown(extraction.markdown);
     sourceLabelForDiagnostics = extraction.sourceLabel;
     extractedTextForDiagnostics = extraction.text;
-    extractedMarkdownForDiagnostics = extraction.markdown;
+    extractedMarkdownForDiagnostics = cleanedMarkdown;
+    appendExtractionLog(extractionLogs, "extract", "Cleaned extracted markdown", {
+      originalBytes: Buffer.byteLength(extraction.markdown, "utf8"),
+      cleanedBytes: Buffer.byteLength(cleanedMarkdown, "utf8")
+    });
 
     if (extraction.sourceArtifact) {
       const storedRaw = await getArtifactStorage().putObject(extraction.sourceArtifact.storageKey, extraction.sourceArtifact.bytes, {
@@ -979,7 +967,7 @@ export async function processJob(jobId: string): Promise<boolean> {
     }
 
     const markdownStorageKey = normalizeStorageKey(join("items", item.id, "artifacts", "source.md"));
-    const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(extraction.markdown, "utf8"), {
+    const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(cleanedMarkdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
@@ -1022,7 +1010,10 @@ export async function processJob(jobId: string): Promise<boolean> {
     });
 
     const userProvidedTitle = item.title?.trim() || "";
-    const narrationText = markdownToNarrationText(extraction.markdown, extraction.text);
+    const narrationText = markdownToNarrationText(cleanedMarkdown);
+    if (!hasNarratableText(narrationText)) {
+      throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
+    }
     const resolvedTitle = userProvidedTitle || resolveEpisodeTitle(extraction.title, narrationText);
     appendExtractionLog(extractionLogs, "extract", "Title resolved", {
       usedUserProvidedTitle: Boolean(userProvidedTitle),
@@ -1031,7 +1022,7 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
     if (chunks.length === 0) {
-      throw new AppError(errorCodes.EXTRACTION_EMPTY, "No narratable content found.", 400);
+      throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
     }
     appendExtractionLog(extractionLogs, "extract", "Text chunking complete", {
       chunkCount: chunks.length,

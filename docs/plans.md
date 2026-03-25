@@ -28,6 +28,7 @@
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
+- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts, uses cleaned narration text for hashes/descriptions, and adds an in-place backfill/regeneration command for existing items.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
@@ -141,6 +142,7 @@
 | Dual artifact policy (raw + markdown initially) | M57, M61 |
 | 90-day raw artifact retention lifecycle | M57, M61, M64 |
 | Markdown-derived TTS input contract | M62 |
+| Rule-based cleanup of extracted markdown before TTS/backfill | M98 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -283,6 +285,7 @@ Milestone metadata contract:
 | M95 | Done | 2026-03-24 | 2026-03-24 | local validation + production stuck-job watchdog pass (2026-03-24) |
 | M96 | Done | 2026-03-25 | 2026-03-25 | local validation + production redirect canonicalization hardening pass (2026-03-25) |
 | M97 | Done | 2026-03-26 | 2026-03-24 | local validation + smart extension capture pass (2026-03-24) |
+| M98 | Done | 2026-03-27 | 2026-03-24 | local validation + markdown cleanup/backfill rollout pass (2026-03-24) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2802,6 +2805,38 @@ Milestone metadata contract:
   - `pnpm test`
   - `pnpm build`
   - `pnpm extension:validate`
+
+### M98 - Extracted Markdown Cleanup Rollout
+- status: Done
+- target_finish: 2026-03-27
+- completed_on: 2026-03-24
+- evidence: local validation + markdown cleanup/backfill rollout pass (2026-03-24)
+- Scope:
+  - Add shared rule-based cleanup for extracted source markdown before canonical `MARKDOWN` persistence and before TTS narration derivation.
+  - Strip transport noise such as image/link scaffolding, leading metadata, caption credits, and footer/legal/navigation chrome while preserving meaningful prose.
+  - Add idempotent backfill tooling that rewrites existing stored `source.md` artifacts, queues regeneration when narration hashes change, and preserves already-published low-signal episodes for feed stability.
+- Key files/modules:
+  - `packages/core/src/extract/markdownCleanup.ts`
+  - `packages/core/src/extract/html.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/web/src/lib/markdown-artifact-backfill.ts`
+  - `apps/web/scripts/cleanup-markdown-artifacts.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - New items persist cleaned extracted markdown as the canonical `MARKDOWN` artifact while leaving `RAW_HTML` and `RAW_PDF` untouched.
+  - Cleaned markdown drives narration text, chunk hashes, cache keys, and episode descriptions.
+  - Chrome-only or low-signal pages fail with a clearer `EXTRACTION_EMPTY` message after cleanup.
+  - Existing items can be cleaned in place with regeneration queued only when the cleaned narration hash changes.
+  - Already-published low-signal items are reported and skipped rather than auto-deleted.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/queue-resilience.test.ts`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/markdown-artifact-backfill.test.ts`
+  - `pnpm --filter @articlepod/worker typecheck`
+  - `pnpm --filter @articlepod/web typecheck`
 
 ---
 

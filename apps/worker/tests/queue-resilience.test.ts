@@ -3,10 +3,11 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, errorCodes, sha256 } from "@articlepod/core";
+import { chunkText, cleanExtractedMarkdown, errorCodes, hasNarratableText, markdownToNarrationText, sha256 } from "@articlepod/core";
 import { extractHtmlSnapshot } from "@articlepod/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
+import { getArtifactStorage } from "../src/lib/storage.js";
 import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js";
 
 let dbReady = false;
@@ -49,25 +50,9 @@ async function seedCacheForItem(itemId: string, userId: string): Promise<string>
   return seedCacheForHtml(itemId, userId, SNAPSHOT_HTML, `https://example.com/${itemId}`);
 }
 
-function markdownToNarrationText(markdown: string, fallbackText: string): string {
-  const stripped = markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/^[-*+]\s+/gm, "")
-    .replace(/^\d+[.)]\s+/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  return stripped.length >= 120 ? stripped : fallbackText.trim();
-}
-
 async function seedCacheForHtml(itemId: string, userId: string, html: string, url: string): Promise<string> {
   const extracted = extractHtmlSnapshot({ html, url });
-  const narrationText = markdownToNarrationText(extracted.markdown, extracted.text);
+  const narrationText = markdownToNarrationText(cleanExtractedMarkdown(extracted.markdown));
   const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
   const cacheKey = sha256([userId, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
@@ -618,6 +603,161 @@ test("does not process failed job that exceeded max retry attempts", async () =>
     const unchanged = await prisma.job.findUnique({ where: { id: job.id } });
     assert.equal(unchanged?.status, "FAILED");
     assert.equal(unchanged?.attempt, 99);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processing stores cleaned markdown artifacts and hashes cleaned narration text", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-cleaned`;
+  const html = `
+    <html>
+      <head><title>Cleaned Worker Fixture</title></head>
+      <body>
+        <article>
+          <h1>Cleaned Worker Fixture</h1>
+          <p>Written by Example Reporter</p>
+          <figure>
+            <img alt="Header image" src="https://example.com/header.jpg" />
+            <figcaption>Getty Images</figcaption>
+          </figure>
+          <p>This article includes enough stable prose to exercise the cleaned markdown persistence path inside the worker.</p>
+          <p>Another paragraph adds more detail so the narration hash stays deterministic for this regression test.</p>
+          <p>Read more</p>
+        </article>
+      </body>
+    </html>
+  `;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `cleaned-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Cleaned ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/cleaned/${uniq}`,
+      sourceHtml: html,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED"
+    }
+  });
+
+  const expectedCacheKey = await seedCacheForHtml(item.id, user.id, html, `https://example.com/cleaned/${uniq}`);
+
+  try {
+    const processed = await processNextQueuedJob();
+    assert.equal(processed, true);
+
+    const refreshedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const markdownArtifact = await prisma.itemArtifact.findUnique({
+      where: {
+        itemId_kind: {
+          itemId: item.id,
+          kind: "MARKDOWN"
+        }
+      }
+    });
+    assert.ok(markdownArtifact);
+    const storedMarkdown = (await getArtifactStorage().getObject(markdownArtifact!.storageKey)).toString("utf8");
+    const narration = markdownToNarrationText(storedMarkdown);
+
+    assert.equal(refreshedItem?.status, "READY");
+    assert.equal(refreshedItem?.textHash, expectedCacheKey);
+    assert.equal(hasNarratableText(narration), true);
+    assert.ok(storedMarkdown.includes("This article includes enough stable prose"));
+    assert.ok(!storedMarkdown.includes("Written by Example Reporter"));
+    assert.ok(!storedMarkdown.includes("Getty Images"));
+    assert.ok(!storedMarkdown.includes("Read more"));
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processing fails low-signal chrome-only markdown after cleanup", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-low-signal`;
+  const html = `
+    <html>
+      <head><title>Footer Only</title></head>
+      <body>
+        <article>
+          <p><a href="https://www.facebook.com/">© 2026 Meta</a></p>
+          <p>
+            <a href="https://www.meta.com/about/">About</a>
+            <a href="https://developers.meta.com/">Developers</a>
+            <a href="https://www.metacareers.com/">Careers</a>
+            <a href="https://www.facebook.com/privacy/">Privacy</a>
+            <a href="https://www.facebook.com/help/cookies">Cookies</a>
+            <a href="https://www.facebook.com/policies/">Terms</a>
+            <a href="https://www.facebook.com/help/">Help Center</a>
+          </p>
+          <p>
+            <a href="https://business.facebook.com/">English (US)</a>
+            <a href="https://business.facebook.com/">English (UK)</a>
+            <a href="https://business.facebook.com/">Espanol</a>
+            <a href="#">More languages</a>
+          </p>
+        </article>
+      </body>
+    </html>
+  `;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `low-signal-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Low Signal ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/low-signal/${uniq}`,
+      sourceHtml: html,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED"
+    }
+  });
+
+  try {
+    const processed = await processJob(job.id);
+    assert.equal(processed, false);
+
+    const refreshedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const refreshedJob = await prisma.job.findUnique({ where: { id: job.id } });
+
+    assert.equal(refreshedItem?.status, "FAILED");
+    assert.equal(refreshedItem?.errorCode, errorCodes.EXTRACTION_EMPTY);
+    assert.match(refreshedItem?.errorMessage || "", /after removing navigation, login, and promo content/i);
+    assert.equal(refreshedJob?.status, "FAILED");
+    assert.equal(refreshedJob?.errorCode, errorCodes.EXTRACTION_EMPTY);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

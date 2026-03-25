@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
+import { lowSignalExtractionMessage } from "./markdownCleanup";
 import https from "node:https";
 import http from "node:http";
 
@@ -116,7 +117,7 @@ function extractFromHtml(input: {
   const text = normalizeExtracted(extracted.text);
   const markdown = extracted.markdown && extracted.markdown.length >= 40 ? extracted.markdown : normalizeExtracted(text);
   if (text.length < 160) {
-    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
   }
 
   return {

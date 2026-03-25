@@ -773,7 +773,7 @@ test("extractHtmlSnapshot fails with actionable message for low-signal content",
     (error: unknown) =>
       error instanceof AppError &&
       error.code === errorCodes.EXTRACTION_EMPTY &&
-      error.userMessage.toLowerCase().includes("too short")
+      error.userMessage.toLowerCase().includes("didn't contain enough article text")
   );
 });
 

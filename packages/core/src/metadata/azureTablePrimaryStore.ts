@@ -1642,6 +1642,19 @@ export class AzureTablePrimaryStore {
     return rows.length;
   }
 
+  async listItemsPage(cursor?: string, limit = 100): Promise<AzureTablePrimaryItem[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const rows = await this.listEntities<Record<string, unknown>>("items", filterEquals("PartitionKey", "item"));
+    return rows
+      .map((row) => this.toItem(row))
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .filter((item) => !cursor || item.id > cursor)
+      .slice(0, limit);
+  }
+
   async createItem(input: {
     id: string;
     userId: string;

@@ -48,10 +48,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - log triage and diagnostics collection scripts.
 - Markdown artifact milestones (`M57`-`M64`) are implemented:
   - HTML/PDF extraction emits markdown outputs alongside narration text.
-  - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + `MARKDOWN`) with lifecycle metadata.
-  - Narration input is derived from markdown normalization with deterministic chunking preserved.
+  - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + cleaned extracted `MARKDOWN`) with lifecycle metadata.
+  - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
+  - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
-  - Backfill + purge scripts enforce dual-save transition and raw artifact retention policy.
+  - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.
 - Docs governance baseline is implemented:
   - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
   - status reconciliation ledger captures corrections with confidence notes.
@@ -342,8 +343,11 @@ H) Quality and engineering
 
 I) Extraction artifacts (near-term track)
 - Current (`M57`-`M64` implemented):
-  - persist raw source artifacts and markdown artifacts in object storage.
-  - keep markdown as durable reusable artifact for downstream workflows.
+  - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
+  - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
+  - apply aggressive site-chrome cleanup only to extracted source markdown, not to generated summary markdown.
+  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown.
+  - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.
   - apply retention lifecycle to raw artifacts (target 90 days).
 
 ### Explicit non-goals (MVP)

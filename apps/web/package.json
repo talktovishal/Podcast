@@ -20,6 +20,7 @@
     "ops:snapshot": "tsx scripts/ops-snapshot.ts",
     "ops:verify-restore": "tsx scripts/ops-verify-restore.ts",
     "artifacts:backfill": "tsx scripts/backfill-markdown-artifacts.ts",
+    "artifacts:cleanup-markdown": "tsx scripts/cleanup-markdown-artifacts.ts",
     "artifacts:purge": "tsx scripts/purge-expired-artifacts.ts",
     "audio:backfill-mp3": "tsx scripts/backfill-episode-audio.ts",
     "analytics:backfill": "tsx scripts/backfill-admin-analytics.ts",

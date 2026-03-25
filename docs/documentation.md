@@ -244,12 +244,18 @@ Current implementation:
 
 ## Markdown Artifacts
 Current (`M57`-`M64` implemented):
-- URL/PDF/HTML snapshot extraction persists raw source artifacts and markdown artifacts in object storage.
+- URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
+- cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
+- source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
+- generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
+- low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.
 - markdown artifacts are retained for reuse and can be viewed through authorized dashboard/API flows.
 - raw artifacts use retention metadata (default target: 90 days), with purge tooling available:
   - `npm run artifacts:purge`
 - migration helper to backfill markdown artifacts for ready legacy items:
   - `npm run artifacts:backfill`
+- migration helper to clean existing stored markdown artifacts in place and queue regeneration when hashes change:
+  - `npm run artifacts:cleanup-markdown`
 
 ## OAuth setup
 Google + Facebook + Apple setup guide:

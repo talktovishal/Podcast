@@ -60,11 +60,16 @@ Current behavior (`M57`-`M64` implemented):
 - extraction emits both narration text and markdown from HTML/PDF/snapshot sources.
 - worker persists dual artifacts in object storage:
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
-  - markdown artifact (`MARKDOWN`) retained for downstream workflows
+  - cleaned extracted markdown artifact (`MARKDOWN`) retained for downstream workflows
   - summary markdown artifacts (`summaries/<user>/<run>/summary.md`) for manual summary publishing and reuse
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
-- narration input contract uses markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+- extracted-item markdown passes through shared rule-based cleanup before persistence:
+  - remove image/link scaffolding, bare transport URLs, leading metadata, caption/credit noise, and footer/legal/nav chrome
+  - preserve substantive prose, headings, and meaningful inline link text
+- narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+- when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
+- aggressive cleanup rules apply to extracted source markdown only; summary markdown artifacts remain author-polished outputs.
 
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
