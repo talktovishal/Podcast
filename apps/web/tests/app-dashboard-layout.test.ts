@@ -108,6 +108,8 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('importance: "LOW" | "MEDIUM" | "HIGH"'), true);
   assert.equal(source.includes("const [importanceInput, setImportanceInput] = useState<ItemImportance>(\"LOW\");"), true);
   assert.equal(source.includes('const [tagsInput, setTagsInput] = useState("");'), true);
+  assert.equal(source.includes("Optional details"), true);
+  assert.equal(source.includes("Leave these blank if you just want the fastest capture."), true);
   assert.equal(source.includes("Filter by importance"), true);
   assert.equal(source.includes("Filter by tag"), true);
   assert.equal(source.includes("All importance levels"), true);
@@ -115,6 +117,7 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("Importance:"), true);
   assert.equal(source.includes("financial, personal, retirement"), true);
   assert.equal(source.includes("No recent items match the current importance or tag filters."), true);
+  assert.equal(source.includes("Optional title"), false);
 });
 
 test("dashboard client supports dedicated podcast and extension setup pages", () => {
@@ -146,15 +149,25 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
 });
 
 test("extension popup treats installed tokens as non-expiring until revoked", () => {
-  const source = readFileSync(new URL("../../extension/popup.js", import.meta.url), "utf8");
-  assert.equal(source.includes("This token does not expire automatically."), true);
-  assert.equal(source.includes("Extension connected successfully. It will stay connected until you revoke or disconnect it."), true);
-  assert.equal(source.includes('captureImportance: document.getElementById("capture-importance")'), true);
-  assert.equal(source.includes('captureTags: document.getElementById("capture-tags")'), true);
-  assert.equal(source.includes("importance: els.captureImportance?.value || \"LOW\""), true);
-  assert.equal(source.includes("tags: els.captureTags?.value || \"\""), true);
-  assert.equal(source.includes("Token expires:"), false);
-  assert.equal(source.includes("tokenExpired"), false);
+  const popupSource = readFileSync(new URL("../../extension/popup.js", import.meta.url), "utf8");
+  const popupMarkup = readFileSync(new URL("../../extension/popup.html", import.meta.url), "utf8");
+  const popupStyles = readFileSync(new URL("../../extension/popup.css", import.meta.url), "utf8");
+
+  assert.equal(popupSource.includes("This token does not expire automatically."), true);
+  assert.equal(popupSource.includes("Extension connected successfully. It will stay connected until you revoke or disconnect it."), true);
+  assert.equal(popupSource.includes('captureImportance: document.getElementById("capture-importance")'), true);
+  assert.equal(popupSource.includes('captureTags: document.getElementById("capture-tags")'), true);
+  assert.equal(popupSource.includes("importance: els.captureImportance?.value || \"LOW\""), true);
+  assert.equal(popupSource.includes("tags: els.captureTags?.value || \"\""), true);
+  assert.equal(popupSource.includes("Queued in ArticlePod"), true);
+  assert.equal(popupSource.includes("You do not need to click again."), true);
+  assert.equal(popupSource.includes("articlepod-capture-confirmation"), true);
+  assert.equal(popupMarkup.includes("Optional details"), true);
+  assert.equal(popupMarkup.includes("Skip these if you just want the fastest capture."), true);
+  assert.equal(popupStyles.includes('button.primary[data-capture-state="queued"]'), true);
+  assert.equal(popupStyles.includes(".status.success"), true);
+  assert.equal(popupSource.includes("Token expires:"), false);
+  assert.equal(popupSource.includes("tokenExpired"), false);
 });
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {

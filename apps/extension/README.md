@@ -95,6 +95,7 @@ This flow works the same whether you are using the local development server or y
    The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
+   The popup keeps `Importance` and `Tags` inside an **Optional details** card so it is clear you can skip them.
    Optional metadata in the popup:
    - choose an **Importance** level (`Low`, `Medium`, `High`)
    - add comma-separated **Tags** such as `financial, personal, retirement`
@@ -104,6 +105,7 @@ This flow works the same whether you are using the local development server or y
    - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
    - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
    - it leaves article-vs-block/interstitial classification to the server extraction path instead of trying to fully judge that in the popup
+   When capture succeeds, the popup stays in a green queued state and the current tab briefly shows a confirmation banner so users know they do not need to click again.
    The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
 
 ### Capture size guardrail

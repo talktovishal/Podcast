@@ -49,14 +49,14 @@ Set passwords via environment variables before seeding (see `.env.example`):
 Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
-3. Optionally set capture importance and tags in the popup, then capture the current page; the item is enqueued to your account feed.
+3. The popup groups capture metadata into an `Optional details` card so `Importance` and `Tags` are clearly skippable; after capture, the popup and active tab both confirm that the page is already queued and does not need a second click.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
   - `Add New Episode`
   - `Recent items`
-  - submit forms collect `Importance` plus optional comma-separated tags for URL and PDF captures
+  - submit forms keep the required source input primary and group `Title`, `Importance`, and comma-separated `Tags` inside a compact `Optional details` section
   - recent items render importance/tag metadata and support quick filtering by importance or tag
   - single-row desktop nav for the other signed-in pages, plus a logout icon
   - mobile/smaller screens wrap the nav instead of hiding destinations offscreen

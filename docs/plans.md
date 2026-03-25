@@ -2880,11 +2880,13 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-03-31
 - completed_on: 2026-03-25
-- evidence: local validation + importance/tags capture metadata pass (2026-03-25)
+- evidence: local validation + importance/tags capture metadata pass + optional-details/queued-confirmation UX pass (2026-03-25)
 - Scope:
   - Replace user-facing `Priority` copy with `Importance` while keeping the existing `LOW` / `MEDIUM` / `HIGH` backing contract.
   - Add optional freeform comma-separated item tags for URL, PDF, and Chrome extension capture, stored in normalized lowercase form.
   - Surface importance and tags in `/app` Recent items, with lightweight client-side filters for importance and tag.
+  - Make optional metadata visibly secondary in both the web submit flow and Chrome extension popup.
+  - Reduce double-submit confusion after extension capture with persistent popup success state and an in-tab queued confirmation.
   - Keep route compatibility by accepting both canonical `importance` and legacy `priority` payloads during rollout.
 - Key files/modules:
   - `packages/core/src/types/domain.ts`
@@ -2902,7 +2904,8 @@ Milestone metadata contract:
   - URL, PDF, and HTML snapshot ingest routes accept `importance`, legacy `priority`, and tags, then persist canonical importance and normalized tags.
   - Existing items keep their current priority-backed value and default to empty tags without backfill or destructive reset.
   - `/app` shows saved importance/tag metadata and lets users filter recent items without breaking polling or media playback token stability.
-  - Chrome extension capture exposes the same metadata fields as the web submit flow.
+  - Web and extension capture UIs make `Title` / `Importance` / `Tags` clearly optional via compact secondary grouping.
+  - Chrome extension capture exposes the same metadata fields as the web submit flow and clearly confirms queued captures without inviting a second click.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
   - `pnpm --filter @articlepod/core typecheck`

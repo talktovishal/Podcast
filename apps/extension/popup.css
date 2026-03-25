@@ -74,6 +74,12 @@ button.primary {
   border-color: #2563eb;
 }
 
+button.primary[data-capture-state="queued"] {
+  background: #15803d;
+  border-color: #15803d;
+  box-shadow: 0 0 0 1px rgba(21, 128, 61, 0.1), 0 8px 20px rgba(21, 128, 61, 0.18);
+}
+
 button.secondary {
   background: #fff;
   border-color: #c2cfe3;
@@ -122,10 +128,21 @@ body.state-connected .state-pill {
 
 .status.error {
   color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  min-height: auto;
+  padding: 8px 10px;
 }
 
 .status.success {
-  color: #1556cc;
+  color: #166534;
+  background: #ecfdf3;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-weight: 600;
+  min-height: auto;
+  padding: 8px 10px;
 }
 
 [hidden] {
@@ -139,6 +156,52 @@ body.state-connected .state-pill {
 body.state-connected .capture-options {
   display: grid;
   gap: 6px;
+}
+
+.optional-card {
+  border: 1px solid #b5ccff;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.optional-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.optional-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0b2f73;
+}
+
+.optional-helper {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #2856a6;
+}
+
+.optional-badge {
+  border: 1px solid #9bb8f8;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2856a6;
+  background: #edf4ff;
+}
+
+.optional-fields {
+  display: grid;
+  gap: 10px;
 }
 
 select {

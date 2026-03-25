@@ -27,11 +27,10 @@ const els = {
 
 const CAPTURE_IDLE_LABEL = "Capture Current Page";
 const CAPTURE_STARTING_LABEL = "Starting Capture...";
-const CAPTURE_QUEUED_LABEL = "Capture Started";
+const CAPTURE_QUEUED_LABEL = "Queued in ArticlePod";
 
 let captureBusy = false;
 let connectedState = false;
-let captureLabelResetTimeout = null;
 
 function setStatus(message, type = "") {
   els.status.textContent = message || "";
@@ -114,7 +113,7 @@ async function setCaptureQueuedBadge() {
     await chrome.action.setBadgeBackgroundColor({ color: "#15803d" });
     setTimeout(() => {
       void setConnectedBadge();
-    }, 1200);
+    }, 3500);
   } catch {
     // ignore toolbar badge errors in popup context
   }
@@ -141,10 +140,7 @@ function syncInteractivity() {
 }
 
 function setCaptureButtonLabel(state) {
-  if (captureLabelResetTimeout) {
-    clearTimeout(captureLabelResetTimeout);
-    captureLabelResetTimeout = null;
-  }
+  els.captureBtn.dataset.captureState = state === "idle" ? "" : state;
 
   if (state === "starting") {
     els.captureBtn.textContent = CAPTURE_STARTING_LABEL;
@@ -152,13 +148,81 @@ function setCaptureButtonLabel(state) {
   }
   if (state === "queued") {
     els.captureBtn.textContent = CAPTURE_QUEUED_LABEL;
-    captureLabelResetTimeout = setTimeout(() => {
-      els.captureBtn.textContent = CAPTURE_IDLE_LABEL;
-    }, 1200);
     return;
   }
 
   els.captureBtn.textContent = CAPTURE_IDLE_LABEL;
+}
+
+async function showCaptureQueuedNotice(tabId) {
+  if (!tabId || !chrome.scripting) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const existing = document.getElementById("articlepod-capture-confirmation");
+        existing?.remove();
+
+        const notice = document.createElement("div");
+        notice.id = "articlepod-capture-confirmation";
+        notice.setAttribute("role", "status");
+        notice.setAttribute("aria-live", "polite");
+        notice.style.all = "initial";
+        notice.style.position = "fixed";
+        notice.style.top = "18px";
+        notice.style.right = "18px";
+        notice.style.zIndex = "2147483647";
+        notice.style.maxWidth = "320px";
+        notice.style.padding = "12px 14px";
+        notice.style.borderRadius = "14px";
+        notice.style.border = "1px solid #86efac";
+        notice.style.background = "#ecfdf3";
+        notice.style.boxShadow = "0 18px 40px rgba(22, 101, 52, 0.18)";
+        notice.style.color = "#166534";
+        notice.style.display = "block";
+        notice.style.boxSizing = "border-box";
+        notice.style.opacity = "0";
+        notice.style.transform = "translateY(-6px)";
+        notice.style.transition = "opacity 160ms ease, transform 160ms ease";
+        notice.style.pointerEvents = "none";
+        notice.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+        const title = document.createElement("div");
+        title.textContent = "Queued in ArticlePod";
+        title.style.fontSize = "14px";
+        title.style.fontWeight = "700";
+        title.style.lineHeight = "1.4";
+
+        const detail = document.createElement("div");
+        detail.textContent = "You do not need to click capture again.";
+        detail.style.marginTop = "2px";
+        detail.style.fontSize = "12px";
+        detail.style.lineHeight = "1.45";
+        detail.style.color = "#166534";
+
+        notice.append(title, detail);
+        (document.body || document.documentElement).appendChild(notice);
+
+        requestAnimationFrame(() => {
+          notice.style.opacity = "1";
+          notice.style.transform = "translateY(0)";
+        });
+
+        window.setTimeout(() => {
+          notice.style.opacity = "0";
+          notice.style.transform = "translateY(-6px)";
+          window.setTimeout(() => {
+            notice.remove();
+          }, 200);
+        }, 4200);
+      }
+    });
+  } catch {
+    // ignore page-toast errors for sites that reject runtime DOM injection
+  }
 }
 
 function renderState(state) {
@@ -400,9 +464,10 @@ async function captureCurrentPage() {
       return;
     }
 
-    setStatus(`Capture started. Item ${payload.item_id} is queued.`, "success");
+    setStatus("Capture queued in ArticlePod. You do not need to click again.", "success");
     setCaptureButtonLabel("queued");
     await setCaptureQueuedBadge();
+    await showCaptureQueuedNotice(activeTab.id);
   } catch (error) {
     setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   } finally {

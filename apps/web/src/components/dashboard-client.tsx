@@ -1305,38 +1305,54 @@ export function DashboardClient({
                   />
                 </label>
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Optional title</span>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2"
-                    placeholder="Leave blank to auto-title"
-                    value={titleInput}
-                    onChange={(event) => setTitleInput(event.target.value)}
-                  />
-                </label>
+                <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/75 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--ink)]">Optional details</p>
+                      <p className="text-xs text-[var(--muted)]">Leave these blank if you just want the fastest capture.</p>
+                    </div>
+                    <span className="rounded-full border border-[rgba(31,42,31,0.14)] bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      Optional
+                    </span>
+                  </div>
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Importance</span>
-                  <select
-                    className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={importanceInput}
-                    onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </label>
+                  <div className="mt-3 grid gap-3">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium">Title</span>
+                      <input
+                        className="w-full rounded-lg border px-3 py-2"
+                        placeholder="Leave blank to auto-title"
+                        value={titleInput}
+                        onChange={(event) => setTitleInput(event.target.value)}
+                      />
+                    </label>
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Tags</span>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2"
-                    placeholder="financial, personal, retirement"
-                    value={tagsInput}
-                    onChange={(event) => setTagsInput(event.target.value)}
-                  />
-                </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium">Importance</span>
+                        <select
+                          className="w-full rounded-lg border px-3 py-2 text-sm"
+                          value={importanceInput}
+                          onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
+                        >
+                          <option value="LOW">Low</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="HIGH">High</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium">Tags</span>
+                        <input
+                          className="w-full rounded-lg border px-3 py-2"
+                          placeholder="financial, personal, retirement"
+                          value={tagsInput}
+                          onChange={(event) => setTagsInput(event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </article>
             ) : (
               <article>
@@ -1352,38 +1368,54 @@ export function DashboardClient({
                 />
                 {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Optional title</span>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2"
-                    placeholder="Leave blank to auto-title"
-                    value={titleInput}
-                    onChange={(event) => setTitleInput(event.target.value)}
-                  />
-                </label>
+                <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/75 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--ink)]">Optional details</p>
+                      <p className="text-xs text-[var(--muted)]">Leave these blank if you just want the fastest capture.</p>
+                    </div>
+                    <span className="rounded-full border border-[rgba(31,42,31,0.14)] bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      Optional
+                    </span>
+                  </div>
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Importance</span>
-                  <select
-                    className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={importanceInput}
-                    onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </label>
+                  <div className="mt-3 grid gap-3">
+                    <label className="block">
+                      <span className="mb-1 block text-sm font-medium">Title</span>
+                      <input
+                        className="w-full rounded-lg border px-3 py-2"
+                        placeholder="Leave blank to auto-title"
+                        value={titleInput}
+                        onChange={(event) => setTitleInput(event.target.value)}
+                      />
+                    </label>
 
-                <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Tags</span>
-                  <input
-                    className="w-full rounded-lg border px-3 py-2"
-                    placeholder="financial, personal, retirement"
-                    value={tagsInput}
-                    onChange={(event) => setTagsInput(event.target.value)}
-                  />
-                </label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium">Importance</span>
+                        <select
+                          className="w-full rounded-lg border px-3 py-2 text-sm"
+                          value={importanceInput}
+                          onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
+                        >
+                          <option value="LOW">Low</option>
+                          <option value="MEDIUM">Medium</option>
+                          <option value="HIGH">High</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-1 block text-sm font-medium">Tags</span>
+                        <input
+                          className="w-full rounded-lg border px-3 py-2"
+                          placeholder="financial, personal, retirement"
+                          value={tagsInput}
+                          onChange={(event) => setTagsInput(event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </article>
             )}
 

@@ -26,20 +26,32 @@
         <button id="capture-btn" type="button" class="primary">Capture Current Page</button>
       </div>
 
-      <div id="capture-options" class="capture-options">
-        <label>
-          <span>Importance</span>
-          <select id="capture-importance">
-            <option value="LOW" selected>Low</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="HIGH">High</option>
-          </select>
-        </label>
-        <label>
-          <span>Tags</span>
-          <input id="capture-tags" type="text" placeholder="financial, personal, retirement" />
-        </label>
-      </div>
+      <section id="capture-options" class="capture-options">
+        <div class="optional-card">
+          <div class="optional-card-header">
+            <div>
+              <p class="optional-title">Optional details</p>
+              <p class="optional-helper">Skip these if you just want the fastest capture.</p>
+            </div>
+            <span class="optional-badge">Optional</span>
+          </div>
+
+          <div class="optional-fields">
+            <label>
+              <span>Importance</span>
+              <select id="capture-importance">
+                <option value="LOW" selected>Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+            </label>
+            <label>
+              <span>Tags</span>
+              <input id="capture-tags" type="text" placeholder="financial, personal, retirement" />
+            </label>
+          </div>
+        </div>
+      </section>
 
       <p id="token-state" class="muted"></p>
       <p id="status" class="status"></p>
