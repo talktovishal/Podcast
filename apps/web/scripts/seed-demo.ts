@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@articlepod/core";
-import { ensureUserFeedToken, hashPassword } from "../src/lib/auth";
+import { ensureUserFeedTokenAccess, hashPassword } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
 import { createPrimaryUser, findPrimaryUserByEmail, updatePrimaryUser } from "../src/lib/metadata-primary-auth";
@@ -103,15 +103,20 @@ async function ensureStarterAudioObject(relativePath: string): Promise<number> {
   return stored.bytes;
 }
 
-function logDemoSeedSummary(feedTokenPlain: string) {
+function logDemoSeedSummary(feedTokenPlain: string | null) {
   // eslint-disable-next-line no-console
   console.log("Demo seed complete");
   // eslint-disable-next-line no-console
   console.log(`Demo user: ${DEMO_EMAIL}`);
   // eslint-disable-next-line no-console
   console.log(`Demo password: ${DEMO_PASSWORD}`);
-  // eslint-disable-next-line no-console
-  console.log(`Feed URL: ${env.appUrl}/rss/${feedTokenPlain}.xml`);
+  if (feedTokenPlain) {
+    // eslint-disable-next-line no-console
+    console.log(`Feed URL: ${env.appUrl}/rss/${feedTokenPlain}.xml`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log("Feed URL: existing active token preserved (private URL not displayable from seed path)");
+  }
 }
 
 async function main() {
@@ -146,7 +151,7 @@ async function main() {
   }
 
   const feedTokenPlain = usesAzureTablePrimary
-    ? await ensureUserFeedToken(user.id)
+    ? (await ensureUserFeedTokenAccess(user.id)).tokenValue ?? null
     : await (async () => {
         const activeFeed = await prisma.feedToken.findFirst({ where: { userId: user.id, active: true } });
         if (activeFeed?.tokenValue) {
