@@ -79,6 +79,9 @@ jobs:
           TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure"
           PROBE_FILE="/tmp/articlepod-probe-url-extract.ts"
           LOG_FILE="/tmp/probe-url-extraction.log"
+          ARTIFACT_DIR="$RUNNER_TEMP/probe-url-extraction"
+          JSON_FILE="$ARTIFACT_DIR/probe.json"
+          mkdir -p "$ARTIFACT_DIR"
 
           scp -i "$TARGET_SSH_KEY" scripts/azure/probe-url-extract.ts "${TARGET_USER}@${TARGET_HOST}:${PROBE_FILE}"
 
@@ -93,7 +96,7 @@ jobs:
             curl -I --max-time 25 \"\$TARGET_URL\" || true; \
             echo '== VM extraction probe =='; \
             cd /opt/articlepod; \
-            npx tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
+            npx pnpm exec tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
           escaped_remote_cmd="$(printf '%q' "$remote_cmd")"
 
           set +e
@@ -103,6 +106,37 @@ jobs:
           set -e
 
           cat "$LOG_FILE"
+
+          cp "$LOG_FILE" "$ARTIFACT_DIR/probe.log"
+
+          python3 - "$LOG_FILE" "$JSON_FILE" <<'PY'
+import json
+import pathlib
+import sys
+
+log_path = pathlib.Path(sys.argv[1])
+json_path = pathlib.Path(sys.argv[2])
+lines = log_path.read_text().splitlines()
+
+for start in range(len(lines)):
+    if not lines[start].lstrip().startswith("{"):
+        continue
+    candidate = "\n".join(lines[start:]).strip()
+    try:
+        payload = json.loads(candidate)
+    except Exception:
+        continue
+    json_path.write_text(json.dumps(payload, indent=2) + "\n")
+    break
+else:
+    json_path.write_text(json.dumps({
+        "ok": False,
+        "error": {
+            "type": "ParseError",
+            "message": "Could not extract structured probe JSON from workflow log"
+        }
+    }, indent=2) + "\n")
+PY
 
           if [ "$probe_status" -ne 0 ] && [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::URL extraction probe failed (status=$probe_status)"
@@ -123,3 +157,11 @@ jobs:
           echo "- URL: \`$TARGET_URL\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- VM host: \`${{ secrets.AZURE_VM_HOST }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Fail on error: \`${{ inputs.fail_on_error }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload probe artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-url-extraction
+          path: ${{ runner.temp }}/probe-url-extraction
+          if-no-files-found: error

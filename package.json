@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "testing/*"
   ],
   "packageManager": "pnpm@9.15.4",
   "scripts": {
@@ -44,6 +45,10 @@
     "extension:icons": "python3 scripts/generate-extension-icons.py",
     "extension:package": "./scripts/package-extension.sh",
     "extension:validate": "node scripts/validate-extension.mjs --zip",
+    "live-sites:test": "npx pnpm --filter @articlepod/live-site run live-sites:test",
+    "live-sites:test:url": "npx pnpm --filter @articlepod/live-site run live-sites:test:url",
+    "live-sites:test:extension": "npx pnpm --filter @articlepod/live-site run live-sites:test:extension",
+    "live-sites:test:prod-probe": "npx pnpm --filter @articlepod/live-site run live-sites:test:prod-probe",
     "logs:collect": "node scripts/logs-collect.mjs",
     "logs:triage": "node scripts/logs-triage.mjs",
     "observability:verify": "node scripts/observability-verify.mjs",

@@ -152,6 +152,41 @@ test("capturePageSnapshot stays conservative on thread-like hosts", async () => 
   }
 });
 
+test("capturePageSnapshot fails clearly for anti-bot interstitial pages", async () => {
+  const dom = createDom(
+    `
+      <!doctype html>
+      <html>
+        <head><title>reuters.com</title></head>
+        <body style="margin:0">
+          <iframe
+            src="https://geo.captcha-delivery.com/captcha/?cid=example"
+            title="DataDome CAPTCHA"
+            width="100%"
+            height="100%"
+          ></iframe>
+        </body>
+      </html>
+    `,
+    "https://www.reuters.com/world/"
+  );
+
+  try {
+    const result = await capturePageSnapshot({
+      window: dom.window,
+      document: dom.window.document,
+      settleMs: 0,
+      scrollBudget: 0
+    });
+
+    assert.equal(result.ok, false);
+    assert.match(result.errorMessage || "", /captcha|anti-bot interstitial/i);
+    assert.equal(result.stats?.blockedReason, "challenge_frame");
+  } finally {
+    dom.window.close();
+  }
+});
+
 test("capturePageSnapshot removes inert nodes while preserving server extractability", async () => {
   const dom = createDom(`
     <!doctype html>

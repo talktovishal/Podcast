@@ -1,0 +1,22 @@
+{
+  "name": "@articlepod/live-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts",
+    "live-sites:test": "tsx src/cli.ts",
+    "live-sites:test:url": "tsx src/cli.ts --mode url --env dual",
+    "live-sites:test:extension": "tsx src/cli.ts --mode extension --env local",
+    "live-sites:test:prod-probe": "tsx src/cli.ts --mode url --env prod-probe"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -10,6 +10,12 @@ Ensure every release candidate meets RSS/media compatibility, security, and demo
 4. `corepack pnpm export`
 5. `corepack pnpm license:check`
 6. `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
+7. `npm run live-sites:test -- --env local`
+
+Default output:
+- `exports/live-site-validation/<timestamp>/summary.md`
+- `exports/live-site-validation/<timestamp>/failures.md`
+- `exports/live-site-validation/<timestamp>/results.json`
 
 ## Manual smoke protocol (required)
 1. Subscribe to `<FEED_URL>` in Apple Podcasts (or Apple Podcasts Preview on iOS/macOS reachable host).
@@ -24,6 +30,8 @@ Ensure every release candidate meets RSS/media compatibility, security, and demo
    - submit snapshot
    - item appears immediately in dashboard as queued/processing
    - item reaches ready and plays
+5. If GitHub CLI auth is configured, run the prod-probe leg as well:
+   - `npm run live-sites:test`
 
 ## Evidence template
 - Release candidate:
@@ -31,6 +39,8 @@ Ensure every release candidate meets RSS/media compatibility, security, and demo
 - Operator:
 - Feed URL used:
 - Automated gates result:
+- Live-site local result:
+- Live-site prod-probe result:
 - Apple Podcasts result:
 - Secondary app result:
 - Extension flow result:

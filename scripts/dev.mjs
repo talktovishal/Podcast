@@ -26,6 +26,15 @@ if (existsSync(rootEnvPath)) {
   }
 }
 
+const runtimeProfile = process.env.RUNTIME_PROFILE ?? 'simple';
+const databaseUrl = process.env.DATABASE_URL;
+if (runtimeProfile === 'simple' && databaseUrl?.startsWith('file:')) {
+  const rawPath = databaseUrl.replace(/^file:/, '');
+  if (rawPath && !rawPath.startsWith('/') && rawPath !== ':memory:') {
+    process.env.DATABASE_URL = `file:${resolve(process.cwd(), rawPath)}`;
+  }
+}
+
 function runOrFail(command, args) {
   const result = spawnSync(command, args, {
     stdio: 'inherit',

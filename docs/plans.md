@@ -143,6 +143,7 @@
 | 90-day raw artifact retention lifecycle | M57, M61, M64 |
 | Markdown-derived TTS input contract | M62 |
 | Rule-based cleanup of extracted markdown before TTS/backfill | M98 |
+| Reusable live-site regression harness and prod-probe runner | M99 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -286,6 +287,7 @@ Milestone metadata contract:
 | M96 | Done | 2026-03-25 | 2026-03-25 | local validation + production redirect canonicalization hardening pass (2026-03-25) |
 | M97 | Done | 2026-03-26 | 2026-03-24 | local validation + smart extension capture pass (2026-03-24) |
 | M98 | Done | 2026-03-27 | 2026-03-24 | local validation + markdown cleanup/backfill rollout pass (2026-03-24) |
+| M99 | Done | 2026-03-28 | 2026-03-24 | local validation + reusable live-site regression harness pass (2026-03-24) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2837,6 +2839,35 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web exec tsx --test tests/markdown-artifact-backfill.test.ts`
   - `pnpm --filter @articlepod/worker typecheck`
   - `pnpm --filter @articlepod/web typecheck`
+
+### M99 - Reusable Live-Site Regression Harness
+- status: Done
+- target_finish: 2026-03-28
+- completed_on: 2026-03-24
+- evidence: local validation + reusable live-site regression harness pass (2026-03-24)
+- Scope:
+  - Add a top-level `testing/live-site/` workspace with an editable Markdown corpus, quirks ledger, TypeScript runners, and lightweight unit tests.
+  - Run checked-out local code for URL and browser-capture validation, plus dispatch GitHub Actions VM probes for URL-path production checks.
+  - Write timestamped reports with provenance, structured results, failure grouping, and rerun-friendly site filters.
+  - Add an extension popup target-tab test hook so the unpacked-extension smoke path can target a known page without depending on the Chrome Web Store build.
+- Key files/modules:
+  - `testing/live-site/*`
+  - `apps/extension/popup.js`
+  - `apps/extension/target-tab.mjs`
+  - `.github/workflows/probe-url-extraction.yml`
+  - `docs/Prompts.md`
+  - `docs/release-checklist.md`
+  - `scripts/README.md`
+- Acceptance criteria:
+  - One root command runs the default corpus against local latest code and production URL probes.
+  - `corpus.md` is the only file operators edit to manage the default target list.
+  - Local successful runs exercise RSS/media contract verification for ready items.
+  - Failures are grouped into product regression, expected site block, site behavior changed, and harness issue.
+  - The unpacked-extension smoke path uses checked-in extension code with only runtime-config redirected to the local app URL.
+- Verification commands:
+  - `pnpm --filter @articlepod/live-site test`
+  - `pnpm --filter @articlepod/live-site typecheck`
+  - `npm run live-sites:test -- --env local --limit 1`
 
 ---
 

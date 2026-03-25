@@ -158,6 +158,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - URL submissions now attempt a short safe redirect canonicalization pass before storing/extracting, reducing avoidable failures from share/login/shortener-style URLs when the final public URL is discoverable.
   - worker chunk progress heartbeats refresh stale-lock timestamps during long TTS runs.
   - stalled jobs get one bounded automatic retry and are then marked `PROCESSING_TIMEOUT` instead of looping forever and starving the queue.
+- Reusable live-site regression tooling is implemented:
+  - top-level `testing/live-site/` workspace with editable Markdown corpus + quirks ledger
+  - local latest-code URL + browser-capture runners
+  - GitHub Actions-backed production VM probe runner
+  - timestamped report bundles under `exports/live-site-validation/`
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
@@ -583,12 +588,17 @@ Before marking any milestone complete, run and record the results for:
 - `npm run export`
 - `npm run license:check`
 
-3. Podcast compatibility gate
+3. Live-site regression gate
+- `npm run live-sites:test -- --env local`
+- If GitHub CLI auth is available and VM probes are in scope, run the default dual-mode command:
+  - `npm run live-sites:test`
+
+4. Podcast compatibility gate
 - Start web server (`npm run start --workspace @articlepod/web -- --hostname 127.0.0.1 --port 3000`)
 - Run:
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 
-4. Feed auth stability gate
+5. Feed auth stability gate
 - Confirm feed URL is unchanged after:
   - loading `/app`
   - loading `/app/settings`
@@ -597,7 +607,7 @@ Before marking any milestone complete, run and record the results for:
 - Confirm enclosure URLs remain unchanged across repeated RSS fetches for the same unchanged episode set.
 - Confirm only explicit rotate/revoke flows issue a new externally visible podcast auth token.
 
-5. Demo flow gate
+6. Demo flow gate
 - Confirm seeded demo user can login and see starter item.
 - Confirm starter item plays in browser and seek works.
 - Confirm tabbed admin dashboard loads and shows investor + reliability + users metrics.

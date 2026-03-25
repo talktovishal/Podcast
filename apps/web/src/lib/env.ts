@@ -54,6 +54,15 @@ function normalizeDatabaseUrl(raw: string): string {
   return `file:${resolve(baseDir, filePart)}`;
 }
 
+function normalizeLocalPath(raw: string): string {
+  if (raw.startsWith("/") || /^[A-Za-z]:[\\/]/.test(raw)) {
+    return raw;
+  }
+
+  const baseDir = raw.startsWith("./apps/") || raw.startsWith("apps/") ? repoRoot : process.cwd();
+  return resolve(baseDir, raw);
+}
+
 function parseMetadataMirrorBackend(raw: string | undefined): MetadataMirrorBackend {
   if (raw === "azure_table") {
     return "azure_table";
@@ -101,15 +110,15 @@ export const env = {
   azureTableCreateTables: parseBoolean(process.env.AZURE_TABLE_CREATE_TABLES, true),
   databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), ".data/db.sqlite")}`),
   storageBackend,
-  storageRoot: process.env.STORAGE_ROOT ?? resolve(process.cwd(), ".data/media"),
+  storageRoot: normalizeLocalPath(process.env.STORAGE_ROOT ?? resolve(process.cwd(), ".data/media")),
   storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? BRAND_SLUG,
   azureStorageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
   azureStorageAccountUrl: process.env.AZURE_STORAGE_ACCOUNT_URL,
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
-  mediaRoot: process.env.MEDIA_ROOT ?? resolve(process.cwd(), ".data/media"),
-  uploadRoot: process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads"),
-  logRoot: process.env.LOG_ROOT ?? defaultLogRoot,
+  mediaRoot: normalizeLocalPath(process.env.MEDIA_ROOT ?? resolve(process.cwd(), ".data/media")),
+  uploadRoot: normalizeLocalPath(process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads")),
+  logRoot: normalizeLocalPath(process.env.LOG_ROOT ?? defaultLogRoot),
   logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
   logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),

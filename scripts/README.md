@@ -4,6 +4,11 @@
 - Local app start: `/Users/vishalchowdhary/Documents/Podcast/run.sh`
 - Contract gate: `/Users/vishalchowdhary/Documents/Podcast/scripts/verify_podcast_contract.sh`
 - Parity smoke: `/Users/vishalchowdhary/Documents/Podcast/scripts/parity-smoke.sh`
+- Live-site harness:
+  - `npm run live-sites:test`
+  - `npm run live-sites:test:url`
+  - `npm run live-sites:test:extension`
+  - `npm run live-sites:test:prod-probe`
 
 ## Azure
 - Azure scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/README.md`

@@ -1,4 +1,5 @@
 import { capturePageSnapshot, HTML_SNAPSHOT_MAX_BYTES } from "./capture-page.mjs";
+import { resolvePopupTargetTab } from "./target-tab.mjs";
 
 const STORAGE_KEYS = {
   activeServerUrl: "articlepod_active_server_url",
@@ -330,7 +331,7 @@ async function captureCurrentPage() {
   await setCapturePendingBadge();
 
   try {
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTab = await resolvePopupTargetTab();
     if (!activeTab?.id || !activeTab.url) {
       setStatus("No active tab found.", "error");
       return;
