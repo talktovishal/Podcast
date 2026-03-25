@@ -1,5 +1,8 @@
 # Release Notes
 
+## v0.1.5
+- Added a small footer link in the popup so users can jump back to `articlepod.com` without guessing where to go next.
+
 ## v0.1.4
 - Added bounded smart capture that can reveal likely article content with safe load-more clicks and limited scrolling.
 - Capture now removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload while preserving document structure for server extraction.

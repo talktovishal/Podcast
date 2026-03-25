@@ -96,6 +96,7 @@ This flow works the same whether you are using the local development server or y
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
    The popup keeps `Importance` and `Tags` inside a bordered optional box with a visible **Optional** badge so it is clear you can skip them.
+   A small footer link also opens `articlepod.com` directly so users always have an obvious way back to the web app.
    Optional metadata in the popup:
    - choose an **Importance** level (`Low`, `Medium`, `High`)
    - add comma-separated **Tags** such as `financial, personal, retirement`
