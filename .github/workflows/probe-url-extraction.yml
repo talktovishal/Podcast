@@ -116,14 +116,14 @@ jobs:
 
           log_path = pathlib.Path(sys.argv[1])
           json_path = pathlib.Path(sys.argv[2])
-          lines = log_path.read_text().splitlines()
+          text = log_path.read_text()
+          decoder = json.JSONDecoder()
 
-          for start in range(len(lines)):
-              if not lines[start].lstrip().startswith("{"):
+          for start in range(len(text)):
+              if text[start] != "{":
                   continue
-              candidate = "\n".join(lines[start:]).strip()
               try:
-                  payload = json.loads(candidate)
+                  payload, _ = decoder.raw_decode(text[start:])
               except Exception:
                   continue
               json_path.write_text(json.dumps(payload, indent=2) + "\n")
