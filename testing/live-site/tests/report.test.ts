@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { selectDispatchedProbeRun } from "../src/prod-probe.js";
 import { classifyPathFailure, classifyProdProbeFailure, matchLocalExpectation, matchProdProbeExpectation } from "../src/report.js";
 
 test("matchLocalExpectation respects manual review and exact matches", () => {
@@ -37,4 +38,38 @@ test("classifyProdProbeFailure treats blocked-ready mismatches as site behavior 
     durationMs: 10
   });
   assert.equal(classification, "site_behavior_changed");
+});
+
+test("selectDispatchedProbeRun prefers the newest workflow_dispatch run after dispatch time", () => {
+  const selected = selectDispatchedProbeRun(
+    [
+      {
+        databaseId: 1,
+        createdAt: "2026-03-25T05:59:44Z",
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        url: "https://example.com/1"
+      },
+      {
+        databaseId: 2,
+        createdAt: "2026-03-25T06:00:35Z",
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        url: "https://example.com/2"
+      },
+      {
+        databaseId: 3,
+        createdAt: "2026-03-25T06:00:36Z",
+        event: "push",
+        status: "completed",
+        conclusion: "success",
+        url: "https://example.com/3"
+      }
+    ],
+    Date.parse("2026-03-25T06:00:33Z")
+  );
+
+  assert.equal(selected?.databaseId, 2);
 });

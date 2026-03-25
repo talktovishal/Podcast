@@ -16,6 +16,13 @@ type GithubRun = {
   url: string;
 };
 
+export function selectDispatchedProbeRun(runs: GithubRun[], dispatchedAt: number): GithubRun | null {
+  const eligible = runs
+    .filter((run) => run.event === "workflow_dispatch" && new Date(run.createdAt).getTime() >= dispatchedAt - 5_000)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
+  return eligible[0] ?? null;
+}
+
 async function ensureGhAuth(): Promise<void> {
   const status = await runCommand("gh", ["auth", "status"], {
     cwd: REPO_ROOT,
@@ -38,7 +45,7 @@ async function waitForWorkflowRun(branch: string, dispatchedAt: number): Promise
       }
     );
     const runs = JSON.parse(result.stdout) as GithubRun[];
-    const match = runs.find((run) => run.event === "workflow_dispatch" && new Date(run.createdAt).getTime() >= dispatchedAt - 60_000);
+    const match = selectDispatchedProbeRun(runs, dispatchedAt);
     if (match) {
       return match;
     }
