@@ -39,3 +39,12 @@ test("marks confirmed site-blocked URL failures as non-retryable", () => {
 
   assert.equal(retry, false);
 });
+
+test("marks processing timeout failures as non-retryable", () => {
+  const retry = shouldRecommendRetry({
+    code: errorCodes.PROCESSING_TIMEOUT,
+    userMessage: "Processing exceeded the 45-minute safety limit and was stopped. Please retry."
+  });
+
+  assert.equal(retry, false);
+});

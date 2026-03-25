@@ -41,6 +41,17 @@ type HtmlExtractionResultWithDiagnostics = HtmlExtractionResult & {
   diagnostics: HtmlFetchDiagnostics;
 };
 
+function pinnedIpv6Enabled(): boolean {
+  const explicit = process.env.PINNED_FETCH_IPV6_ENABLED;
+  if (explicit === "0") {
+    return false;
+  }
+  if (explicit === "1") {
+    return true;
+  }
+  return process.env.RUNTIME_PROFILE !== "azure";
+}
+
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
@@ -345,6 +356,24 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
       }
     } as ConstructorParameters<typeof https.Agent>[0]);
 
+    let settled = false;
+    const settleResolve = (response: FetchResponseLike) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(response);
+    };
+    const settleReject = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    };
+
     const timer = setTimeout(() => {
       req.destroy(Object.assign(new Error("ETIMEDOUT"), { code: "ETIMEDOUT" }));
     }, timeoutMs);
@@ -355,22 +384,25 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
         port,
         path: `${parsedUrl.pathname}${parsedUrl.search}`,
         method: "GET",
+        family,
         headers: { "user-agent": BRAND_BOT_USER_AGENT, host: parsedUrl.host },
         agent
       },
       (res) => {
-        clearTimeout(timer);
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
         res.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8");
           const status = res.statusCode ?? 200;
-          resolve({ status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) });
+          settleResolve({ status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) });
         });
-        res.on("error", reject);
+        res.on("error", settleReject);
       }
     );
-    req.on("error", (err) => { clearTimeout(timer); reject(err); });
+    req.on("socket", (socket) => {
+      socket.on("error", settleReject);
+    });
+    req.on("error", settleReject);
     req.end();
   });
 }
@@ -391,14 +423,25 @@ async function fetchWithHostname(urlStr: string, timeoutMs: number): Promise<Fet
 function normalizePinnedIpCandidates(resolvedIp?: string | string[]): string[] {
   const candidates = Array.isArray(resolvedIp) ? resolvedIp : resolvedIp ? [resolvedIp] : [];
   const unique = new Set<string>();
+  const allowIpv6 = pinnedIpv6Enabled();
   for (const candidate of candidates) {
     const normalized = candidate.trim();
     if (!normalized) {
       continue;
     }
+    if (!allowIpv6 && normalized.includes(":")) {
+      continue;
+    }
     unique.add(normalized);
   }
-  return Array.from(unique);
+  return Array.from(unique).sort((left, right) => {
+    const leftIsIpv6 = left.includes(":");
+    const rightIsIpv6 = right.includes(":");
+    if (leftIsIpv6 === rightIsIpv6) {
+      return 0;
+    }
+    return leftIsIpv6 ? 1 : -1;
+  });
 }
 
 function shouldTryNextPinnedIp(error: unknown): boolean {

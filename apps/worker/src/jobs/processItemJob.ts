@@ -326,6 +326,47 @@ function buildRetryAt(delayMs: number): Date {
   return new Date(Date.now() + delayMs + jitter);
 }
 
+type StaleProcessingJob = {
+  id: string;
+  itemId: string;
+  attempt: number;
+};
+
+type StaleProcessingReclaimResult = {
+  requeued: number;
+  failed: number;
+};
+
+function staleRetryMessage(): string {
+  const staleMinutes = Math.max(1, Math.round(workerEnv.staleProcessingMs / 60_000));
+  return `Retrying after ${staleMinutes} minutes without progress...`;
+}
+
+function buildRepeatedStallTimeoutError(): AppError {
+  const staleMinutes = Math.max(1, Math.round(workerEnv.staleProcessingMs / 60_000));
+  return new AppError(
+    errorCodes.PROCESSING_TIMEOUT,
+    `Processing stalled for ${staleMinutes} minutes without progress more than once and was stopped. Please retry.`,
+    504
+  );
+}
+
+function buildMaxProcessingTimeError(): AppError {
+  const maxMinutes = Math.max(1, Math.round(workerEnv.maxProcessingMs / 60_000));
+  return new AppError(
+    errorCodes.PROCESSING_TIMEOUT,
+    `Processing exceeded the ${maxMinutes}-minute safety limit and was stopped. Please retry.`,
+    504
+  );
+}
+
+function shouldFailStaleProcessingJob(job: StaleProcessingJob): AppError | null {
+  if (job.attempt > workerEnv.maxStaleRetries) {
+    return buildRepeatedStallTimeoutError();
+  }
+  return null;
+}
+
 async function extractItemText(item: {
   id: string;
   sourceType: string;
@@ -494,6 +535,9 @@ async function extractItemText(item: {
 
 export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage">): boolean {
   const message = error.userMessage.toLowerCase();
+  if (error.code === errorCodes.PROCESSING_TIMEOUT) {
+    return false;
+  }
   if (error.code === errorCodes.TTS_FAILED && message.includes("ffmpeg")) {
     return false;
   }
@@ -601,31 +645,46 @@ function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError 
   return new AppError(errorCodes.INTERNAL_ERROR, "Processing failed unexpectedly. Please retry.", 500);
 }
 
-async function reclaimStaleProcessingJobs(): Promise<number> {
+async function reclaimStaleProcessingJobs(): Promise<StaleProcessingReclaimResult> {
   const staleBefore = new Date(Date.now() - workerEnv.staleProcessingMs);
   if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
     const staleJobs = await workerPrimaryStore.listStaleJobs(staleBefore);
     if (staleJobs.length === 0) {
-      return 0;
+      return { requeued: 0, failed: 0 };
     }
 
-    let reclaimed = 0;
+    let requeued = 0;
+    let failed = 0;
     for (const job of staleJobs) {
+      const terminalError = shouldFailStaleProcessingJob(job);
       const updated = await workerPrimaryStore.updateJob(job.id, {
-        status: "QUEUED",
+        status: "FAILED",
         lockedAt: null,
-        nextRetryAt: new Date()
+        nextRetryAt: terminalError ? null : new Date(),
+        errorCode: terminalError?.code ?? null,
+        errorMessage: terminalError?.userMessage ?? null
       });
-      if (!updated) {
+      if (!updated || updated.status !== "FAILED" || updated.lockedAt !== null) {
         continue;
       }
-      await workerPrimaryStore.updateItem(job.itemId, {
-        status: "QUEUED"
-      });
-      reclaimed++;
+      if (terminalError) {
+        await workerPrimaryStore.updateItem(job.itemId, {
+          status: "FAILED",
+          errorCode: terminalError.code,
+          errorMessage: terminalError.userMessage
+        });
+        failed++;
+      } else {
+        await workerPrimaryStore.updateItem(job.itemId, {
+          status: "QUEUED",
+          errorCode: null,
+          errorMessage: staleRetryMessage()
+        });
+        requeued++;
+      }
       await syncJobAndItemProjectionByJobId(job.id);
     }
-    return reclaimed;
+    return { requeued, failed };
   }
 
   const staleJobs = await prisma.job.findMany({
@@ -637,25 +696,30 @@ async function reclaimStaleProcessingJobs(): Promise<number> {
     },
     select: {
       id: true,
-      itemId: true
+      itemId: true,
+      attempt: true
     }
   });
 
   if (staleJobs.length === 0) {
-    return 0;
+    return { requeued: 0, failed: 0 };
   }
 
-  let reclaimed = 0;
+  let requeued = 0;
+  let failed = 0;
   for (const job of staleJobs) {
+    const terminalError = shouldFailStaleProcessingJob(job);
     try {
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Re-check status inside transaction to prevent double-reclaim race
         await tx.job.update({
           where: { id: job.id, status: "PROCESSING", lockedAt: { lt: staleBefore } },
           data: {
-            status: "QUEUED",
+            status: "FAILED",
             lockedAt: null,
-            nextRetryAt: new Date()
+            nextRetryAt: terminalError ? null : new Date(),
+            errorCode: terminalError?.code ?? null,
+            errorMessage: terminalError?.userMessage ?? null
           }
         });
 
@@ -665,18 +729,24 @@ async function reclaimStaleProcessingJobs(): Promise<number> {
             status: "PROCESSING"
           },
           data: {
-            status: "QUEUED"
+            status: terminalError ? "FAILED" : "QUEUED",
+            errorCode: terminalError?.code ?? null,
+            errorMessage: terminalError?.userMessage ?? staleRetryMessage()
           }
         });
       });
-      reclaimed++;
+      if (terminalError) {
+        failed++;
+      } else {
+        requeued++;
+      }
       await syncJobAndItemProjectionByJobId(job.id);
     } catch {
       // Job was already claimed by another worker instance — skip it
     }
   }
 
-  return reclaimed;
+  return { requeued, failed };
 }
 
 export async function processJob(jobId: string): Promise<boolean> {
@@ -995,28 +1065,48 @@ export async function processJob(jobId: string): Promise<boolean> {
       });
       let lastProgressWriteAt = 0;
       audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection, async (current, total) => {
+        if (Date.now() - lockedAtMs >= workerEnv.maxProcessingMs) {
+          throw buildMaxProcessingTimeError();
+        }
         const nowMs = Date.now();
         const shouldWrite = current === total || current === 1 || nowMs - lastProgressWriteAt >= 4000;
         if (!shouldWrite) {
           return;
         }
         lastProgressWriteAt = nowMs;
+        const heartbeatAt = new Date(nowMs);
         const progressMessage =
           total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
         if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
-          await workerPrimaryStore.updateItem(item.id, {
-            errorMessage: progressMessage
-          });
-        } else {
-          await prisma.item.updateMany({
-            where: {
-              id: item.id,
-              status: "PROCESSING"
-            },
-            data: {
+          await Promise.all([
+            workerPrimaryStore.updateItem(item.id, {
               errorMessage: progressMessage
-            }
-          });
+            }),
+            workerPrimaryStore.updateJob(claimResult.id, {
+              lockedAt: heartbeatAt
+            })
+          ]);
+        } else {
+          await Promise.all([
+            prisma.item.updateMany({
+              where: {
+                id: item.id,
+                status: "PROCESSING"
+              },
+              data: {
+                errorMessage: progressMessage
+              }
+            }),
+            prisma.job.updateMany({
+              where: {
+                id: claimResult.id,
+                status: "PROCESSING"
+              },
+              data: {
+                lockedAt: heartbeatAt
+              }
+            })
+          ]);
         }
       });
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
@@ -1353,8 +1443,22 @@ export async function processJob(jobId: string): Promise<boolean> {
 
 export async function processNextQueuedJob(): Promise<boolean> {
   const reclaimed = await reclaimStaleProcessingJobs();
-  if (reclaimed > 0) {
-    await workerLogger.warn("Reclaimed stale processing jobs", { reclaimed });
+  if (reclaimed.requeued > 0) {
+    await workerLogger.warn("Requeued stale processing jobs", {
+      requeued: reclaimed.requeued,
+      staleProcessingMs: workerEnv.staleProcessingMs
+    });
+  }
+  if (reclaimed.failed > 0) {
+    await workerLogger.errorWithCode({
+      msg: "Marked stale processing jobs as failed",
+      error_code: errorCodes.PROCESSING_TIMEOUT,
+      attrs: {
+        failed: reclaimed.failed,
+        staleProcessingMs: workerEnv.staleProcessingMs,
+        maxStaleRetries: workerEnv.maxStaleRetries
+      }
+    });
   }
 
   if (workerUsesAzureTablePrimary() && workerPrimaryStore) {

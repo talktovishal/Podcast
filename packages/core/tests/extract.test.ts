@@ -224,6 +224,148 @@ test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachabl
   }
 });
 
+test("extractHtmlFromUrl retries the next pinned candidate after a socket error", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      if (requestCalls === 1) {
+        const socketEmitter = new EventEmitter();
+        process.nextTick(() => {
+          requestEmitter.emit("socket", socketEmitter);
+          socketEmitter.emit("error", Object.assign(new Error("network unreachable"), { code: "ENETUNREACH" }));
+        });
+        return;
+      }
+
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["2001:db8::1", "198.51.100.9"]);
+    assert.equal(requestCalls, 2);
+    assert.equal(fallbackCalls, 0);
+    assert.equal(result.diagnostics.finalFetchStrategy, "pinned");
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl skips ipv6 pinned candidates in azure runtime profile", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  const previousRuntimeProfile = process.env.RUNTIME_PROFILE;
+  const previousPinnedIpv6 = process.env.PINNED_FETCH_IPV6_ENABLED;
+  let requestCalls = 0;
+  const seenFamilies: Array<number | undefined> = [];
+
+  process.env.RUNTIME_PROFILE = "azure";
+  delete process.env.PINNED_FETCH_IPV6_ENABLED;
+  globalThis.fetch = (async () => {
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const options =
+      (typeof args[0] === "object" && args[0] !== null ? args[0] : {}) as {
+        family?: number;
+      };
+    seenFamilies.push(options.family);
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["2001:db8::1", "198.51.100.9"]);
+    assert.equal(requestCalls, 1);
+    assert.deepEqual(seenFamilies, [4]);
+    assert.equal(result.diagnostics.pinnedCandidateCount, 1);
+    assert.equal(result.diagnostics.finalFetchStrategy, "pinned");
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+    if (previousRuntimeProfile === undefined) {
+      delete process.env.RUNTIME_PROFILE;
+    } else {
+      process.env.RUNTIME_PROFILE = previousRuntimeProfile;
+    }
+    if (previousPinnedIpv6 === undefined) {
+      delete process.env.PINNED_FETCH_IPV6_ENABLED;
+    } else {
+      process.env.PINNED_FETCH_IPV6_ENABLED = previousPinnedIpv6;
+    }
+  }
+});
+
 test("extractHtmlFromUrl retries the next pinned candidate after a blocked response", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
   const originalRequest = http.request;

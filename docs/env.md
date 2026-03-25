@@ -109,6 +109,7 @@ Behavior:
 - ArticlePod stores only Stripe customer/subscription metadata and effective access state; card details remain in Stripe-hosted flows.
 
 ## Worker controls
+- `PINNED_FETCH_IPV6_ENABLED` (`0` default for Azure, otherwise enabled unless overridden; disable IPv6 pinned-IP fetch attempts on single-stack hosts)
 - `WORKER_ROLE` (`primary` default; set `overflow` for a queue-pressure-triggered overflow worker process)
 - `WORKER_OVERFLOW_ENABLED` (`0` default; set `1` to let overflow workers process jobs when pressure policy is active)
 - `WORKER_OVERFLOW_POLICY_EVAL_MS` (default `15000`; queue-pressure evaluation interval)
@@ -121,7 +122,9 @@ Behavior:
 - `OVERFLOW_PYTHON_TTS_TIMEOUT_MS` (default inherits `PYTHON_TTS_TIMEOUT_MS`)
 - `OVERFLOW_PYTHON_TTS_SECRET` (optional auth secret for overflow python-tts endpoint)
 - `WORKER_POLL_MS`
-- `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
+- `WORKER_STALE_PROCESSING_MS` (default `900000`; stale `PROCESSING` jobs are considered stalled after 15 minutes without progress)
+- `WORKER_MAX_STALE_RETRIES` (default `1`; a stalled job gets one automatic reclaim before it is marked `PROCESSING_TIMEOUT`)
+- `WORKER_MAX_PROCESSING_MS` (default `2700000`; actively progressing work is stopped after 45 minutes)
 - `WORKER_RETRY_POLL_MS`
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)

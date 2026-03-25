@@ -12,6 +12,8 @@
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
 - First live Azure VM deployment executed on `2026-02-15` in `rg-articlepod-prod`; public HTTPS health and podcast contract checks passed on `articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com`.
 - Azure runtime scripts now preserve python-tts virtualenv across promotions and auto-bootstrap missing language assets during VM deploy.
+- Stuck-job watchdog hardening (`M95`) is implemented: pinned-IP extraction socket failures no longer crash the worker, long TTS runs heartbeat their job lock, and stale jobs now fail cleanly after bounded retries instead of starving the queue indefinitely.
+- Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
@@ -276,6 +278,7 @@ Milestone metadata contract:
 | M92 | Done | 2026-03-22 | 2026-03-22 | local validation + implementation pass (2026-03-22) |
 | M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
 | M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
+| M95 | Done | 2026-03-24 | 2026-03-24 | local validation + production stuck-job watchdog pass (2026-03-24) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2691,6 +2694,42 @@ Milestone metadata contract:
   - Azure Table primary digest scheduler polling and extension-token revocation do not emit invalid `eq null` OData filters.
   - Long Kokoro chunk requests on Azure no longer fail at the old fixed 120-second client timeout.
   - If a python-tts timeout does happen, the worker surfaces actionable guidance instead of claiming the sidecar is down.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/worker test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+
+### M95 - Stuck Job Watchdog Hardening
+- status: Done
+- target_finish: 2026-03-24
+- completed_on: 2026-03-24
+- evidence: local validation + production stuck-job watchdog pass (2026-03-24)
+- Scope:
+  - Prevent pinned-IP extraction socket failures from crashing the worker process.
+  - Default Azure pinned fetches to IPv4-only candidates on the current single-stack VM profile.
+  - Heartbeat long-running TTS jobs so stale-lock detection means "no progress" rather than "processing took a while".
+  - Mark repeatedly stalled jobs as `PROCESSING_TIMEOUT` instead of reclaiming them forever and starving the queue.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/src/errors/codes.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/tests/queue-resilience.test.ts`
+  - `apps/worker/tests/retry-policy.test.ts`
+  - `.env.azure.example`
+  - `scripts/azure/render-env.sh`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/env.md`
+  - `docs/azure-deploy.md`
+- Acceptance criteria:
+  - IPv4/IPv6 pinned-IP connect failures do not crash the worker process and instead fall through to the existing retry/fallback logic.
+  - Long TTS jobs refresh their job lock while chunks are completing, so legitimate multi-minute audio work is not reclaimed as stale.
+  - A stalled job gets at most one automatic reclaim, then moves to `PROCESSING_TIMEOUT` with no further auto-retries.
+  - Reclaimed stale jobs no longer prevent newer queued work from being processed first.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
   - `pnpm --filter @articlepod/worker test`

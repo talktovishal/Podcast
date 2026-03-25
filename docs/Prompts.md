@@ -148,6 +148,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Azure worker stability hotfix is implemented:
   - Azure Table primary digest scheduler and extension-token paths no longer issue unsupported `eq null` queries.
   - python-tts client timeouts now scale with chunk size, and Azure env rendering defaults Kokoro requests to a 5-minute timeout on B2s-class hosts.
+- Stuck-job watchdog hardening is implemented:
+  - pinned-IP HTML fetches now handle socket-level `ENETUNREACH`/connect failures without crashing the worker process.
+  - Azure runtime defaults pinned fetches to IPv4-only candidates unless explicitly overridden, avoiding Node 22 crashes on single-stack VM egress.
+  - worker chunk progress heartbeats refresh stale-lock timestamps during long TTS runs.
+  - stalled jobs get one bounded automatic retry and are then marked `PROCESSING_TIMEOUT` instead of looping forever and starving the queue.
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.

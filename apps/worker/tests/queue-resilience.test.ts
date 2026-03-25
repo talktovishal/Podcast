@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, sha256 } from "@articlepod/core";
+import { chunkText, errorCodes, sha256 } from "@articlepod/core";
 import { extractHtmlSnapshot } from "@articlepod/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
@@ -191,6 +191,160 @@ test("does not process failed job before nextRetryAt", async () => {
     assert.equal(untouched?.status, "FAILED");
     assert.equal(untouched?.attempt, 0);
   } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("stale processing retry does not block newer queued work", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-stale-priority`;
+  const previousMaxStaleRetries = workerEnv.maxStaleRetries;
+  workerEnv.maxStaleRetries = 1;
+  const queuedHtml = SNAPSHOT_HTML.replaceAll("Queue Fixture", `Queue Fixture ${uniq} queued`);
+
+  const user = await prisma.user.create({
+    data: {
+      email: `stale-priority-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+  const queuedUser = await prisma.user.create({
+    data: {
+      email: `queued-priority-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const staleItem = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Stale Priority ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/stale-priority/${uniq}`,
+      sourceHtml: SNAPSHOT_HTML,
+      sourceCapturedAt: new Date(),
+      status: "PROCESSING"
+    }
+  });
+
+  const queuedItem = await prisma.item.create({
+    data: {
+      userId: queuedUser.id,
+      title: `Queued Priority ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/queued-priority/${uniq}`,
+      sourceHtml: queuedHtml,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  await seedCacheForItem(staleItem.id, user.id);
+  await seedCacheForHtml(queuedItem.id, queuedUser.id, queuedHtml, `https://example.com/queued-priority/${uniq}`);
+
+  const staleJob = await prisma.job.create({
+    data: {
+      itemId: staleItem.id,
+      status: "PROCESSING",
+      lockedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      attempt: 1
+    }
+  });
+
+  const queuedJob = await prisma.job.create({
+    data: {
+      itemId: queuedItem.id,
+      status: "QUEUED",
+      attempt: 0
+    }
+  });
+
+  try {
+    const processed = await processNextQueuedJob();
+    assert.equal(processed, true);
+
+    const [staleJobAfter, staleItemAfter, queuedJobAfter, queuedItemAfter] = await Promise.all([
+      prisma.job.findUnique({ where: { id: staleJob.id } }),
+      prisma.item.findUnique({ where: { id: staleItem.id } }),
+      prisma.job.findUnique({ where: { id: queuedJob.id } }),
+      prisma.item.findUnique({ where: { id: queuedItem.id } })
+    ]);
+
+    assert.equal(staleJobAfter?.status, "FAILED");
+    assert.ok(staleJobAfter?.nextRetryAt);
+    assert.equal(staleJobAfter?.errorCode, null);
+    assert.equal(staleItemAfter?.status, "QUEUED");
+    assert.match(staleItemAfter?.errorMessage ?? "", /Retrying after/);
+
+    assert.equal(queuedJobAfter?.status, "SUCCEEDED");
+    assert.equal(queuedItemAfter?.status, "READY");
+  } finally {
+    workerEnv.maxStaleRetries = previousMaxStaleRetries;
+    await prisma.user.deleteMany({
+      where: {
+        id: {
+          in: [user.id, queuedUser.id]
+        }
+      }
+    });
+  }
+});
+
+test("marks repeatedly stale processing job failed instead of retrying forever", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-stale-terminal`;
+  const previousMaxStaleRetries = workerEnv.maxStaleRetries;
+  workerEnv.maxStaleRetries = 1;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `stale-terminal-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Stale Terminal ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/stale-terminal/${uniq}`,
+      sourceHtml: SNAPSHOT_HTML,
+      sourceCapturedAt: new Date(),
+      status: "PROCESSING"
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "PROCESSING",
+      lockedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      attempt: 2
+    }
+  });
+
+  try {
+    const processed = await processNextQueuedJob();
+    assert.equal(processed, false);
+
+    const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
+    const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
+
+    assert.equal(finishedJob?.status, "FAILED");
+    assert.equal(finishedJob?.nextRetryAt, null);
+    assert.equal(finishedJob?.errorCode, errorCodes.PROCESSING_TIMEOUT);
+    assert.match(finishedJob?.errorMessage ?? "", /stalled/i);
+    assert.equal(finishedItem?.status, "FAILED");
+    assert.equal(finishedItem?.errorCode, errorCodes.PROCESSING_TIMEOUT);
+  } finally {
+    workerEnv.maxStaleRetries = previousMaxStaleRetries;
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

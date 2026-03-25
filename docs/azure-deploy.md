@@ -198,6 +198,8 @@ Defaults now include VM-safe runtime paths:
 - `UPLOAD_ROOT=/var/lib/articlepod/uploads`
 - When `METADATA_PRIMARY_BACKEND=azure_table` and `DATABASE_URL` is omitted, `render-env.sh` now defaults it to `file:/var/lib/articlepod/db.sqlite`.
 - `PYTHON_TTS_TIMEOUT_MS=300000` and `OVERFLOW_PYTHON_TTS_TIMEOUT_MS=300000` on Azure unless explicitly overridden, which avoids false worker failures on slower B2s Kokoro chunk synthesis.
+- `PINNED_FETCH_IPV6_ENABLED=0` on Azure unless explicitly overridden, because the current Azure VM runtime is effectively IPv4-only for outbound pinned fetches and IPv6 candidates can crash Node 22 before request-level recovery logic runs.
+- `WORKER_STALE_PROCESSING_MS=900000`, `WORKER_MAX_STALE_RETRIES=1`, and `WORKER_MAX_PROCESSING_MS=2700000` on Azure unless explicitly overridden, so stalled jobs get one bounded recovery attempt and then fail cleanly instead of blocking the queue forever.
 
 ## Deploy runtime + systemd services
 On VM:
