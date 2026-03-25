@@ -15,6 +15,7 @@
 - Stuck-job watchdog hardening (`M95`) is implemented: pinned-IP extraction socket failures no longer crash the worker, long TTS runs heartbeat their job lock, and stale jobs now fail cleanly after bounded retries instead of starving the queue indefinitely.
 - Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
 - URL ingestion now performs a short safe redirect-canonicalization pass before enqueue/extraction so redirecting share/login-style URLs can normalize to their public destination when discoverable.
+- Chrome extension smart capture now uses a popup-triggered bounded reveal pass plus safe inert-node cleanup before HTML snapshot upload, while keeping the worker extraction path HTML-first.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
@@ -281,6 +282,7 @@ Milestone metadata contract:
 | M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
 | M95 | Done | 2026-03-24 | 2026-03-24 | local validation + production stuck-job watchdog pass (2026-03-24) |
 | M96 | Done | 2026-03-25 | 2026-03-25 | local validation + production redirect canonicalization hardening pass (2026-03-25) |
+| M97 | Done | 2026-03-26 | 2026-03-24 | local validation + smart extension capture pass (2026-03-24) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -930,7 +932,7 @@ Milestone metadata contract:
   - Send authenticated payload to backend snapshot ingest API.
   - Provide user-facing error/success feedback in extension popup.
 - Key files/modules:
-  - `apps/extension/` (MV3 manifest, popup, background, content script)
+  - `apps/extension/` (MV3 manifest, popup, runtime config, popup-triggered capture logic)
   - backend extension auth and ingest routes
   - docs for local extension loading
 - Acceptance criteria:
@@ -2765,6 +2767,41 @@ Milestone metadata contract:
   - `pnpm lint`
   - `pnpm test`
   - `pnpm build`
+
+### M97 - Smart Extension Capture
+- status: Done
+- target_finish: 2026-03-26
+- completed_on: 2026-03-24
+- evidence: local validation + smart extension capture pass (2026-03-24)
+- Scope:
+  - Add popup-triggered smart capture that can reveal likely article continuations before upload using bounded safe clicks and limited scroll passes.
+  - Keep extension snapshots HTML-first and compatible with the existing `HTML_SNAPSHOT` worker extraction path.
+  - Remove only inert nodes from the serialized clone, keep the single hard byte limit on the route, and fail early in the popup when safe cleanup still exceeds the budget.
+- Key files/modules:
+  - `apps/extension/capture-page.mjs`
+  - `apps/extension/popup.js`
+  - `apps/extension/popup.html`
+  - `apps/web/src/app/api/items/html-snapshot/route.ts`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/tests/extension-capture.test.ts`
+  - `apps/web/tests/auth-routes.test.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `apps/extension/README.md`
+- Acceptance criteria:
+  - Likely article content can be revealed via bounded smart capture without switching to a second extraction pipeline in the extension.
+  - Feed/thread-style hosts remain conservative and do not aggressively expand replies or surrounding discussion.
+  - Safe cleanup removes inert nodes/comments while preserving document structure that the server extractor relies on.
+  - The shared schema no longer enforces a separate character cap; the route enforces the single hard byte limit.
+  - Oversized cleaned snapshots fail clearly in the popup and on the route.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm extension:validate`
 
 ---
 

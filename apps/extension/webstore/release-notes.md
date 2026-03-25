@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.1.4
+- Added bounded smart capture that can reveal likely article content with safe load-more clicks and limited scrolling.
+- Capture now removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload while preserving document structure for server extraction.
+- Oversized pages now fail early in the popup when safe cleanup still exceeds the snapshot budget.
+
 ## v0.1.1
 - Removed server URL input from popup (server targets now come from packaged runtime config).
 - Added connected-state UX: popup turns blue when configured and hides connect-code input.

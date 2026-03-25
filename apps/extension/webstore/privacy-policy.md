@@ -5,7 +5,9 @@ ArticlePod Capture only collects data required to submit pages you explicitly ch
 ## Data processed
 - Current tab URL
 - Current tab title
-- Current tab HTML (`document.documentElement.outerHTML`) when you click **Capture Current Page**
+- Cleaned current-tab HTML snapshot when you click **Capture Current Page**
+  - the extension may perform a bounded auto-reveal pass for likely article content
+  - inert scripts, styles, templates, noscript blocks, and HTML comments are removed before upload
 - Extension configuration data stored locally:
   - Active ArticlePod server target URL (resolved from packaged config)
   - Extension token

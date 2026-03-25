@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, "..");
 const EXT_DIR = path.join(ROOT, "apps", "extension");
 const DIST_DIR = path.join(ROOT, "dist", "extension");
 
-const REQUIRED_FILES = ["manifest.json", "popup.html", "runtime-config.js", "popup.js", "popup.css"];
+const REQUIRED_FILES = ["manifest.json", "popup.html", "runtime-config.js", "popup.js", "capture-page.mjs", "popup.css"];
 const REQUIRED_ICONS = [16, 32, 48, 128];
 
 // Chrome Web Store caps short description at 132 chars.

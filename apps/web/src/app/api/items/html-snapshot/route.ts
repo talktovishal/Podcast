@@ -1,5 +1,4 @@
-import { submitHtmlSnapshotSchema } from "@articlepod/core";
-import { makeToken } from "@articlepod/core";
+import { HTML_SNAPSHOT_MAX_BYTES, makeToken, submitHtmlSnapshotSchema } from "@articlepod/core";
 import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromExtensionTokenRequest, getAuthUserFromRequest } from "@/lib/auth";
@@ -8,8 +7,6 @@ import { enqueueItem } from "@/lib/items";
 import { logger } from "@/lib/logger";
 import { enforceSubmitRateLimits, getClientIp } from "@/lib/rate-limit";
 import { getArtifactStorage, normalizeStorageKey } from "@/lib/storage";
-
-const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") || undefined;
@@ -25,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     const payload = submitHtmlSnapshotSchema.parse(await request.json());
     const htmlBytes = Buffer.byteLength(payload.html, "utf8");
-    if (htmlBytes > MAX_SNAPSHOT_BYTES) {
+    if (htmlBytes > HTML_SNAPSHOT_MAX_BYTES) {
       return NextResponse.json(
         {
           ok: false,

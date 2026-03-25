@@ -169,7 +169,11 @@ Critical artifacts in object storage:
 1. User is authenticated on web app.
 2. Web mints one-time extension connect code (24-hour default).
 3. Extension exchanges code for a scoped token that does not expire automatically.
-4. Extension captures active-tab HTML (`document.documentElement.outerHTML`).
+4. Extension runs a popup-triggered smart-capture pass on the active tab:
+   - detect a likely main-content root
+   - do bounded safe load-more/read-more clicks and limited scroll passes when needed
+   - stay conservative on thread/feed-style hosts
+   - clone the final DOM and remove inert scripts, styles, templates, noscript blocks, and HTML comments
 5. Extension calls `POST /api/items/html-snapshot`.
 6. Item enters normal worker pipeline and appears in user feed.
 

@@ -22,13 +22,13 @@ test("submitHtmlSnapshotSchema accepts valid payload", () => {
   assert.equal(parsed.title, "Captured article");
 });
 
-test("submitHtmlSnapshotSchema rejects oversized html", () => {
-  assert.throws(() =>
-    submitHtmlSnapshotSchema.parse({
-      url: "https://example.com/private",
-      html: "x".repeat(2_000_001)
-    })
-  );
+test("submitHtmlSnapshotSchema no longer enforces the old character cap", () => {
+  const parsed = submitHtmlSnapshotSchema.parse({
+    url: "https://example.com/private",
+    html: "x".repeat(2_000_001)
+  });
+
+  assert.equal(parsed.html.length, 2_000_001);
 });
 
 test("extensionTokenExchangeSchema validates connect code shape", () => {

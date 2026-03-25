@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-23)
+## Spec Status (as of 2026-03-24)
 
-### Implemented (as of 2026-03-23)
+### Implemented (as of 2026-03-24)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -19,6 +19,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - worker extraction path for `HTML_SNAPSHOT`
   - standalone MV3 extension package under `apps/extension`.
   - popup now uses packaged runtime server configuration (no user-entered server URL) with connected/capture state cues.
+  - popup-triggered smart capture now performs bounded article-focused auto-reveal before upload, with conservative handling for feed/thread-style hosts.
+  - captured snapshot cleanup removes inert scripts, styles, templates, noscript blocks, and HTML comments while preserving document structure for the server extraction path.
+  - snapshot size enforcement is byte-based on the server, and the popup now fails early when safe cleanup still exceeds the upload budget.
   - packaged runtime config defaults extension connections to `https://articlepod.com` (override in `apps/extension/runtime-config.js` for local debugging).
   - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
 - Durable Azure/parity implementation assets are in place:
@@ -130,7 +133,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
 
 ### Next Milestones
-- Current core milestone set (`M00`-`M91`) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M97`) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.

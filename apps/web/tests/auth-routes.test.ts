@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { AUTH_COOKIE_NAMES, createSecretToken } from "@articlepod/core";
+import { AUTH_COOKIE_NAMES, HTML_SNAPSHOT_MAX_BYTES, createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
@@ -554,6 +554,51 @@ test("html snapshot route requires auth", async () => {
 
   assert.equal(payload.ok, false);
   assert.equal(payload.error_code, "UNAUTHORIZED");
+});
+
+test("html snapshot route enforces the byte limit after schema parsing", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-bytes`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `snapshot-bytes-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const sessionToken = await createSession(user.id);
+    const multiBytePayload = "é".repeat(Math.ceil(HTML_SNAPSHOT_MAX_BYTES / 2));
+    const request = new NextRequest("http://localhost/api/items/html-snapshot", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: `articlepod_session=${sessionToken}`
+      },
+      body: JSON.stringify({
+        url: `https://example.com/session/${uniq}`,
+        html: `<html><body><article><p>${multiBytePayload}</p></article></body></html>`
+      })
+    });
+
+    const response = await htmlSnapshotPost(request);
+    assert.equal(response.status, 400);
+
+    const payload = (await response.json()) as {
+      ok: boolean;
+      error_code: string;
+      error_message: string;
+    };
+
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "INVALID_INPUT");
+    assert.match(payload.error_message, /too large/i);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
 });
 
 test("html snapshot validates payload and queues item for session user", async () => {

@@ -1,6 +1,6 @@
 # ArticlePod Capture — Chrome Extension
 
-A Manifest V3 Chrome extension that captures the current browser tab and adds it to your private ArticlePod podcast feed.
+A Manifest V3 Chrome extension that captures the current browser tab, safely reveals likely article content when needed, and adds it to your private ArticlePod podcast feed.
 
 ---
 
@@ -95,7 +95,17 @@ This flow works the same whether you are using the local development server or y
    The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
-   The page is queued immediately; refresh your ArticlePod dashboard to see it.
+   The extension does a bounded smart-capture pass first:
+   - it can reveal likely article continuations with safe `Load more` / `Read more` style clicks
+   - it can do a few bounded scroll passes for lazy-loaded content
+   - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
+   - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
+   The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
+
+### Capture size guardrail
+
+ArticlePod still enforces a hard snapshot size limit on the server.
+The extension now checks the cleaned HTML size before upload and fails early if the page is still too large after safe cleanup, instead of sending a risky partial snapshot.
 
 ### Disconnecting / rotating the token
 
@@ -214,7 +224,7 @@ To allow anyone to install the extension from the store:
 ## Updating an existing listing
 
 1. Make your code changes in `apps/extension/`.
-2. Bump `version` in `apps/extension/manifest.json` (e.g. `"0.1.0"` → `"0.2.0"`).
+2. Bump `version` in `apps/extension/manifest.json` (e.g. `"0.1.3"` → `"0.1.4"`).
 3. Update `apps/extension/webstore/release-notes.md` with a summary of what changed.
 4. Rebuild and validate:
 

@@ -1,3 +1,5 @@
+import { capturePageSnapshot, HTML_SNAPSHOT_MAX_BYTES } from "./capture-page.mjs";
+
 const STORAGE_KEYS = {
   activeServerUrl: "articlepod_active_server_url",
   extensionToken: "articlepod_extension_token",
@@ -341,20 +343,34 @@ async function captureCurrentPage() {
 
     const results = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
-      func: () => {
-        return {
-          url: window.location.href,
-          title: document.title || "",
-          html: document.documentElement.outerHTML
-        };
-      }
+      func: capturePageSnapshot,
+      args: [{ byteLimit: HTML_SNAPSHOT_MAX_BYTES }]
     });
 
     const snapshot = results?.[0]?.result;
-    if (!snapshot?.html || !snapshot?.url) {
+    if (!snapshot?.ok) {
+      setStatus(snapshot?.errorMessage || "Unable to capture page HTML from this tab.", "error");
+      return;
+    }
+
+    if (!snapshot.html || !snapshot.url) {
       setStatus("Unable to capture page HTML from this tab.", "error");
       return;
     }
+
+    const captureSummary = [];
+    if (snapshot.stats?.revealClicks) {
+      captureSummary.push(`${snapshot.stats.revealClicks} reveal${snapshot.stats.revealClicks === 1 ? "" : "s"}`);
+    }
+    if (snapshot.stats?.scrollPasses) {
+      captureSummary.push(`${snapshot.stats.scrollPasses} scroll pass${snapshot.stats.scrollPasses === 1 ? "" : "es"}`);
+    }
+    if (snapshot.stats?.conservativeHost) {
+      captureSummary.push("conservative host mode");
+    }
+    setStatus(
+      captureSummary.length > 0 ? `Capture prepared (${captureSummary.join(", ")}). Uploading...` : "Capture prepared. Uploading..."
+    );
 
     const response = await fetch(`${serverUrl}/api/items/html-snapshot`, {
       method: "POST",

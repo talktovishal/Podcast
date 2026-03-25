@@ -54,10 +54,12 @@ export const submitPdfSchema = z.object({
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
 });
 
+export const HTML_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
+
 export const submitHtmlSnapshotSchema = z.object({
   url: z.string().url().max(2048),
   title: z.string().trim().min(1).max(200).optional(),
-  html: z.string().trim().min(1).max(2_000_000),
+  html: z.string().trim().min(1),
   capturedAt: z.string().datetime().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
 });
