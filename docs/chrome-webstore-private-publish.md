@@ -32,11 +32,6 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 - **Screenshots**: at least 1 screenshot at 1280×800 or 640×400 — upload in the store listing form.
 - **Privacy policy URL**: publish `apps/extension/webstore/privacy-policy.md` as a public GitHub
   Gist and paste the raw URL in the store listing form.
-- **Broad host permissions justification**: the extension uses `http://*/*` and `https://*/*`
-  because packaged runtime config can target local/private/public ArticlePod deployments. When the
-  store form asks for justification, enter: _"The extension supports local, private-test, and
-  public ArticlePod deployments via packaged runtime configuration, so it must reach configured
-  HTTP/HTTPS origins."_
 
 ---
 
@@ -92,6 +87,5 @@ You can always run it locally without publishing:
 ## Notes
 - If you update extension code, rerun `npm run extension:package && npm run extension:validate` before uploading.
 - If you change permissions in `manifest.json`, Chrome Web Store may require additional review details.
-- Server targets are configured in `apps/extension/runtime-config.js` (not entered in popup UI).
-- The `host_permissions` grant (`http://*/*`, `https://*/*`) is intentional to support configured
-  local/private/public deployment targets.
+- The packaged store manifest is scoped to `https://articlepod.com/*`.
+- For unpacked local debugging against a different origin, temporarily update both `apps/extension/runtime-config.js` and the matching `host_permissions` entry in `apps/extension/manifest.json` before loading the extension.

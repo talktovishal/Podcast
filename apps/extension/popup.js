@@ -77,32 +77,24 @@ function getRuntimeConfig() {
   const globalConfig = window.ARTICLEPOD_EXTENSION_CONFIG;
   if (!globalConfig || typeof globalConfig !== "object") {
     return {
-      localServerUrl: "https://articlepod.com",
-      privateStoreServerUrl: "",
-      publicStoreServerUrl: "",
-      byExtensionId: {},
-      defaultChannel: "local"
+      serverUrl: "https://articlepod.com"
     };
   }
   return globalConfig;
 }
 
-function getConfiguredServerUrls(activeServerUrl = "") {
+function getConfiguredServerUrl() {
   const config = getRuntimeConfig();
-  const byExtensionId = config.byExtensionId && typeof config.byExtensionId === "object" ? config.byExtensionId : {};
-  const configuredChannel = byExtensionId[chrome.runtime.id] || config.defaultChannel || "local";
-  const localUrl = normalizeServerUrl(config.localServerUrl || "https://articlepod.com");
-  const privateUrl = normalizeServerUrl(config.privateStoreServerUrl || "");
-  const publicUrl = normalizeServerUrl(config.publicStoreServerUrl || "");
+  return normalizeServerUrl(config.serverUrl || config.localServerUrl || "https://articlepod.com");
+}
 
-  const prioritiesByChannel = {
-    private: [privateUrl, publicUrl, localUrl],
-    public: [publicUrl, privateUrl, localUrl],
-    local: [localUrl, privateUrl, publicUrl]
-  };
-
-  const preferred = prioritiesByChannel[configuredChannel] || prioritiesByChannel.local;
-  return uniqueStrings([normalizeServerUrl(activeServerUrl), ...preferred]);
+function getConfiguredServerUrls(activeServerUrl = "") {
+  const configuredUrl = getConfiguredServerUrl();
+  const normalizedActiveServerUrl = normalizeServerUrl(activeServerUrl);
+  return uniqueStrings([
+    normalizedActiveServerUrl === configuredUrl ? normalizedActiveServerUrl : "",
+    configuredUrl
+  ]);
 }
 
 async function setConnectedBadge() {
@@ -241,18 +233,27 @@ async function getStoredState() {
     LEGACY_STORAGE_KEYS.extensionToken,
     LEGACY_STORAGE_KEYS.tokenExpiresAt
   ]);
-  const activeServerUrl = normalizeServerUrl(result[STORAGE_KEYS.activeServerUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "");
-  const extensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
+  const configuredServerUrl = getConfiguredServerUrl();
+  const storedServerUrl = normalizeServerUrl(result[STORAGE_KEYS.activeServerUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "");
+  const storedExtensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
   const tokenExpiresAt = result[STORAGE_KEYS.tokenExpiresAt] || result[LEGACY_STORAGE_KEYS.tokenExpiresAt] || "";
+  const serverMatchesConfigured = Boolean(storedServerUrl) && storedServerUrl === configuredServerUrl;
+  const activeServerUrl = configuredServerUrl;
+  const extensionToken = serverMatchesConfigured ? storedExtensionToken : "";
   const usedLegacyKeys =
     (!result[STORAGE_KEYS.activeServerUrl] && Boolean(result[LEGACY_STORAGE_KEYS.serverUrl])) ||
     (!result[STORAGE_KEYS.extensionToken] && Boolean(result[LEGACY_STORAGE_KEYS.extensionToken])) ||
     (!result[STORAGE_KEYS.tokenExpiresAt] && Boolean(result[LEGACY_STORAGE_KEYS.tokenExpiresAt]));
+  const needsRefresh =
+    usedLegacyKeys ||
+    activeServerUrl !== storedServerUrl ||
+    extensionToken !== storedExtensionToken ||
+    Boolean(tokenExpiresAt);
 
   return {
     activeServerUrl,
     extensionToken,
-    usedLegacyKeys
+    needsRefresh
   };
 }
 
@@ -263,14 +264,19 @@ async function setStoredState(nextState) {
 async function loadState() {
   const state = await getStoredState();
 
-  if (state.usedLegacyKeys) {
+  if (state.needsRefresh) {
     await chrome.storage.local.set({
-      [STORAGE_KEYS.activeServerUrl]: state.activeServerUrl,
-      [STORAGE_KEYS.extensionToken]: state.extensionToken
+      [STORAGE_KEYS.activeServerUrl]: state.activeServerUrl
     });
+    if (state.extensionToken) {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.extensionToken]: state.extensionToken
+      });
+    }
   }
 
   await chrome.storage.local.remove([
+    ...(!state.extensionToken ? [STORAGE_KEYS.extensionToken] : []),
     STORAGE_KEYS.tokenExpiresAt,
     LEGACY_STORAGE_KEYS.serverUrl,
     LEGACY_STORAGE_KEYS.extensionToken,
@@ -340,7 +346,7 @@ async function connectExtension() {
     }
 
     setStatus(
-      failedTargets[0] || "Failed to connect extension. Verify connect code and configured server URLs.",
+      failedTargets[0] || "Failed to connect extension. Verify the connect code and configured server URL.",
       "error"
     );
   } catch (error) {

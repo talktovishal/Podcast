@@ -18,4 +18,4 @@ Turn any page you are currently viewing into a private podcast episode in your A
 ## Privacy and security
 - Extension auth uses scoped extension tokens.
 - Tokens can be rotated/revoked from the app workflow.
-- Captured pages are sent only to the ArticlePod deployment configured by the extension package.
+- Captured pages are sent only to `https://articlepod.com`.

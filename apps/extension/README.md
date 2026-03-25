@@ -23,7 +23,7 @@ A Manifest V3 Chrome extension that captures the current browser tab, safely rev
 | Node.js ≥ 18 + npm | For the packaging and validation scripts |
 | Python 3 | For icon generation (`generate-extension-icons.py`) |
 | Chrome browser | Developer mode for local unpacked loading |
-| ArticlePod server running | Local or deployed URL configured in `apps/extension/runtime-config.js` |
+| ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` plus matching `host_permissions` |
 
 ---
 
@@ -70,9 +70,9 @@ Server targets are configured in:
 `apps/extension/runtime-config.js`
 
 Default behavior:
-- `localServerUrl` points to `https://articlepod.com`
-- optional `privateStoreServerUrl` / `publicStoreServerUrl` can be set for store deployments
-- optional `byExtensionId` maps extension IDs to `private` or `public` target channel
+- `serverUrl` points to `https://articlepod.com`
+- the packaged manifest is scoped to `https://articlepod.com/*`
+- if you want to test against a different local/dev origin, temporarily change `serverUrl` and add that same origin to `host_permissions` in `apps/extension/manifest.json` before loading unpacked
 
 ---
 
@@ -206,20 +206,16 @@ Suggested screenshots to take:
 
 5. Upload your screenshots.
 
-6. In the **Justify your permissions** field (shown because of the broad `host_permissions`), enter:
-
-   > The extension supports local, private-test, and public ArticlePod deployments via packaged runtime configuration, so it must reach configured HTTP/HTTPS origins.
-
-7. Set visibility and distribution:
+6. Set visibility and distribution:
    - **Visibility**: `Private`
    - **Distribution**: `Only trusted testers`
    - Add your Google account (and any tester Google accounts).
 
-8. Click **Publish**.
+7. Click **Publish**.
 
-9. Wait for review (usually minutes for private listings).
+8. Wait for review (usually minutes for private listings).
 
-10. Install from the private listing while signed in with an allowed Google account.
+9. Install from the private listing while signed in with an allowed Google account.
 
 ### Making the extension public (optional)
 

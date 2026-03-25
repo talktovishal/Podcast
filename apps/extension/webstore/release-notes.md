@@ -1,5 +1,8 @@
 # Release Notes
 
+## v0.1.7
+- Narrowed the extension package to the production `https://articlepod.com` origin so Chrome Web Store review sees a least-privilege host permission scope.
+
 ## v0.1.6
 - Simplified the popup footer link to a plain `articlepod.com` hyperlink and styled it more clearly as a clickable website link.
 

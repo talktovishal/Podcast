@@ -110,16 +110,21 @@ if (manifest) {
     }
   }
 
-  // Broad host_permissions — not an error, but Chrome Web Store review requires justification
+  // Store package must stay least-privilege and production-scoped.
   const hp = manifest.host_permissions || [];
+  const expectedHostPermissions = ["https://articlepod.com/*"];
   const broad = hp.filter((p) => p === "<all_urls>" || /^\*:\/\/\*\/\*/.test(p) || /^https?:\/\/\*\/\*/.test(p));
-  if (broad.length > 0) {
-    warn(
+  if (JSON.stringify(hp) === JSON.stringify(expectedHostPermissions)) {
+    pass("host_permissions are scoped to https://articlepod.com/*");
+  } else if (broad.length > 0) {
+    fail(
       `host_permissions includes broad patterns (${broad.join(", ")}). ` +
-        "Chrome Web Store review will ask you to justify this based on your configured private/public deployment targets."
+        "The store package must stay scoped to https://articlepod.com/*."
     );
   } else {
-    pass("host_permissions are scoped");
+    fail(
+      `host_permissions must be ${expectedHostPermissions.join(", ")} for the production store package, got: ${hp.join(", ")}`
+    );
   }
 }
 

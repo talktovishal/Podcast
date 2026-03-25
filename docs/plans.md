@@ -36,8 +36,8 @@
   - `/app` Recent items now renders capture metadata and supports lightweight client-side filtering by importance and tag.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
-- Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
-- Extension packaged runtime config default now points to `https://articlepod.com` (local debugging can still override `apps/extension/runtime-config.js`).
+- Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
+- The packaged extension is now production-scoped to `https://articlepod.com/*`; local debugging against another origin requires temporarily overriding both `apps/extension/runtime-config.js` and the matching manifest host permission.
 - `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter desktop nav that omits the current page shortcut and wraps cleanly on smaller screens.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
@@ -2872,7 +2872,7 @@ Milestone metadata contract:
   - `corpus.md` is the only file operators edit to manage the default target list.
   - Local successful runs exercise RSS/media contract verification for ready items.
   - Failures are grouped into product regression, expected site block, site behavior changed, and harness issue.
-  - The unpacked-extension smoke path uses checked-in extension code with only runtime-config redirected to the local app URL.
+  - The unpacked-extension smoke path uses checked-in extension code with runtime config redirected to the local app URL plus a matching temporary host-permission override in the manifest.
 - Verification commands:
   - `pnpm --filter @articlepod/live-site test`
   - `pnpm --filter @articlepod/live-site typecheck`
