@@ -168,31 +168,6 @@ export async function capturePageSnapshot(input = {}) {
     };
   }
 
-  function detectAccessInterstitial(currentMetrics) {
-    const bodyText = lowercase(getVisibleText(runtimeDocument.body || runtimeDocument.documentElement));
-    const titleText = lowercase(runtimeDocument.title || "");
-    const frameSignals = Array.from(runtimeDocument.querySelectorAll("iframe"))
-      .map((frame) =>
-        lowercase(`${frame.getAttribute("src") || ""} ${frame.getAttribute("title") || ""} ${frame.getAttribute("name") || ""}`)
-      )
-      .join(" ");
-    const combined = `${titleText} ${bodyText} ${frameSignals}`;
-    const hasChallengeFrame = /(captcha-delivery|datadome|captcha|challenge|recaptcha|turnstile)/.test(frameSignals);
-    const lowSignalPage = currentMetrics.textLength < minRootTextLength && currentMetrics.paragraphCount === 0;
-    const blockMessagePattern =
-      /\b(captcha|verify you are human|security check|access denied|checking your browser|challenge|bot verification)\b/;
-
-    if (hasChallengeFrame || (lowSignalPage && blockMessagePattern.test(combined))) {
-      return {
-        code: hasChallengeFrame ? "challenge_frame" : "interstitial_text",
-        message:
-          "This page is showing a CAPTCHA or anti-bot interstitial instead of the article. Clear the challenge in a normal browser tab, then retry capture."
-      };
-    }
-
-    return null;
-  }
-
   function grewMeaningfully(before, after) {
     return (
       after.textLength >= before.textLength + 80 ||
@@ -430,24 +405,14 @@ export async function capturePageSnapshot(input = {}) {
 
   const html = cleanSerializedHtml();
   const htmlBytes = utf8Bytes(html);
-  const accessInterstitial = detectAccessInterstitial(metrics);
   const stats = {
     rootStrategy,
     conservativeHost,
     revealClicks,
     scrollPasses,
     textLength: metrics.textLength,
-    htmlBytes,
-    blockedReason: accessInterstitial?.code
+    htmlBytes
   };
-
-  if (accessInterstitial) {
-    return {
-      ok: false,
-      errorMessage: accessInterstitial.message,
-      stats
-    };
-  }
 
   if (htmlBytes > byteLimit) {
     return {

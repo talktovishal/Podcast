@@ -53,7 +53,7 @@ Monetization/quota fields on `User`:
 The worker extraction adapter branches by source type:
 - URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup
 - PDF: uploaded bytes from artifact storage + text extraction
-- HTML snapshot: parse raw HTML directly, no server-side fetch
+- HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup
 
 ## Extraction Artifact Plane
 Current behavior (`M57`-`M64` implemented):

@@ -93,6 +93,7 @@
   - RSS `HEAD` mirrors `GET` content headers, and RSS channel output now includes deterministic `pubDate` and `lastBuildDate`.
   - dashboard audio controls preload metadata for visible duration.
   - extension connect codes default to 24 hours, and installed extension tokens now stay valid until revoked.
+- Smart extension capture hardening (`M97`) now keeps snapshot block/interstitial classification on the server extraction path, so readable article pages are still captureable even when sites inject hidden background challenge frames.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Azure worker stability hotfix (`M94`) is implemented:
   - Azure Table primary digest scheduler and extension-token paths now avoid unsupported null-equality filters.
@@ -2800,6 +2801,7 @@ Milestone metadata contract:
   - Safe cleanup removes inert nodes/comments while preserving document structure that the server extractor relies on.
   - The shared schema no longer enforces a separate character cap; the route enforces the single hard byte limit.
   - Oversized cleaned snapshots fail clearly in the popup and on the route.
+  - The popup stays focused on capture + cleanup, while the server extractor classifies explicit challenge/block snapshots and returns clear guidance.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
   - `pnpm --filter @articlepod/web test`

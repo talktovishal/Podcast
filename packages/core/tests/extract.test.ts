@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import http from "node:http";
 import {
+  BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE,
   extractHtmlFromUrl,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
@@ -775,6 +776,64 @@ test("extractHtmlSnapshot fails with actionable message for low-signal content",
       error.code === errorCodes.EXTRACTION_EMPTY &&
       error.userMessage.toLowerCase().includes("didn't contain enough article text")
   );
+});
+
+test("extractHtmlSnapshot rejects explicit Cloudflare block pages", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Attention Required! | Cloudflare</title></head>
+      <body>
+        <div id="cf-wrapper">
+          <h1>Sorry, you have been blocked</h1>
+          <p>You are unable to access geekwire.com.</p>
+          <p>Why have I been blocked? This website is using a security service to protect itself from online attacks.</p>
+          <p>Cloudflare Ray ID: 1234567890</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractHtmlSnapshot({
+        html,
+        url: "https://www.geekwire.com/blocked"
+      }),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage === BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
+});
+
+test("extractHtmlSnapshot still extracts readable articles with hidden challenge plumbing", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>GeekWire-style article</title></head>
+      <body>
+        <article>
+          <h1>GeekWire-style article</h1>
+          <p>This visible article body is already readable and should not be rejected just because the site injects a hidden background challenge frame.</p>
+          <p>The server should still extract the article because the real content is present in the snapshot.</p>
+        </article>
+        <iframe
+          src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"
+          title="background challenge"
+          style="position:absolute;top:0;left:0;border:none;visibility:hidden"
+        ></iframe>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://www.geekwire.com/example-article/"
+  });
+
+  assert.match(result.text, /already readable/i);
+  assert.match(result.text, /real content is present in the snapshot/i);
 });
 
 test("extractTextFromPdf extracts text fixture", async () => {

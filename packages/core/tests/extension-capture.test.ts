@@ -152,7 +152,7 @@ test("capturePageSnapshot stays conservative on thread-like hosts", async () => 
   }
 });
 
-test("capturePageSnapshot fails clearly for anti-bot interstitial pages", async () => {
+test("capturePageSnapshot captures visible challenge pages and leaves classification to the server", async () => {
   const dom = createDom(
     `
       <!doctype html>
@@ -179,9 +179,86 @@ test("capturePageSnapshot fails clearly for anti-bot interstitial pages", async 
       scrollBudget: 0
     });
 
-    assert.equal(result.ok, false);
-    assert.match(result.errorMessage || "", /captcha|anti-bot interstitial/i);
-    assert.equal(result.stats?.blockedReason, "challenge_frame");
+    assert.equal(result.ok, true);
+    assert.ok(result.html.includes("DataDome CAPTCHA"));
+  } finally {
+    dom.window.close();
+  }
+});
+
+test("capturePageSnapshot allows readable articles with hidden background challenge frames", async () => {
+  const dom = createDom(
+    `
+      <!doctype html>
+      <html>
+        <head><title>GeekWire-style article</title></head>
+        <body>
+          <article>
+            <h1>GeekWire-style article</h1>
+            <p>This visible article body is already readable and should not be rejected just because the site injects a hidden background challenge frame.</p>
+            <p>The capture path should keep working when the page still has strong article text and normal paragraphs.</p>
+          </article>
+          <iframe
+            src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"
+            title="background challenge"
+            style="position:absolute;top:0;left:0;border:none;visibility:hidden"
+          ></iframe>
+        </body>
+      </html>
+    `,
+    "https://www.geekwire.com/example-article/"
+  );
+
+  try {
+    const result = await capturePageSnapshot({
+      window: dom.window,
+      document: dom.window.document,
+      settleMs: 0,
+      scrollBudget: 0
+    });
+
+    assert.equal(result.ok, true);
+    const extracted = extractHtmlSnapshot({
+      html: result.html,
+      url: "https://www.geekwire.com/example-article/"
+    });
+    assert.match(extracted.text, /hidden background challenge frame/i);
+    assert.match(extracted.text, /strong article text and normal paragraphs/i);
+  } finally {
+    dom.window.close();
+  }
+});
+
+test("capturePageSnapshot captures explicit Cloudflare block pages and lets the server reject them", async () => {
+  const dom = createDom(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Attention Required! | Cloudflare</title></head>
+        <body>
+          <div id="cf-wrapper">
+            <h1>Sorry, you have been blocked</h1>
+            <p>You are unable to access example.com.</p>
+            <p>Why have I been blocked? This website is using a security service to protect itself from online attacks.</p>
+            <p>Cloudflare Ray ID: 1234567890</p>
+          </div>
+          <iframe style="position:absolute;top:0;left:0;border:none;visibility:hidden"></iframe>
+        </body>
+      </html>
+    `,
+    "https://example.com/blocked"
+  );
+
+  try {
+    const result = await capturePageSnapshot({
+      window: dom.window,
+      document: dom.window.document,
+      settleMs: 0,
+      scrollBudget: 0
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.html.includes("Sorry, you have been blocked"));
   } finally {
     dom.window.close();
   }

@@ -50,6 +50,7 @@ Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
 3. Capture current page; item is enqueued to your account feed.
+4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout
 - `/app` is a focused creation workspace:

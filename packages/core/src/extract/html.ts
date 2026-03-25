@@ -29,6 +29,8 @@ export type HtmlFetchDiagnostics = {
 
 export const BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE =
   "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly.";
+export const BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE =
+  "This captured page looks like a CAPTCHA or anti-bot interstitial instead of the article. Clear the site challenge in your browser, then capture again.";
 
 type HtmlExtractionResult = {
   title: string;
@@ -127,6 +129,81 @@ function extractFromHtml(input: {
     markdown,
     rawHtml: input.html
   };
+}
+
+function detectCapturedPageInterstitial(input: {
+  html: string;
+  sourceUrl: string;
+}): { code: "challenge_frame" | "interstitial_text" } | null {
+  const dom = new JSDOM(input.html, { url: input.sourceUrl });
+  try {
+    const titleText = normalizeExtracted(dom.window.document.title || "").toLowerCase();
+    const bodyText = normalizeExtracted(dom.window.document.body?.textContent || dom.window.document.documentElement?.textContent || "").toLowerCase();
+    const rawHtml = input.html.toLowerCase();
+    const combinedText = `${titleText} ${bodyText}`.trim();
+
+    const challengeFramePattern = /(captcha-delivery|datadome|captcha|challenge|recaptcha|turnstile|challenge-platform)/;
+    const hasVisibleChallengeFrame = Array.from(dom.window.document.querySelectorAll("iframe")).some((frame) => {
+      const signal = `${frame.getAttribute("src") || ""} ${frame.getAttribute("title") || ""} ${frame.getAttribute("name") || ""}`.toLowerCase();
+      if (!challengeFramePattern.test(signal)) {
+        return false;
+      }
+
+      if (frame.hidden || frame.getAttribute("aria-hidden") === "true") {
+        return false;
+      }
+
+      const inlineStyle = (frame.getAttribute("style") || "").toLowerCase();
+      if (inlineStyle.includes("display:none") || inlineStyle.includes("visibility:hidden")) {
+        return false;
+      }
+
+      const computed = dom.window.getComputedStyle(frame);
+      if (computed.display === "none" || computed.visibility === "hidden") {
+        return false;
+      }
+
+      return true;
+    });
+
+    const strongBlockPatterns = [
+      /\battention required\b/,
+      /\bsorry, you have been blocked\b/,
+      /\bwhy have i been blocked\b/,
+      /\bcloudflare ray id\b/,
+      /\bperformance [& ] security by cloudflare\b/,
+      /\bchecking your browser\b/,
+      /\bverify you are human\b/,
+      /\benable javascript and cookies to continue\b/
+    ];
+    const supportingBlockPatterns = [
+      /\bunable to access\b/,
+      /\bsecurity service to protect itself from online attacks\b/,
+      /\bcaptcha\b/,
+      /\bchallenge\b/,
+      /\bturnstile\b/,
+      /\brecaptcha\b/,
+      /\bdatadome\b/,
+      /\baccess denied\b/,
+      /\bbot verification\b/,
+      /\bchallenge-platform\b/
+    ];
+
+    const strongMatches = strongBlockPatterns.filter((pattern) => pattern.test(combinedText)).length;
+    const supportingMatches = supportingBlockPatterns.filter((pattern) => pattern.test(`${combinedText} ${rawHtml}`)).length;
+
+    if (hasVisibleChallengeFrame) {
+      return { code: "challenge_frame" };
+    }
+
+    if (strongMatches >= 2 || (strongMatches >= 1 && supportingMatches >= 1)) {
+      return { code: "interstitial_text" };
+    }
+
+    return null;
+  } finally {
+    dom.window.close();
+  }
 }
 
 function mapFetchStatusToAppError(status: number): AppError {
@@ -590,10 +667,19 @@ export function extractHtmlSnapshot(input: {
   html: string;
   url?: string;
 }): { title: string; text: string; markdown: string; rawHtml: string; byline?: string | null } {
+  const sourceUrl = input.url || BRAND_SNAPSHOT_FALLBACK_URL;
+  const accessInterstitial = detectCapturedPageInterstitial({
+    html: input.html,
+    sourceUrl
+  });
+  if (accessInterstitial) {
+    throw new AppError(errorCodes.EXTRACTION_FAILED, BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE, 400);
+  }
+
   try {
     return extractFromHtml({
       html: input.html,
-      sourceUrl: input.url || BRAND_SNAPSHOT_FALLBACK_URL
+      sourceUrl
     });
   } catch (error) {
     throw mapHtmlExtractionError(error, "Could not extract readable content from this page snapshot.");

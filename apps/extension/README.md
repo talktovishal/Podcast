@@ -100,6 +100,7 @@ This flow works the same whether you are using the local development server or y
    - it can do a few bounded scroll passes for lazy-loaded content
    - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
    - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
+   - it leaves article-vs-block/interstitial classification to the server extraction path instead of trying to fully judge that in the popup
    The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
 
 ### Capture size guardrail
