@@ -24,6 +24,8 @@ type DashboardItem = {
   sourceType: string;
   sourceUrl: string | null;
   status: string;
+  importance: "LOW" | "MEDIUM" | "HIGH";
+  tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
   createdAt: string;
@@ -37,6 +39,8 @@ type DashboardItem = {
       }
     | null;
 };
+
+type ItemImportance = "LOW" | "MEDIUM" | "HIGH";
 
 type TtsCatalog = {
   providers: ReadonlyArray<{
@@ -208,6 +212,17 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
   return null;
 }
 
+function importanceLabel(importance: string): string {
+  switch (importance) {
+    case "HIGH":
+      return "High";
+    case "MEDIUM":
+      return "Medium";
+    default:
+      return "Low";
+  }
+}
+
 export function DashboardClient({
   feedUrl,
   feedUrlMessage = null,
@@ -234,7 +249,8 @@ export function DashboardClient({
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
   const [titleInput, setTitleInput] = useState("");
-  const [priorityInput, setPriorityInput] = useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
+  const [importanceInput, setImportanceInput] = useState<ItemImportance>("LOW");
+  const [tagsInput, setTagsInput] = useState("");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -259,6 +275,7 @@ export function DashboardClient({
   const showSubmissionSection = !readOnly && viewMode === "workspace";
   const showExtensionSection = !readOnly && isChromeExtensionView;
   const showItemsSection = viewMode === "workspace";
+  const showItemFilters = !readOnly && viewMode === "workspace";
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
   const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
@@ -271,6 +288,22 @@ export function DashboardClient({
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   }, [items]);
+  const [selectedImportanceFilter, setSelectedImportanceFilter] = useState<"ALL" | ItemImportance>("ALL");
+  const [selectedTagFilter, setSelectedTagFilter] = useState("ALL");
+  const availableTagFilters = useMemo(() => {
+    return Array.from(new Set(items.flatMap((item) => item.tags))).sort((left, right) => left.localeCompare(right));
+  }, [items]);
+  const filteredItems = useMemo(() => {
+    return newestFirst.filter((item) => {
+      if (selectedImportanceFilter !== "ALL" && item.importance !== selectedImportanceFilter) {
+        return false;
+      }
+      if (selectedTagFilter !== "ALL" && !item.tags.includes(selectedTagFilter)) {
+        return false;
+      }
+      return true;
+    });
+  }, [newestFirst, selectedImportanceFilter, selectedTagFilter]);
   const inProgressCount = useMemo(() => newestFirst.filter((item) => isPendingStatus(item.status)).length, [newestFirst]);
   const ttsVoicesForProvider = useMemo(() => {
     return ttsCatalog.voicesByProvider.kokoro || [];
@@ -287,6 +320,12 @@ export function DashboardClient({
       setTtsVoice(fallback);
     }
   }, [ttsCatalog.defaults.voiceByProvider, ttsVoice, ttsVoicesForProvider]);
+
+  useEffect(() => {
+    if (selectedTagFilter !== "ALL" && !availableTagFilters.includes(selectedTagFilter)) {
+      setSelectedTagFilter("ALL");
+    }
+  }, [availableTagFilters, selectedTagFilter]);
 
   const refreshItems = useCallback(async () => {
     const response = await fetch(`/api/seed-demo?refresh=items&t=${Date.now()}`, {
@@ -362,7 +401,12 @@ export function DashboardClient({
         headers: {
           "content-type": "application/json"
         },
-        body: JSON.stringify({ url: urlInput, title: titleInput.trim() || undefined, priority: priorityInput })
+        body: JSON.stringify({
+          url: urlInput,
+          title: titleInput.trim() || undefined,
+          importance: importanceInput,
+          tags: tagsInput
+        })
       });
       const json = await response.json();
 
@@ -374,7 +418,8 @@ export function DashboardClient({
       setStatusMessage("URL received. Processing has started and status will update automatically.");
       setUrlInput("");
       setTitleInput("");
-      setPriorityInput("LOW");
+      setImportanceInput("LOW");
+      setTagsInput("");
       await refreshItems();
     } finally {
       setIsBusy(false);
@@ -395,7 +440,8 @@ export function DashboardClient({
       if (titleInput.trim()) {
         formData.set("title", titleInput.trim());
       }
-      formData.set("priority", priorityInput);
+      formData.set("importance", importanceInput);
+      formData.set("tags", tagsInput);
 
       const response = await fetch("/api/items/pdf", {
         method: "POST",
@@ -411,7 +457,8 @@ export function DashboardClient({
       setStatusMessage("PDF uploaded. Processing has started and status will update automatically.");
       setPdfFile(null);
       setTitleInput("");
-      setPriorityInput("LOW");
+      setImportanceInput("LOW");
+      setTagsInput("");
       if (pdfInputRef.current) {
         pdfInputRef.current.value = "";
       }
@@ -1269,16 +1316,26 @@ export function DashboardClient({
                 </label>
 
                 <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Priority</span>
+                  <span className="mb-1 block text-sm font-medium">Importance</span>
                   <select
                     className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={priorityInput}
-                    onChange={(event) => setPriorityInput(event.target.value as "LOW" | "MEDIUM" | "HIGH")}
+                    value={importanceInput}
+                    onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="HIGH">High</option>
                   </select>
+                </label>
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Tags</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    placeholder="financial, personal, retirement"
+                    value={tagsInput}
+                    onChange={(event) => setTagsInput(event.target.value)}
+                  />
                 </label>
               </article>
             ) : (
@@ -1306,16 +1363,26 @@ export function DashboardClient({
                 </label>
 
                 <label className="mt-3 block">
-                  <span className="mb-1 block text-sm font-medium">Priority</span>
+                  <span className="mb-1 block text-sm font-medium">Importance</span>
                   <select
                     className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={priorityInput}
-                    onChange={(event) => setPriorityInput(event.target.value as "LOW" | "MEDIUM" | "HIGH")}
+                    value={importanceInput}
+                    onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
                     <option value="HIGH">High</option>
                   </select>
+                </label>
+
+                <label className="mt-3 block">
+                  <span className="mb-1 block text-sm font-medium">Tags</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    placeholder="financial, personal, retirement"
+                    value={tagsInput}
+                    onChange={(event) => setTagsInput(event.target.value)}
+                  />
                 </label>
               </article>
             )}
@@ -1347,12 +1414,48 @@ export function DashboardClient({
             </div>
           </div>
 
+          {showItemFilters ? (
+            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/70 p-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Filter by importance</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={selectedImportanceFilter}
+                  onChange={(event) => setSelectedImportanceFilter(event.target.value as "ALL" | ItemImportance)}
+                >
+                  <option value="ALL">All importance levels</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Filter by tag</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={selectedTagFilter}
+                  onChange={(event) => setSelectedTagFilter(event.target.value)}
+                >
+                  <option value="ALL">All tags</option>
+                  {availableTagFilters.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
           <div className="space-y-3">
             {newestFirst.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No items yet. Submit a URL or upload a PDF.</p>
+            ) : filteredItems.length === 0 ? (
+              <p className="text-sm text-[var(--muted)]">No recent items match the current importance or tag filters.</p>
             ) : null}
 
-            {newestFirst.map((item) => {
+            {filteredItems.map((item) => {
               const badgeClass = item.status.toLowerCase();
               const statusText = item.status.toUpperCase();
               const mediaUrl = item.episode
@@ -1387,6 +1490,19 @@ export function DashboardClient({
                       "Source: Uploaded PDF"
                     )}
                   </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--accent)]">
+                      Importance: {importanceLabel(item.importance)}
+                    </span>
+                    {item.tags.map((tag) => (
+                      <span
+                        key={`${item.id}-${tag}`}
+                        className="rounded-full border border-[rgba(31,42,31,0.15)] px-2.5 py-1 text-[11px] font-medium text-[var(--muted)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                   {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
                   {item.errorMessage && statusText === "FAILED" ? (
                     <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p>

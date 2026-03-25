@@ -89,3 +89,94 @@ test("revokeExtensionTokensForUser filters null revokedAt client-side", async ()
   assert.equal(updatedCount, 1);
   assert.deepEqual(updatedRowKeys, ["active-token"]);
 });
+
+test("createItem stores tagsJson and returns tags", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const item = await store.createItem({
+    id: "item-1",
+    userId: "user-1",
+    sourceType: "URL",
+    status: "QUEUED",
+    priority: "HIGH",
+    tags: ["financial", "retirement"]
+  });
+
+  assert.equal(createdEntity?.priority, "HIGH");
+  assert.equal(createdEntity?.tagsJson, '["financial","retirement"]');
+  assert.deepEqual(item.tags, ["financial", "retirement"]);
+});
+
+test("findItemById defaults missing tagsJson to empty tags", async () => {
+  const store = createStore();
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async () => ({
+    partitionKey: "item",
+    rowKey: "item-2",
+    userId: "user-2",
+    sourceType: "URL",
+    status: "READY",
+    priority: "MEDIUM",
+    createdAt: "2026-03-25T09:00:00.000Z",
+    updatedAt: "2026-03-25T09:00:00.000Z"
+  });
+
+  const item = await store.findItemById("item-2");
+
+  assert.ok(item);
+  assert.equal(item?.priority, "MEDIUM");
+  assert.deepEqual(item?.tags, []);
+});
+
+test("updateItem writes serialized tagsJson when tags change", async () => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async () => ({
+    partitionKey: "item",
+    rowKey: "item-3",
+    userId: "user-3",
+    sourceType: "PDF",
+    status: "QUEUED",
+    priority: "LOW",
+    tagsJson: '["personal"]',
+    createdAt: "2026-03-25T09:00:00.000Z",
+    updatedAt: "2026-03-25T09:00:00.000Z",
+    etag: "etag-1"
+  });
+
+  (
+    store as unknown as {
+      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
+    }
+  ).updateEntity = async (_key, entity) => {
+    updatedEntity = entity;
+    return true;
+  };
+
+  const item = await store.updateItem("item-3", {
+    priority: "HIGH",
+    tags: ["financial", "retirement"]
+  });
+
+  assert.equal(updatedEntity?.priority, "HIGH");
+  assert.equal(updatedEntity?.tagsJson, '["financial","retirement"]');
+  assert.deepEqual(item?.tags, ["financial", "retirement"]);
+});

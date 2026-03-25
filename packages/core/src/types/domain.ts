@@ -5,6 +5,8 @@ export type ItemStatus = (typeof itemStatusValues)[number];
 
 export const itemPriorityValues = ["LOW", "MEDIUM", "HIGH"] as const;
 export type ItemPriority = (typeof itemPriorityValues)[number];
+export const itemImportanceValues = itemPriorityValues;
+export type ItemImportance = ItemPriority;
 
 export const jobStatusValues = ["queued", "processing", "succeeded", "failed"] as const;
 export type JobStatus = (typeof jobStatusValues)[number];
@@ -42,27 +44,121 @@ export type SummaryPodcastStatus = (typeof summaryPodcastStatusValues)[number];
 export const digestDayOfWeekValues = [0, 1, 2, 3, 4, 5, 6] as const;
 export type DigestDayOfWeek = (typeof digestDayOfWeekValues)[number];
 
-export const submitUrlSchema = z.object({
-  url: z.string().url(),
-  title: z.string().trim().min(1).max(200).optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW"),
-  mode: z.enum(["full", "summary"]).default("full")
-});
+const itemImportanceSchema = z.enum(itemPriorityValues);
+const itemTagsInputSchema = z.union([z.string(), z.array(z.string())]).optional();
 
-export const submitPdfSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
-});
+function resolveItemImportance(importance?: ItemImportance, priority?: ItemPriority): ItemImportance {
+  return importance ?? priority ?? "LOW";
+}
+
+export function normalizeItemTags(input: string | ReadonlyArray<string> | null | undefined): string[] {
+  const values = Array.isArray(input) ? input : typeof input === "string" ? input.split(",") : [];
+  const deduped = new Set<string>();
+
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    if (normalized) {
+      deduped.add(normalized);
+    }
+  }
+
+  return Array.from(deduped);
+}
+
+export function serializeItemTags(input: string | ReadonlyArray<string> | null | undefined): string {
+  return JSON.stringify(normalizeItemTags(input));
+}
+
+export function parseStoredItemTags(input: unknown): string[] {
+  if (Array.isArray(input)) {
+    return normalizeItemTags(input.filter((value): value is string => typeof value === "string"));
+  }
+
+  if (typeof input !== "string") {
+    return [];
+  }
+
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) {
+      return normalizeItemTags(parsed.filter((value): value is string => typeof value === "string"));
+    }
+  } catch {
+    return normalizeItemTags(trimmed);
+  }
+
+  return [];
+}
+
+export const submitUrlSchema = z
+  .object({
+    url: z.string().url(),
+    title: z.string().trim().min(1).max(200).optional(),
+    importance: itemImportanceSchema.optional(),
+    priority: itemImportanceSchema.optional(),
+    mode: z.enum(["full", "summary"]).default("full"),
+    tags: itemTagsInputSchema
+  })
+  .transform((input) => ({
+    url: input.url,
+    title: input.title,
+    importance: resolveItemImportance(input.importance, input.priority),
+    mode: input.mode,
+    tags: normalizeItemTags(input.tags)
+  }));
+
+export const submitPdfSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    importance: itemImportanceSchema.optional(),
+    priority: itemImportanceSchema.optional(),
+    tags: itemTagsInputSchema
+  })
+  .transform((input) => ({
+    title: input.title,
+    importance: resolveItemImportance(input.importance, input.priority),
+    tags: normalizeItemTags(input.tags)
+  }));
 
 export const HTML_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
 
-export const submitHtmlSnapshotSchema = z.object({
-  url: z.string().url().max(2048),
-  title: z.string().trim().min(1).max(200).optional(),
-  html: z.string().trim().min(1),
-  capturedAt: z.string().datetime().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"]).default("LOW")
-});
+export const submitHtmlSnapshotSchema = z
+  .object({
+    url: z.string().url().max(2048),
+    title: z.string().trim().min(1).max(200).optional(),
+    html: z.string().trim().min(1),
+    capturedAt: z.string().datetime().optional(),
+    importance: itemImportanceSchema.optional(),
+    priority: itemImportanceSchema.optional(),
+    tags: itemTagsInputSchema
+  })
+  .transform((input) => ({
+    url: input.url,
+    title: input.title,
+    html: input.html,
+    capturedAt: input.capturedAt,
+    importance: resolveItemImportance(input.importance, input.priority),
+    tags: normalizeItemTags(input.tags)
+  }));
+
+export const updateItemMetadataSchema = z
+  .object({
+    importance: itemImportanceSchema.optional(),
+    priority: itemImportanceSchema.optional(),
+    tags: itemTagsInputSchema
+  })
+  .refine((input) => input.importance !== undefined || input.priority !== undefined || input.tags !== undefined, {
+    message: "At least one metadata field must be provided."
+  })
+  .transform((input) => ({
+    importance: input.importance === undefined && input.priority === undefined ? undefined : resolveItemImportance(input.importance, input.priority),
+    tags: input.tags === undefined ? undefined : normalizeItemTags(input.tags)
+  }));
 
 export const extensionConnectCodeSchema = z.object({
   label: z.string().trim().min(1).max(80).optional()
@@ -142,6 +238,7 @@ export function digestTargetWords(minutes: DigestLengthMinutes): number {
 export type SubmitUrlInput = z.infer<typeof submitUrlSchema>;
 export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
 export type SubmitHtmlSnapshotInput = z.infer<typeof submitHtmlSnapshotSchema>;
+export type UpdateItemMetadataInput = z.infer<typeof updateItemMetadataSchema>;
 export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchema>;
 export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;
 export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;

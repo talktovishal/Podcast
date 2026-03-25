@@ -13,7 +13,10 @@ import { GET as facebookCallbackGet } from "../src/app/api/auth/facebook/callbac
 import { GET as facebookStartGet } from "../src/app/api/auth/facebook/start/route";
 import { GET as googleStartGet } from "../src/app/api/auth/google/start/route";
 import { GET as providersGet } from "../src/app/api/auth/providers/route";
+import { PATCH as itemPatch } from "../src/app/api/items/[id]/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
+import { POST as pdfPost } from "../src/app/api/items/pdf/route";
+import { POST as urlPost } from "../src/app/api/items/url/route";
 import { GET as itemMarkdownGet } from "../src/app/api/items/[id]/markdown/route";
 import { createSession } from "../src/lib/auth";
 import { env } from "../src/lib/env";
@@ -556,6 +559,115 @@ test("html snapshot route requires auth", async () => {
   assert.equal(payload.error_code, "UNAUTHORIZED");
 });
 
+test("url route stores canonical importance and normalized tags", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-url-tags`;
+  const previousFetch = globalThis.fetch;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `url-tags-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    globalThis.fetch = (async () =>
+      new Response("", {
+        status: 200,
+        headers: {
+          "content-type": "text/plain"
+        }
+      })) as typeof fetch;
+
+    const sessionToken = await createSession(user.id);
+    const request = new NextRequest("http://localhost/api/items/url", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: `articlepod_session=${sessionToken}`
+      },
+      body: JSON.stringify({
+        url: `https://1.1.1.1/articles/${uniq}`,
+        title: `URL ${uniq}`,
+        importance: "HIGH",
+        tags: "Financial, retirement, financial"
+      })
+    });
+
+    const response = await urlPost(request);
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as {
+      ok: boolean;
+      item_id: string;
+    };
+
+    assert.equal(payload.ok, true);
+    const item = await prisma.item.findUnique({ where: { id: payload.item_id } });
+    assert.ok(item);
+    assert.equal(item?.priority, "HIGH");
+    assert.equal(item?.tagsJson, '["financial","retirement"]');
+    assert.equal(item?.sourceUrl, `https://1.1.1.1/articles/${uniq}`);
+  } finally {
+    globalThis.fetch = previousFetch;
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("pdf route stores importance and normalized tags", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-pdf-tags`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `pdf-tags-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const sessionToken = await createSession(user.id);
+    const formData = new FormData();
+    formData.set(
+      "file",
+      new File([Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF", "utf8")], "test.pdf", {
+        type: "application/pdf"
+      })
+    );
+    formData.set("title", `PDF ${uniq}`);
+    formData.set("importance", "MEDIUM");
+    formData.set("tags", "Personal, planning, personal");
+
+    const request = new NextRequest("http://localhost/api/items/pdf", {
+      method: "POST",
+      headers: {
+        cookie: `articlepod_session=${sessionToken}`
+      },
+      body: formData
+    });
+
+    const response = await pdfPost(request);
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as {
+      ok: boolean;
+      item_id: string;
+    };
+
+    assert.equal(payload.ok, true);
+    const item = await prisma.item.findUnique({ where: { id: payload.item_id } });
+    assert.ok(item);
+    assert.equal(item?.priority, "MEDIUM");
+    assert.equal(item?.tagsJson, '["personal","planning"]');
+    assert.ok(item?.sourceFilePath?.endsWith(".pdf"));
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("html snapshot route enforces the byte limit after schema parsing", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-bytes`;
@@ -666,7 +778,9 @@ test("html snapshot validates payload and queues item for session user", async (
         url: `https://example.com/session/${uniq}`,
         title: `Session Snapshot ${uniq}`,
         html,
-        capturedAt: "2026-02-08T00:00:00.000Z"
+        capturedAt: "2026-02-08T00:00:00.000Z",
+        importance: "HIGH",
+        tags: "Technology, personal, technology"
       })
     });
 
@@ -687,9 +801,69 @@ test("html snapshot validates payload and queues item for session user", async (
     assert.equal(item?.userId, user.id);
     assert.equal(item?.sourceType, "HTML_SNAPSHOT");
     assert.equal(item?.status, "QUEUED");
+    assert.equal(item?.priority, "HIGH");
+    assert.equal(item?.tagsJson, '["technology","personal"]');
     assert.ok(item?.sourceFilePath?.endsWith(".html"));
     assert.equal(item?.sourceHtml, null);
     assert.equal(item?.sourceCapturedAt?.toISOString(), "2026-02-08T00:00:00.000Z");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("item metadata patch accepts priority alias and canonical tags response", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-item-patch`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `item-patch-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const sessionToken = await createSession(user.id);
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        sourceType: "URL",
+        sourceUrl: `https://example.com/${uniq}`,
+        status: "QUEUED",
+        priority: "LOW",
+        tagsJson: '["personal"]'
+      }
+    });
+
+    const request = new NextRequest(`http://localhost/api/items/${item.id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        cookie: `articlepod_session=${sessionToken}`
+      },
+      body: JSON.stringify({
+        priority: "MEDIUM",
+        tags: "Retirement, personal"
+      })
+    });
+
+    const response = await itemPatch(request, { params: { id: item.id } });
+    assert.equal(response.status, 200);
+
+    const payload = (await response.json()) as {
+      ok: boolean;
+      importance: string;
+      tags: string[];
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.importance, "MEDIUM");
+    assert.deepEqual(payload.tags, ["retirement", "personal"]);
+
+    const updated = await prisma.item.findUnique({ where: { id: item.id } });
+    assert.equal(updated?.priority, "MEDIUM");
+    assert.equal(updated?.tagsJson, '["retirement","personal"]');
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

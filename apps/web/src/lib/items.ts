@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { serializeItemTags } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { prisma } from "./prisma";
@@ -9,7 +10,8 @@ import { webPrimaryStore } from "./metadata-primary-store";
 export async function enqueueItem(input: {
   userId: string;
   title?: string;
-  priority?: string;
+  importance?: string;
+  tags?: string[];
   sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
   sourceUrl?: string;
   sourceFilePath?: string;
@@ -27,7 +29,8 @@ export async function enqueueItem(input: {
             id: randomUUID(),
             userId: input.userId,
             title: input.title,
-            priority: input.priority ?? "LOW",
+            priority: input.importance ?? "LOW",
+            tags: input.tags ?? [],
             sourceType: input.sourceType,
             sourceUrl: input.sourceUrl,
             sourceFilePath: input.sourceFilePath,
@@ -73,7 +76,8 @@ export async function enqueueItem(input: {
             data: {
               userId: input.userId,
               title: input.title,
-              priority: input.priority ?? "LOW",
+              priority: input.importance ?? "LOW",
+              tagsJson: serializeItemTags(input.tags),
               sourceType: input.sourceType,
               sourceUrl: input.sourceUrl,
               sourceFilePath: input.sourceFilePath,

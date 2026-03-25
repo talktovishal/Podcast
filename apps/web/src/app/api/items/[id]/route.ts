@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { z } from "zod";
+import { parseStoredItemTags, serializeItemTags, updateItemMetadataSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { fromError } from "@/lib/http";
 import { getAuthUserFromRequest } from "@/lib/auth";
@@ -7,10 +7,6 @@ import { deleteQueueProjectionByItemId } from "@/lib/metadata-projection";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
-
-const updateItemPrioritySchema = z.object({
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"])
-});
 
 export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   const user = await getAuthUserFromRequest(request);
@@ -93,7 +89,7 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const { priority } = updateItemPrioritySchema.parse(await request.json());
+    const { importance, tags } = updateItemMetadataSchema.parse(await request.json());
 
     const item = webUsesAzureTablePrimary() && webPrimaryStore
       ? await webPrimaryStore.findItemById(context.params.id)
@@ -104,12 +100,31 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     }
 
     if (webUsesAzureTablePrimary() && webPrimaryStore) {
-      await webPrimaryStore.updateItem(context.params.id, { priority });
+      await webPrimaryStore.updateItem(context.params.id, {
+        ...(importance !== undefined ? { priority: importance } : {}),
+        ...(tags !== undefined ? { tags } : {})
+      });
     } else {
-      await prisma.item.update({ where: { id: context.params.id }, data: { priority } });
+      await prisma.item.update({
+        where: { id: context.params.id },
+        data: {
+          ...(importance !== undefined ? { priority: importance } : {}),
+          ...(tags !== undefined ? { tagsJson: serializeItemTags(tags) } : {})
+        }
+      });
     }
 
-    return NextResponse.json({ ok: true, priority });
+    return NextResponse.json({
+      ok: true,
+      importance: importance ?? item.priority,
+      tags:
+        tags ??
+        ("tags" in item && Array.isArray(item.tags)
+          ? item.tags
+          : "tagsJson" in item
+            ? parseStoredItemTags(item.tagsJson)
+            : [])
+    });
   } catch (error) {
     return fromError(error, {
       requestId,

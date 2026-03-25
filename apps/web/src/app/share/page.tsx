@@ -77,6 +77,8 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             sourceType: item.sourceType,
             sourceUrl: item.sourceUrl,
             status: item.status,
+            importance: item.importance,
+            tags: item.tags,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,
             createdAt: item.createdAt.toISOString(),

@@ -19,7 +19,8 @@ const els = {
   connectBtn: document.getElementById("connect-btn"),
   disconnectBtn: document.getElementById("disconnect-btn"),
   captureBtn: document.getElementById("capture-btn"),
-  capturePriority: document.getElementById("capture-priority"),
+  captureImportance: document.getElementById("capture-importance"),
+  captureTags: document.getElementById("capture-tags"),
   status: document.getElementById("status"),
   tokenState: document.getElementById("token-state")
 };
@@ -384,7 +385,8 @@ async function captureCurrentPage() {
         title: snapshot.title || undefined,
         html: snapshot.html,
         capturedAt: new Date().toISOString(),
-        priority: els.capturePriority?.value || "LOW"
+        importance: els.captureImportance?.value || "LOW",
+        tags: els.captureTags?.value || ""
       })
     });
 

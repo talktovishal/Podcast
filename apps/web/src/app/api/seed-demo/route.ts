@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
       status: item.status,
+      importance: item.importance,
+      tags: item.tags,
       errorCode: item.errorCode,
       errorMessage: item.errorMessage,
       createdAt: item.createdAt.toISOString(),

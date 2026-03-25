@@ -1,4 +1,4 @@
-import { hashIncomingToken } from "@articlepod/core";
+import { hashIncomingToken, parseStoredItemTags } from "@articlepod/core";
 import {
   type DemoExtractionDiagnostic,
   normalizeExtractionLogEntries
@@ -18,22 +18,72 @@ import { prisma } from "./prisma";
 
 const ADMIN_MAX_RETRY_ATTEMPTS = Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5);
 
+type DashboardItemImportance = "LOW" | "MEDIUM" | "HIGH";
+
+type DashboardItemRecord = {
+  id: string;
+  userId: string;
+  title: string | null;
+  sourceType: string;
+  sourceUrl: string | null;
+  sourceFilePath: string | null;
+  sourceHtml: string | null;
+  sourceCapturedAt: Date | null;
+  status: string;
+  importance: DashboardItemImportance;
+  tags: string[];
+  errorCode: string | null;
+  errorMessage: string | null;
+  textHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  episode:
+    | {
+        id: string;
+        itemId: string;
+        guid: string;
+        title: string;
+        description: string;
+        audioPath: string;
+        audioBytes: number;
+        mimeType: string;
+        publishedAt: Date;
+        createdAt: Date;
+      }
+    | null;
+};
+
 export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
   const token = await findPrimaryActiveFeedTokenByUserId(userId, "item");
   return token?.tokenValue ?? null;
 }
 
-export async function getDashboardItems(userId: string) {
+export async function getDashboardItems(userId: string): Promise<DashboardItemRecord[]> {
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const [items, episodes] = await Promise.all([webPrimaryStore.listItemsByUser(userId, 50), webPrimaryStore.listEpisodesForUser(userId)]);
     const episodesByItemId = new Map(episodes.map((episode) => [episode.itemId, episode]));
     return items.map((item) => ({
-      ...item,
+      id: item.id,
+      userId: item.userId,
+      title: item.title,
+      sourceType: item.sourceType,
+      sourceUrl: item.sourceUrl,
+      sourceFilePath: item.sourceFilePath,
+      sourceHtml: item.sourceHtml,
+      sourceCapturedAt: item.sourceCapturedAt,
+      status: item.status,
+      importance: item.priority as DashboardItemImportance,
+      tags: item.tags,
+      errorCode: item.errorCode,
+      errorMessage: item.errorMessage,
+      textHash: item.textHash,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
       episode: episodesByItemId.get(item.id) ?? null
     }));
   }
 
-  return prisma.item.findMany({
+  const items = await prisma.item.findMany({
     where: { userId },
     include: {
       episode: true
@@ -41,6 +91,26 @@ export async function getDashboardItems(userId: string) {
     orderBy: { createdAt: "desc" },
     take: 50
   });
+
+  return items.map((item) => ({
+    id: item.id,
+    userId: item.userId,
+    title: item.title,
+    sourceType: item.sourceType,
+    sourceUrl: item.sourceUrl,
+    sourceFilePath: item.sourceFilePath,
+    sourceHtml: item.sourceHtml,
+    sourceCapturedAt: item.sourceCapturedAt,
+    status: item.status,
+    importance: item.priority as DashboardItemImportance,
+    tags: parseStoredItemTags(item.tagsJson),
+    errorCode: item.errorCode,
+    errorMessage: item.errorMessage,
+    textHash: item.textHash,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    episode: item.episode
+  }));
 }
 
 export async function getDemoExtractionDiagnostics(userId: string, limit = 10): Promise<DemoExtractionDiagnostic[]> {

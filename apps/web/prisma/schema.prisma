@@ -105,6 +105,7 @@ model Item {
   sourceCapturedAt DateTime?
   status        String      @default("QUEUED")
   priority      String      @default("LOW")
+  tagsJson      String      @default("[]")
   errorCode     String?
   errorMessage  String?
   textHash      String?

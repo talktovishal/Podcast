@@ -29,6 +29,9 @@
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
 - Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts, uses cleaned narration text for hashes/descriptions, and adds an in-place backfill/regeneration command for existing items.
+- Capture metadata track (`M100`) is implemented:
+  - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
+  - `/app` Recent items now renders capture metadata and supports lightweight client-side filtering by importance and tag.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
@@ -145,6 +148,7 @@
 | Markdown-derived TTS input contract | M62 |
 | Rule-based cleanup of extracted markdown before TTS/backfill | M98 |
 | Reusable live-site regression harness and prod-probe runner | M99 |
+| Capture importance + tags metadata with Recent items filters | M100 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -289,6 +293,7 @@ Milestone metadata contract:
 | M97 | Done | 2026-03-26 | 2026-03-24 | local validation + smart extension capture pass (2026-03-24) |
 | M98 | Done | 2026-03-27 | 2026-03-24 | local validation + markdown cleanup/backfill rollout pass (2026-03-24) |
 | M99 | Done | 2026-03-28 | 2026-03-24 | local validation + reusable live-site regression harness pass (2026-03-24) |
+| M100 | Done | 2026-03-31 | 2026-03-25 | local validation + importance/tags capture metadata pass (2026-03-25) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2870,6 +2875,40 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/live-site test`
   - `pnpm --filter @articlepod/live-site typecheck`
   - `npm run live-sites:test -- --env local --limit 1`
+
+### M100 - Importance + Tags for Captures
+- status: Done
+- target_finish: 2026-03-31
+- completed_on: 2026-03-25
+- evidence: local validation + importance/tags capture metadata pass (2026-03-25)
+- Scope:
+  - Replace user-facing `Priority` copy with `Importance` while keeping the existing `LOW` / `MEDIUM` / `HIGH` backing contract.
+  - Add optional freeform comma-separated item tags for URL, PDF, and Chrome extension capture, stored in normalized lowercase form.
+  - Surface importance and tags in `/app` Recent items, with lightweight client-side filters for importance and tag.
+  - Keep route compatibility by accepting both canonical `importance` and legacy `priority` payloads during rollout.
+- Key files/modules:
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/app/api/items/*`
+  - `apps/extension/popup.html`
+  - `apps/extension/popup.js`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `apps/extension/README.md`
+- Acceptance criteria:
+  - URL, PDF, and HTML snapshot ingest routes accept `importance`, legacy `priority`, and tags, then persist canonical importance and normalized tags.
+  - Existing items keep their current priority-backed value and default to empty tags without backfill or destructive reset.
+  - `/app` shows saved importance/tag metadata and lets users filter recent items without breaking polling or media playback token stability.
+  - Chrome extension capture exposes the same metadata fields as the web submit flow.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/core typecheck`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/auth-routes.test.ts tests/auth-extension.integration.test.ts`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/app-dashboard-layout.test.ts tests/dashboard-polling.test.ts`
+  - `pnpm --filter @articlepod/web typecheck`
 
 ---
 

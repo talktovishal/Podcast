@@ -103,6 +103,20 @@ test("dashboard client gates markdown controls to admins", () => {
   assert.equal(source.includes("{showItemsSection && isAdmin && markdownPreview ? ("), true);
 });
 
+test("dashboard client exposes importance, tags, and recent-item filters", () => {
+  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes('importance: "LOW" | "MEDIUM" | "HIGH"'), true);
+  assert.equal(source.includes("const [importanceInput, setImportanceInput] = useState<ItemImportance>(\"LOW\");"), true);
+  assert.equal(source.includes('const [tagsInput, setTagsInput] = useState("");'), true);
+  assert.equal(source.includes("Filter by importance"), true);
+  assert.equal(source.includes("Filter by tag"), true);
+  assert.equal(source.includes("All importance levels"), true);
+  assert.equal(source.includes("All tags"), true);
+  assert.equal(source.includes("Importance:"), true);
+  assert.equal(source.includes("financial, personal, retirement"), true);
+  assert.equal(source.includes("No recent items match the current importance or tag filters."), true);
+});
+
 test("dashboard client supports dedicated podcast and extension setup pages", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension"'), true);
@@ -135,6 +149,10 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
   const source = readFileSync(new URL("../../extension/popup.js", import.meta.url), "utf8");
   assert.equal(source.includes("This token does not expire automatically."), true);
   assert.equal(source.includes("Extension connected successfully. It will stay connected until you revoke or disconnect it."), true);
+  assert.equal(source.includes('captureImportance: document.getElementById("capture-importance")'), true);
+  assert.equal(source.includes('captureTags: document.getElementById("capture-tags")'), true);
+  assert.equal(source.includes("importance: els.captureImportance?.value || \"LOW\""), true);
+  assert.equal(source.includes("tags: els.captureTags?.value || \"\""), true);
   assert.equal(source.includes("Token expires:"), false);
   assert.equal(source.includes("tokenExpired"), false);
 });

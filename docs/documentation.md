@@ -9,7 +9,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 
 ## User flow
 1. Sign in with local credentials (or OAuth when configured).
-2. Submit URL, upload PDF, or capture page from Chrome extension.
+2. Submit URL, upload PDF, or capture page from Chrome extension, with optional importance and comma-separated tags.
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
@@ -49,13 +49,15 @@ Set passwords via environment variables before seeding (see `.env.example`):
 Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
-3. Capture current page; item is enqueued to your account feed.
+3. Optionally set capture importance and tags in the popup, then capture the current page; the item is enqueued to your account feed.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
   - `Add New Episode`
   - `Recent items`
+  - submit forms collect `Importance` plus optional comma-separated tags for URL and PDF captures
+  - recent items render importance/tag metadata and support quick filtering by importance or tag
   - single-row desktop nav for the other signed-in pages, plus a logout icon
   - mobile/smaller screens wrap the nav instead of hiding destinations offscreen
   - `Feedback` stays lightly accented instead of using the darkest accent treatment

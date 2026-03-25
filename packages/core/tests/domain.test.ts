@@ -3,7 +3,10 @@ import test from "node:test";
 import {
   extensionTokenExchangeSchema,
   sourceTypeValues,
-  submitHtmlSnapshotSchema
+  submitHtmlSnapshotSchema,
+  submitPdfSchema,
+  submitUrlSchema,
+  updateItemMetadataSchema
 } from "../src/types/domain";
 
 test("sourceTypeValues includes html_snapshot", () => {
@@ -20,6 +23,8 @@ test("submitHtmlSnapshotSchema accepts valid payload", () => {
 
   assert.equal(parsed.url, "https://example.com/private");
   assert.equal(parsed.title, "Captured article");
+  assert.equal(parsed.importance, "LOW");
+  assert.deepEqual(parsed.tags, []);
 });
 
 test("submitHtmlSnapshotSchema no longer enforces the old character cap", () => {
@@ -29,6 +34,39 @@ test("submitHtmlSnapshotSchema no longer enforces the old character cap", () => 
   });
 
   assert.equal(parsed.html.length, 2_000_001);
+  assert.equal(parsed.importance, "LOW");
+});
+
+test("submitUrlSchema accepts importance aliasing and normalizes comma-separated tags", () => {
+  const parsed = submitUrlSchema.parse({
+    url: "https://example.com/article",
+    priority: "HIGH",
+    tags: "Financial, retirement, financial,  Technology "
+  });
+
+  assert.equal(parsed.importance, "HIGH");
+  assert.deepEqual(parsed.tags, ["financial", "retirement", "technology"]);
+});
+
+test("submitPdfSchema accepts canonical importance and tag arrays", () => {
+  const parsed = submitPdfSchema.parse({
+    title: "Quarterly notes",
+    importance: "MEDIUM",
+    tags: ["Personal", "planning", "personal"]
+  });
+
+  assert.equal(parsed.importance, "MEDIUM");
+  assert.deepEqual(parsed.tags, ["personal", "planning"]);
+});
+
+test("updateItemMetadataSchema returns canonical importance and tags", () => {
+  const parsed = updateItemMetadataSchema.parse({
+    priority: "LOW",
+    tags: "Personal, financial"
+  });
+
+  assert.equal(parsed.importance, "LOW");
+  assert.deepEqual(parsed.tags, ["personal", "financial"]);
 });
 
 test("extensionTokenExchangeSchema validates connect code shape", () => {

@@ -95,6 +95,9 @@ This flow works the same whether you are using the local development server or y
    The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
+   Optional metadata in the popup:
+   - choose an **Importance** level (`Low`, `Medium`, `High`)
+   - add comma-separated **Tags** such as `financial, personal, retirement`
    The extension does a bounded smart-capture pass first:
    - it can reveal likely article continuations with safe `Load more` / `Read more` style clicks
    - it can do a few bounded scroll passes for lazy-loaded content

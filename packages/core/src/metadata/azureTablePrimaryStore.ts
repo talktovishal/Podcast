@@ -1,4 +1,5 @@
 import { TableClient, type TableEntity, type TableEntityResult } from "@azure/data-tables";
+import { parseStoredItemTags, serializeItemTags } from "../types/domain";
 
 type AzureTablePrimaryStoreOptions = {
   tablePrefix: string;
@@ -152,6 +153,7 @@ export type AzureTablePrimaryItem = {
   sourceCapturedAt: Date | null;
   status: string;
   priority: string;
+  tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
@@ -843,6 +845,7 @@ export class AzureTablePrimaryStore {
       sourceCapturedAt: parseDate(entity.sourceCapturedAt),
       status: parseRequiredString(entity.status, "status"),
       priority: parseString(entity.priority) ?? "LOW",
+      tags: parseStoredItemTags(entity.tagsJson),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
@@ -1666,6 +1669,7 @@ export class AzureTablePrimaryStore {
     sourceCapturedAt?: Date | null;
     status: string;
     priority?: string | null;
+    tags?: string[] | null;
     errorCode?: string | null;
     errorMessage?: string | null;
     textHash?: string | null;
@@ -1684,6 +1688,7 @@ export class AzureTablePrimaryStore {
       sourceCapturedAt: isoOrNull(input.sourceCapturedAt ?? null),
       status: input.status,
       priority: input.priority ?? "LOW",
+      tagsJson: serializeItemTags(input.tags),
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
       textHash: input.textHash ?? null,
@@ -1703,6 +1708,7 @@ export class AzureTablePrimaryStore {
       sourceHtml: string | null;
       status: string;
       priority: string;
+      tags: string[];
       errorCode: string | null;
       errorMessage: string | null;
       textHash: string | null;
@@ -1724,6 +1730,7 @@ export class AzureTablePrimaryStore {
       sourceHtml: input.sourceHtml === undefined ? current.sourceHtml : input.sourceHtml,
       status: input.status ?? current.status,
       priority: input.priority ?? current.priority ?? "LOW",
+      tagsJson: input.tags === undefined ? current.tagsJson ?? "[]" : serializeItemTags(input.tags),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
       textHash: input.textHash === undefined ? current.textHash : input.textHash,
