@@ -31,6 +31,7 @@
 - Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts, uses cleaned narration text for hashes/descriptions, and adds an in-place backfill/regeneration command for existing items.
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
+  - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
   - `/app` Recent items now renders capture metadata and supports lightweight client-side filtering by importance and tag.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.

@@ -56,7 +56,7 @@ Connect flow:
 - `/app` is a focused creation workspace:
   - `Add New Episode`
   - `Recent items`
-  - submit forms keep the required source input primary and group `Title`, `Importance`, and comma-separated `Tags` inside a compact `Optional details` section
+  - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
   - single-row desktop nav for the other signed-in pages, plus a logout icon
   - mobile/smaller screens wrap the nav instead of hiding destinations offscreen

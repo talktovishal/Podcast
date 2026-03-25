@@ -128,6 +128,7 @@ const DEFAULT_SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = ["voice", "dig
 const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp";
 const ACTIVE_REFRESH_INTERVAL_MS = 3000;
 const IDLE_REFRESH_INTERVAL_MS = 20000;
+const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";
 
 function defaultTimezone(): string {
   try {
@@ -251,6 +252,8 @@ export function DashboardClient({
   const [titleInput, setTitleInput] = useState("");
   const [importanceInput, setImportanceInput] = useState<ItemImportance>("LOW");
   const [tagsInput, setTagsInput] = useState("");
+  const [showOptionalDetails, setShowOptionalDetails] = useState(false);
+  const [hasLoadedOptionalDetailsPreference, setHasLoadedOptionalDetailsPreference] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -327,6 +330,30 @@ export function DashboardClient({
     }
   }, [availableTagFilters, selectedTagFilter]);
 
+  useEffect(() => {
+    try {
+      const storedPreference = window.localStorage.getItem(OPTIONAL_DETAILS_STORAGE_KEY);
+      if (storedPreference === "expanded") {
+        setShowOptionalDetails(true);
+      }
+    } catch {
+      // Ignore storage access issues and keep the compact default.
+    } finally {
+      setHasLoadedOptionalDetailsPreference(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedOptionalDetailsPreference) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(OPTIONAL_DETAILS_STORAGE_KEY, showOptionalDetails ? "expanded" : "collapsed");
+    } catch {
+      // Ignore storage access issues and keep the in-memory preference only.
+    }
+  }, [hasLoadedOptionalDetailsPreference, showOptionalDetails]);
+
   const refreshItems = useCallback(async () => {
     const response = await fetch(`/api/seed-demo?refresh=items&t=${Date.now()}`, {
       cache: "no-store"
@@ -389,6 +416,65 @@ export function DashboardClient({
       window.removeEventListener("focus", refreshIfVisible);
     };
   }, [inProgressCount, readOnly, refreshItems, showItemsSection]);
+
+  const optionalDetailsPanel = (
+    <section className="mt-3 rounded-xl border border-[rgba(31,42,31,0.1)] bg-[rgba(244,248,244,0.96)] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-[var(--ink)]">Optional details</p>
+          <p className="text-xs text-[var(--muted)]">Title, importance, and tags are optional.</p>
+        </div>
+        <button
+          type="button"
+          className="rounded-full border border-[rgba(31,42,31,0.12)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted)] transition hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
+          aria-controls="submission-optional-details"
+          aria-expanded={showOptionalDetails}
+          onClick={() => setShowOptionalDetails((current) => !current)}
+        >
+          {showOptionalDetails ? "Hide" : "Show"}
+        </button>
+      </div>
+
+      {showOptionalDetails ? (
+        <div id="submission-optional-details" className="mt-3 grid gap-2.5">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Title</span>
+            <input
+              className="w-full rounded-lg border px-3 py-1.5 text-sm"
+              placeholder="Leave blank to auto-title"
+              value={titleInput}
+              onChange={(event) => setTitleInput(event.target.value)}
+            />
+          </label>
+
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Importance</span>
+              <select
+                className="w-full rounded-lg border px-3 py-1.5 text-sm"
+                value={importanceInput}
+                onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Tags</span>
+              <input
+                className="w-full rounded-lg border px-3 py-1.5 text-sm"
+                placeholder="financial, personal, retirement"
+                value={tagsInput}
+                onChange={(event) => setTagsInput(event.target.value)}
+              />
+            </label>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
 
   async function submitUrl() {
     if (!urlInput) return;
@@ -1304,55 +1390,7 @@ export function DashboardClient({
                     onChange={(event) => setUrlInput(event.target.value)}
                   />
                 </label>
-
-                <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/75 p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--ink)]">Optional details</p>
-                      <p className="text-xs text-[var(--muted)]">Leave these blank if you just want the fastest capture.</p>
-                    </div>
-                    <span className="rounded-full border border-[rgba(31,42,31,0.14)] bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                      Optional
-                    </span>
-                  </div>
-
-                  <div className="mt-3 grid gap-3">
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Title</span>
-                      <input
-                        className="w-full rounded-lg border px-3 py-2"
-                        placeholder="Leave blank to auto-title"
-                        value={titleInput}
-                        onChange={(event) => setTitleInput(event.target.value)}
-                      />
-                    </label>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-1 block text-sm font-medium">Importance</span>
-                        <select
-                          className="w-full rounded-lg border px-3 py-2 text-sm"
-                          value={importanceInput}
-                          onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
-                        >
-                          <option value="LOW">Low</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="HIGH">High</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1 block text-sm font-medium">Tags</span>
-                        <input
-                          className="w-full rounded-lg border px-3 py-2"
-                          placeholder="financial, personal, retirement"
-                          value={tagsInput}
-                          onChange={(event) => setTagsInput(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
+                {optionalDetailsPanel}
               </article>
             ) : (
               <article>
@@ -1367,55 +1405,7 @@ export function DashboardClient({
                   }}
                 />
                 {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
-
-                <div className="mt-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/75 p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--ink)]">Optional details</p>
-                      <p className="text-xs text-[var(--muted)]">Leave these blank if you just want the fastest capture.</p>
-                    </div>
-                    <span className="rounded-full border border-[rgba(31,42,31,0.14)] bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">
-                      Optional
-                    </span>
-                  </div>
-
-                  <div className="mt-3 grid gap-3">
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">Title</span>
-                      <input
-                        className="w-full rounded-lg border px-3 py-2"
-                        placeholder="Leave blank to auto-title"
-                        value={titleInput}
-                        onChange={(event) => setTitleInput(event.target.value)}
-                      />
-                    </label>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="mb-1 block text-sm font-medium">Importance</span>
-                        <select
-                          className="w-full rounded-lg border px-3 py-2 text-sm"
-                          value={importanceInput}
-                          onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
-                        >
-                          <option value="LOW">Low</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="HIGH">High</option>
-                        </select>
-                      </label>
-
-                      <label className="block">
-                        <span className="mb-1 block text-sm font-medium">Tags</span>
-                        <input
-                          className="w-full rounded-lg border px-3 py-2"
-                          placeholder="financial, personal, retirement"
-                          value={tagsInput}
-                          onChange={(event) => setTagsInput(event.target.value)}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
+                {optionalDetailsPanel}
               </article>
             )}
 

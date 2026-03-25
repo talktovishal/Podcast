@@ -108,8 +108,18 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('importance: "LOW" | "MEDIUM" | "HIGH"'), true);
   assert.equal(source.includes("const [importanceInput, setImportanceInput] = useState<ItemImportance>(\"LOW\");"), true);
   assert.equal(source.includes('const [tagsInput, setTagsInput] = useState("");'), true);
+  assert.equal(source.includes('const [showOptionalDetails, setShowOptionalDetails] = useState(false);'), true);
+  assert.equal(source.includes('const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";'), true);
+  assert.equal(source.includes("window.localStorage.getItem(OPTIONAL_DETAILS_STORAGE_KEY)"), true);
+  assert.equal(
+    source.includes('window.localStorage.setItem(OPTIONAL_DETAILS_STORAGE_KEY, showOptionalDetails ? "expanded" : "collapsed")'),
+    true
+  );
   assert.equal(source.includes("Optional details"), true);
-  assert.equal(source.includes("Leave these blank if you just want the fastest capture."), true);
+  assert.equal(source.includes("Title, importance, and tags are optional."), true);
+  assert.equal(source.includes('aria-controls="submission-optional-details"'), true);
+  assert.equal(source.includes('{showOptionalDetails ? "Hide" : "Show"}'), true);
+  assert.equal(source.includes(">Optional<"), false);
   assert.equal(source.includes("Filter by importance"), true);
   assert.equal(source.includes("Filter by tag"), true);
   assert.equal(source.includes("All importance levels"), true);

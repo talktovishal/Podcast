@@ -130,7 +130,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
-  - The web submit flow now groups `Title`, `Importance`, and `Tags` inside a compact `Optional details` section so the required source input stays visually primary.
+  - The web submit flow now keeps `Title`, `Importance`, and `Tags` inside a lighter `Optional details` panel that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
   - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, and disables repeat capture clicks for the same page while queued.
   - `/app` Recent items now renders saved importance plus tag chips and includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
