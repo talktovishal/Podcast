@@ -206,77 +206,6 @@ function startCaptureTargetPolling() {
   }, CAPTURE_TARGET_REFRESH_MS);
 }
 
-async function showCaptureQueuedNotice(tabId) {
-  if (!tabId || !chrome.scripting) {
-    return;
-  }
-
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        const existing = document.getElementById("articlepod-capture-confirmation");
-        existing?.remove();
-
-        const notice = document.createElement("div");
-        notice.id = "articlepod-capture-confirmation";
-        notice.setAttribute("role", "status");
-        notice.setAttribute("aria-live", "polite");
-        notice.style.all = "initial";
-        notice.style.position = "fixed";
-        notice.style.top = "18px";
-        notice.style.right = "18px";
-        notice.style.zIndex = "2147483647";
-        notice.style.maxWidth = "320px";
-        notice.style.padding = "12px 14px";
-        notice.style.borderRadius = "14px";
-        notice.style.border = "1px solid #86efac";
-        notice.style.background = "#ecfdf3";
-        notice.style.boxShadow = "0 18px 40px rgba(22, 101, 52, 0.18)";
-        notice.style.color = "#166534";
-        notice.style.display = "block";
-        notice.style.boxSizing = "border-box";
-        notice.style.opacity = "0";
-        notice.style.transform = "translateY(-6px)";
-        notice.style.transition = "opacity 160ms ease, transform 160ms ease";
-        notice.style.pointerEvents = "none";
-        notice.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-
-        const title = document.createElement("div");
-        title.textContent = "Queued in ArticlePod";
-        title.style.fontSize = "14px";
-        title.style.fontWeight = "700";
-        title.style.lineHeight = "1.4";
-
-        const detail = document.createElement("div");
-        detail.textContent = "You do not need to click capture again.";
-        detail.style.marginTop = "2px";
-        detail.style.fontSize = "12px";
-        detail.style.lineHeight = "1.45";
-        detail.style.color = "#166534";
-
-        notice.append(title, detail);
-        (document.body || document.documentElement).appendChild(notice);
-
-        requestAnimationFrame(() => {
-          notice.style.opacity = "1";
-          notice.style.transform = "translateY(0)";
-        });
-
-        window.setTimeout(() => {
-          notice.style.opacity = "0";
-          notice.style.transform = "translateY(-6px)";
-          window.setTimeout(() => {
-            notice.remove();
-          }, 200);
-        }, 4200);
-      }
-    });
-  } catch {
-    // ignore page-toast errors for sites that reject runtime DOM injection
-  }
-}
-
 function renderState(state) {
   const connected = isStateConnected(state);
   connectedState = connected;
@@ -526,7 +455,6 @@ async function captureCurrentPage() {
     setCaptureButtonLabel("queued");
     syncInteractivity();
     await setCaptureQueuedBadge();
-    await showCaptureQueuedNotice(activeTab.id);
   } catch (error) {
     setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`, "error");
   } finally {

@@ -2886,7 +2886,7 @@ Milestone metadata contract:
   - Add optional freeform comma-separated item tags for URL, PDF, and Chrome extension capture, stored in normalized lowercase form.
   - Surface importance and tags in `/app` Recent items, with lightweight client-side filters for importance and tag.
   - Make optional metadata visibly secondary in both the web submit flow and Chrome extension popup.
-  - Reduce double-submit confusion after extension capture with persistent popup success state, same-page button lockout while queued, and an in-tab queued confirmation.
+  - Reduce double-submit confusion after extension capture with persistent popup success state and same-page button lockout while queued.
   - Keep route compatibility by accepting both canonical `importance` and legacy `priority` payloads during rollout.
 - Key files/modules:
   - `packages/core/src/types/domain.ts`

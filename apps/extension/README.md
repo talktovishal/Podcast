@@ -105,7 +105,7 @@ This flow works the same whether you are using the local development server or y
    - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
    - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
    - it leaves article-vs-block/interstitial classification to the server extraction path instead of trying to fully judge that in the popup
-   When capture succeeds, the popup button stays in a green queued state, becomes non-clickable for that same page, and the current tab briefly shows a confirmation banner so users know they do not need to click again.
+   When capture succeeds, the popup button stays in a green queued state and becomes non-clickable for that same page so users do not double-submit.
    The button returns to normal after you switch tabs or navigate to a different page.
    The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
 

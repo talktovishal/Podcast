@@ -131,7 +131,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
   - The web submit flow now groups `Title`, `Importance`, and `Tags` inside a compact `Optional details` section so the required source input stays visually primary.
-  - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and shows a brief in-tab confirmation banner so users do not double-submit.
+  - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, and disables repeat capture clicks for the same page while queued.
   - `/app` Recent items now renders saved importance plus tag chips and includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
   - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable article selection, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
