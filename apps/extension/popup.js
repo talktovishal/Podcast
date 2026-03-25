@@ -464,7 +464,7 @@ async function captureCurrentPage() {
       return;
     }
 
-    setStatus("Capture queued in ArticlePod. You do not need to click again.", "success");
+    setStatus("");
     setCaptureButtonLabel("queued");
     await setCaptureQueuedBadge();
     await showCaptureQueuedNotice(activeTab.id);

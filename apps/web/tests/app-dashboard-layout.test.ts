@@ -160,11 +160,13 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
   assert.equal(popupSource.includes("importance: els.captureImportance?.value || \"LOW\""), true);
   assert.equal(popupSource.includes("tags: els.captureTags?.value || \"\""), true);
   assert.equal(popupSource.includes("Queued in ArticlePod"), true);
-  assert.equal(popupSource.includes("You do not need to click again."), true);
   assert.equal(popupSource.includes("articlepod-capture-confirmation"), true);
-  assert.equal(popupMarkup.includes("Optional details"), true);
-  assert.equal(popupMarkup.includes("Skip these if you just want the fastest capture."), true);
+  assert.equal(popupSource.includes('setStatus("");'), true);
+  assert.equal(popupMarkup.includes("Optional details"), false);
+  assert.equal(popupMarkup.includes("Skip these if you just want the fastest capture."), false);
+  assert.equal(popupMarkup.includes("Optional"), true);
   assert.equal(popupStyles.includes('button.primary[data-capture-state="queued"]'), true);
+  assert.equal(popupStyles.includes(".status:empty"), true);
   assert.equal(popupStyles.includes(".status.success"), true);
   assert.equal(popupSource.includes("Token expires:"), false);
   assert.equal(popupSource.includes("tokenExpired"), false);

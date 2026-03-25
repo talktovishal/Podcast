@@ -2904,7 +2904,7 @@ Milestone metadata contract:
   - URL, PDF, and HTML snapshot ingest routes accept `importance`, legacy `priority`, and tags, then persist canonical importance and normalized tags.
   - Existing items keep their current priority-backed value and default to empty tags without backfill or destructive reset.
   - `/app` shows saved importance/tag metadata and lets users filter recent items without breaking polling or media playback token stability.
-  - Web and extension capture UIs make `Title` / `Importance` / `Tags` clearly optional via compact secondary grouping.
+  - Web and extension capture UIs make `Title` / `Importance` / `Tags` clearly optional via compact secondary grouping, without redundant helper copy in the extension popup.
   - Chrome extension capture exposes the same metadata fields as the web submit flow and clearly confirms queued captures without inviting a second click.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`

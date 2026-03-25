@@ -49,7 +49,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
-3. The popup groups capture metadata into an `Optional details` card so `Importance` and `Tags` are clearly skippable; after capture, the popup and active tab both confirm that the page is already queued and does not need a second click.
+3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge; after capture, the queued button state plus the active-tab confirmation banner make it clear that the page is already queued.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout
