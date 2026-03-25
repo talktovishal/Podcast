@@ -1,8 +1,7 @@
 (function initArticlePodExtensionConfig(globalObject) {
   const config = {
-    // Production package target. For local debugging against another origin,
-    // temporarily change this URL and add the same origin to manifest.json
-    // host_permissions before loading the extension unpacked.
+    // Default ArticlePod web app target. For local debugging against another
+    // ArticlePod origin, temporarily change this URL before loading unpacked.
     serverUrl: "https://articlepod.com"
   };
 

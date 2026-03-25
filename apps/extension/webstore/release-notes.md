@@ -3,7 +3,7 @@
 ## v0.1.5
 - Added a small footer link in the popup so users can jump back to `articlepod.com` without guessing where to go next.
 - Simplified the popup footer link to a plain `articlepod.com` hyperlink and styled it more clearly as a clickable website link.
-- Narrowed the extension package to the production `https://articlepod.com` origin so Chrome Web Store review sees a least-privilege host permission scope.
+- Restored broad HTTP/HTTPS host permissions so Chrome does not force a separate per-site access grant before capture.
 
 ## v0.1.4
 - Added bounded smart capture that can reveal likely article content with safe load-more clicks and limited scrolling.

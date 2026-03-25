@@ -10,7 +10,7 @@
     "128": "icons/icon128.png"
   },
   "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://articlepod.com/*"],
+  "host_permissions": ["http://*/*", "https://*/*"],
   "action": {
     "default_title": "ArticlePod Capture",
     "default_popup": "popup.html",

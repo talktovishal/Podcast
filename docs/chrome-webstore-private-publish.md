@@ -32,6 +32,11 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 - **Screenshots**: at least 1 screenshot at 1280×800 or 640×400 — upload in the store listing form.
 - **Privacy policy URL**: publish `apps/extension/webstore/privacy-policy.md` as a public GitHub
   Gist and paste the raw URL in the store listing form.
+- **Permissions justification**: the extension keeps broad `http://*/*` and `https://*/*`
+  host access so users can capture arbitrary pages without Chrome's extra per-site access prompt.
+  When the store form asks for justification, enter: _"ArticlePod Capture is a user-invoked tool
+  that must read the current HTTP/HTTPS page to capture it into the user's private podcast queue.
+  The packaged popup still sends captures only to ArticlePod."_
 
 ---
 
@@ -87,5 +92,5 @@ You can always run it locally without publishing:
 ## Notes
 - If you update extension code, rerun `npm run extension:package && npm run extension:validate` before uploading.
 - If you change permissions in `manifest.json`, Chrome Web Store may require additional review details.
-- The packaged store manifest is scoped to `https://articlepod.com/*`.
-- For unpacked local debugging against a different origin, temporarily update both `apps/extension/runtime-config.js` and the matching `host_permissions` entry in `apps/extension/manifest.json` before loading the extension.
+- The packaged store manifest intentionally keeps broad `http://*/*` and `https://*/*` host access so Chrome does not force per-site access grants before capture.
+- For unpacked local debugging against a different ArticlePod origin, update `apps/extension/runtime-config.js` before loading the extension.

@@ -23,7 +23,7 @@ A Manifest V3 Chrome extension that captures the current browser tab, safely rev
 | Node.js ≥ 18 + npm | For the packaging and validation scripts |
 | Python 3 | For icon generation (`generate-extension-icons.py`) |
 | Chrome browser | Developer mode for local unpacked loading |
-| ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` plus matching `host_permissions` |
+| ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` |
 
 ---
 
@@ -71,8 +71,8 @@ Server targets are configured in:
 
 Default behavior:
 - `serverUrl` points to `https://articlepod.com`
-- the packaged manifest is scoped to `https://articlepod.com/*`
-- if you want to test against a different local/dev origin, temporarily change `serverUrl` and add that same origin to `host_permissions` in `apps/extension/manifest.json` before loading unpacked
+- the packaged manifest keeps broad `http://*/*` + `https://*/*` host access so users can capture arbitrary pages without Chrome asking for one-time per-site access
+- if you want to test against a different local/dev ArticlePod origin, temporarily change `serverUrl` before loading unpacked
 
 ---
 
@@ -206,16 +206,20 @@ Suggested screenshots to take:
 
 5. Upload your screenshots.
 
-6. Set visibility and distribution:
+6. In the Chrome Web Store permissions justification field, explain:
+
+   > ArticlePod Capture is a user-invoked tool that must read the current HTTP/HTTPS page to capture it into the user's private podcast queue. The packaged popup still sends captures only to ArticlePod.
+
+7. Set visibility and distribution:
    - **Visibility**: `Private`
    - **Distribution**: `Only trusted testers`
    - Add your Google account (and any tester Google accounts).
 
-7. Click **Publish**.
+8. Click **Publish**.
 
-8. Wait for review (usually minutes for private listings).
+9. Wait for review (usually minutes for private listings).
 
-9. Install from the private listing while signed in with an allowed Google account.
+10. Install from the private listing while signed in with an allowed Google account.
 
 ### Making the extension public (optional)
 

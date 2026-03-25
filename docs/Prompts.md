@@ -23,8 +23,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - snapshot block/interstitial classification now happens on the server extraction path so the popup can stay thin and mostly focused on DOM capture + cleanup.
   - captured snapshot cleanup removes inert scripts, styles, templates, noscript blocks, and HTML comments while preserving document structure for the server extraction path.
   - snapshot size enforcement is byte-based on the server, and the popup now fails early when safe cleanup still exceeds the upload budget.
-  - the packaged extension manifest is now scoped to `https://articlepod.com/*`, and runtime config defaults extension connections to `https://articlepod.com`.
-  - local debugging against another origin still works, but requires temporarily overriding both `apps/extension/runtime-config.js` and the matching `host_permissions` entry in `apps/extension/manifest.json`.
+  - the packaged extension manifest intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require an extra per-site access grant before capture.
+  - runtime config still defaults extension connections to `https://articlepod.com`, and local debugging against another ArticlePod origin only requires a temporary `apps/extension/runtime-config.js` override.
   - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
