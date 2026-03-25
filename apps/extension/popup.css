@@ -80,6 +80,11 @@ button.primary[data-capture-state="queued"] {
   box-shadow: 0 0 0 1px rgba(21, 128, 61, 0.1), 0 8px 20px rgba(21, 128, 61, 0.18);
 }
 
+button.primary[data-capture-state="queued"]:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 button.secondary {
   background: #fff;
   border-color: #c2cfe3;

@@ -28,9 +28,13 @@ const els = {
 const CAPTURE_IDLE_LABEL = "Capture Current Page";
 const CAPTURE_STARTING_LABEL = "Starting Capture...";
 const CAPTURE_QUEUED_LABEL = "Queued in ArticlePod";
+const CAPTURE_TARGET_REFRESH_MS = 750;
 
 let captureBusy = false;
 let connectedState = false;
+let currentCaptureTargetKey = "";
+let queuedCaptureTargetKey = "";
+let captureTargetPollHandle = null;
 
 function setStatus(message, type = "") {
   els.status.textContent = message || "";
@@ -46,6 +50,27 @@ function normalizeServerUrl(input) {
 
 function uniqueStrings(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function normalizeCaptureTargetUrl(input) {
+  if (typeof input !== "string") {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(input);
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return input.trim().replace(/\/$/, "");
+  }
+}
+
+function buildCaptureTargetKey(tab) {
+  if (!tab || !Number.isInteger(tab.id)) {
+    return "";
+  }
+  return `${tab.id}:${normalizeCaptureTargetUrl(tab.url || "")}`;
 }
 
 function getRuntimeConfig() {
@@ -135,7 +160,8 @@ function isStateConnected(state) {
 }
 
 function syncInteractivity() {
-  els.captureBtn.disabled = captureBusy || !connectedState;
+  const queuedForCurrentTarget = Boolean(queuedCaptureTargetKey) && queuedCaptureTargetKey === currentCaptureTargetKey;
+  els.captureBtn.disabled = captureBusy || !connectedState || queuedForCurrentTarget;
   els.disconnectBtn.disabled = !connectedState;
 }
 
@@ -152,6 +178,32 @@ function setCaptureButtonLabel(state) {
   }
 
   els.captureBtn.textContent = CAPTURE_IDLE_LABEL;
+}
+
+async function refreshCaptureTarget() {
+  try {
+    const activeTab = await resolvePopupTargetTab();
+    currentCaptureTargetKey = buildCaptureTargetKey(activeTab);
+  } catch {
+    currentCaptureTargetKey = "";
+  }
+
+  if (queuedCaptureTargetKey && currentCaptureTargetKey && queuedCaptureTargetKey !== currentCaptureTargetKey) {
+    queuedCaptureTargetKey = "";
+    setCaptureButtonLabel("idle");
+  }
+
+  syncInteractivity();
+}
+
+function startCaptureTargetPolling() {
+  if (captureTargetPollHandle) {
+    return;
+  }
+
+  captureTargetPollHandle = window.setInterval(() => {
+    void refreshCaptureTarget();
+  }, CAPTURE_TARGET_REFRESH_MS);
 }
 
 async function showCaptureQueuedNotice(tabId) {
@@ -298,6 +350,8 @@ async function loadState() {
 
   renderState(state);
   setCaptureButtonLabel("idle");
+  await refreshCaptureTarget();
+  startCaptureTargetPolling();
   if (isStateConnected(state)) {
     await setConnectedBadge();
   } else {
@@ -368,6 +422,7 @@ async function connectExtension() {
 }
 
 async function disconnectExtension() {
+  queuedCaptureTargetKey = "";
   await chrome.storage.local.remove([STORAGE_KEYS.extensionToken, STORAGE_KEYS.tokenExpiresAt]);
   setStatus("Disconnected. Generate a new connect code to reconnect.", "success");
   await loadState();
@@ -406,6 +461,8 @@ async function captureCurrentPage() {
       setStatus("Only HTTP/HTTPS pages can be captured.", "error");
       return;
     }
+
+    currentCaptureTargetKey = buildCaptureTargetKey(activeTab);
 
     const results = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
@@ -465,7 +522,9 @@ async function captureCurrentPage() {
     }
 
     setStatus("");
+    queuedCaptureTargetKey = currentCaptureTargetKey || buildCaptureTargetKey(activeTab);
     setCaptureButtonLabel("queued");
+    syncInteractivity();
     await setCaptureQueuedBadge();
     await showCaptureQueuedNotice(activeTab.id);
   } catch (error) {
