@@ -6,6 +6,7 @@ import { classifyProdProbeFailure, matchProdProbeExpectation } from "./report.js
 import { ensureDir, runCommand, sleep } from "./utils.js";
 
 const PROBE_WORKFLOW_NAME = "Probe URL Extraction (VM)";
+const PROBE_LOG_MARKER = "== VM extraction probe ==";
 
 type GithubRun = {
   databaseId: number;
@@ -21,6 +22,65 @@ export function selectDispatchedProbeRun(runs: GithubRun[], dispatchedAt: number
     .filter((run) => run.event === "workflow_dispatch" && new Date(run.createdAt).getTime() >= dispatchedAt - 5_000)
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   return eligible[0] ?? null;
+}
+
+export function extractFirstJsonObject(text: string): Record<string, unknown> | null {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let start = -1;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (!char) {
+      continue;
+    }
+
+    if (start === -1) {
+      if (char === "{") {
+        start = index;
+        depth = 1;
+        inString = false;
+        escaped = false;
+      }
+      continue;
+    }
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === "\"") {
+      inString = !inString;
+      continue;
+    }
+    if (inString) {
+      continue;
+    }
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, index + 1)) as Record<string, unknown>;
+        } catch {
+          start = -1;
+          depth = 0;
+          inString = false;
+          escaped = false;
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 async function ensureGhAuth(): Promise<void> {
@@ -68,24 +128,13 @@ function findProbeJsonPath(artifactRoot: string): string {
   return join(artifactRoot, "probe-url-extraction", "probe.json");
 }
 
-function extractProbeJsonFromLog(logText: string): Record<string, unknown> | null {
-  const lines = logText.split("\n");
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]?.replace(/^[^\t]+\t[^\t]+\t[^\t]+\s*/, "") || "";
-    if (!line.trim().startsWith("{")) {
-      continue;
-    }
-    const candidateLines = lines
-      .slice(index)
-      .map((value) => value.replace(/^[^\t]+\t[^\t]+\t[^\t]+\s*/, ""));
-    const candidate = candidateLines.join("\n").trim();
-    try {
-      return JSON.parse(candidate) as Record<string, unknown>;
-    } catch {
-      // continue scanning
-    }
-  }
-  return null;
+export function extractProbeJsonFromLog(logText: string): Record<string, unknown> | null {
+  const normalized = logText
+    .split("\n")
+    .map((line) => line.replace(/^[^\t]+\t[^\t]+\t[^\t]+\s*/, ""))
+    .join("\n");
+  const searchText = normalized.includes(PROBE_LOG_MARKER) ? normalized.split(PROBE_LOG_MARKER).slice(1).join(PROBE_LOG_MARKER) : normalized;
+  return extractFirstJsonObject(searchText);
 }
 
 function summarizeLogFailure(logText: string): string {

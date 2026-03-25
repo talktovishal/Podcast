@@ -117,6 +117,9 @@ jobs:
           log_path = pathlib.Path(sys.argv[1])
           json_path = pathlib.Path(sys.argv[2])
           text = log_path.read_text()
+          marker = "== VM extraction probe =="
+          if marker in text:
+              text = text.split(marker, 1)[1]
           decoder = json.JSONDecoder()
 
           for start in range(len(text)):

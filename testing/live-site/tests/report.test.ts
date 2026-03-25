@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { selectDispatchedProbeRun } from "../src/prod-probe.js";
+import { extractFirstJsonObject, extractProbeJsonFromLog, selectDispatchedProbeRun } from "../src/prod-probe.js";
 import { classifyPathFailure, classifyProdProbeFailure, matchLocalExpectation, matchProdProbeExpectation } from "../src/report.js";
 
 test("matchLocalExpectation respects manual review and exact matches", () => {
@@ -72,4 +72,21 @@ test("selectDispatchedProbeRun prefers the newest workflow_dispatch run after di
   );
 
   assert.equal(selected?.databaseId, 2);
+});
+
+test("extractFirstJsonObject returns the first balanced JSON object", () => {
+  const payload = extractFirstJsonObject(`prefix {"ignore":true}\nsuffix`);
+  assert.deepEqual(payload, {
+    ignore: true
+  });
+});
+
+test("extractProbeJsonFromLog prefers the JSON payload after the probe marker", () => {
+  const payload = extractProbeJsonFromLog(`report-to: {"group":"header"}\n== VM extraction probe ==\n{\n  "ok": false,\n  "error": {\n    "code": "EXTRACTION_FAILED"\n  }\n}\nundefined`);
+  assert.deepEqual(payload, {
+    ok: false,
+    error: {
+      code: "EXTRACTION_FAILED"
+    }
+  });
 });
