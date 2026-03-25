@@ -22,6 +22,7 @@ const PUBLIC_PREFIXES: string[] = [
 const PUBLIC_EXACT: Set<string> = new Set([
   "/",
   "/login",
+  "/api/items/html-snapshot",
   "/apple-icon.png",
   "/manifest.webmanifest",
   "/robots.txt",

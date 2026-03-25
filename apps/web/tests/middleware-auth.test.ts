@@ -8,6 +8,7 @@ test("isPublicPathForAuth allows expected unauthenticated assets and pages", () 
   const allowed = [
     "/",
     "/login",
+    "/api/items/html-snapshot",
     "/manifest.webmanifest",
     "/apple-icon.png",
     "/brand/brain-mark-192.png",
@@ -46,6 +47,12 @@ test("middleware returns 401 for unauthenticated protected API requests", async 
 test("middleware allows public asset requests without a session cookie", () => {
   const response = middleware(new NextRequest("http://localhost/brand/brain-mark-192.png"));
   assert.notEqual(response.status, 307);
+  assert.equal(response.headers.get("location"), null);
+});
+
+test("middleware allows extension snapshot API requests without a session cookie", () => {
+  const response = middleware(new NextRequest("http://localhost/api/items/html-snapshot", { method: "POST" }));
+  assert.notEqual(response.status, 401);
   assert.equal(response.headers.get("location"), null);
 });
 
