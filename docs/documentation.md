@@ -49,7 +49,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect (server target comes from `apps/extension/runtime-config.js`).
-3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer link back to `articlepod.com`, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
+3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout

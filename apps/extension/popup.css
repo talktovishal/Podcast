@@ -160,20 +160,20 @@ body.state-connected .state-pill {
 }
 
 .footer-link {
-  color: #4b5563;
+  color: #1d4ed8;
   font-size: 11px;
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .footer-link:hover,
 .footer-link:focus-visible {
-  color: #1d4ed8;
-  text-decoration: underline;
+  color: #1e40af;
 }
 
 body.state-connected .footer-link {
-  color: #2856a6;
+  color: #1d4ed8;
 }
 
 [hidden] {

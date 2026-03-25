@@ -179,7 +179,8 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
   assert.equal(popupMarkup.includes("Optional details"), false);
   assert.equal(popupMarkup.includes("Skip these if you just want the fastest capture."), false);
   assert.equal(popupMarkup.includes("Optional"), true);
-  assert.equal(popupMarkup.includes("Open articlepod.com"), true);
+  assert.equal(popupMarkup.includes("articlepod.com"), true);
+  assert.equal(popupMarkup.includes("Open articlepod.com"), false);
   assert.equal(popupMarkup.includes('href="https://articlepod.com/"'), true);
   assert.equal(popupStyles.includes('button.primary[data-capture-state="queued"]'), true);
   assert.equal(popupStyles.includes('button.primary[data-capture-state="queued"]:disabled'), true);
@@ -187,6 +188,7 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
   assert.equal(popupStyles.includes(".status.success"), true);
   assert.equal(popupStyles.includes(".footer-link-row"), true);
   assert.equal(popupStyles.includes(".footer-link"), true);
+  assert.equal(popupStyles.includes("text-decoration: underline;"), true);
   assert.equal(popupSource.includes("Token expires:"), false);
   assert.equal(popupSource.includes("tokenExpired"), false);
 });
