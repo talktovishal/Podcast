@@ -1,4 +1,4 @@
-import { submitUrlSchema, validateFetchableUrl } from "@articlepod/core";
+import { canonicalizeFetchableUrl, submitUrlSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
@@ -18,19 +18,21 @@ export async function POST(request: NextRequest) {
     const ip = getClientIp(request);
     await enforceSubmitRateLimits(user.id, ip);
 
-    await validateFetchableUrl(payload.url);
+    const canonical = await canonicalizeFetchableUrl(payload.url);
 
     const item = await enqueueItem({
       userId: user.id,
       title: payload.title,
       priority: payload.priority,
       sourceType: "URL",
-      sourceUrl: payload.url
+      sourceUrl: canonical.canonicalUrl
     });
     await logger.info("URL item enqueued", {
       requestId,
       itemId: item.id,
-      userId: user.id
+      userId: user.id,
+      canonicalized: canonical.redirected,
+      redirectCount: canonical.redirectCount
     });
 
     return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });

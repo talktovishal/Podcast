@@ -14,6 +14,7 @@
 - Azure runtime scripts now preserve python-tts virtualenv across promotions and auto-bootstrap missing language assets during VM deploy.
 - Stuck-job watchdog hardening (`M95`) is implemented: pinned-IP extraction socket failures no longer crash the worker, long TTS runs heartbeat their job lock, and stale jobs now fail cleanly after bounded retries instead of starving the queue indefinitely.
 - Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
+- URL ingestion now performs a short safe redirect-canonicalization pass before enqueue/extraction so redirecting share/login-style URLs can normalize to their public destination when discoverable.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
@@ -279,6 +280,7 @@ Milestone metadata contract:
 | M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
 | M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
 | M95 | Done | 2026-03-24 | 2026-03-24 | local validation + production stuck-job watchdog pass (2026-03-24) |
+| M96 | Done | 2026-03-25 | 2026-03-25 | local validation + production redirect canonicalization hardening pass (2026-03-25) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2733,6 +2735,33 @@ Milestone metadata contract:
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
   - `pnpm --filter @articlepod/worker test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+
+### M96 - Redirect Canonicalization Hardening
+- status: Done
+- target_finish: 2026-03-25
+- completed_on: 2026-03-25
+- evidence: local validation + production redirect canonicalization hardening pass (2026-03-25)
+- Scope:
+  - Canonicalize redirecting/share/login-style URLs before enqueue/extraction when the final public URL is safely discoverable.
+  - Keep canonicalization fail-open so transient redirect discovery failures do not block submission.
+  - Preserve SSRF protections across every redirect hop.
+- Key files/modules:
+  - `packages/core/src/security/urlPolicy.ts`
+  - `packages/core/tests/security.test.ts`
+  - `apps/web/src/app/api/items/url/route.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Safe public redirects are followed and stored as the canonical source URL for new submissions.
+  - Redirect discovery failure falls back to the original validated URL rather than breaking submission.
+  - Redirect chains to blocked/private hosts are still rejected.
+  - Existing queued items still benefit because the worker canonicalizes URL sources before extraction.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
   - `pnpm lint`
   - `pnpm test`
   - `pnpm build`

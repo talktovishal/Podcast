@@ -151,6 +151,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Stuck-job watchdog hardening is implemented:
   - pinned-IP HTML fetches now handle socket-level `ENETUNREACH`/connect failures without crashing the worker process.
   - Azure runtime defaults pinned fetches to IPv4-only candidates unless explicitly overridden, avoiding Node 22 crashes on single-stack VM egress.
+  - URL submissions now attempt a short safe redirect canonicalization pass before storing/extracting, reducing avoidable failures from share/login/shortener-style URLs when the final public URL is discoverable.
   - worker chunk progress heartbeats refresh stale-lock timestamps during long TTS runs.
   - stalled jobs get one bounded automatic retry and are then marked `PROCESSING_TIMEOUT` instead of looping forever and starving the queue.
 - Live Azure cutover completed on 2026-03-17:

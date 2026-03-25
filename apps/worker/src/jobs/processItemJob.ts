@@ -8,6 +8,7 @@ import {
   AppError,
   BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   buildEpisodeDescription,
+  canonicalizeFetchableUrl,
   chunkText,
   errorCodes,
   extractHtmlFromUrlWithDiagnostics,
@@ -383,19 +384,36 @@ async function extractItemText(item: {
     appendExtractionLog(item.logs, "extract:url", "Validating URL source", {
       sourceUrl: item.sourceUrl
     });
-    const { resolvedIp, resolvedIps } = await validateFetchableUrl(item.sourceUrl);
-    const pinnedCandidates = resolvedIps && resolvedIps.length > 0 ? resolvedIps : resolvedIp ? [resolvedIp] : [];
+    const canonicalized = await canonicalizeFetchableUrl(item.sourceUrl);
+    const fetchUrl = canonicalized.canonicalUrl;
+    const pinnedCandidates =
+      canonicalized.resolvedIps && canonicalized.resolvedIps.length > 0
+        ? canonicalized.resolvedIps
+        : canonicalized.resolvedIp
+          ? [canonicalized.resolvedIp]
+          : [];
     appendExtractionLog(item.logs, "extract:url", "URL validation passed", {
-      pinnedCandidateCount: pinnedCandidates.length
+      pinnedCandidateCount: pinnedCandidates.length,
+      canonicalUrl: fetchUrl,
+      canonicalized: canonicalized.redirected,
+      redirectCount: canonicalized.redirectCount
     });
+    if (canonicalized.redirected) {
+      appendExtractionLog(item.logs, "extract:url", "Canonicalized submitted URL before extraction", {
+        sourceUrl: item.sourceUrl,
+        canonicalUrl: fetchUrl,
+        redirectCount: canonicalized.redirectCount
+      });
+    }
 
     appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML", {
-      pinnedCandidateCount: pinnedCandidates.length
+      pinnedCandidateCount: pinnedCandidates.length,
+      fetchUrl
     });
 
     let extracted: Awaited<ReturnType<typeof extractHtmlFromUrlWithDiagnostics>>;
     try {
-      extracted = await extractHtmlFromUrlWithDiagnostics(item.sourceUrl, pinnedCandidates);
+      extracted = await extractHtmlFromUrlWithDiagnostics(fetchUrl, pinnedCandidates);
     } catch (error) {
       const fetchDiagnostics = getHtmlFetchDiagnostics(error);
       if (fetchDiagnostics) {
@@ -425,7 +443,7 @@ async function extractItemText(item: {
       title: extractedTitle,
       text: extracted.text,
       markdown: extracted.markdown,
-      sourceLabel: item.sourceUrl,
+      sourceLabel: fetchUrl,
       sourceArtifact: {
         kind: "RAW_HTML",
         storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.html")),
