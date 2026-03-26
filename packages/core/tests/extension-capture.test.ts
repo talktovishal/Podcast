@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { JSDOM } from "jsdom";
-import { extractHtmlSnapshot } from "../src/extract/html";
+import { BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE, extractHtmlSnapshot } from "../src/extract/html";
 // @ts-ignore -- the extension helper ships as a browser module and is imported directly for jsdom-based tests.
 import { capturePageSnapshot } from "../../../apps/extension/capture-page.mjs";
 
@@ -259,6 +259,51 @@ test("capturePageSnapshot captures explicit Cloudflare block pages and lets the 
 
     assert.equal(result.ok, true);
     assert.ok(result.html.includes("Sorry, you have been blocked"));
+  } finally {
+    dom.window.close();
+  }
+});
+
+test("capturePageSnapshot keeps lightweight Cloudflare verification pages for server-side rejection", async () => {
+  const dom = createDom(
+    `
+      <!doctype html>
+      <html>
+        <head><title>Verifying...</title></head>
+        <body>
+          <main id="cf-wrapper">
+            <h1>Verifying...</h1>
+            <p>Please wait while we verify your browser.</p>
+            <p>Performance & security by Cloudflare</p>
+          </main>
+          <script src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"></script>
+        </body>
+      </html>
+    `,
+    "https://openai.com/index/introducing-gpt-5"
+  );
+
+  try {
+    const result = await capturePageSnapshot({
+      window: dom.window,
+      document: dom.window.document,
+      settleMs: 0,
+      scrollBudget: 0
+    });
+
+    assert.equal(result.ok, true);
+    assert.ok(result.html.includes("Verifying..."));
+    assert.throws(
+      () =>
+        extractHtmlSnapshot({
+          html: result.html,
+          url: "https://openai.com/index/introducing-gpt-5"
+        }),
+      (error: unknown) =>
+        error instanceof Error &&
+        "userMessage" in error &&
+        (error as Error & { userMessage?: string }).userMessage === BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+    );
   } finally {
     dom.window.close();
   }

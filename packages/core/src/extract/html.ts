@@ -67,13 +67,19 @@ function normalizeMarkdown(markdown: string): string {
     .trim();
 }
 
+function wordCount(input: string): number {
+  if (!input) {
+    return 0;
+  }
+  return input.split(/\s+/g).filter(Boolean).length;
+}
+
 function htmlToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: "atx",
     codeBlockStyle: "fenced",
     bulletListMarker: "-"
   });
-  turndown.keep(["table", "thead", "tbody", "tr", "th", "td"]);
   return normalizeMarkdown(turndown.turndown(html));
 }
 
@@ -141,6 +147,10 @@ function detectCapturedPageInterstitial(input: {
     const bodyText = normalizeExtracted(dom.window.document.body?.textContent || dom.window.document.documentElement?.textContent || "").toLowerCase();
     const rawHtml = input.html.toLowerCase();
     const combinedText = `${titleText} ${bodyText}`.trim();
+    const bodyWordCount = wordCount(bodyText);
+    const challengeInfrastructurePattern =
+      /\bcloudflare\b|\bcf-wrapper\b|\bcdn-cgi\b|\bchallenge-platform\b|\bturnstile\b|\brecaptcha\b|\bdatadome\b/;
+    const hasChallengeInfrastructure = challengeInfrastructurePattern.test(`${combinedText} ${rawHtml}`);
 
     const challengeFramePattern = /(captcha-delivery|datadome|captcha|challenge|recaptcha|turnstile|challenge-platform)/;
     const hasVisibleChallengeFrame = Array.from(dom.window.document.querySelectorAll("iframe")).some((frame) => {
@@ -172,6 +182,7 @@ function detectCapturedPageInterstitial(input: {
       /\bwhy have i been blocked\b/,
       /\bcloudflare ray id\b/,
       /\bperformance [& ] security by cloudflare\b/,
+      /\bjust a moment\b/,
       /\bchecking your browser\b/,
       /\bverify you are human\b/,
       /\benable javascript and cookies to continue\b/
@@ -197,6 +208,17 @@ function detectCapturedPageInterstitial(input: {
     }
 
     if (strongMatches >= 2 || (strongMatches >= 1 && supportingMatches >= 1)) {
+      return { code: "interstitial_text" };
+    }
+
+    const lightweightChallengeTextPatterns = [
+      /^(?:verifying|just a moment)\.{0,3}$/,
+      /\bverifying\b/,
+      /\bchecking if the site connection is secure\b/,
+      /\bplease wait while we verify\b/
+    ];
+    const lightweightMatches = lightweightChallengeTextPatterns.filter((pattern) => pattern.test(combinedText)).length;
+    if (hasChallengeInfrastructure && lightweightMatches >= 1 && bodyWordCount <= 120) {
       return { code: "interstitial_text" };
     }
 
@@ -304,6 +326,9 @@ function mapHtmlExtractionError(error: unknown, fallbackMessage: string): AppErr
 
 function errorSpecificityScore(error: AppError): number {
   const message = error.userMessage.toLowerCase();
+  if (message.includes("chrome extension instead")) {
+    return 95;
+  }
   if (message.includes("blocked access")) {
     return 90;
   }
@@ -346,6 +371,13 @@ function cloneDiagnostics(diagnostics: HtmlFetchDiagnostics): HtmlFetchDiagnosti
   };
 }
 
+function throwIfCapturedPageInterstitial(input: { html: string; sourceUrl: string }, message: string): void {
+  const accessInterstitial = detectCapturedPageInterstitial(input);
+  if (accessInterstitial) {
+    throw new AppError(errorCodes.EXTRACTION_FAILED, message, 400);
+  }
+}
+
 function attachFetchDiagnostics(error: AppError, diagnostics: HtmlFetchDiagnostics): AppError {
   return Object.assign(error, {
     fetchDiagnostics: cloneDiagnostics(diagnostics)
@@ -370,6 +402,10 @@ function isBlockedFetchStatus(status: number | null | undefined): boolean {
 export function shouldSuggestHtmlSnapshotForError(error: unknown): boolean {
   if (!(error instanceof AppError) || error.code !== errorCodes.EXTRACTION_FAILED) {
     return false;
+  }
+
+  if (error.userMessage === BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE) {
+    return true;
   }
 
   const diagnostics = getHtmlFetchDiagnostics(error);
@@ -569,6 +605,7 @@ async function attemptHostnameFallback(
 
   const html = await response.text();
   try {
+    throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
     return {
       ...extractFromHtml({ html, sourceUrl: url }),
       diagnostics: cloneDiagnostics(diagnostics)
@@ -597,6 +634,7 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 
     const html = await response.text();
     try {
+      throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
       return {
         ...extractFromHtml({ html, sourceUrl: url }),
         diagnostics: cloneDiagnostics(diagnostics)
@@ -653,6 +691,7 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 
   const html = await pinnedResponse.text();
   try {
+    throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
     return {
       ...extractFromHtml({ html, sourceUrl: url }),
       diagnostics: cloneDiagnostics(diagnostics)
@@ -668,13 +707,13 @@ export function extractHtmlSnapshot(input: {
   url?: string;
 }): { title: string; text: string; markdown: string; rawHtml: string; byline?: string | null } {
   const sourceUrl = input.url || BRAND_SNAPSHOT_FALLBACK_URL;
-  const accessInterstitial = detectCapturedPageInterstitial({
-    html: input.html,
-    sourceUrl
-  });
-  if (accessInterstitial) {
-    throw new AppError(errorCodes.EXTRACTION_FAILED, BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE, 400);
-  }
+  throwIfCapturedPageInterstitial(
+    {
+      html: input.html,
+      sourceUrl
+    },
+    BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
 
   try {
     return extractFromHtml({

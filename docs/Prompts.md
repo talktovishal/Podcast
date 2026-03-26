@@ -21,6 +21,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - popup now uses packaged runtime server configuration (no user-entered server URL) with connected/capture state cues.
   - popup-triggered smart capture now performs bounded article-focused auto-reveal before upload, with conservative handling for feed/thread-style hosts.
   - snapshot block/interstitial classification now happens on the server extraction path so the popup can stay thin and mostly focused on DOM capture + cleanup.
+  - server-side snapshot classification now also catches lightweight challenge pages (for example Cloudflare `Verifying...` shells) so extension failures stay explicit instead of degrading into generic extraction errors.
   - captured snapshot cleanup removes inert scripts, styles, templates, noscript blocks, and HTML comments while preserving document structure for the server extraction path.
   - snapshot size enforcement is byte-based on the server, and the popup now fails early when safe cleanup still exceeds the upload budget.
   - the packaged extension manifest intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require an extra per-site access grant before capture.
@@ -52,6 +53,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - HTML/PDF extraction emits markdown outputs alongside narration text.
   - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + cleaned extracted `MARKDOWN`) with lifecycle metadata.
   - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
+  - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
   - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.

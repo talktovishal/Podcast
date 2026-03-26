@@ -2931,9 +2931,13 @@ Milestone metadata contract:
   - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
   - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
   - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
+  - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
   - Keep bulk comparison local/latest-code only and stop before DB writes, queueing, and audio generation.
 - Key files/modules:
+  - `packages/core/src/extract/html.ts`
   - `packages/core/src/extract/markdownCleanup.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `packages/core/tests/extension-capture.test.ts`
   - `packages/core/tests/markdownCleanup.test.ts`
   - `packages/core/tests/markdownQuality.test.ts`
   - `testing/extraction-quality/*`
@@ -2942,10 +2946,13 @@ Milestone metadata contract:
   - `docs/documentation.md`
 - Acceptance criteria:
   - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
+  - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
+  - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
   - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
   - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.
   - The harness supports `--input`, `--site`, `--limit`, `--concurrency-url`, `--concurrency-extension`, and `--headed`.
 - Verification commands:
+  - `pnpm --filter @articlepod/core exec tsx --test tests/extract.test.ts tests/extension-capture.test.ts`
   - `pnpm --filter @articlepod/core exec tsx --test tests/markdownCleanup.test.ts tests/markdownQuality.test.ts`
   - `pnpm --filter @articlepod/extraction-quality typecheck`
   - `pnpm --filter @articlepod/extraction-quality test`

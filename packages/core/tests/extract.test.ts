@@ -5,12 +5,14 @@ import { EventEmitter } from "node:events";
 import http from "node:http";
 import {
   BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE,
+  BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   extractHtmlFromUrl,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
   shouldSuggestHtmlSnapshotForError
 } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
+import { cleanExtractedMarkdown } from "../src/extract/markdownCleanup";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
 
@@ -81,6 +83,66 @@ test("extractHtmlFromUrl applies abogen cleaner pipeline", async () => {
   assert.ok(!result.text.includes("Footnote marker gets stripped from text1"));
 
   globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlSnapshot flattens table-heavy markup into markdown instead of preserving raw html", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Hacker News-style listing</title></head>
+      <body>
+        <main>
+          <table>
+            <tbody>
+              <tr>
+                <td><span>1.</span></td>
+                <td>
+                  <span>
+                    <a href="https://example.com/story">Story title</a>
+                    <span>(<a href="https://news.ycombinator.com/from?site=example.com">example.com</a>)</span>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <span>437 points by <a href="https://news.ycombinator.com/user?id=alice">alice</a> <a href="https://news.ycombinator.com/item?id=1">6 hours ago</a> | <a href="https://news.ycombinator.com/item?id=1">126 comments</a></span>
+                </td>
+              </tr>
+              <tr>
+                <td><span>2.</span></td>
+                <td>
+                  <span>
+                    <a href="https://example.com/second-story">Second story with enough descriptive words to stay stable in this extraction regression test</a>
+                    <span>(<a href="https://news.ycombinator.com/from?site=example.com">example.com</a>)</span>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <span>128 points by <a href="https://news.ycombinator.com/user?id=bob">bob</a> <a href="https://news.ycombinator.com/item?id=2">3 hours ago</a> | <a href="https://news.ycombinator.com/item?id=2">42 comments</a></span>
+                </td>
+              </tr>
+              <tr>
+                <td><a href="https://news.ycombinator.com/?p=2" rel="next">More</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </main>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://news.ycombinator.com/news"
+  });
+  const cleaned = cleanExtractedMarkdown(result.markdown);
+
+  assert.ok(!result.markdown.includes("<table"));
+  assert.ok(!result.markdown.includes("href="));
+  assert.match(cleaned, /Story title \(example\.com\)/);
+  assert.match(cleaned, /Second story with enough descriptive words/);
+  assert.ok(!cleaned.includes("https://"));
 });
 
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {
@@ -156,6 +218,46 @@ test("extractHtmlFromUrl maps invalid pinned IP errors to actionable extraction 
       error.code === errorCodes.EXTRACTION_FAILED &&
       error.userMessage.toLowerCase().includes("could not connect")
   );
+
+  globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlFromUrl classifies lightweight challenge pages as blocked-site failures with extension guidance", async () => {
+  const originalFetch = globalThis.fetch;
+  let caught: unknown = null;
+
+  globalThis.fetch = (async () =>
+    ({
+      ok: true,
+      status: 200,
+      text: async () => `
+        <!doctype html>
+        <html>
+          <head><title>Verifying...</title></head>
+          <body>
+            <main id="cf-wrapper">
+              <h1>Verifying...</h1>
+              <p>Please wait while we verify your browser.</p>
+              <p>Performance & security by Cloudflare</p>
+            </main>
+            <script src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"></script>
+          </body>
+        </html>
+      `
+    }) as unknown as Response) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://openai.com/index/introducing-gpt-5"),
+    (error: unknown) => {
+      caught = error;
+      return (
+        error instanceof AppError &&
+        error.code === errorCodes.EXTRACTION_FAILED &&
+        error.userMessage === BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE
+      );
+    }
+  );
+  assert.equal(shouldSuggestHtmlSnapshotForError(caught), true);
 
   globalThis.fetch = originalFetch;
 });
@@ -799,6 +901,35 @@ test("extractHtmlSnapshot rejects explicit Cloudflare block pages", () => {
       extractHtmlSnapshot({
         html,
         url: "https://www.geekwire.com/blocked"
+      }),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage === BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
+});
+
+test("extractHtmlSnapshot rejects lightweight Cloudflare verification pages", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Verifying...</title></head>
+      <body>
+        <main id="cf-wrapper">
+          <h1>Verifying...</h1>
+          <p>Please wait while we verify your browser.</p>
+          <p>Performance & security by Cloudflare</p>
+        </main>
+        <script src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"></script>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractHtmlSnapshot({
+        html,
+        url: "https://openai.com/index/introducing-gpt-5"
       }),
     (error: unknown) =>
       error instanceof AppError &&

@@ -51,9 +51,9 @@ Monetization/quota fields on `User`:
 - `HTML_SNAPSHOT` (Chrome extension captured HTML)
 
 The worker extraction adapter branches by source type:
-- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup
+- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup, with fetched challenge/interstitial HTML classified before generic extraction fallback messaging
 - PDF: uploaded bytes from artifact storage + text extraction
-- HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup
+- HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup, including lightweight verification shells
 
 ## Extraction Artifact Plane
 Current behavior (`M57`-`M64` implemented):
@@ -66,6 +66,7 @@ Current behavior (`M57`-`M64` implemented):
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - extracted-item markdown passes through shared rule-based cleanup before persistence:
   - remove image/link scaffolding, bare transport URLs, leading metadata, caption/credit noise, and footer/legal/nav chrome
+  - flatten table-heavy extracted markup into regular markdown/text instead of preserving raw table HTML
   - shared markdown quality analysis reports residual URLs, leading metadata, image wrappers, footer/legal noise, language selectors, share/comment noise, and low-signal post-cleanup cases for audits/tests
   - preserve substantive prose, headings, and meaningful inline link text
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.

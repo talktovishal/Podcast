@@ -50,7 +50,7 @@ Connect flow:
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect; runtime config still points to `https://articlepod.com`, while the packaged manifest keeps broad HTTP/HTTPS host access so users can capture arbitrary pages without a second Chrome site-access prompt.
 3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
-4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page; the popup itself stays mostly focused on DOM capture and cleanup.
+4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page, including lightweight Cloudflare `Verifying...` challenge shells; the popup itself stays mostly focused on DOM capture and cleanup.
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
@@ -250,6 +250,7 @@ Current (`M57`-`M64` implemented):
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
+- HTML-to-markdown conversion now flattens table-heavy extracted shells into regular markdown/text instead of preserving raw table HTML, so cleanup can normalize list-heavy pages without leaving `href` blobs behind.
 - shared markdown quality analysis classifies residual URLs, image wrappers, leading metadata, footer/legal noise, language footers, share/comment noise, and low-signal post-cleanup outputs for audits and regression reporting.
 - generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
 - low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.
