@@ -11,12 +11,13 @@
 
 ## Copied/adapted modules
 - Source: `denizsafak/abogen` (MIT)
-- Source commit: `d30415ffe7f7439ba04f78c0617c7a1fa41f9a12`
+- Source commit: `ca5c5ee62dd26009ae6d946c562e69a3d279841e`
 - Destination: `packages/core/src/extract/abogen/`
 - Files copied/adapted:
   - `packages/core/src/extract/abogen/cleanText.ts` (from `abogen/subtitle_utils.py:clean_text`)
   - `packages/core/src/extract/abogen/htmlToText.ts` (from `abogen/text_extractor.py:_html_to_text` and `_resolve_document_title`)
   - `packages/core/src/extract/abogen/pdfClean.ts` (from `abogen/text_extractor.py:_clean_pdf_text`)
+- Detailed reviewed snapshot ledger and diff notes live in `packages/core/src/extract/abogen/README.md`.
 
 - Source: `iamspruce/postcast` (MIT)
 - Source commit: `5574cf43e42a68679f27bbe6670efb249ad8ce53`
