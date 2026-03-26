@@ -56,3 +56,48 @@ Tommy Thompson, 73, discovered millions of dollars' worth of sunken treasure fro
   assert.equal(analysis.issueCounts.residual_url, 1);
   assert.ok(analysis.cleanedMarkdown.startsWith("A US deep-sea treasure hunter"));
 });
+
+test("analyzeMarkdownQuality does not flag normal article prose about privacy as footer legal noise", () => {
+  const analysis = analyzeMarkdownQuality(`
+WASHINGTON (AP) — Communities across the country have seen a backlash against data centers over fears about rising electricity prices and concerns about pollution and water consumption.
+
+Voters need far more than voluntary assurances from Big Tech oligarchs as they confront the most profound technological revolution in world history, lawmakers said.
+
+Changes from AI and robotics will impact the U.S. economy and American democracy as well as our privacy rights, our emotional well-being, and our environment.
+`);
+
+  assert.equal(analysis.issueCounts.footer_legal, 0);
+  assert.equal(analysis.issueCounts.low_signal_after_cleanup, 0);
+  assert.ok(analysis.cleanedMarkdown.includes("privacy rights"));
+});
+
+test("analyzeMarkdownQuality reports Business Insider-style metadata and subscriber chrome before cleanup", () => {
+  const analysis = analyzeMarkdownQuality(`
+2026-02-19T11:47:08.112Z
+
+Feb 19, 2026, 3:47 AM PT
+
+Nostalgia is everywhere on the internet right now.
+
+With doomsayers predicting that AI could bring about the apocalypse, this January marking the highest number of layoffs to kick off a year since 2009, and ongoing political unrest, people are harking back to simpler times.
+
+4 MIN READ
+
+- Tech
+- AI
+- gen z
+- More
+- Society
+
+## Read next
+
+This story is available exclusively to Business Insider subscribers. Become an Insider and start reading now. Have an account? .
+`);
+
+  assert.equal(analysis.issueCounts.leading_metadata, 1);
+  assert.equal(analysis.issueCounts.footer_legal, 0);
+  assert.ok(analysis.cleanedMarkdown.includes("Nostalgia is everywhere on the internet right now."));
+  assert.ok(!analysis.cleanedMarkdown.includes("4 MIN READ"));
+  assert.ok(!analysis.cleanedMarkdown.includes("Become an Insider"));
+  assert.ok(!analysis.cleanedMarkdown.includes("- Tech"));
+});

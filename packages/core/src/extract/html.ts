@@ -74,6 +74,39 @@ function wordCount(input: string): number {
   return input.split(/\s+/g).filter(Boolean).length;
 }
 
+function substantialParagraphCount(markdown: string): number {
+  return markdown
+    .split(/\n{2,}/g)
+    .map((paragraph) => paragraph.replace(/^#{1,6}\s+/gm, "").replace(/\s+/g, " ").trim())
+    .filter((paragraph) => wordCount(paragraph) >= 12).length;
+}
+
+function hasStrongReadableArticleSignal(input: {
+  html: string;
+  sourceUrl: string;
+}): boolean {
+  try {
+    const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
+    const extractedWordCount = wordCount(normalizeExtracted(extracted.text));
+    const paragraphCount = substantialParagraphCount(normalizeMarkdown(extracted.markdown));
+    const extractedChars = normalizeExtracted(extracted.text).length;
+    return (extractedWordCount >= 90 && paragraphCount >= 2) || (extractedChars >= 450 && paragraphCount >= 2);
+  } catch {
+    return false;
+  }
+}
+
+function hasStrongDomArticleSignal(document: Document): boolean {
+  const candidateParagraphs = Array.from(
+    document.querySelectorAll("article p, main p, [role='article'] p, article li, main li, [role='article'] li")
+  )
+    .map((node) => normalizeExtracted(node.textContent || ""))
+    .filter(Boolean);
+  const substantialParagraphs = candidateParagraphs.filter((paragraph) => wordCount(paragraph) >= 12);
+  const totalWords = substantialParagraphs.reduce((sum, paragraph) => sum + wordCount(paragraph), 0);
+  return (substantialParagraphs.length >= 3 && totalWords >= 70) || (substantialParagraphs.length >= 2 && totalWords >= 100);
+}
+
 function htmlToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: "atx",
@@ -151,6 +184,7 @@ function detectCapturedPageInterstitial(input: {
     const challengeInfrastructurePattern =
       /\bcloudflare\b|\bcf-wrapper\b|\bcdn-cgi\b|\bchallenge-platform\b|\bturnstile\b|\brecaptcha\b|\bdatadome\b/;
     const hasChallengeInfrastructure = challengeInfrastructurePattern.test(`${combinedText} ${rawHtml}`);
+    const hasStrongArticleSignal = hasStrongReadableArticleSignal(input) || hasStrongDomArticleSignal(dom.window.document);
 
     const challengeFramePattern = /(captcha-delivery|datadome|captcha|challenge|recaptcha|turnstile|challenge-platform)/;
     const hasVisibleChallengeFrame = Array.from(dom.window.document.querySelectorAll("iframe")).some((frame) => {
@@ -176,12 +210,14 @@ function detectCapturedPageInterstitial(input: {
       return true;
     });
 
-    const strongBlockPatterns = [
+    const hardBlockPatterns = [
       /\battention required\b/,
       /\bsorry, you have been blocked\b/,
       /\bwhy have i been blocked\b/,
       /\bcloudflare ray id\b/,
-      /\bperformance [& ] security by cloudflare\b/,
+      /\bperformance [& ] security by cloudflare\b/
+    ];
+    const strongBlockPatterns = [
       /\bjust a moment\b/,
       /\bchecking your browser\b/,
       /\bverify you are human\b/,
@@ -202,12 +238,17 @@ function detectCapturedPageInterstitial(input: {
 
     const strongMatches = strongBlockPatterns.filter((pattern) => pattern.test(combinedText)).length;
     const supportingMatches = supportingBlockPatterns.filter((pattern) => pattern.test(`${combinedText} ${rawHtml}`)).length;
+    const hardBlockMatches = hardBlockPatterns.filter((pattern) => pattern.test(combinedText)).length;
 
-    if (hasVisibleChallengeFrame) {
+    if (hardBlockMatches >= 1) {
+      return { code: "interstitial_text" };
+    }
+
+    if (hasVisibleChallengeFrame && !hasStrongArticleSignal) {
       return { code: "challenge_frame" };
     }
 
-    if (strongMatches >= 2 || (strongMatches >= 1 && supportingMatches >= 1)) {
+    if ((strongMatches >= 2 || (strongMatches >= 1 && supportingMatches >= 1)) && !hasStrongArticleSignal) {
       return { code: "interstitial_text" };
     }
 
@@ -218,7 +259,7 @@ function detectCapturedPageInterstitial(input: {
       /\bplease wait while we verify\b/
     ];
     const lightweightMatches = lightweightChallengeTextPatterns.filter((pattern) => pattern.test(combinedText)).length;
-    if (hasChallengeInfrastructure && lightweightMatches >= 1 && bodyWordCount <= 120) {
+    if (hasChallengeInfrastructure && lightweightMatches >= 1 && bodyWordCount <= 120 && !hasStrongArticleSignal) {
       return { code: "interstitial_text" };
     }
 

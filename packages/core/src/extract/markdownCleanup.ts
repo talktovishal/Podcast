@@ -11,8 +11,11 @@ const FOOTNOTE_REF_PATTERN = /\[\d+\]/g;
 const MULTIPLE_NEWLINES_PATTERN = /\n{3,}/g;
 const LEADING_METADATA_DATE_PATTERNS = [
   /^(?:written on\s+)?[A-Za-z]+\s+\d{1,2},\s+\d{4}$/i,
+  /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?z$/i,
   /^\d{1,2}\/\d{1,2}\/\d{4}(?:\s+[A-Za-z].*)?$/,
   /^\d{1,2}(?:st|nd|rd|th)\s+[A-Za-z]+\s+\d{4}$/i,
+  /^(?:updated\s+)?[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}\s*(?:am|pm)\s*(?:[A-Z]{1,4})?$/i,
+  /^[A-Za-z]{3,9}\s+\d{1,2},\s+\d{4},\s+\d{1,2}:\d{2}\s*(?:am|pm)\s*(?:[A-Z]{1,4})?$/i,
   /^\d+[hm]$/i,
   /^\d+\s+(?:minutes?|hours?|days?|weeks?)\s+ago$/i
 ];
@@ -20,12 +23,15 @@ const LEADING_METADATA_PATTERNS = [
   /^(?:by|written by)\b/i,
   /^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,4}\s+for\s+.+$/,
   /^[A-Z][A-Za-z .'-]+,\s*(?:published|updated)\s*:/i,
+  /^[A-Z][A-Za-z .'-]+\s+is\s+(?:a|an)\s+(?:senior|staff|principal|contributing|associate|deputy|executive)\b/i,
   /^(?:published|updated|published by|published on):?$/i,
   /^.+['’]s post$/i
 ];
 const GLOBAL_NOISE_PATTERNS = [
   /^share$/i,
+  /^skip to main content$/i,
   /^read more$/i,
+  /^read next$/i,
   /^must watch$/i,
   /^copy as \/ view markdown$/i,
   /^explore content categories$/i,
@@ -59,6 +65,7 @@ const GLOBAL_NOISE_PATTERNS = [
   /^published by:?$/i,
   /^published on:?$/i,
   /^updated:?$/i,
+  /^\d+\s+min(?:ute)?s?\s+read$/i,
   /^this entry was tagged\b/i,
   /^see more comments$/i,
   /^related content$/i
@@ -67,6 +74,7 @@ const CAPTION_PATTERNS = [
   /\b(?:getty images|associated press|ap photo|reuters|image source)\b/i,
   /\bhide caption\b/i,
   /\btoggle caption\b/i,
+  /^image:\s+/i,
   /^\(?photo by\b/i,
   /\(\s*photo by\b/i,
   /^\(?image ©/i,
@@ -87,7 +95,10 @@ const PROMO_FOOTER_PATTERNS = [
   /^aboutdeveloperscareersprivacycookiestermshelp center$/i,
   /^english\s+\(us\).*more languages$/i,
   /\bexplore the full \d{4} list of\b/i,
-  /\bapply today\b/i
+  /\bapply today\b/i,
+  /\bthis story is available exclusively to business insider subscribers\b/i,
+  /\bbecome an insider\b/i,
+  /\bhave an account\??\b/i
 ];
 const SHARE_OR_COMMENT_PATTERNS = [/^share$/i, /^read more$/i, /^must watch$/i, /^see more comments$/i, /^related content$/i];
 const LANGUAGE_FOOTER_PATTERNS = [/^english\s*\([^)]+\)$/i, /^more languages$/i, /^english\s+\(us\).*more languages$/i];
@@ -210,6 +221,21 @@ function isCategoryBar(input: string): boolean {
   return segments.every((segment) => wordCount(segment) <= 4 && !/[.!?]/.test(segment));
 }
 
+function isShortTagListParagraph(paragraph: string): boolean {
+  const lines = paragraph
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length < 3 || !lines.every((line) => /^[-*+]\s+/.test(line))) {
+    return false;
+  }
+
+  return lines.every((line) => {
+    const plain = paragraphToPlainText(line);
+    return wordCount(plain) >= 1 && wordCount(plain) <= 4 && !/[.!?]/.test(plain) && !/\d/.test(plain);
+  });
+}
+
 function isLikelyTransportNoise(input: string): boolean {
   if (!input) {
     return true;
@@ -225,6 +251,24 @@ function isLikelyTransportNoise(input: string): boolean {
   }
 
   return false;
+}
+
+function isFooterLegalNoise(input: string): boolean {
+  if (!input) {
+    return false;
+  }
+
+  if (LEGAL_FOOTER_PATTERNS.some((pattern) => pattern.test(input))) {
+    return true;
+  }
+
+  const keywordPatterns = [/\bprivacy\b/i, /\bcookies?\b/i, /\bterms\b/i, /\bhelp center\b/i, /\bdevelopers\b/i, /\bcareers\b/i, /\babout\b/i];
+  const matchCount = keywordPatterns.filter((pattern) => pattern.test(input)).length;
+  if (matchCount < 2) {
+    return false;
+  }
+
+  return wordCount(input) <= 18 || isCategoryBar(input) || !/[.!?]/.test(input);
 }
 
 function isLeadingMetadata(input: string, index: number, paragraph: string): boolean {
@@ -272,11 +316,35 @@ function isLikelyLeadingCaption(paragraph: string, nextParagraph: string): boole
     return false;
   }
 
+  if (/[.!?]["']?$/.test(plain)) {
+    return false;
+  }
+
   if (isLeadingMetadata(plain, 0, paragraph) || isGlobalNoise(plain) || isCaptionNoise(plain, 0)) {
     return false;
   }
 
   return true;
+}
+
+function isLikelyLeadingStandfirst(paragraph: string, index: number, nextParagraph: string, nextNextParagraph: string): boolean {
+  if (index > 2 || !paragraph || isMarkdownHeading(paragraph)) {
+    return false;
+  }
+
+  const plain = paragraphToPlainText(paragraph);
+  const words = wordCount(plain);
+  if (words < 6 || words > 28 || /[!?]$/.test(plain)) {
+    return false;
+  }
+
+  const nextPlain = paragraphToPlainText(nextParagraph);
+  const nextNextPlain = paragraphToPlainText(nextNextParagraph);
+  return (
+    isLeadingMetadata(nextPlain, index + 1, nextParagraph) ||
+    isLeadingMetadata(nextNextPlain, index + 2, nextNextParagraph) ||
+    isCaptionNoise(nextPlain, index + 1)
+  );
 }
 
 function isGlobalNoise(input: string): boolean {
@@ -288,7 +356,7 @@ function isGlobalNoise(input: string): boolean {
     return true;
   }
 
-  if (LEGAL_FOOTER_PATTERNS.some((pattern) => pattern.test(input))) {
+  if (isFooterLegalNoise(input)) {
     return true;
   }
 
@@ -311,11 +379,19 @@ function isGlobalNoise(input: string): boolean {
   return false;
 }
 
+function isNoiseParagraph(paragraph: string): boolean {
+  return isGlobalNoise(paragraphToPlainText(paragraph)) || isShortTagListParagraph(paragraph);
+}
+
 function trimLeadingNoise(paragraphs: string[]): string[] {
   let start = 0;
   let removedCaptionSignal = false;
   while (start < paragraphs.length) {
     const plain = paragraphToPlainText(paragraphs[start] ?? "");
+    if (isLikelyLeadingStandfirst(paragraphs[start] ?? "", start, paragraphs[start + 1] ?? "", paragraphs[start + 2] ?? "")) {
+      start += 1;
+      continue;
+    }
     if (isLeadingMetadata(plain, start, paragraphs[start] ?? "")) {
       start += 1;
       continue;
@@ -325,7 +401,7 @@ function trimLeadingNoise(paragraphs: string[]): string[] {
       start += 1;
       continue;
     }
-    if (isGlobalNoise(plain)) {
+    if (isNoiseParagraph(paragraphs[start] ?? "")) {
       start += 1;
       continue;
     }
@@ -343,7 +419,7 @@ function trimTrailingNoise(paragraphs: string[]): string[] {
   let end = paragraphs.length;
   while (end > 0) {
     const plain = paragraphToPlainText(paragraphs[end - 1] ?? "");
-    if (isGlobalNoise(plain) || isCaptionNoise(plain, end - 1)) {
+    if (isNoiseParagraph(paragraphs[end - 1] ?? "") || isCaptionNoise(plain, end - 1)) {
       end -= 1;
       continue;
     }
@@ -368,8 +444,7 @@ export function cleanExtractedMarkdown(markdown: string): string {
   }
 
   const paragraphs = splitParagraphs(normalized).filter((paragraph) => {
-    const plain = paragraphToPlainText(paragraph);
-    return !isGlobalNoise(plain);
+    return !isNoiseParagraph(paragraph);
   });
 
   let trimmed = trimTrailingNoise(trimLeadingNoise(paragraphs)).filter((paragraph, index) => {
@@ -508,7 +583,7 @@ function analyzeRawMarkdownIssues(markdown: string): Array<{
 
   const footerLegalParagraph = transportParagraphs.find((paragraph) => {
     const plain = paragraphToPlainText(paragraph);
-    return LEGAL_FOOTER_PATTERNS.some((pattern) => pattern.test(plain)) || /\bprivacy\b/i.test(plain) || /\bcookies?\b/i.test(plain) || /\bterms\b/i.test(plain);
+    return isFooterLegalNoise(plain);
   });
   if (footerLegalParagraph) {
     issues.push({

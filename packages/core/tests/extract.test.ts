@@ -967,6 +967,39 @@ test("extractHtmlSnapshot still extracts readable articles with hidden challenge
   assert.match(result.text, /real content is present in the snapshot/i);
 });
 
+test("extractHtmlSnapshot still extracts readable articles with visible recaptcha and paywall widgets", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>The Verge-style article</title></head>
+      <body>
+        <article>
+          <h1>The Verge-style article</h1>
+          <p>This visible article body already contains enough reporting to prove that the readable story is present, even though the page also carries newsletter, paywall, and recaptcha widgets around the edges.</p>
+          <p>The server should not classify the snapshot as a challenge page when the main article paragraphs are available and clearly exceed the normal low-signal threshold for extraction.</p>
+          <p>Sites sometimes inject footer badges and subscription prompts after the article body, and that chrome should be cleaned later instead of blocking snapshot ingestion up front.</p>
+        </article>
+        <div class="grecaptcha-badge">protected by reCAPTCHA</div>
+        <iframe
+          src="https://www.google.com/recaptcha/api2/anchor?ar=1"
+          title="recaptcha challenge"
+          style="position:fixed;bottom:0;right:0;width:256px;height:60px;visibility:visible"
+        ></iframe>
+        <aside>Continue reading with a Verge subscription</aside>
+        <footer>This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.</footer>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://www.theverge.com/example-article"
+  });
+
+  assert.match(result.text, /visible article body already contains enough reporting/i);
+  assert.match(result.text, /blocking snapshot ingestion up front/i);
+});
+
 test("extractTextFromPdf extracts text fixture", async () => {
   const data = await readFile(new URL("../../../fixtures/pdf/text-based.pdf", import.meta.url));
   const result = await extractTextFromPdf(new Uint8Array(data));

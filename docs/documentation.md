@@ -250,6 +250,7 @@ Current (`M57`-`M64` implemented):
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
+- cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.
 - HTML-to-markdown conversion now flattens table-heavy extracted shells into regular markdown/text instead of preserving raw table HTML, so cleanup can normalize list-heavy pages without leaving `href` blobs behind.
 - shared markdown quality analysis classifies residual URLs, image wrappers, leading metadata, footer/legal noise, language footers, share/comment noise, and low-signal post-cleanup outputs for audits and regression reporting.
 - generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.

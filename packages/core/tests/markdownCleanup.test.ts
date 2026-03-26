@@ -144,6 +144,73 @@ The final deadline for Fast Company's Best Workplaces for Innovators is this Fri
   assert.ok(!cleaned.includes("Apply today"));
 });
 
+test("cleanExtractedMarkdown removes Business Insider timestamps subscriber chrome and trailing tag lists", () => {
+  const cleaned = cleanExtractedMarkdown(`
+2026-02-19T11:47:08.112Z
+
+Feb 19, 2026, 3:47 AM PT
+
+Nostalgia is everywhere on the internet right now.
+
+With doomsayers predicting that AI could bring about the apocalypse, this January marking the highest number of layoffs to kick off a year since 2009, and ongoing political unrest, people are harking back to simpler times.
+
+4 MIN READ
+
+## Going analog
+
+As part of the push to get offline, many Gen Z and millennials are rejecting new technology by Bricking their phones and leaning into in-person hobbies.
+
+- Tech
+- AI
+- gen z
+- More
+- Society
+
+## Read next
+
+This story is available exclusively to Business Insider subscribers. Become an Insider and start reading now. Have an account? .
+`);
+
+  assert.ok(cleaned.includes("Nostalgia is everywhere on the internet right now."));
+  assert.ok(cleaned.includes("As part of the push to get offline"));
+  assert.ok(!cleaned.includes("2026-02-19T11:47:08.112Z"));
+  assert.ok(!cleaned.includes("Feb 19, 2026, 3:47 AM PT"));
+  assert.ok(!cleaned.includes("4 MIN READ"));
+  assert.ok(!cleaned.includes("This story is available exclusively to Business Insider subscribers"));
+  assert.ok(!cleaned.includes("Become an Insider"));
+  assert.ok(!cleaned.includes("- Tech"));
+  assert.ok(!cleaned.includes("## Read next"));
+});
+
+test("cleanExtractedMarkdown removes Verge-style standfirst byline date and author bio chrome", () => {
+  const cleaned = cleanExtractedMarkdown(`
+Skip to main content
+
+Smart lights that know where they’re placed in a room, wild designs for next-gen routers, and a glowing inedible donut.
+
+by Andrew Liszewski
+
+Updated Jan 9, 2026, 5:53 AM PST
+
+Image: Corsair
+
+Andrew Liszewski is a senior reporter who’s been covering and reviewing the latest gadgets and tech since 2006, but has loved all things electronic since he was a kid.
+
+The CES show floor officially closes its doors at the end of the day, but there’s still a trickle of announcements and reveals coming out of Las Vegas.
+
+As the show draws to a close for another year, you can still catch up on all of The Verge’s CES 2026 coverage here.
+`);
+
+  assert.ok(cleaned.startsWith("The CES show floor officially closes its doors"));
+  assert.ok(cleaned.includes("As the show draws to a close for another year"));
+  assert.ok(!cleaned.includes("Skip to main content"));
+  assert.ok(!cleaned.includes("glowing inedible donut"));
+  assert.ok(!cleaned.includes("by Andrew Liszewski"));
+  assert.ok(!cleaned.includes("Updated Jan 9, 2026"));
+  assert.ok(!cleaned.includes("Image: Corsair"));
+  assert.ok(!cleaned.includes("is a senior reporter"));
+});
+
 test("cleanExtractedMarkdown rejects Meta footer-only junk as non-narratable", () => {
   const cleaned = cleanExtractedMarkdown(`
 [© 2026 Meta](https://www.facebook.com/)
