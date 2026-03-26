@@ -1,0 +1,22 @@
+{
+  "name": "@articlepod/extraction-quality",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts",
+    "extraction-quality:audit": "tsx src/cli.ts audit",
+    "extraction-quality:test": "tsx src/cli.ts compare",
+    "extraction-quality:test:url": "tsx src/cli.ts compare --mode url",
+    "extraction-quality:test:extension": "tsx src/cli.ts compare --mode extension"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

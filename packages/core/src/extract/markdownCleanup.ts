@@ -89,10 +89,38 @@ const PROMO_FOOTER_PATTERNS = [
   /\bexplore the full \d{4} list of\b/i,
   /\bapply today\b/i
 ];
+const SHARE_OR_COMMENT_PATTERNS = [/^share$/i, /^read more$/i, /^must watch$/i, /^see more comments$/i, /^related content$/i];
+const LANGUAGE_FOOTER_PATTERNS = [/^english\s*\([^)]+\)$/i, /^more languages$/i, /^english\s+\(us\).*more languages$/i];
 
 const MIN_NARRATION_TEXT_LENGTH = 160;
 export const lowSignalExtractionMessage =
   "This page didn't contain enough article text after removing navigation, login, and promo content.";
+export const markdownQualityIssueTypes = [
+  "residual_url",
+  "leading_metadata",
+  "image_wrapper",
+  "footer_legal",
+  "share_or_comment_noise",
+  "language_footer",
+  "low_signal_after_cleanup"
+] as const;
+
+export type MarkdownQualityIssueType = (typeof markdownQualityIssueTypes)[number];
+
+export interface MarkdownQualityIssue {
+  type: MarkdownQualityIssueType;
+  excerpt: string;
+  lineNumber: number | null;
+  message: string;
+}
+
+export interface MarkdownQualityAnalysis {
+  cleanedMarkdown: string;
+  narrationText: string;
+  hasNarratableText: boolean;
+  issues: MarkdownQualityIssue[];
+  issueCounts: Record<MarkdownQualityIssueType, number>;
+}
 
 function normalizeTransport(markdown: string): string {
   return markdown
@@ -119,6 +147,18 @@ function normalizeParagraphMarkdown(paragraph: string): string {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function splitParagraphs(markdown: string): string[] {
+  return markdown
+    .split(/\n{2,}/g)
+    .map((paragraph) => normalizeParagraphMarkdown(paragraph))
+    .filter(Boolean);
+}
+
+function regexMatches(pattern: RegExp, input: string): boolean {
+  const flags = pattern.flags.replace(/g/g, "");
+  return new RegExp(pattern.source, flags).test(input);
 }
 
 function paragraphToPlainText(paragraph: string): string {
@@ -219,6 +259,26 @@ function isCaptionNoise(input: string, index: number): boolean {
   return false;
 }
 
+function isLikelyLeadingCaption(paragraph: string, nextParagraph: string): boolean {
+  if (!paragraph || !nextParagraph || isMarkdownHeading(paragraph)) {
+    return false;
+  }
+
+  const plain = paragraphToPlainText(paragraph);
+  const nextPlain = paragraphToPlainText(nextParagraph);
+  const words = wordCount(plain);
+  const nextWords = wordCount(nextPlain);
+  if (words < 5 || words > 32 || nextWords < 18) {
+    return false;
+  }
+
+  if (isLeadingMetadata(plain, 0, paragraph) || isGlobalNoise(plain) || isCaptionNoise(plain, 0)) {
+    return false;
+  }
+
+  return true;
+}
+
 function isGlobalNoise(input: string): boolean {
   if (!input) {
     return true;
@@ -253,14 +313,29 @@ function isGlobalNoise(input: string): boolean {
 
 function trimLeadingNoise(paragraphs: string[]): string[] {
   let start = 0;
+  let removedCaptionSignal = false;
   while (start < paragraphs.length) {
     const plain = paragraphToPlainText(paragraphs[start] ?? "");
-    if (isLeadingMetadata(plain, start, paragraphs[start] ?? "") || isCaptionNoise(plain, start) || isGlobalNoise(plain)) {
+    if (isLeadingMetadata(plain, start, paragraphs[start] ?? "")) {
+      start += 1;
+      continue;
+    }
+    if (isCaptionNoise(plain, start)) {
+      removedCaptionSignal = true;
+      start += 1;
+      continue;
+    }
+    if (isGlobalNoise(plain)) {
       start += 1;
       continue;
     }
     break;
   }
+
+  if (removedCaptionSignal && isLikelyLeadingCaption(paragraphs[start] ?? "", paragraphs[start + 1] ?? "")) {
+    start += 1;
+  }
+
   return paragraphs.slice(start);
 }
 
@@ -292,16 +367,25 @@ export function cleanExtractedMarkdown(markdown: string): string {
     return "";
   }
 
-  const paragraphs = normalized
-    .split(/\n{2,}/g)
-    .map((paragraph) => normalizeParagraphMarkdown(paragraph))
-    .filter(Boolean)
-    .filter((paragraph, index) => {
-      const plain = paragraphToPlainText(paragraph);
-      return !isCaptionNoise(plain, index) && !isGlobalNoise(plain);
-    });
+  const paragraphs = splitParagraphs(normalized).filter((paragraph) => {
+    const plain = paragraphToPlainText(paragraph);
+    return !isGlobalNoise(plain);
+  });
 
-  const trimmed = trimTrailingNoise(trimLeadingNoise(paragraphs));
+  let trimmed = trimTrailingNoise(trimLeadingNoise(paragraphs)).filter((paragraph, index) => {
+    const plain = paragraphToPlainText(paragraph);
+    return !isCaptionNoise(plain, index);
+  });
+
+  const hadLeadingMetadataOrCaption = paragraphs.slice(0, Math.min(4, paragraphs.length)).some((paragraph, index) => {
+    const plain = paragraphToPlainText(paragraph);
+    return isLeadingMetadata(plain, index, paragraph) || isCaptionNoise(plain, index);
+  });
+
+  if (hadLeadingMetadataOrCaption && isLikelyLeadingCaption(trimmed[0] ?? "", trimmed[1] ?? "")) {
+    trimmed = trimmed.slice(1);
+  }
+
   return trimmed.join("\n\n").replace(MULTIPLE_NEWLINES_PATTERN, "\n\n").trim();
 }
 
@@ -327,3 +411,167 @@ export function hasNarratableText(markdownText: string, minChars = MIN_NARRATION
 }
 
 export const narrationTextMinChars = MIN_NARRATION_TEXT_LENGTH;
+
+function emptyIssueCounts(): Record<MarkdownQualityIssueType, number> {
+  return Object.fromEntries(markdownQualityIssueTypes.map((type) => [type, 0])) as Record<MarkdownQualityIssueType, number>;
+}
+
+function lineNumberForExcerpt(markdown: string, excerpt: string): number | null {
+  const firstLine = excerpt
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!firstLine) {
+    return null;
+  }
+
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const index = lines.findIndex((line) => line.includes(firstLine));
+  return index >= 0 ? index + 1 : null;
+}
+
+function pushIssue(
+  issues: MarkdownQualityIssue[],
+  counts: Record<MarkdownQualityIssueType, number>,
+  markdown: string,
+  type: MarkdownQualityIssueType,
+  excerpt: string,
+  message: string
+): void {
+  counts[type] += 1;
+  if (issues.some((issue) => issue.type === type && issue.excerpt === excerpt)) {
+    return;
+  }
+  issues.push({
+    type,
+    excerpt,
+    lineNumber: lineNumberForExcerpt(markdown, excerpt),
+    message
+  });
+}
+
+function analyzeRawMarkdownIssues(markdown: string): Array<{
+  type: Exclude<MarkdownQualityIssueType, "low_signal_after_cleanup">;
+  excerpt: string;
+  message: string;
+}> {
+  const issues: Array<{
+    type: Exclude<MarkdownQualityIssueType, "low_signal_after_cleanup">;
+    excerpt: string;
+    message: string;
+  }> = [];
+  const rawLines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const normalized = normalizeTransport(markdown);
+  const transportParagraphs = normalized ? splitParagraphs(normalized) : [];
+  const rawParagraphs = splitParagraphs(markdown.replace(/\r\n/g, "\n"));
+
+  const residualUrlLine = rawLines.find((line) => /https?:\/\/|www\./i.test(line.trim()));
+  if (residualUrlLine) {
+    issues.push({
+      type: "residual_url",
+      excerpt: residualUrlLine.trim(),
+      message: "Contains a raw URL or host-like string in extracted markdown."
+    });
+  }
+
+  const imageWrapperParagraph = rawParagraphs.find((paragraph) => {
+    const singleLine = paragraph.replace(/\n/g, " ");
+    return (
+      regexMatches(IMAGE_LINK_PATTERN, singleLine) ||
+      regexMatches(IMAGE_PATTERN, singleLine) ||
+      regexMatches(EMPTY_LINK_PATTERN, singleLine) ||
+      regexMatches(EMPTY_LINK_LINE_PATTERN, singleLine) ||
+      regexMatches(DANGLING_LINK_LINE_PATTERN, singleLine) ||
+      /^\s*!\[/.test(singleLine)
+    );
+  });
+  if (imageWrapperParagraph) {
+    issues.push({
+      type: "image_wrapper",
+      excerpt: imageWrapperParagraph,
+      message: "Contains markdown image/link scaffolding that should be removed before persistence."
+    });
+  }
+
+  for (let index = 0; index < Math.min(6, transportParagraphs.length); index += 1) {
+    const paragraph = transportParagraphs[index] ?? "";
+    const plain = paragraphToPlainText(paragraph);
+    if (isLeadingMetadata(plain, index, paragraph)) {
+      issues.push({
+        type: "leading_metadata",
+        excerpt: paragraph,
+        message: "Contains leading metadata or byline chrome before the article body."
+      });
+      break;
+    }
+  }
+
+  const footerLegalParagraph = transportParagraphs.find((paragraph) => {
+    const plain = paragraphToPlainText(paragraph);
+    return LEGAL_FOOTER_PATTERNS.some((pattern) => pattern.test(plain)) || /\bprivacy\b/i.test(plain) || /\bcookies?\b/i.test(plain) || /\bterms\b/i.test(plain);
+  });
+  if (footerLegalParagraph) {
+    issues.push({
+      type: "footer_legal",
+      excerpt: footerLegalParagraph,
+      message: "Contains legal or footer chrome that should not remain in extracted markdown."
+    });
+  }
+
+  const shareOrCommentParagraph = transportParagraphs.find((paragraph) => {
+    const plain = paragraphToPlainText(paragraph);
+    return SHARE_OR_COMMENT_PATTERNS.some((pattern) => pattern.test(plain));
+  });
+  if (shareOrCommentParagraph) {
+    issues.push({
+      type: "share_or_comment_noise",
+      excerpt: shareOrCommentParagraph,
+      message: "Contains share, promo, or comment noise."
+    });
+  }
+
+  const languageFooterParagraph = transportParagraphs.find((paragraph) => {
+    const plain = paragraphToPlainText(paragraph);
+    return LANGUAGE_FOOTER_PATTERNS.some((pattern) => pattern.test(plain));
+  });
+  if (languageFooterParagraph) {
+    issues.push({
+      type: "language_footer",
+      excerpt: languageFooterParagraph,
+      message: "Contains language-selector or footer localization chrome."
+    });
+  }
+
+  return issues;
+}
+
+export function analyzeMarkdownQuality(markdown: string): MarkdownQualityAnalysis {
+  const cleanedMarkdown = cleanExtractedMarkdown(markdown);
+  const narrationText = markdownToNarrationText(cleanedMarkdown);
+  const narratable = hasNarratableText(narrationText);
+  const issues: MarkdownQualityIssue[] = [];
+  const issueCounts = emptyIssueCounts();
+
+  for (const issue of analyzeRawMarkdownIssues(markdown)) {
+    pushIssue(issues, issueCounts, markdown, issue.type, issue.excerpt, issue.message);
+  }
+
+  if (!narratable) {
+    pushIssue(
+      issues,
+      issueCounts,
+      cleanedMarkdown || markdown,
+      "low_signal_after_cleanup",
+      cleanedMarkdown || "(empty after cleanup)",
+      lowSignalExtractionMessage
+    );
+  }
+
+  return {
+    cleanedMarkdown,
+    narrationText,
+    hasNarratableText: narratable,
+    issues,
+    issueCounts
+  };
+}

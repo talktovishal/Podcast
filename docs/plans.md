@@ -34,6 +34,10 @@
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
   - The extension popup now includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
   - `/app` Recent items now renders capture metadata and supports lightweight client-side filtering by importance and tag.
+- Extraction-quality audit track (`M101`) is implemented:
+  - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
+  - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
+  - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -151,6 +155,7 @@
 | Rule-based cleanup of extracted markdown before TTS/backfill | M98 |
 | Reusable live-site regression harness and prod-probe runner | M99 |
 | Capture importance + tags metadata with Recent items filters | M100 |
+| Extraction-quality audit + bulk HTML regression harness | M101 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -296,6 +301,7 @@ Milestone metadata contract:
 | M98 | Done | 2026-03-27 | 2026-03-24 | local validation + markdown cleanup/backfill rollout pass (2026-03-24) |
 | M99 | Done | 2026-03-28 | 2026-03-24 | local validation + reusable live-site regression harness pass (2026-03-24) |
 | M100 | Done | 2026-03-31 | 2026-03-25 | local validation + importance/tags capture metadata pass (2026-03-25) |
+| M101 | Done | 2026-04-02 | 2026-03-25 | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2915,6 +2921,35 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web exec tsx --test tests/auth-routes.test.ts tests/auth-extension.integration.test.ts`
   - `pnpm --filter @articlepod/web exec tsx --test tests/app-dashboard-layout.test.ts tests/dashboard-polling.test.ts`
   - `pnpm --filter @articlepod/web typecheck`
+
+### M101 - Extraction Quality Audit + Bulk HTML Regression Harness
+- status: Done
+- target_finish: 2026-04-02
+- completed_on: 2026-03-25
+- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25)
+- Scope:
+  - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
+  - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
+  - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
+  - Keep bulk comparison local/latest-code only and stop before DB writes, queueing, and audio generation.
+- Key files/modules:
+  - `packages/core/src/extract/markdownCleanup.ts`
+  - `packages/core/tests/markdownCleanup.test.ts`
+  - `packages/core/tests/markdownQuality.test.ts`
+  - `testing/extraction-quality/*`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
+  - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
+  - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.
+  - The harness supports `--input`, `--site`, `--limit`, `--concurrency-url`, `--concurrency-extension`, and `--headed`.
+- Verification commands:
+  - `pnpm --filter @articlepod/core exec tsx --test tests/markdownCleanup.test.ts tests/markdownQuality.test.ts`
+  - `pnpm --filter @articlepod/extraction-quality typecheck`
+  - `pnpm --filter @articlepod/extraction-quality test`
+  - `npm run extraction-quality:audit`
 
 ---
 

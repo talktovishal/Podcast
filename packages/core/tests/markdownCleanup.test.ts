@@ -104,6 +104,29 @@ DUBAI, United Arab Emirates — Iran fired missiles at targets in Israel and Gul
   );
 });
 
+test("cleanExtractedMarkdown removes BBC-style leading metadata and image-credit caption blocks", () => {
+  const cleaned = cleanExtractedMarkdown(`
+9 hours ago
+
+Grace Eliza Goodwin
+
+![](https://static.files.bbci.co.uk/grey-placeholder.png)![Getty Images large gold bars inside a wooden case](https://ichef.bbci.co.uk/news/example.jpg.webp)Getty Images
+
+Gold bars taken from the SS Central America ship are displayed at the Museum of American Financial History in 2003 in New York City
+
+A US deep-sea treasure hunter who refused to disclose the location of a famed shipwreck's gold coins has been released from prison after a decade, with 500 coins still unaccounted for.
+
+Tommy Thompson, 73, discovered millions of dollars' worth of sunken treasure from the 1857 wreck of the SS Central America, also known as the Ship of Gold, off the coast of South Carolina in 1988.
+`);
+
+  assert.ok(cleaned.startsWith("A US deep-sea treasure hunter who refused to disclose"));
+  assert.ok(!cleaned.includes("9 hours ago"));
+  assert.ok(!cleaned.includes("Grace Eliza Goodwin"));
+  assert.ok(!cleaned.includes("Getty Images"));
+  assert.ok(!cleaned.includes("Gold bars taken from the SS Central America ship"));
+  assert.ok(!cleaned.includes("https://"));
+});
+
 test("cleanExtractedMarkdown removes Fast Company promo and legal footer paragraphs", () => {
   const cleaned = cleanExtractedMarkdown(`
 Last fall, Chives took over Reddit.

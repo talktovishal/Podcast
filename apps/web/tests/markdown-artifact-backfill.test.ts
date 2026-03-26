@@ -188,7 +188,8 @@ Another paragraph explains why the building matters, how the author framed the s
     assert.equal(jobs.length, 1);
     assert.equal(jobs[0]?.status, "QUEUED");
     assert.equal(chunkCaches, 0);
-    assert.ok(storedMarkdown.includes("The photo above shows the entrance to Unity Temple"));
+    assert.ok(!storedMarkdown.includes("The photo above shows the entrance to Unity Temple"));
+    assert.ok(storedMarkdown.includes("Another paragraph explains why the building matters"));
     assert.ok(!storedMarkdown.includes("substackcdn.com"));
     assert.ok(!storedMarkdown.includes("Share"));
     assert.equal(episode?.audioPath, `items/${item.id}/episode.mp3`);

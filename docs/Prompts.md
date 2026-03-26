@@ -171,6 +171,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - local latest-code URL + browser-capture runners
   - GitHub Actions-backed production VM probe runner
   - timestamped report bundles under `exports/live-site-validation/`
+- Extraction-quality audit tooling is implemented:
+  - top-level `testing/extraction-quality/` workspace with a checked-in sample corpus plus `--input` override support for large URL lists
+  - artifact audit command for stored `source.md` and digest markdown under `apps/web/.data/media/`
+  - extraction-only URL vs. extension comparison runner that stores raw + cleaned markdown outputs without generating audio
+  - normalized-diff reporting, rerun ID lists, and timestamped bundles under `exports/extraction-quality/`
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
@@ -601,12 +606,16 @@ Before marking any milestone complete, run and record the results for:
 - If GitHub CLI auth is available and VM probes are in scope, run the default dual-mode command:
   - `npm run live-sites:test`
 
-4. Podcast compatibility gate
+4. Extraction-quality gate
+- `npm run extraction-quality:audit`
+- `npm run extraction-quality:test -- --limit 20`
+
+5. Podcast compatibility gate
 - Start web server (`npm run start --workspace @articlepod/web -- --hostname 127.0.0.1 --port 3000`)
 - Run:
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 
-5. Feed auth stability gate
+6. Feed auth stability gate
 - Confirm feed URL is unchanged after:
   - loading `/app`
   - loading `/app/settings`

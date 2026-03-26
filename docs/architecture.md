@@ -66,10 +66,12 @@ Current behavior (`M57`-`M64` implemented):
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - extracted-item markdown passes through shared rule-based cleanup before persistence:
   - remove image/link scaffolding, bare transport URLs, leading metadata, caption/credit noise, and footer/legal/nav chrome
+  - shared markdown quality analysis reports residual URLs, leading metadata, image wrappers, footer/legal noise, language selectors, share/comment noise, and low-signal post-cleanup cases for audits/tests
   - preserve substantive prose, headings, and meaningful inline link text
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
 - aggressive cleanup rules apply to extracted source markdown only; summary markdown artifacts remain author-polished outputs.
+- extraction-quality verification lives in `testing/extraction-quality/`, which reuses the same core URL and snapshot extraction code paths but stops before DB writes and TTS.
 
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
