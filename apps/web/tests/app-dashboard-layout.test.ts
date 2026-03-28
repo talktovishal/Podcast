@@ -56,8 +56,8 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(source.includes('settingsSections={["demographics", "digest-runs"]}'), true);
   assert.equal(source.includes('href="/app/podcast-apps"'), false);
   assert.equal(source.includes('href="/app/chrome-extension"'), false);
-  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>"), true);
-  assert.equal(source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<BillingSettingsCard"), true);
+  assert.equal(source.indexOf("<BillingSettingsCard") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 

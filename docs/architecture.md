@@ -35,11 +35,16 @@ Auth profile metadata on `User`:
 Monetization/quota fields on `User`:
 - `complimentaryPro` (manual support override for non-Stripe paid access)
 - `billingProvider`, `billingCustomerId`, `billingSubscriptionId`
-- `billingPlanCode`, `billingStatus`, `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`, `billingUpdatedAt`
+- `billingPriceId`, `billingPlanCode`, `billingStatus`, `billingEntitlementStatus`
+- `billingLastPaymentStatus`, `billingLastInvoiceId`
+- `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`
+- `billingLastStripeEventId`, `billingLastStripeEventCreatedAt`
+- `billingLastSubscriptionEventAt`, `billingLastInvoiceEventAt`
+- `billingUpdatedAt`
 - `isPaid` (effective access cache derived from billing state + complimentary override)
 - `submissionCount` (lifetime submission usage counter)
 - `extraSubmissionCredits` (admin-granted free-tier extensions)
-- `BillingWebhookEvent` (Stripe event idempotency + audit rows)
+- `BillingWebhookEvent` (Stripe event idempotency + audit rows, including event/object ids, invoice ids, and apply result)
 - `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
 - `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
 - `AnalyticsCoverage` (metric coverage/backfill metadata, including forward-only metrics)
@@ -86,12 +91,14 @@ Current behavior (`M57`-`M64` implemented):
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
 
 ## Billing flow
-1. Authenticated user starts Pro checkout from `/pricing` or `/app/settings`.
-2. Web creates a Stripe-hosted Checkout session and reuses/creates a Stripe customer keyed to the local `User`.
-3. Stripe handles payment method capture and recurring billing outside ArticlePod.
-4. Stripe webhooks update the local billing fields on `User` and create `BillingWebhookEvent` rows for idempotency.
-5. Effective paid access is derived from Stripe subscription state plus `complimentaryPro`, then cached onto `User.isPaid` so existing quota gates stay fast.
-6. `/app/settings` launches Stripe Customer Portal for self-serve updates, cancelation, and payment-method management.
+1. Authenticated user starts `Pro monthly` checkout from `/pricing` or `/app/settings`.
+2. Web maps the approved internal plan key to the configured Stripe price id, reuses or creates a Stripe customer keyed to the local `User`, and creates a hosted Checkout session in subscription mode.
+3. Stripe handles card capture and recurring billing outside ArticlePod; the redirect back to `/app/settings?billing=success` is treated only as a hint, not the access source of truth.
+4. `checkout.session.completed` records the Stripe customer and subscription linkage locally and may leave the account in `INCOMPLETE` pending activation.
+5. Subscription and invoice webhooks update the local billing cache on `User`, while `BillingWebhookEvent` rows record idempotency, stale-event ignores, and processing outcomes.
+6. `invoice.paid` grants or extends access through `currentPeriodEnd`; `invoice.payment_failed` and `invoice.payment_action_required` surface payment-recovery states without relying on the redirect flow.
+7. Effective paid access is derived from Stripe entitlement state plus `complimentaryPro`, then cached onto `User.isPaid` so existing quota gates stay fast.
+8. `/app/settings` launches Stripe Customer Portal for self-serve updates, invoice history, cancelation, and payment-method management, while `/admin` shows read-only Stripe identifiers and dashboard links for support.
 
 ## Digest automation pipeline (`M72`-`M79`)
 1. User configures digest preferences in `/app/settings` (daily/weekly email + podcast, timezone, schedule, target length).
@@ -173,6 +180,27 @@ Critical artifacts in object storage:
 - missing-object repair path:
   - item media 404s can enqueue regeneration jobs and clear stale chunk cache references when source material is still available
   - if the expected key is missing but sibling `.mp3`/`.m4a` exists, episode metadata is reconciled in-place and served immediately
+
+## Public episode share flow (`M104`)
+1. An authenticated owner creates or reuses a stable item-scoped share row with scope `public_episode_item:<itemId>`.
+2. The owner dashboard stores and displays an owner-only share URL shaped like `/share/episode/<shareId>/<sig>`.
+3. The public share page resolves the share row by `shareId`, verifies the deterministic signature against the stored share-token hash and scope, and then loads the current item and episode for playback.
+4. The page renders a branded, `noindex` landing page with audio playback, direct download, optional source attribution, and signup/pricing CTAs.
+5. Playback and download requests go through `/api/share-media/[...path]`, which verifies a share-scoped media signature and then serves storage-backed audio with `HEAD`, byte-range, and `206 Partial Content` support.
+6. Revoking the share deletes the underlying `ShareToken` row, immediately invalidating both the public page and any shared playback/download URLs.
+
+Key invariants:
+- public episode sharing is separate from workspace demo share links
+- public episode sharing does not rotate or mutate private feed/media auth
+- item scope is stable across normal episode regeneration, so the public page can continue serving the current episode for that item until revoked
+
+Growth instrumentation:
+- raw analytics events capture:
+  - `SHARE_LINK_CREATED`
+  - `SHARE_PAGE_VIEWED`
+  - `SHARE_PLAYBACK_STARTED`
+  - `SHARE_CTA_CLICKED`
+- CTA clicks are logged through a small public redirect endpoint before sending users to `/login` or `/pricing`
 
 ## Extension ingestion path
 1. User is authenticated on web app.

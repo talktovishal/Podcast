@@ -6,7 +6,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-03-28)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
-- Private feed tokens, rotation, and read-only share links are implemented.
+- Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
@@ -78,7 +78,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
-  - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are now implemented for the Pro plan
+  - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are implemented for the Pro plan
+  - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
+  - access is granted or extended only from webhook-confirmed billing events; `/app/settings` now shows pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
+  - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).
@@ -149,18 +152,29 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - existing digest RSS/media pipeline now also publishes manual summary episodes on the private digest feed.
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
+- Public episode sharing (`M104`) is implemented:
+  - owners can create one stable, revocable public share link per ready item episode from `/app`.
+  - the existing workspace share flow remains separate and is relabeled as `Create workspace demo link`.
+  - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, and CTA links to `/login` and `/pricing`.
+  - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
+  - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
 
 ### Next Milestones
-- Current core milestone set (`M00`-`M100`) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.
   - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
   - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
-- Billing track (`B01`-`B09`) is now in progress in parallel:
-  - baseline hosted Checkout, Customer Portal access, billing status route, and webhook sync are already in repo for `Pro monthly`
-  - current work shifts to launch hardening: richer billing state, invoice-driven entitlements, payment-issue UX, admin visibility, founder setup, lifecycle QA, and staging readiness
-  - MVP billing scope stays locked to `Starter` free + `Pro monthly` self-serve; `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain later phases
+- Billing hardening track (`B01`-`B08`) is implemented in repo:
+  - server-side plan catalog stays locked to `Starter` free + `Pro monthly` self-serve, with raw Stripe price ids never accepted from clients
+  - webhook handling now covers checkout completion, subscription lifecycle events, `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`, with duplicate and stale-event protection
+  - `/app/settings` and `/admin` now surface billing activation, payment recovery, renewal, cancellation, and support visibility paths that match the Stripe-first MVP architecture
+  - founder-owned Stripe setup, environment-secret requirements, Stripe CLI/Test Clock QA, and launch checklists are now documented in the billing and operations docs
+- Billing release gate (`B09`) remains open until staging and launch evidence exists:
+  - founder must finish Stripe Dashboard setup, retry/email settings, branding, and the Stripe Tax decision
+  - staging must prove checkout, portal, webhook sync, payment-failure handling, observability, and environment isolation before live keys are introduced
+  - `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain later phases
 - Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store

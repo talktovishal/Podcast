@@ -46,6 +46,11 @@
 - Severity-split local log retention track (`M103`) is implemented:
   - web, worker, and python-tts now write routine activity logs and `ERROR`/`FATAL` logs into separate local folders/files.
   - app/runtime retention now treats `events/` and `errors/` logs independently so failure history can outlive routine success noise on local disk.
+- Public episode share links track (`M104`) is implemented:
+  - `/app` now supports stable, revocable item-scoped public share links for ready episodes without changing the existing workspace demo-share flow.
+  - shared episode URLs open branded, `noindex` landing pages with browser playback, download, source attribution when available, and signup/pricing CTAs.
+  - public shared playback uses a dedicated share-media route with `HEAD` + byte-range `206` support and separate share-scoped auth, leaving private RSS/media auth unchanged.
+  - raw analytics now capture share-link creation, share-page views, playback starts, and CTA clicks for growth instrumentation.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -166,6 +171,7 @@
 | Extraction-quality audit + bulk HTML regression harness | M101 |
 | Azure VM disk guardrails + recurring maintenance automation | M102 |
 | Severity-split local log retention for activity vs errors | M103 |
+| Public episode share links + branded landing page + growth instrumentation | M104 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -314,6 +320,7 @@ Milestone metadata contract:
 | M101 | Done | 2026-04-02 | 2026-03-25 | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25) |
 | M102 | Done | 2026-04-04 | 2026-03-28 | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28) |
 | M103 | Done | 2026-04-05 | 2026-03-28 | local validation + severity-split local log retention pass (2026-03-28) |
+| M104 | Done | 2026-04-06 | 2026-03-28 | local validation + public episode share link implementation pass (2026-03-28) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -340,14 +347,14 @@ Milestone metadata contract:
 | C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
 | C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | B01 | Done | 2026-04-18 | 2026-03-28 | local docs sync + billing milestone expansion pass (2026-03-28) |
-| B02 | Planned | 2026-04-25 | — | — |
-| B03 | Planned | 2026-05-02 | — | — |
-| B04 | Planned | 2026-05-09 | — | — |
-| B05 | Planned | 2026-05-16 | — | — |
-| B06 | Planned | 2026-05-23 | — | — |
-| B07 | Planned | 2026-05-30 | — | — |
-| B08 | Planned | 2026-06-06 | — | — |
-| B09 | Planned | 2026-06-13 | — | — |
+| B02 | Done | 2026-04-25 | 2026-03-28 | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28) |
+| B03 | Done | 2026-05-02 | 2026-03-28 | server-side plan catalog + checkout hardening + targeted validation (2026-03-28) |
+| B04 | Done | 2026-05-09 | 2026-03-28 | invoice-aware webhook entitlement engine + targeted validation (2026-03-28) |
+| B05 | Done | 2026-05-16 | 2026-03-28 | billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28) |
+| B06 | Done | 2026-05-23 | 2026-03-28 | admin billing visibility + webhook observability runbook pass (2026-03-28) |
+| B07 | Done | 2026-05-30 | 2026-03-28 | founder Stripe setup + secret-promotion docs pass (2026-03-28) |
+| B08 | Done | 2026-06-06 | 2026-03-28 | lifecycle QA checklist + webhook resilience tests pass (2026-03-28) |
+| B09 | In Progress | 2026-06-13 | — | staging certification, founder launch tasks, and live launch evidence still pending |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3053,6 +3060,43 @@ Milestone metadata contract:
   - `services/python-tts/.venv/bin/python3 -m pytest services/python-tts/tests/test_logging_split.py`
   - `bash -n scripts/azure/cleanup-vm-disk.sh scripts/azure/render-env.sh`
 
+### M104 - Public Episode Share Links
+- status: Done
+- target_finish: 2026-04-06
+- completed_on: 2026-03-28
+- evidence: local validation + public episode share link implementation pass (2026-03-28)
+- Scope:
+  - Add per-item stable, revocable public share links for owner-owned ready episodes while keeping the existing workspace demo share flow separate.
+  - Reuse `ShareToken` rows with scope `public_episode_item:<itemId>` and derive deterministic page/media signatures from the stored share hash instead of persisting plaintext public secrets.
+  - Add a branded public share page with playback, download, optional source attribution, and signup/pricing CTAs.
+  - Add a dedicated public share-media route with `HEAD` and byte-range `206` support so public playback does not reuse private RSS/media auth.
+  - Capture raw share-growth analytics events for link creation, page views, playback starts, and CTA clicks.
+- Key files/modules:
+  - `apps/web/src/lib/share-links.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/lib/metadata-primary-auth.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/src/analytics/types.ts`
+  - `apps/web/src/app/api/share/episode/[itemId]/route.ts`
+  - `apps/web/src/app/share/episode/[shareId]/[sig]/page.tsx`
+  - `apps/web/src/app/api/share-media/[...path]/route.ts`
+  - `apps/web/src/app/api/share/cta/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/tests/share-episode.test.ts`
+- Acceptance criteria:
+  - Creating a public share for the same `userId + itemId` returns the same URL until the owner revokes it.
+  - Only owner-owned `READY` items with a published episode can be shared.
+  - Public episode pages show playback, download, source attribution when available, and CTA links without exposing owner identity.
+  - Shared media requests support `HEAD`, `Range`, and `206 Partial Content`.
+  - Revoking the share invalidates both the public page and shared media immediately.
+  - Private RSS/feed/media auth remains unchanged by episode-share creation, viewing, or revocation.
+- Verification commands:
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/share-episode.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/media-route.test.ts tests/middleware-auth.test.ts tests/app-dashboard-layout.test.ts`
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/core run typecheck`
+
 ---
 
 ## Security Hardening Track (S01–S18)
@@ -3733,8 +3777,10 @@ Milestone metadata contract:
   - Manual cross-doc review
 
 ### B02 - Billing State Contract Hardening
-- status: Planned
+- status: Done
 - target_finish: 2026-04-25
+- completed_on: 2026-03-28
+- evidence: additive billing schema + Azure Table compatibility + targeted validation (2026-03-28)
 - Scope:
   - Extend persisted billing state to capture Stripe sync fields needed for supportability and entitlement decisions without destructive resets.
   - Add a forward migration and compatibility plan for both Prisma and Azure Table primary metadata paths before schema work begins.
@@ -3751,8 +3797,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test -- billing`
 
 ### B03 - Plan Catalog and Checkout Contract
-- status: Planned
+- status: Done
 - target_finish: 2026-05-02
+- completed_on: 2026-03-28
+- evidence: server-side plan catalog + checkout hardening + targeted validation (2026-03-28)
 - Scope:
   - Refactor checkout around an approved server-side plan catalog that is multi-price ready while only enabling `PRO_MONTHLY` for launch.
   - Ensure checkout reuses or creates Stripe customers, attaches metadata, uses idempotency where appropriate, and never grants access from the redirect alone.
@@ -3768,8 +3816,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B04 - Webhook and Entitlement Engine
-- status: Planned
+- status: Done
 - target_finish: 2026-05-09
+- completed_on: 2026-03-28
+- evidence: invoice-aware webhook entitlement engine + targeted validation (2026-03-28)
 - Scope:
   - Expand webhook handling beyond subscription lifecycle events to include `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`.
   - Define entitlement rules so paid invoices extend access, subscription updates sync plan and renewal flags, payment failures surface account issues, and deletion revokes or downgrades access per product policy.
@@ -3785,8 +3835,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B05 - Billing Settings UX and Customer Portal
-- status: Planned
+- status: Done
 - target_finish: 2026-05-16
+- completed_on: 2026-03-28
+- evidence: billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28)
 - Scope:
   - Upgrade `/app/settings` billing UI to show current plan, subscription status, renewal date, cancel-at-period-end state, payment-issue banners, and hosted portal entry.
   - Keep Stripe Customer Portal as the only MVP surface for payment-method updates, invoices, cancelation, and any later self-serve plan switching.
@@ -3802,8 +3854,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B06 - Admin Support Visibility and Operational Observability
-- status: Planned
+- status: Done
 - target_finish: 2026-05-23
+- completed_on: 2026-03-28
+- evidence: admin billing visibility + webhook observability runbook pass (2026-03-28)
 - Scope:
   - Add read-only support visibility for user email, Stripe customer id, Stripe subscription id, plan, status, renewal date, last invoice or payment state, and Stripe Dashboard deep link.
   - Add structured billing logs, webhook processing result logs, and alert or runbook coverage for webhook failures.
@@ -3820,8 +3874,10 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B07 - Founder Stripe Configuration and Environment Promotion
-- status: Planned
+- status: Done
 - target_finish: 2026-05-30
+- completed_on: 2026-03-28
+- evidence: founder Stripe setup + secret-promotion docs pass (2026-03-28)
 - Scope:
   - Capture founder or operator-owned Stripe Dashboard work: account verification, bank setup, product and price creation, portal configuration, retry and email settings, branding, and tax decision.
   - Document the exact billing secrets required in test, staging, and production, with separate webhook secrets per environment.
@@ -3836,8 +3892,10 @@ Milestone metadata contract:
   - Manual Stripe setup checklist review
 
 ### B08 - Lifecycle QA with Stripe CLI and Test Clocks
-- status: Planned
+- status: Done
 - target_finish: 2026-06-06
+- completed_on: 2026-03-28
+- evidence: lifecycle QA checklist + webhook resilience tests pass (2026-03-28)
 - Scope:
   - Add reproducible local and staging procedures for Stripe CLI webhook forwarding, Stripe test cards, failure simulations, and Test Clock lifecycle testing.
   - Cover purchase success, initial payment failure, renewal success, renewal failure, cancel at period end, portal update flow, plan-change behavior, duplicate deliveries, out-of-order events, and invalid signatures.
@@ -3853,7 +3911,7 @@ Milestone metadata contract:
   - Manual Stripe CLI + Test Clock checklist
 
 ### B09 - Staging Certification and Launch Readiness
-- status: Planned
+- status: In Progress
 - target_finish: 2026-06-13
 - Scope:
   - Add a final release milestone covering staging validation, support docs, rollback or safe-disable notes, and production launch evidence.

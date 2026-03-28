@@ -17,10 +17,18 @@ model User {
   billingProvider String?
   billingCustomerId String? @unique
   billingSubscriptionId String? @unique
+  billingPriceId String?
   billingPlanCode String @default("STARTER")
   billingStatus String @default("NONE")
+  billingEntitlementStatus String @default("INACTIVE")
+  billingLastPaymentStatus String @default("NONE")
+  billingLastInvoiceId String?
   billingCurrentPeriodEnd DateTime?
   billingCancelAtPeriodEnd Boolean @default(false)
+  billingLastStripeEventId String?
+  billingLastStripeEventCreatedAt DateTime?
+  billingLastSubscriptionEventAt DateTime?
+  billingLastInvoiceEventAt DateTime?
   billingUpdatedAt DateTime?
   isPaid       Boolean     @default(false)
   submissionCount Int      @default(0)
@@ -560,9 +568,12 @@ model BillingWebhookEvent {
   provider            String
   providerEventId     String
   eventType           String
+  eventCreatedAt      DateTime?
+  objectId            String?
   userId              String?
   customerId          String?
   subscriptionId      String?
+  invoiceId           String?
   status              String   @default("PROCESSED")
   errorMessage        String?
   processedAt         DateTime?

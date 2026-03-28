@@ -111,10 +111,18 @@ export async function listPrimaryUsers(limit = 100) {
         billingProvider: true,
         billingCustomerId: true,
         billingSubscriptionId: true,
+        billingPriceId: true,
         billingPlanCode: true,
         billingStatus: true,
+        billingEntitlementStatus: true,
+        billingLastPaymentStatus: true,
+        billingLastInvoiceId: true,
         billingCurrentPeriodEnd: true,
         billingCancelAtPeriodEnd: true,
+        billingLastStripeEventId: true,
+        billingLastStripeEventCreatedAt: true,
+        billingLastSubscriptionEventAt: true,
+        billingLastInvoiceEventAt: true,
         billingUpdatedAt: true,
         isPaid: true,
         submissionCount: true,
@@ -165,10 +173,18 @@ export async function updatePrimaryUser(
     billingProvider: string | null;
     billingCustomerId: string | null;
     billingSubscriptionId: string | null;
+    billingPriceId: string | null;
     billingPlanCode: string;
     billingStatus: string;
+    billingEntitlementStatus: string;
+    billingLastPaymentStatus: string;
+    billingLastInvoiceId: string | null;
     billingCurrentPeriodEnd: Date | null;
     billingCancelAtPeriodEnd: boolean;
+    billingLastStripeEventId: string | null;
+    billingLastStripeEventCreatedAt: Date | null;
+    billingLastSubscriptionEventAt: Date | null;
+    billingLastInvoiceEventAt: Date | null;
     billingUpdatedAt: Date | null;
     firstSeenAt: Date | null;
     firstSeenCountryCode: string | null;
@@ -214,9 +230,12 @@ export async function createPrimaryBillingWebhookEvent(input: {
   provider: string;
   providerEventId: string;
   eventType: string;
+  eventCreatedAt?: Date | null;
+  objectId?: string | null;
   userId?: string | null;
   customerId?: string | null;
   subscriptionId?: string | null;
+  invoiceId?: string | null;
   status?: string;
   errorMessage?: string | null;
   processedAt?: Date | null;
@@ -227,9 +246,12 @@ export async function createPrimaryBillingWebhookEvent(input: {
         provider: input.provider,
         providerEventId: input.providerEventId,
         eventType: input.eventType,
+        eventCreatedAt: input.eventCreatedAt ?? null,
+        objectId: input.objectId ?? null,
         userId: input.userId ?? null,
         customerId: input.customerId ?? null,
         subscriptionId: input.subscriptionId ?? null,
+        invoiceId: input.invoiceId ?? null,
         status: input.status ?? "PROCESSED",
         errorMessage: input.errorMessage ?? null,
         processedAt: input.processedAt ?? new Date()
@@ -242,9 +264,12 @@ export async function createPrimaryBillingWebhookEvent(input: {
     provider: input.provider,
     providerEventId: input.providerEventId,
     eventType: input.eventType,
+    eventCreatedAt: input.eventCreatedAt ?? null,
+    objectId: input.objectId ?? null,
     userId: input.userId ?? null,
     customerId: input.customerId ?? null,
     subscriptionId: input.subscriptionId ?? null,
+    invoiceId: input.invoiceId ?? null,
     status: input.status ?? "PROCESSED",
     errorMessage: input.errorMessage ?? null,
     processedAt: input.processedAt ?? new Date()

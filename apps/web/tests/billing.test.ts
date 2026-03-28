@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import type Stripe from "stripe";
 import { fileURLToPath } from "node:url";
-import { applyStripeWebhookEvent, buildBillingSnapshot } from "../src/lib/billing";
+import { applyStripeWebhookEvent, buildBillingSnapshot, buildStripeDashboardLinks } from "../src/lib/billing";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -38,10 +38,18 @@ test("buildBillingSnapshot prefers complimentary access when present", () => {
     billingProvider: null,
     billingCustomerId: null,
     billingSubscriptionId: null,
+    billingPriceId: null,
     billingPlanCode: "STARTER",
     billingStatus: "NONE",
+    billingEntitlementStatus: "INACTIVE",
+    billingLastPaymentStatus: "NONE",
+    billingLastInvoiceId: null,
     billingCurrentPeriodEnd: null,
     billingCancelAtPeriodEnd: false,
+    billingLastStripeEventId: null,
+    billingLastStripeEventCreatedAt: null,
+    billingLastSubscriptionEventAt: null,
+    billingLastInvoiceEventAt: null,
     billingUpdatedAt: null,
     isPaid: true
   });
@@ -50,6 +58,21 @@ test("buildBillingSnapshot prefers complimentary access when present", () => {
   assert.equal(snapshot.accessReason, "complimentary");
   assert.equal(snapshot.planCode, "STARTER");
   assert.equal(snapshot.status, "NONE");
+  assert.equal(snapshot.planAccessLevel, "PRO");
+  assert.equal(snapshot.entitlementStatus, "ACTIVE");
+});
+
+test("buildStripeDashboardLinks points to the Stripe test dashboard", () => {
+  const links = buildStripeDashboardLinks({
+    provider: "stripe",
+    customerId: "cus_123",
+    subscriptionId: "sub_123",
+    invoiceId: "in_123"
+  });
+
+  assert.equal(links.customerUrl?.endsWith("/customers/cus_123"), true);
+  assert.equal(links.subscriptionUrl?.endsWith("/subscriptions/sub_123"), true);
+  assert.equal(links.invoiceUrl?.endsWith("/invoices/in_123"), true);
 });
 
 test("applyStripeWebhookEvent updates billing state once per Stripe event id", async () => {
@@ -63,6 +86,8 @@ test("applyStripeWebhookEvent updates billing state once per Stripe event id", a
       role: "USER",
       billingProvider: "stripe",
       billingCustomerId: `cus_${uniq}`,
+      billingEntitlementStatus: "INACTIVE",
+      billingLastPaymentStatus: "NONE",
       billingPlanCode: "STARTER",
       billingStatus: "NONE",
       complimentaryPro: false,
@@ -75,6 +100,7 @@ test("applyStripeWebhookEvent updates billing state once per Stripe event id", a
   try {
     const event = {
       id: `evt_${uniq}`,
+      created: Math.floor(Date.now() / 1000),
       type: "customer.subscription.updated",
       data: {
         object: {
@@ -104,8 +130,10 @@ test("applyStripeWebhookEvent updates billing state once per Stripe event id", a
 
     const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(updatedUser.billingSubscriptionId, `sub_${uniq}`);
+    assert.equal(updatedUser.billingPriceId, `price_${uniq}`);
     assert.equal(updatedUser.billingPlanCode, "PRO_MONTHLY");
     assert.equal(updatedUser.billingStatus, "ACTIVE");
+    assert.equal(updatedUser.billingEntitlementStatus, "ACTIVE");
     assert.equal(updatedUser.isPaid, true);
     assert.equal(updatedUser.billingCurrentPeriodEnd?.toISOString(), new Date(periodEnd * 1000).toISOString());
 
@@ -120,6 +148,288 @@ test("applyStripeWebhookEvent updates billing state once per Stripe event id", a
     await prisma.billingWebhookEvent.deleteMany({
       where: {
         OR: [{ userId: user.id }, { customerId: `cus_${uniq}` }]
+      }
+    });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("invoice.paid grants access and records invoice metadata", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const periodEnd = Math.floor(Date.now() / 1000) + 31 * 24 * 60 * 60;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `billing-paid-${uniq}@articlepod.local`,
+      role: "USER",
+      billingProvider: "stripe",
+      billingCustomerId: `cus_paid_${uniq}`,
+      billingPlanCode: "STARTER",
+      billingStatus: "NONE",
+      billingEntitlementStatus: "INACTIVE",
+      billingLastPaymentStatus: "NONE",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const event = {
+      id: `evt_paid_${uniq}`,
+      created: Math.floor(Date.now() / 1000),
+      type: "invoice.paid",
+      data: {
+        object: {
+          id: `in_${uniq}`,
+          customer: `cus_paid_${uniq}`,
+          billing_reason: "subscription_create",
+          period_end: periodEnd,
+          parent: {
+            subscription_details: {
+              metadata: {
+                articlepod_user_id: user.id,
+                articlepod_plan_code: "PRO_MONTHLY"
+              },
+              subscription: `sub_paid_${uniq}`
+            }
+          },
+          lines: {
+            data: [
+              {
+                id: `line_${uniq}`,
+                subscription: `sub_paid_${uniq}`,
+                period: {
+                  start: periodEnd - 31 * 24 * 60 * 60,
+                  end: periodEnd
+                },
+                pricing: {
+                  type: "price_details",
+                  unit_amount_decimal: "1900",
+                  price_details: {
+                    price: `price_paid_${uniq}`,
+                    product: "prod_123"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    } as unknown as Stripe.Event;
+
+    await applyStripeWebhookEvent(event);
+
+    const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(updatedUser.billingSubscriptionId, `sub_paid_${uniq}`);
+    assert.equal(updatedUser.billingPriceId, `price_paid_${uniq}`);
+    assert.equal(updatedUser.billingLastInvoiceId, `in_${uniq}`);
+    assert.equal(updatedUser.billingLastPaymentStatus, "PAID");
+    assert.equal(updatedUser.billingPlanCode, "PRO_MONTHLY");
+    assert.equal(updatedUser.billingStatus, "ACTIVE");
+    assert.equal(updatedUser.billingEntitlementStatus, "ACTIVE");
+    assert.equal(updatedUser.isPaid, true);
+    assert.equal(updatedUser.billingCurrentPeriodEnd?.toISOString(), new Date(periodEnd * 1000).toISOString());
+  } finally {
+    await prisma.billingWebhookEvent.deleteMany({
+      where: {
+        OR: [{ userId: user.id }, { customerId: `cus_paid_${uniq}` }]
+      }
+    });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("invoice.payment_failed keeps renewal access in grace period", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const periodEnd = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `billing-failed-${uniq}@articlepod.local`,
+      role: "USER",
+      billingProvider: "stripe",
+      billingCustomerId: `cus_failed_${uniq}`,
+      billingSubscriptionId: `sub_failed_${uniq}`,
+      billingPriceId: `price_failed_${uniq}`,
+      billingPlanCode: "PRO_MONTHLY",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      complimentaryPro: false,
+      billingCurrentPeriodEnd: new Date(periodEnd * 1000),
+      isPaid: true,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const event = {
+      id: `evt_failed_${uniq}`,
+      created: Math.floor(Date.now() / 1000),
+      type: "invoice.payment_failed",
+      data: {
+        object: {
+          id: `in_failed_${uniq}`,
+          customer: `cus_failed_${uniq}`,
+          billing_reason: "subscription_cycle",
+          period_end: periodEnd,
+          parent: {
+            subscription_details: {
+              metadata: {
+                articlepod_user_id: user.id,
+                articlepod_plan_code: "PRO_MONTHLY"
+              },
+              subscription: `sub_failed_${uniq}`
+            }
+          },
+          lines: {
+            data: [
+              {
+                id: `line_failed_${uniq}`,
+                subscription: `sub_failed_${uniq}`,
+                period: {
+                  start: periodEnd - 7 * 24 * 60 * 60,
+                  end: periodEnd
+                },
+                pricing: {
+                  type: "price_details",
+                  unit_amount_decimal: "1900",
+                  price_details: {
+                    price: `price_failed_${uniq}`,
+                    product: "prod_123"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    } as unknown as Stripe.Event;
+
+    await applyStripeWebhookEvent(event);
+
+    const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(updatedUser.billingStatus, "GRACE_PERIOD");
+    assert.equal(updatedUser.billingEntitlementStatus, "GRACE_PERIOD");
+    assert.equal(updatedUser.billingLastPaymentStatus, "FAILED");
+    assert.equal(updatedUser.billingLastInvoiceId, `in_failed_${uniq}`);
+    assert.equal(updatedUser.isPaid, true);
+  } finally {
+    await prisma.billingWebhookEvent.deleteMany({
+      where: {
+        OR: [{ userId: user.id }, { customerId: `cus_failed_${uniq}` }]
+      }
+    });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("stale subscription webhook events are ignored after a newer one is applied", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const newerPeriodEnd = Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60;
+  const olderPeriodEnd = Math.floor(Date.now() / 1000) + 2 * 24 * 60 * 60;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `billing-stale-${uniq}@articlepod.local`,
+      role: "USER",
+      billingProvider: "stripe",
+      billingCustomerId: `cus_stale_${uniq}`,
+      billingPlanCode: "STARTER",
+      billingStatus: "NONE",
+      billingEntitlementStatus: "INACTIVE",
+      billingLastPaymentStatus: "NONE",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const newerEvent = {
+      id: `evt_stale_new_${uniq}`,
+      created: Math.floor(Date.now() / 1000),
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: `sub_stale_${uniq}`,
+          status: "active",
+          customer: `cus_stale_${uniq}`,
+          cancel_at_period_end: false,
+          metadata: {
+            articlepod_plan_code: "PRO_MONTHLY"
+          },
+          items: {
+            data: [
+              {
+                current_period_end: newerPeriodEnd,
+                price: {
+                  id: `price_stale_${uniq}`
+                }
+              }
+            ]
+          }
+        }
+      }
+    } as unknown as Stripe.Event;
+
+    const olderEvent = {
+      id: `evt_stale_old_${uniq}`,
+      created: Math.floor(Date.now() / 1000) - 3600,
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: `sub_stale_${uniq}`,
+          status: "canceled",
+          customer: `cus_stale_${uniq}`,
+          cancel_at_period_end: true,
+          metadata: {
+            articlepod_plan_code: "PRO_MONTHLY"
+          },
+          items: {
+            data: [
+              {
+                current_period_end: olderPeriodEnd,
+                price: {
+                  id: `price_stale_${uniq}`
+                }
+              }
+            ]
+          }
+        }
+      }
+    } as unknown as Stripe.Event;
+
+    await applyStripeWebhookEvent(newerEvent);
+    const staleResult = await applyStripeWebhookEvent(olderEvent);
+
+    const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(updatedUser.billingStatus, "ACTIVE");
+    assert.equal(updatedUser.billingEntitlementStatus, "ACTIVE");
+    assert.equal(updatedUser.billingCancelAtPeriodEnd, false);
+    assert.equal(updatedUser.billingCurrentPeriodEnd?.toISOString(), new Date(newerPeriodEnd * 1000).toISOString());
+    assert.equal(staleResult.status, "IGNORED_STALE");
+
+    const staleEventRow = await prisma.billingWebhookEvent.findUnique({
+      where: {
+        provider_providerEventId: {
+          provider: "stripe",
+          providerEventId: `evt_stale_old_${uniq}`
+        }
+      }
+    });
+    assert.equal(staleEventRow?.status, "IGNORED_STALE");
+  } finally {
+    await prisma.billingWebhookEvent.deleteMany({
+      where: {
+        OR: [{ userId: user.id }, { customerId: `cus_stale_${uniq}` }]
       }
     });
     await prisma.user.delete({ where: { id: user.id } });

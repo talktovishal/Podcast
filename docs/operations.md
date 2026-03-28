@@ -127,6 +127,13 @@ Required Stripe env for recurring billing:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_PRO_MONTHLY`
+- `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional)
+
+Environment isolation rules:
+- keep separate Stripe test-mode secrets for local and staging
+- keep separate webhook signing secrets per environment
+- introduce live keys only after staging certification passes
+- if a portal configuration id is pinned, remember Stripe test and live modes use different ids
 
 Local webhook forwarding example:
 ```bash
@@ -134,9 +141,18 @@ stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
 ```
 
 Expected webhook behavior:
-- `checkout.session.completed` links the Stripe customer back to the local user.
-- `customer.subscription.created|updated|deleted` sync plan/status and recompute effective paid access.
+- `checkout.session.completed` links the Stripe customer and subscription back to the local user, but does not unlock access on redirect alone.
+- `customer.subscription.created|updated|deleted` sync plan, price, status, current period end, cancel-at-period-end, and local entitlement shape.
+- `invoice.paid` grants or extends access through the invoice period end.
+- `invoice.payment_failed` and `invoice.payment_action_required` mark the account as `GRACE_PERIOD` or `INCOMPLETE` depending on whether the failure happened during initial signup vs. renewal.
 - duplicate Stripe event ids are ignored after the first successful local apply.
+- older subscription and invoice events are ignored when a newer event watermark was already applied for that domain.
+
+Operational status mapping:
+- `ACTIVE` + `PAID`: good standing
+- `INCOMPLETE` + `FAILED` or `ACTION_REQUIRED`: initial payment did not complete; no access should be granted
+- `GRACE_PERIOD` + `FAILED` or `ACTION_REQUIRED`: renewal issue; user may still have temporary access while recovering payment
+- `CANCELED`: no future renewal; access should follow the stored end-of-period date or revoke per final webhook state
 
 Troubleshooting checks:
 ```bash
@@ -149,6 +165,41 @@ rg 'billing' \
   /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
   /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 100
 ```
+
+Recommended billing log patterns to watch:
+- successful checkout session creation
+- successful portal session creation
+- webhook handled with `status=PROCESSED`
+- webhook ignored with `status=IGNORED_DUPLICATE` or `status=IGNORED_STALE`
+- billing issue states from failed or action-required invoices
+
+Lifecycle QA checklist:
+1. Purchase success:
+   - buy `Pro monthly`
+   - confirm settings shows pending activation before webhook confirmation
+   - confirm the account becomes paid only after webhook processing
+2. Initial payment failure:
+   - simulate a failed first invoice
+   - confirm status remains `INCOMPLETE` and settings offers a billing recovery path
+3. Renewal success:
+   - advance a Stripe Test Clock or trigger renewal
+   - confirm `invoice.paid` extends `currentPeriodEnd`
+4. Renewal failure:
+   - simulate failed renewal or required authentication
+   - confirm `GRACE_PERIOD` or action-required messaging appears
+5. Cancel at period end:
+   - cancel in the Customer Portal
+   - confirm `cancelAtPeriodEnd` and end-date messaging sync locally
+6. Webhook resilience:
+   - replay the same event twice
+   - replay an older subscription or invoice event after a newer one
+   - confirm invalid signatures are rejected
+
+Safe-disable and rollback guidance:
+- to pause new self-serve purchases, unset `STRIPE_PRICE_PRO_MONTHLY` and redeploy; do not remove `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` if existing subscribers still need Portal or webhook sync
+- do not disable the webhook endpoint while live subscriptions still exist, because Stripe remains the system of record for payment and cancelation state
+- the billing schema changes are additive; rollback should prefer application-level feature disablement over destructive schema rollback
+- existing quota checks still rely on `isPaid` as a compatibility cache, so emergency rollback does not require clearing the new billing columns
 
 ## Serverless metadata migration runbook
 Backfill queue/item/digest projections into Azure Table mirror:

@@ -32,9 +32,11 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin can grant extra submission credits or add complimentary Pro access from `/admin`
 - Billing:
-  - `/pricing` supports self-serve upgrade to Pro through Stripe-hosted Checkout when billing env vars are configured
-  - `/app/settings` shows current billing state and links to Stripe Customer Portal for self-serve management
-  - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod
+  - `/pricing` supports self-serve upgrade to `Pro monthly` through Stripe-hosted Checkout when billing env vars are configured
+  - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
+  - `/app/settings` shows current plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then links to Stripe Customer Portal for self-serve management
+  - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod and Checkout redirects do not grant access on their own
+  - admin quota controls expose read-only Stripe customer/subscription/invoice identifiers plus Stripe Dashboard links for support
 - Feedback suggestions:
   - `/app/feedback` collects required freeform message plus optional type/feature metadata.
   - contact checkbox defaults to opt-in per submission.

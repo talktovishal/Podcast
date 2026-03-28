@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyStripeWebhookEvent, verifyStripeWebhookEvent } from "@/lib/billing";
 import { fromError } from "@/lib/http";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -10,7 +11,24 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get("stripe-signature");
     const rawBody = await request.text();
     const event = verifyStripeWebhookEvent(rawBody, signature);
-    await applyStripeWebhookEvent(event);
+    const result = await applyStripeWebhookEvent(event);
+    const logPayload = {
+      request_id: requestId,
+      route: "/api/billing/webhook",
+      stripeEventId: result.eventId,
+      stripeEventType: result.eventType,
+      stripeObjectId: result.objectId,
+      stripeCustomerId: result.customerId,
+      stripeSubscriptionId: result.subscriptionId,
+      stripeInvoiceId: result.invoiceId,
+      userId: result.userId,
+      billingWebhookStatus: result.status
+    };
+    if (result.status === "PROCESSED") {
+      await logger.info("Stripe billing webhook processed", logPayload);
+    } else {
+      await logger.warn("Stripe billing webhook ignored", logPayload);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return fromError(error, {

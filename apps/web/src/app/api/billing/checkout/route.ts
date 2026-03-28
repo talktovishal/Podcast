@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createStripeCheckoutSession, type BillingPlanCode } from "@/lib/billing";
+import { createStripeCheckoutSession, type SelfServeBillingPlanCode } from "@/lib/billing";
 import { requireAuthUser } from "@/lib/auth";
 import { fromError } from "@/lib/http";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -15,11 +16,19 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireAuthUser(request);
     const body = checkoutSchema.parse(await request.json().catch(() => ({ planCode: "PRO_MONTHLY" })));
-    const url = await createStripeCheckoutSession({
+    const session = await createStripeCheckoutSession({
       userId: user.id,
-      planCode: body.planCode as BillingPlanCode
+      planCode: body.planCode as SelfServeBillingPlanCode
     });
-    return NextResponse.json({ ok: true, url });
+    await logger.info("Billing checkout API succeeded", {
+      request_id: requestId,
+      route: "/api/billing/checkout",
+      userId: user.id,
+      planCode: body.planCode,
+      stripeCustomerId: session.customerId,
+      stripeSessionId: session.sessionId
+    });
+    return NextResponse.json({ ok: true, url: session.url });
   } catch (error) {
     return fromError(error, {
       requestId,

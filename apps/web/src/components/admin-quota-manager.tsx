@@ -13,12 +13,28 @@ type SubmissionQuotaSnapshot = {
 
 type BillingSnapshot = {
   planCode: "STARTER" | "PRO_MONTHLY";
+  planAccessLevel: "STARTER" | "PRO";
   status: "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
+  entitlementStatus: "INACTIVE" | "ACTIVE" | "GRACE_PERIOD";
+  lastPaymentStatus: "NONE" | "PAID" | "FAILED" | "ACTION_REQUIRED";
+  priceId: string | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+  lastInvoiceId: string | null;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: string | null;
+  hasBillingIssue: boolean;
+  billingIssueReason: "payment_failed" | "action_required" | "activation_pending" | null;
+  billingIssueMessage: string | null;
   complimentaryPro: boolean;
   hasPaidAccess: boolean;
   accessReason: "billing" | "complimentary" | null;
+};
+
+type StripeDashboardLinks = {
+  customerUrl: string | null;
+  subscriptionUrl: string | null;
+  invoiceUrl: string | null;
 };
 
 type AdminQuotaUser = {
@@ -33,6 +49,7 @@ type AdminQuotaUser = {
   submissionCount: number;
   extraSubmissionCredits: number;
   billing: BillingSnapshot;
+  stripeDashboard: StripeDashboardLinks;
   quota: SubmissionQuotaSnapshot;
 };
 
@@ -229,6 +246,55 @@ export function AdminQuotaManager() {
                     Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro" : "Starter"} · status:{" "}
                     {user.billing.status.toLowerCase()}
                   </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Access: {user.billing.planAccessLevel} · entitlement: {user.billing.entitlementStatus.toLowerCase()} · payment:{" "}
+                    {user.billing.lastPaymentStatus.toLowerCase()}
+                  </p>
+                  {user.billing.currentPeriodEnd ? (
+                    <p className="text-xs text-[var(--muted)]">
+                      {user.billing.cancelAtPeriodEnd ? "Access ends" : "Renews"} on{" "}
+                      {new Date(user.billing.currentPeriodEnd).toLocaleDateString()}.
+                    </p>
+                  ) : null}
+                  {user.billing.billingIssueMessage ? <p className="text-xs text-[#8a271f]">{user.billing.billingIssueMessage}</p> : null}
+                  <p className="text-xs text-[var(--muted)]">
+                    Stripe customer: {user.billing.customerId ?? "not created"} · subscription: {user.billing.subscriptionId ?? "none"} · invoice:{" "}
+                    {user.billing.lastInvoiceId ?? "none"}
+                  </p>
+                  {(user.stripeDashboard.customerUrl || user.stripeDashboard.subscriptionUrl || user.stripeDashboard.invoiceUrl) ? (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                      {user.stripeDashboard.customerUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.customerUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Stripe customer
+                        </a>
+                      ) : null}
+                      {user.stripeDashboard.subscriptionUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.subscriptionUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Stripe subscription
+                        </a>
+                      ) : null}
+                      {user.stripeDashboard.invoiceUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.invoiceUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Latest invoice
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 {isDirty ? <span className="text-xs text-[#8a5a00]">Unsaved changes</span> : null}
               </div>

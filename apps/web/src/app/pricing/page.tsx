@@ -13,10 +13,15 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" }
 };
 
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const user = await getAuthUserFromCookies();
   const billing = user ? await getBillingAccountSnapshot(user.id) : null;
   const billingConfigured = isBillingCheckoutConfigured();
+  const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
 
   return (
     <main className="min-h-screen py-6 sm:py-10">
@@ -30,6 +35,11 @@ export default async function PricingPage() {
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
             Start with article podcasts today, then scale into daily and weekly intelligence digests with companion email reports.
           </p>
+          {billingSearchParam === "canceled" ? (
+            <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
+              Checkout was canceled before completion. Your current access level has not changed.
+            </p>
+          ) : null}
         </section>
 
         <section className="mt-8 grid gap-4 md:grid-cols-3">
@@ -68,9 +78,13 @@ export default async function PricingPage() {
                 <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
                   Sign in to upgrade
                 </Link>
-              ) : billing?.hasPaidAccess ? (
+              ) : billing?.accessReason === "complimentary" ? (
                 <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
-                  Manage current plan
+                  View current access
+                </Link>
+              ) : billing?.customerId ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
+                  Manage billing
                 </Link>
               ) : billingConfigured ? (
                 <BillingActionButton

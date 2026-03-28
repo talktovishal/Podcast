@@ -15,6 +15,9 @@ export const databaseSnapshotModelConfigs = [
     delegate: "user",
     orderByField: "id",
     dateFields: [
+      "billingLastStripeEventCreatedAt",
+      "billingLastSubscriptionEventAt",
+      "billingLastInvoiceEventAt",
       "billingCurrentPeriodEnd",
       "billingUpdatedAt",
       "firstSeenAt",
@@ -213,7 +216,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "billingWebhookEvents",
     delegate: "billingWebhookEvent",
     orderByField: "id",
-    dateFields: ["processedAt", "createdAt"]
+    dateFields: ["eventCreatedAt", "processedAt", "createdAt"]
   },
   {
     modelName: "RateLimitBucket",

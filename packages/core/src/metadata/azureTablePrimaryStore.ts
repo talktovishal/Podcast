@@ -45,10 +45,18 @@ export type AzureTablePrimaryUser = {
   billingProvider: string | null;
   billingCustomerId: string | null;
   billingSubscriptionId: string | null;
+  billingPriceId: string | null;
   billingPlanCode: string;
   billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
   billingCurrentPeriodEnd: Date | null;
   billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
   billingUpdatedAt: Date | null;
   isPaid: boolean;
   submissionCount: number;
@@ -80,9 +88,12 @@ export type AzureTablePrimaryBillingWebhookEvent = {
   provider: string;
   providerEventId: string;
   eventType: string;
+  eventCreatedAt: Date | null;
+  objectId: string | null;
   userId: string | null;
   customerId: string | null;
   subscriptionId: string | null;
+  invoiceId: string | null;
   status: string;
   errorMessage: string | null;
   processedAt: Date | null;
@@ -721,10 +732,18 @@ export class AzureTablePrimaryStore {
       billingProvider: parseString(entity.billingProvider),
       billingCustomerId: parseString(entity.billingCustomerId),
       billingSubscriptionId: parseString(entity.billingSubscriptionId),
+      billingPriceId: parseString(entity.billingPriceId),
       billingPlanCode: parseString(entity.billingPlanCode) || "STARTER",
       billingStatus: parseString(entity.billingStatus) || "NONE",
+      billingEntitlementStatus: parseString(entity.billingEntitlementStatus) || "INACTIVE",
+      billingLastPaymentStatus: parseString(entity.billingLastPaymentStatus) || "NONE",
+      billingLastInvoiceId: parseString(entity.billingLastInvoiceId),
       billingCurrentPeriodEnd: parseDate(entity.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: parseBoolean(entity.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId: parseString(entity.billingLastStripeEventId),
+      billingLastStripeEventCreatedAt: parseDate(entity.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: parseDate(entity.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: parseDate(entity.billingLastInvoiceEventAt),
       billingUpdatedAt: parseDate(entity.billingUpdatedAt),
       isPaid: parseBoolean(entity.isPaid, false),
       submissionCount: parseNumber(entity.submissionCount, 0),
@@ -750,9 +769,12 @@ export class AzureTablePrimaryStore {
       provider: parseRequiredString(entity.provider, "provider"),
       providerEventId: parseRequiredString(entity.providerEventId, "providerEventId"),
       eventType: parseRequiredString(entity.eventType, "eventType"),
+      eventCreatedAt: parseDate(entity.eventCreatedAt),
+      objectId: parseString(entity.objectId),
       userId: parseString(entity.userId),
       customerId: parseString(entity.customerId),
       subscriptionId: parseString(entity.subscriptionId),
+      invoiceId: parseString(entity.invoiceId),
       status: parseString(entity.status) || "PROCESSED",
       errorMessage: parseString(entity.errorMessage),
       processedAt: parseDate(entity.processedAt),
@@ -1127,9 +1149,12 @@ export class AzureTablePrimaryStore {
     provider: string;
     providerEventId: string;
     eventType: string;
+    eventCreatedAt?: Date | null;
+    objectId?: string | null;
     userId?: string | null;
     customerId?: string | null;
     subscriptionId?: string | null;
+    invoiceId?: string | null;
     status?: string;
     errorMessage?: string | null;
     processedAt?: Date | null;
@@ -1143,9 +1168,12 @@ export class AzureTablePrimaryStore {
       provider: input.provider,
       providerEventId: input.providerEventId,
       eventType: input.eventType,
+      eventCreatedAt: isoOrNull(input.eventCreatedAt),
+      objectId: input.objectId ?? null,
       userId: input.userId ?? null,
       customerId: input.customerId ?? null,
       subscriptionId: input.subscriptionId ?? null,
+      invoiceId: input.invoiceId ?? null,
       status: input.status ?? "PROCESSED",
       errorMessage: input.errorMessage ?? null,
       processedAt: isoOrNull(input.processedAt ?? createdAt),
@@ -1165,10 +1193,18 @@ export class AzureTablePrimaryStore {
     billingProvider?: string | null;
     billingCustomerId?: string | null;
     billingSubscriptionId?: string | null;
+    billingPriceId?: string | null;
     billingPlanCode?: string;
     billingStatus?: string;
+    billingEntitlementStatus?: string;
+    billingLastPaymentStatus?: string;
+    billingLastInvoiceId?: string | null;
     billingCurrentPeriodEnd?: Date | null;
     billingCancelAtPeriodEnd?: boolean;
+    billingLastStripeEventId?: string | null;
+    billingLastStripeEventCreatedAt?: Date | null;
+    billingLastSubscriptionEventAt?: Date | null;
+    billingLastInvoiceEventAt?: Date | null;
     billingUpdatedAt?: Date | null;
     isPaid?: boolean;
     submissionCount?: number;
@@ -1189,10 +1225,18 @@ export class AzureTablePrimaryStore {
       billingProvider: input.billingProvider ?? null,
       billingCustomerId: input.billingCustomerId ?? null,
       billingSubscriptionId: input.billingSubscriptionId ?? null,
+      billingPriceId: input.billingPriceId ?? null,
       billingPlanCode: input.billingPlanCode ?? "STARTER",
       billingStatus: input.billingStatus ?? "NONE",
+      billingEntitlementStatus: input.billingEntitlementStatus ?? "INACTIVE",
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? "NONE",
+      billingLastInvoiceId: input.billingLastInvoiceId ?? null,
       billingCurrentPeriodEnd: isoOrNull(input.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? false,
+      billingLastStripeEventId: input.billingLastStripeEventId ?? null,
+      billingLastStripeEventCreatedAt: isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: isoOrNull(input.billingLastInvoiceEventAt),
       billingUpdatedAt: isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? false,
       submissionCount: input.submissionCount ?? 0,
@@ -1217,10 +1261,18 @@ export class AzureTablePrimaryStore {
       billingProvider: string | null;
       billingCustomerId: string | null;
       billingSubscriptionId: string | null;
+      billingPriceId: string | null;
       billingPlanCode: string;
       billingStatus: string;
+      billingEntitlementStatus: string;
+      billingLastPaymentStatus: string;
+      billingLastInvoiceId: string | null;
       billingCurrentPeriodEnd: Date | null;
       billingCancelAtPeriodEnd: boolean;
+      billingLastStripeEventId: string | null;
+      billingLastStripeEventCreatedAt: Date | null;
+      billingLastSubscriptionEventAt: Date | null;
+      billingLastInvoiceEventAt: Date | null;
       billingUpdatedAt: Date | null;
       isPaid: boolean;
       submissionCount: number;
@@ -1256,11 +1308,27 @@ export class AzureTablePrimaryStore {
       billingCustomerId: input.billingCustomerId === undefined ? current.billingCustomerId : input.billingCustomerId,
       billingSubscriptionId:
         input.billingSubscriptionId === undefined ? current.billingSubscriptionId : input.billingSubscriptionId,
+      billingPriceId: input.billingPriceId === undefined ? current.billingPriceId : input.billingPriceId,
       billingPlanCode: input.billingPlanCode ?? current.billingPlanCode,
       billingStatus: input.billingStatus ?? current.billingStatus,
+      billingEntitlementStatus: input.billingEntitlementStatus ?? current.billingEntitlementStatus,
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? current.billingLastPaymentStatus,
+      billingLastInvoiceId: input.billingLastInvoiceId === undefined ? current.billingLastInvoiceId : input.billingLastInvoiceId,
       billingCurrentPeriodEnd:
         input.billingCurrentPeriodEnd === undefined ? current.billingCurrentPeriodEnd : isoOrNull(input.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? current.billingCancelAtPeriodEnd,
+      billingLastStripeEventId:
+        input.billingLastStripeEventId === undefined ? current.billingLastStripeEventId : input.billingLastStripeEventId,
+      billingLastStripeEventCreatedAt:
+        input.billingLastStripeEventCreatedAt === undefined
+          ? current.billingLastStripeEventCreatedAt
+          : isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt:
+        input.billingLastSubscriptionEventAt === undefined
+          ? current.billingLastSubscriptionEventAt
+          : isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt:
+        input.billingLastInvoiceEventAt === undefined ? current.billingLastInvoiceEventAt : isoOrNull(input.billingLastInvoiceEventAt),
       billingUpdatedAt: input.billingUpdatedAt === undefined ? current.billingUpdatedAt : isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? current.isPaid,
       submissionCount: input.submissionCount ?? current.submissionCount,

@@ -106,7 +106,10 @@ Behavior:
 
 Behavior:
 - Billing routes stay unavailable until the Stripe secret key and Pro price id are set.
-- ArticlePod stores only Stripe customer/subscription metadata and effective access state; card details remain in Stripe-hosted flows.
+- ArticlePod stores only Stripe customer/subscription metadata, local entitlement state, latest invoice/payment state, and webhook audit metadata; card details remain in Stripe-hosted flows.
+- Use separate Stripe secret keys, price ids, portal configuration ids, and webhook secrets for local, staging, and production.
+- Never mix live Stripe credentials into local or staging environments.
+- If you need to pause new self-serve checkout without breaking existing billing management, unset only `STRIPE_PRICE_PRO_MONTHLY`; keep the Stripe secret and webhook secret configured so Portal and webhook sync continue to work for existing subscribers.
 
 ## Worker controls
 - `PINNED_FETCH_IPV6_ENABLED` (`0` default for Azure, otherwise enabled unless overridden; disable IPv6 pinned-IP fetch attempts on single-stack hosts)
