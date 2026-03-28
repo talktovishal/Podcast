@@ -30,3 +30,11 @@ test("hero copy does not include banned phrases", () => {
     assert.equal(heroText.toLowerCase().includes(phrase), false);
   }
 });
+
+test("security bullets has exactly three concise entries", () => {
+  assert.equal(marketingCopy.securityBullets.length, 3);
+  for (const bullet of marketingCopy.securityBullets) {
+    assert.ok(bullet.length > 0, "bullet must not be empty");
+    assert.ok(bullet.length <= 120, `bullet too long (${bullet.length} chars): ${bullet}`);
+  }
+});
