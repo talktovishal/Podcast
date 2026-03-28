@@ -109,7 +109,7 @@ test("feedback page exists and keeps message as the first field", () => {
 test("dashboard client gates markdown controls to admins", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes("isAdmin = false"), true);
-  assert.equal(source.includes("{isAdmin ? ("), true);
+  assert.equal(source.includes("!readOnly && isAdmin ?"), true);
   assert.equal(source.includes("{showItemsSection && isAdmin && markdownPreview ? ("), true);
 });
 
@@ -228,6 +228,8 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("src={mediaUrl}"), true);
   assert.equal(source.includes("manage feed rotation only when you are ready to"), true);
   assert.equal(source.includes("Create workspace demo link"), true);
+  assert.equal(source.includes("download href={mediaUrl}"), true);
+  assert.equal(source.includes('className="flex flex-wrap items-center gap-2"'), true);
   assert.equal(source.includes("Share episode"), true);
   assert.equal(source.includes("Copy share link"), true);
   assert.equal(source.includes("Revoke share link"), true);

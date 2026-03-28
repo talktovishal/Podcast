@@ -155,7 +155,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
 - Public episode sharing (`M104`) is implemented:
   - owners can create one stable, revocable public share link per ready item episode from `/app`.
-  - item share actions now create/copy existing links immediately with inline confirmation feedback, and revoke actions confirm in place.
+  - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still create/copy existing links immediately with inline confirmation feedback and revoke confirms in place.
   - the existing workspace share flow remains separate and is relabeled as `Create workspace demo link`.
   - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/login` and `/pricing`.
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.

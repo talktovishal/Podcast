@@ -48,7 +48,7 @@
   - app/runtime retention now treats `events/` and `errors/` logs independently so failure history can outlive routine success noise on local disk.
 - Public episode share links track (`M104`) is implemented:
   - `/app` now supports stable, revocable item-scoped public share links for ready episodes without changing the existing workspace demo-share flow.
-  - item share actions now copy the share URL immediately with inline confirmation feedback, and revoke confirms in place.
+  - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still copy the share URL immediately with inline confirmation feedback and revoke confirms in place.
   - shared episode URLs open branded, `noindex` landing pages with browser playback, download, source attribution when available, concise trust copy about private feeds staying private, and signup/pricing CTAs.
   - public shared playback uses a dedicated share-media route with `HEAD` + byte-range `206` support and separate share-scoped auth, leaving private RSS/media auth unchanged.
   - raw analytics now capture share-link creation, share-page views, playback starts, and CTA clicks for growth instrumentation.
@@ -3070,7 +3070,7 @@ Milestone metadata contract:
 - evidence: local validation + public episode share link implementation pass (2026-03-28)
 - Scope:
   - Add per-item stable, revocable public share links for owner-owned ready episodes while keeping the existing workspace demo share flow separate.
-  - Make item share actions copy-first with inline confirmation feedback for create/copy/revoke flows.
+  - Make item action rows keep download/share/revoke/delete together, and make item share actions copy-first with inline confirmation feedback for create/copy/revoke flows.
   - Reuse `ShareToken` rows with scope `public_episode_item:<itemId>` and derive deterministic page/media signatures from the stored share hash instead of persisting plaintext public secrets.
   - Add a branded public share page with playback, download, optional source attribution, concise trust messaging, and signup/pricing CTAs.
   - Add a dedicated public share-media route with `HEAD` and byte-range `206` support so public playback does not reuse private RSS/media auth.
@@ -3091,7 +3091,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Creating a public share for the same `userId + itemId` returns the same URL until the owner revokes it.
   - Only owner-owned `READY` items with a published episode can be shared.
-  - Creating or reusing a share from `/app` copies the share URL immediately and shows inline action feedback, and revoke confirms inline without leaving the item row ambiguous.
+  - Episode action rows keep download plus share/revoke/delete in one consistent row, while creating or reusing a share from `/app` copies the share URL immediately and shows inline action feedback, and revoke confirms inline without leaving the item row ambiguous.
   - Public episode pages show playback, download, source attribution when available, and CTA links without exposing owner identity.
   - Shared media requests support `HEAD`, `Range`, and `206 Partial Content`.
   - Revoking the share invalidates both the public page and shared media immediately.

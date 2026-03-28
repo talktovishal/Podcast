@@ -1511,6 +1511,9 @@ export function DashboardClient({
               const isRevokingShare = isShareBusy && shareBusyState?.action === "revoke";
               const shareCopied = shareFeedback?.kind === "copied";
               const shareFeedbackClassName = shareFeedback?.kind === "error" ? "text-[var(--danger)]" : "text-emerald-700";
+              const itemActionClassName =
+                "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
+              const hasActionRow = Boolean(mediaUrl) || !readOnly;
 
               return (
                 <article key={item.id} className="rounded-xl border p-3 sm:p-4">
@@ -1557,33 +1560,35 @@ export function DashboardClient({
                   ) : null}
 
                   {mediaUrl ? (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3">
                       <audio controls className="w-full" preload="metadata" src={mediaUrl} />
-                      <a className="text-sm underline" href={mediaUrl}>
-                        Download
-                      </a>
                     </div>
                   ) : null}
 
-                  {!readOnly ? (
+                  {hasActionRow ? (
                     <div className="mt-3">
-                      <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2">
-                        {isAdmin ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {mediaUrl ? (
+                          <a className={itemActionClassName} download href={mediaUrl}>
+                            Download
+                          </a>
+                        ) : null}
+                        {!readOnly && isAdmin ? (
                           <button
-                            className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                            className={itemActionClassName}
                             onClick={() => viewMarkdown(item.id, item.title)}
                           >
                             View markdown
                           </button>
                         ) : null}
-                        {showRetry ? (
-                          <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
+                        {!readOnly && showRetry ? (
+                          <button className={itemActionClassName} onClick={() => retryItem(item.id)}>
                             Retry
                           </button>
                         ) : null}
-                        {item.episode ? (
+                        {!readOnly && item.episode ? (
                           <button
-                            className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition sm:w-auto ${
+                            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition ${
                               shareCopied
                                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                 : "text-[var(--ink)] hover:border-slate-300 hover:bg-white"
@@ -1614,18 +1619,20 @@ export function DashboardClient({
                             )}
                           </button>
                         ) : null}
-                        {item.share ? (
+                        {!readOnly && item.share ? (
                           <button
-                            className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                            className={itemActionClassName}
                             disabled={isShareBusy}
                             onClick={() => revokeEpisodeShareLink(item.id)}
                           >
                             {isRevokingShare ? "Revoking..." : "Revoke share link"}
                           </button>
                         ) : null}
-                        <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
-                          Delete
-                        </button>
+                        {!readOnly ? (
+                          <button className={itemActionClassName} onClick={() => deleteItem(item.id)}>
+                            Delete
+                          </button>
+                        ) : null}
                       </div>
                       {shareFeedback ? (
                         <p aria-live="polite" className={`mt-2 flex items-center gap-1.5 text-xs ${shareFeedbackClassName}`}>
