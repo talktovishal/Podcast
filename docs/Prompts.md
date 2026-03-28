@@ -152,10 +152,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.
   - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
   - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
-- Billing track (`B01`-`B06`) is now in progress in parallel:
-  - Stripe-hosted Pro upgrade flow on `/pricing`
-  - Stripe Customer Portal access from `/app/settings`
-  - webhook-driven billing entitlement sync with complimentary Pro overrides
+- Billing track (`B01`-`B09`) is now in progress in parallel:
+  - baseline hosted Checkout, Customer Portal access, billing status route, and webhook sync are already in repo for `Pro monthly`
+  - current work shifts to launch hardening: richer billing state, invoice-driven entitlements, payment-issue UX, admin visibility, founder setup, lifecycle QA, and staging readiness
+  - MVP billing scope stays locked to `Starter` free + `Pro monthly` self-serve; `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain later phases
 - Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store

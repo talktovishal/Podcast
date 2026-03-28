@@ -2,11 +2,11 @@
 
 Use this note when you come back to Stripe billing work later.
 
-Status as of 2026-03-15:
-- Stripe-hosted Checkout, Customer Portal, billing status, and webhook sync are implemented.
-- ArticlePod stores only Stripe billing metadata plus effective access state. Card details stay in Stripe.
-- Self-serve billing is scoped to `Starter` and `Pro monthly`.
-- `Team` is still a non-self-serve plan.
+Status as of 2026-03-28:
+- Stripe-hosted Checkout, Customer Portal, billing status, and baseline webhook sync are implemented for `Pro monthly`.
+- ArticlePod stores Stripe billing metadata plus effective access state. Card details stay in Stripe-hosted flows.
+- Self-serve billing stays scoped to `Starter` free + `Pro monthly` for MVP.
+- `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain out of scope for the current launch track.
 
 ## What is already done
 
@@ -27,6 +27,28 @@ UI already wired:
 - `/app/settings` shows billing status and launches Stripe Customer Portal
 - Admins can grant `complimentaryPro` instead of mutating Stripe-managed state
 
+## Open gaps vs. the expanded Stripe MVP spec
+
+Tracked in `docs/plans.md` as `B02`-`B09`:
+- local billing state still needs explicit `price_id`, payment-status, and entitlement-shape hardening for supportability
+- checkout flow needs approved server-side plan catalog hardening and a documented pending-activation UX
+- webhook handling currently centers on checkout completion plus subscription lifecycle events; invoice lifecycle events and payment-issue mapping still need to land
+- billing settings UX still needs richer renewal, cancel-at-period-end, and payment-issue presentation
+- support tooling still needs read-only Stripe identifiers, last invoice or payment visibility, and a Stripe Dashboard deep link
+- founder-owned Stripe Dashboard setup, Test Clock QA, and staging launch evidence still need to be completed
+
+## Billing roadmap snapshot
+
+- `B01` Done: billing docs and milestone expansion are reconciled across `docs/plans.md`, `docs/Prompts.md`, and this handoff.
+- `B02` Planned: billing state contract hardening across Prisma and Azure Table metadata backends.
+- `B03` Planned: approved plan catalog and checkout contract hardening for `PRO_MONTHLY`.
+- `B04` Planned: invoice-aware webhook and entitlement engine.
+- `B05` Planned: richer `/app/settings` billing UX plus clearer hosted portal recovery paths.
+- `B06` Planned: admin support visibility and webhook observability hardening.
+- `B07` Planned: founder Stripe Dashboard setup and per-environment secret promotion checklist.
+- `B08` Planned: lifecycle QA with Stripe CLI, test cards, and Test Clocks.
+- `B09` Planned: staging certification, launch checklist, and rollback or safe-disable evidence.
+
 ## What you still need to do in Stripe
 
 Before billing works in a real environment:
@@ -42,15 +64,22 @@ Before billing works in a real environment:
 https://<your-domain>/api/billing/webhook
 ```
 
-7. Subscribe the webhook to:
+7. Subscribe the webhook to the currently implemented baseline events:
 - `checkout.session.completed`
 - `customer.subscription.created`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
 
+Planned final webhook set once `B04` lands:
+- `invoice.paid`
+- `invoice.payment_failed`
+- `invoice.payment_action_required`
+
 Recommended Stripe dashboard follow-up:
 - confirm your branding/logo in hosted Checkout and Portal
 - review cancelation settings for end-of-period cancelation
+- decide whether self-serve plan switching should stay disabled until multi-plan pricing exists
+- review proration behavior for any later self-serve plan changes
 - review customer email settings
 - decide whether Stripe Tax should be enabled before opening billing outside the US
 
@@ -86,6 +115,8 @@ stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
 - cancel at period end
 - update payment method
 - reactivate if enabled in your portal config
+8. Once `B04` and `B05` land, trigger or simulate failure paths and confirm the account surfaces a billing issue state instead of granting access from redirect alone.
+9. Record anything missing against `B04`-`B08` in `docs/plans.md`.
 
 Useful check:
 
@@ -122,15 +153,15 @@ If you come back to production rollout work, do this before relying on Prisma mi
 
 When you pick this back up, the safest order is:
 
-1. Finish any unrelated product changes first.
-2. Configure Stripe test mode and env vars.
-3. Run the local checkout and webhook flow.
-4. Verify cancelation and payment-method updates in Customer Portal.
-5. Validate the billing status route and logs.
-6. Resolve the Prisma migration rollout plan for the target environment.
-7. Deploy to a staging or parity environment with Stripe test keys.
-8. Repeat the full billing flow there.
-9. Only then switch to Stripe live keys.
+1. Finish `B02` so the local billing state can represent price, payment, entitlement, and processed-event outcomes cleanly.
+2. Finish `B03` and confirm checkout still uses server-side plan keys only.
+3. Finish `B04` and verify invoice-driven entitlement handling locally with Stripe CLI.
+4. Finish `B05` and confirm `/app/settings` communicates active, pending, canceling, and blocked states clearly.
+5. Finish `B06` so support and operations can inspect billing issues without mutating Stripe.
+6. Resolve the Prisma migration rollout plan for the target environment before relying on schema changes in parity or staging.
+7. Complete founder-owned `B07` Stripe Dashboard setup and provide test-mode secrets through normal secret management.
+8. Run `B08` lifecycle QA with Stripe test cards and Test Clocks in local and staging environments.
+9. Complete `B09` staging certification and only then switch to live keys.
 
 ## Product constraints to remember
 
@@ -139,6 +170,7 @@ When you pick this back up, the safest order is:
 - webhook state is the source of truth for subscription status
 - `isPaid` is only a compatibility cache for the rest of the app
 - `complimentaryPro` is the manual support/admin override
+- founder must make the Stripe Tax decision before live launch; engineering should not silently choose that policy
 
 ## Useful docs
 

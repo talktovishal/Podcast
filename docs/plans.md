@@ -171,7 +171,7 @@
 | Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
 | PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
 | Budget and burn-rate operational guardrails | C07 |
-| Stripe-hosted Pro billing, portal management, and webhook entitlement sync | B01, B02, B03, B04, B05, B06 |
+| Stripe-hosted Pro billing launch hardening, founder setup, lifecycle QA, and staging readiness | B01, B02, B03, B04, B05, B06, B07, B08, B09 |
 | Apple Sign-In JWT cryptographic verification | S01 |
 | Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
 | Brute-force rate limiting on login + timing oracle fix | S03 |
@@ -328,12 +328,15 @@ Milestone metadata contract:
 | C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
 | C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| B01 | In Progress | 2026-04-18 | — | — |
+| B01 | Done | 2026-04-18 | 2026-03-28 | local docs sync + billing milestone expansion pass (2026-03-28) |
 | B02 | Planned | 2026-04-25 | — | — |
 | B03 | Planned | 2026-05-02 | — | — |
 | B04 | Planned | 2026-05-09 | — | — |
 | B05 | Planned | 2026-05-16 | — | — |
 | B06 | Planned | 2026-05-23 | — | — |
+| B07 | Planned | 2026-05-30 | — | — |
+| B08 | Planned | 2026-06-06 | — | — |
+| B09 | Planned | 2026-06-13 | — | — |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
@@ -3619,112 +3622,158 @@ Milestone metadata contract:
   - `npm run check:env:azure`
   - `npm run costs:build`
 
-### B01 - Billing Track Kickoff and Contract Sync
-- status: In Progress
+### B01 - Billing Track Reconciliation and Scope Lock
+- status: Done
 - target_finish: 2026-04-18
+- completed_on: 2026-03-28
+- evidence: local docs sync + billing milestone expansion pass (2026-03-28)
 - Scope:
-  - Add billing milestones, env contract, dependency attribution, and cross-doc product language for Stripe-hosted Pro billing.
-  - Keep cost optimization `C06` visible as an active track while billing work begins in parallel.
+  - Audit current repo reality against docs so billing is no longer described as both "implemented" and "planned."
+  - Lock MVP defaults from the Stripe spec: hosted Checkout, hosted Customer Portal, monthly only, card only, cancel at period end, proration on, no coupons, no trials.
+  - Document the split between developer-owned work and founder-owned Stripe Dashboard setup before additional billing hardening starts.
 - Key files/modules:
   - `docs/Prompts.md`
   - `docs/plans.md`
-  - `docs/architecture.md`
-  - `docs/documentation.md`
-  - `docs/env.md`
-  - `docs/THIRD_PARTY.md`
+  - `docs/billing/README.md`
 - Acceptance criteria:
-  - Billing terminology is consistent across prompts, plans, architecture, and operator docs.
-  - New billing env vars and dependency attribution are documented before the feature is marked done.
+  - `docs/plans.md`, `docs/Prompts.md`, and billing handoff docs describe the same billing scope and same responsibility split.
+  - The expanded billing track preserves the current `Starter` + `Pro monthly` MVP and leaves `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods out of scope.
 - Verification commands:
   - Manual cross-doc review
 
-### B02 - Billing Data Model and Metadata Backend Parity
+### B02 - Billing State Contract Hardening
 - status: Planned
 - target_finish: 2026-04-25
 - Scope:
-  - Extend `User` with Stripe customer/subscription state, complimentary Pro override, and effective paid-access cache.
-  - Add `BillingWebhookEvent` idempotency storage in both Prisma and Azure Table primary metadata paths.
+  - Extend persisted billing state to capture Stripe sync fields needed for supportability and entitlement decisions without destructive resets.
+  - Add a forward migration and compatibility plan for both Prisma and Azure Table primary metadata paths before schema work begins.
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
   - `apps/web/prisma/schema.postgres.prisma`
   - `apps/web/src/lib/metadata-primary-auth.ts`
   - `packages/core/src/metadata/azureTablePrimaryStore.ts`
 - Acceptance criteria:
-  - Both Prisma and Azure Table runtimes can persist equivalent billing state.
-  - Existing quota logic continues to read effective paid access from local metadata without direct Stripe calls.
+  - Local billing state can represent Stripe customer id, subscription id, price id, subscription status, current period end, cancel-at-period-end, last payment status, entitlement/access level, and processed-event audit data.
+  - Both Prisma and Azure Table runtimes can persist equivalent billing state while existing quota logic continues to read local effective access without direct Stripe calls.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run typecheck`
   - `npx pnpm --filter @articlepod/web run test -- billing`
 
-### B03 - Stripe Checkout for Pro Upgrade
+### B03 - Plan Catalog and Checkout Contract
 - status: Planned
 - target_finish: 2026-05-02
 - Scope:
-  - Create authenticated checkout-session route for `PRO_MONTHLY`.
-  - Reuse or create Stripe customers keyed to local users.
-  - Wire `/pricing` to start checkout when billing is configured.
+  - Refactor checkout around an approved server-side plan catalog that is multi-price ready while only enabling `PRO_MONTHLY` for launch.
+  - Ensure checkout reuses or creates Stripe customers, attaches metadata, uses idempotency where appropriate, and never grants access from the redirect alone.
 - Key files/modules:
   - `apps/web/src/lib/billing.ts`
   - `apps/web/src/app/api/billing/checkout/route.ts`
   - `apps/web/src/app/pricing/page.tsx`
 - Acceptance criteria:
-  - Signed-in users can start Stripe-hosted checkout from `/pricing`.
-  - Billing-unconfigured environments fail with a clear user-facing message instead of crashing.
+  - Signed-in users can create hosted Stripe subscription checkout sessions from `/pricing` or settings only for approved internal plan keys.
+  - Billing-unconfigured environments fail with a clear user-facing message, and the app shows a pending activation state until webhook confirmation arrives.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B04 - Webhook-Driven Billing State and Portal Access
+### B04 - Webhook and Entitlement Engine
 - status: Planned
 - target_finish: 2026-05-09
 - Scope:
-  - Verify Stripe webhook signatures, dedupe event ids, and sync subscription state into local metadata.
-  - Add `/app/settings` billing card and Stripe Customer Portal launch.
+  - Expand webhook handling beyond subscription lifecycle events to include `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`.
+  - Define entitlement rules so paid invoices extend access, subscription updates sync plan and renewal flags, payment failures surface account issues, and deletion revokes or downgrades access per product policy.
 - Key files/modules:
   - `apps/web/src/app/api/billing/webhook/route.ts`
-  - `apps/web/src/app/api/billing/portal/route.ts`
-  - `apps/web/src/app/app/settings/page.tsx`
   - `apps/web/src/lib/billing.ts`
+  - `apps/web/tests/billing.test.ts`
 - Acceptance criteria:
-  - Webhook replays do not double-apply state changes.
-  - Settings page shows current plan/status and can launch the portal for Stripe-managed subscriptions.
+  - Invalid Stripe signatures are rejected, duplicate deliveries are idempotent, and out-of-order events do not corrupt billing state.
+  - Webhook-driven billing state includes payment-issue and entitlement outcomes that can drive user-facing billing UX without relying on Stripe redirects.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B05 - Admin Complimentary Access and Quota Integration
+### B05 - Billing Settings UX and Customer Portal
 - status: Planned
 - target_finish: 2026-05-16
 - Scope:
-  - Replace the raw admin `paid` toggle with a complimentary Pro override.
-  - Keep extra submission credits for free-tier support scenarios.
-  - Expose billing state in admin quota management to reduce support confusion.
+  - Upgrade `/app/settings` billing UI to show current plan, subscription status, renewal date, cancel-at-period-end state, payment-issue banners, and hosted portal entry.
+  - Keep Stripe Customer Portal as the only MVP surface for payment-method updates, invoices, cancelation, and any later self-serve plan switching.
 - Key files/modules:
-  - `apps/web/src/app/api/admin/users/quota/route.ts`
-  - `apps/web/src/components/admin-quota-manager.tsx`
-  - `apps/web/src/lib/submission-quota.ts`
+  - `apps/web/src/app/app/settings/page.tsx`
+  - `apps/web/src/app/api/billing/portal/route.ts`
+  - `apps/web/src/lib/billing.ts`
 - Acceptance criteria:
-  - Admin overrides do not clobber Stripe-managed billing state.
-  - Complimentary access still unlocks unlimited submissions through the existing quota gate.
+  - Users can understand whether billing is active, pending, canceling, or blocked, and can reach the correct Stripe-hosted recovery path from settings.
+  - Complimentary access messaging stays distinct from Stripe-managed subscriptions.
 - Verification commands:
-  - `npx pnpm --filter @articlepod/web run test -- submission-quota`
+  - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B06 - Billing Validation, Release Notes, and Operator Readiness
+### B06 - Admin Support Visibility and Operational Observability
 - status: Planned
 - target_finish: 2026-05-23
 - Scope:
-  - Finish billing regression coverage, env examples, operations/runbook notes, and release-verification evidence.
-  - Run full repo verification prompts after the billing track lands.
+  - Add read-only support visibility for user email, Stripe customer id, Stripe subscription id, plan, status, renewal date, last invoice or payment state, and Stripe Dashboard deep link.
+  - Add structured billing logs, webhook processing result logs, and alert or runbook coverage for webhook failures.
 - Key files/modules:
+  - `apps/web/src/app/api/admin/users/quota/route.ts`
+  - `apps/web/src/components/admin-quota-manager.tsx`
+  - `apps/web/src/lib/billing.ts`
   - `docs/operations.md`
-  - `.env.example`
-  - `.env.simple.example`
-  - `.env.parity.example`
-  - `.env.azure.example`
 - Acceptance criteria:
-  - Billing setup and webhook troubleshooting are documented for local and Azure environments.
-  - Billing changes pass workspace, license, and podcast contract gates before sign-off.
+  - Support can inspect billing state without mutating Stripe records.
+  - Operations can detect broken webhook sync quickly through logs, explicit failure states, or alerting guidance.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+
+### B07 - Founder Stripe Configuration and Environment Promotion
+- status: Planned
+- target_finish: 2026-05-30
+- Scope:
+  - Capture founder or operator-owned Stripe Dashboard work: account verification, bank setup, product and price creation, portal configuration, retry and email settings, branding, and tax decision.
+  - Document the exact billing secrets required in test, staging, and production, with separate webhook secrets per environment.
+- Key files/modules:
+  - `docs/billing/README.md`
+  - `docs/env.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - The billing track clearly shows what engineering owns versus what founders must complete before staging and live launch.
+  - Stripe Dashboard setup, policy decisions, and secret-management requirements are documented without expanding MVP scope beyond `Pro monthly`.
+- Verification commands:
+  - Manual Stripe setup checklist review
+
+### B08 - Lifecycle QA with Stripe CLI and Test Clocks
+- status: Planned
+- target_finish: 2026-06-06
+- Scope:
+  - Add reproducible local and staging procedures for Stripe CLI webhook forwarding, Stripe test cards, failure simulations, and Test Clock lifecycle testing.
+  - Cover purchase success, initial payment failure, renewal success, renewal failure, cancel at period end, portal update flow, plan-change behavior, duplicate deliveries, out-of-order events, and invalid signatures.
+- Key files/modules:
+  - `apps/web/tests/billing.test.ts`
+  - `docs/billing/README.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Billing QA no longer relies only on happy-path manual checks.
+  - The billing track includes reproducible lifecycle validation steps for both local development and staging.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - Manual Stripe CLI + Test Clock checklist
+
+### B09 - Staging Certification and Launch Readiness
+- status: Planned
+- target_finish: 2026-06-13
+- Scope:
+  - Add a final release milestone covering staging validation, support docs, rollback or safe-disable notes, and production launch evidence.
+  - Include both the manual founder launch checklist and engineering launch checklist, with a clear blocker if the Stripe tax decision is unresolved.
+- Key files/modules:
+  - `docs/release-checklist.md`
+  - `docs/billing/README.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Staging proves checkout, portal, webhook sync, access-control changes, observability, and production-secret isolation before live credentials are introduced.
+  - Launch notes include support ownership and rollback or safe-disable guidance for billing incidents.
 - Verification commands:
   - `npm run typecheck`
   - `npm run lint`
