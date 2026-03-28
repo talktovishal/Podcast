@@ -33,7 +33,7 @@
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
   - The extension popup now includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
-  - `/app` Recent items now renders capture metadata and supports lightweight client-side filtering by importance and tag.
+  - `/app` Recent items now renders capture metadata, while `/app/summary` article selection supports lightweight client-side filtering by importance and tag.
 - Extraction-quality audit track (`M101`) is implemented:
   - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
@@ -2893,7 +2893,7 @@ Milestone metadata contract:
 - Scope:
   - Replace user-facing `Priority` copy with `Importance` while keeping the existing `LOW` / `MEDIUM` / `HIGH` backing contract.
   - Add optional freeform comma-separated item tags for URL, PDF, and Chrome extension capture, stored in normalized lowercase form.
-  - Surface importance and tags in `/app` Recent items, with lightweight client-side filters for importance and tag.
+  - Surface importance and tags in `/app` Recent items, and provide lightweight client-side filters for importance and tag in `/app/summary` article selection.
   - Make optional metadata visibly secondary in both the web submit flow and Chrome extension popup.
   - Reduce double-submit confusion after extension capture with persistent popup success state and same-page button lockout while queued.
   - Keep route compatibility by accepting both canonical `importance` and legacy `priority` payloads during rollout.

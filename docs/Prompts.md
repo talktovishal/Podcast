@@ -137,9 +137,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
   - The web submit flow now keeps `Title`, `Importance`, and `Tags` inside a lighter `Optional details` panel that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
   - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
-  - `/app` Recent items now renders saved importance plus tag chips and includes lightweight client-side filters for importance and tag.
+  - `/app` Recent items now renders saved importance plus tag chips, while `/app/summary` article selection includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
-  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable article selection, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
+  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
   - manual summary runs persist polished markdown artifacts plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - existing digest RSS/media pipeline now also publishes manual summary episodes on the private digest feed.
