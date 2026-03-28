@@ -62,7 +62,15 @@ npm run extraction-quality:test -- --input /tmp/my-urls.txt --limit 25
 
 ### Spreadsheet Intake
 
-If the URLs arrive in an Excel sheet, convert them into a newline-delimited text file before running the suite. A common case in this repo is "URLs are in column E". This Python snippet extracts non-empty values from column `E`, skips a `url` header, deduplicates entries, and writes a `.txt` file that the harness can consume:
+If the URLs arrive in an Excel sheet, convert them into a newline-delimited text file before running the suite.
+
+Install the optional spreadsheet helper dependency once:
+
+```bash
+python3 -m pip install -r testing/extraction-quality/requirements.txt
+```
+
+A common case in this repo is "URLs are in column E". This Python snippet extracts non-empty values from column `E`, skips a `url` header, deduplicates entries, and writes a `.txt` file that the harness can consume:
 
 ```bash
 python3 - <<'PY'
@@ -95,7 +103,7 @@ Then run:
 npm run extraction-quality:test -- --input /tmp/extraction-quality-input.txt
 ```
 
-If `openpyxl` is not available, I can still extract the URLs from `.xlsx` directly, but the supported harness input remains `.txt` or Markdown.
+The supported harness input remains `.txt` or Markdown, so the conversion step is still the handoff into the comparison suite.
 
 ## Output
 
