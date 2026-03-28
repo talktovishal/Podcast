@@ -48,5 +48,6 @@ fi
 npm install -g pnpm@9.15.4
 
 "$ROOT_DIR/scripts/azure/ensure-swap.sh"
+"$ROOT_DIR/scripts/azure/configure-journald.sh"
 
 echo "[bootstrap-vm] complete"

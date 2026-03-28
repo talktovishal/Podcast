@@ -128,6 +128,7 @@ TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure" \
 ```
 `push-to-vm.sh` excludes app-local `.env` files so VM runtime config only comes from `/etc/articlepod/articlepod.env`.
 It now also uses SSH keep-alive, SSH connect timeout, and rsync I/O timeout by default so stalled syncs fail fast instead of waiting indefinitely.
+The shared sync exclusion list also skips local-only artifacts such as `exports/`, `.worktrees/`, `.runtime/`, and test-report directories so they never consume VM staging/runtime disk.
 
 Optional timeout tuning:
 ```bash
@@ -149,6 +150,7 @@ sudo /home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh
 sudo STAGING_DIR="/home/azureuser/articlepod" \
   /home/azureuser/articlepod/scripts/azure/promote-runtime.sh
 ```
+Bootstrap now also installs a journald guard config (`SystemMaxUse`, `SystemKeepFree`, `MaxRetentionSec`) with Azure-safe defaults even before the first full runtime deploy.
 
 ## One-time runtime naming migration (existing VMs only)
 If the VM was previously deployed with legacy runtime names, run this once:
@@ -192,6 +194,14 @@ ANALYTICS_STORAGE_MODE="off"
 JOB_EVENT_STORAGE_MODE="off"
 DEMO_EXTRACTION_TRACE_ENABLED="0"
 ```
+Optional Azure VM disk-guard tuning:
+```bash
+LOG_RETENTION_DAYS="7"
+VM_JOURNAL_MAX_USE="200M"
+VM_JOURNAL_KEEP_FREE="1G"
+VM_JOURNAL_RETENTION="7day"
+VM_CLEANUP_MIN_FREE_MB="3072"
+```
 Defaults now include VM-safe runtime paths:
 - `STORAGE_ROOT=/var/lib/articlepod/storage`
 - `MEDIA_ROOT=/var/lib/articlepod/media`
@@ -214,12 +224,14 @@ Notes:
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
 - `deploy-vm-runtime.sh` bootstraps the auxiliary SQLite schema automatically when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
+- `deploy-vm-runtime.sh` now runs a root-owned disk cleanup pass before build/install work so staging junk, old journal data, and pressure-cleanable caches do not crowd out the deploy.
 - overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
 - enable overflow worker only when external overflow TTS is configured:
   - `sudo ENABLE_OVERFLOW_WORKER_SERVICE=1 /opt/articlepod/scripts/azure/install-systemd.sh`
   - `sudo systemctl restart articlepod-worker-overflow`
 - `promote-runtime.sh` preserves `services/python-tts/.venv` so model assets are not dropped on every code sync.
 - `promote-runtime.sh` preserves `.runtime/` and strips synced app-local `.env` files to avoid config/path drift across promotions.
+- `install-systemd.sh` now enables `articlepod-maintenance.timer`, which runs `/opt/articlepod/scripts/azure/cleanup-vm-disk.sh` every 6 hours to vacuum journald, prune staging-only artifacts, and pressure-clean caches.
 
 ## Configure ingress and TLS
 On VM:
@@ -295,6 +307,7 @@ ENABLE_OVERFLOW_WORKER_SERVICE="0" \
 AZURE_RESOURCE_GROUP="$RG" \
   ./scripts/azure/deploy-changes.sh --render-env --resource-group "$RG"
 ```
+`deploy-changes.sh` now performs a remote disk guard before sync and before promote/build. Default floors are `4096 MB` warn / `2048 MB` fail for incremental deploys, and `8192 MB` warn / `4096 MB` fail for `--full-deploy`. Override with `DEPLOY_WARN_FREE_MB`, `DEPLOY_FAIL_FREE_MB`, `--warn-free-mb`, or `--fail-free-mb` if you need different thresholds.
 
 ## GitHub Actions production deploy
 The `Deploy to Azure` workflow now assumes the same live topology as the VM:

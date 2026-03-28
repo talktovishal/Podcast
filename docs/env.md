@@ -163,7 +163,7 @@ Recommended low-cost Azure setting:
 
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `.runtime/logs` relative to repo root)
-- `LOG_RETENTION_DAYS` (default: `14`)
+- `LOG_RETENTION_DAYS` (default: `14`; Azure deploy helper now defaults VM envs to `7`)
 - `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)
 - `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
@@ -184,6 +184,12 @@ Cost-optimized Azure guidance:
 - Archive rotated logs to Blob if retention is needed after VM replacement.
 - Do not use Azure Table for verbose logs, request traces, or analytics firehose data.
 - Treat local SQLite in Azure Table primary mode as auxiliary state for low-signal/admin-only features, not as the primary durable store.
+- Azure VM disk guard defaults:
+  - `VM_JOURNAL_MAX_USE` (default: `200M`) caps systemd journal growth.
+  - `VM_JOURNAL_KEEP_FREE` (default: `1G`) asks journald to preserve root-disk headroom.
+  - `VM_JOURNAL_RETENTION` (default: `7day`) bounds journal retention by time.
+  - `VM_CLEANUP_MIN_FREE_MB` (default: `3072`) triggers pressure cleanup of caches and staging artifacts.
+  - `scripts/azure/cleanup-vm-disk.sh` is installed behind `articlepod-maintenance.timer` and runs every 6 hours, pruning staging-only artifacts (`exports/`, `.worktrees/`, test reports, stale env uploads), vacuuming journald, and escalating to cache cleanup when free space drops below the configured floor.
 
 ## Validation commands
 - `npm run check:env:simple`

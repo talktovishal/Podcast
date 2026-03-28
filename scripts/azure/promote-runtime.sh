@@ -9,6 +9,7 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/azure/runtime-naming.sh
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+SYNC_EXCLUDES_FILE="$ROOT_DIR/scripts/azure/sync-excludes.txt"
 
 STAGING_DIR="${STAGING_DIR:-$RUNTIME_STAGING_DIR}"
 APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
@@ -25,17 +26,14 @@ if ! id -u "$APP_USER" >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ ! -f "$SYNC_EXCLUDES_FILE" ]]; then
+  echo "Missing sync excludes file: $SYNC_EXCLUDES_FILE"
+  exit 1
+fi
+
 mkdir -p "$APP_DIR"
 rsync -az --delete \
-  --exclude '.runtime/' \
-  --exclude 'node_modules' \
-  --exclude 'services/python-tts/.venv' \
-  --exclude 'apps/web/.env' \
-  --exclude 'apps/web/.env.*' \
-  --exclude 'apps/worker/.env' \
-  --exclude 'apps/worker/.env.*' \
-  --exclude 'services/python-tts/.env' \
-  --exclude 'services/python-tts/.env.*' \
+  --exclude-from="$SYNC_EXCLUDES_FILE" \
   "$STAGING_DIR"/ "$APP_DIR"/
 
 # Runtime configuration comes from the managed env file path.

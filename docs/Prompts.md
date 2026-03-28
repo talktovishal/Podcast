@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-25)
+## Spec Status (as of 2026-03-28)
 
-### Implemented (as of 2026-03-25)
+### Implemented (as of 2026-03-28)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, and read-only share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -42,6 +42,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - systemd installer now reconciles stale `listenlater-*` unit files before enabling compatibility aliases.
   - Deploy helper health checks now retry by default, tolerate transient HTTP error responses during ingress/TLS handoff, and only use `:3000` fallback for direct IP targets.
   - Deploy helper now supports automated canonical-domain ingress/TLS reconciliation (`CANONICAL_HOST` + `HOST_ALIASES` + `LETSENCRYPT_EMAIL`) on each deploy.
+  - Deploy sync/runtime now share one exclusion list, so local exports/worktrees/test artifacts are never copied onto the VM staging/runtime paths.
+  - Deploy helper now enforces remote disk headroom before sync and before promote/build, with automatic safe cleanup plus a clear failure before the VM reaches zero free space.
+  - Azure VM bootstrap/runtime now install journald size/retention caps and a recurring maintenance timer that vacuums system logs, prunes staging artifacts, and pressure-cleans caches when free space gets tight.
   - nginx/TLS automation now enforces canonical-domain redirects (`www` -> apex) and SAN certificates for both hosts.
   - nginx ingress automation now applies idempotent `server_names_hash_*` fallback tuning in `nginx.conf` only when needed, preventing certbot duplicate-directive failures on reruns.
   - Canonical-domain GitHub deploy validation passed end-to-end on `2026-02-25` (`Deploy to Azure` run `22389243416`), including apex health, `www` redirects, TLS SAN coverage, and podcast contract checks.
@@ -50,6 +53,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - local structured JSONL logs with rotation
   - worker/python-tts correlation propagation
   - log triage and diagnostics collection scripts.
+  - Azure VM defaults now keep structured logs on local disk for 7 days, cap systemd journal size/time, and run recurring disk maintenance instead of relying on ad hoc manual cleanup.
 - Markdown artifact milestones (`M57`-`M64`) are implemented:
   - HTML/PDF extraction emits markdown outputs alongside narration text.
   - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + cleaned extracted `MARKDOWN`) with lifecycle metadata.

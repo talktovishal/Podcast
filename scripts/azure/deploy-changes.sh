@@ -27,6 +27,8 @@ Options:
   --health-url <value>   Health endpoint to verify after deploy
   --health-retries <n>   Health-check retry count (default: 15)
   --health-delay <secs>  Delay between health retries (default: 2)
+  --warn-free-mb <n>     Warn when remote free space stays below this floor after cleanup
+  --fail-free-mb <n>     Abort when remote free space stays below this floor after cleanup
   --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
   --render-env           Generate and upload runtime env file to VM before deploying
   --resource-group <rg>  Azure resource group used to auto-discover/provision Azure OpenAI when rendering env
@@ -46,15 +48,16 @@ Options:
 
 Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
-  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE,
-  CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES,
-  ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP
+  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_WARN_FREE_MB, DEPLOY_FAIL_FREE_MB, DEPLOY_FORCE_FULL,
+  DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE, CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL,
+  DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES, ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
   AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, TTS_WORKERS,
   METADATA_PRIMARY_BACKEND, METADATA_MIRROR_*, AZURE_TABLE_*, WORKER_OVERFLOW_*, OVERFLOW_PYTHON_TTS_*,
-  ADMIN_PASSWORD, DEMO_PASSWORD, DIGEST_SUMMARY_PROVIDER, AZURE_OPENAI_*
+  ADMIN_PASSWORD, DEMO_PASSWORD, DIGEST_SUMMARY_PROVIDER, AZURE_OPENAI_*, LOG_*,
+  ARTICLEPOD_CONSOLE_LOGS, PODCAST_REQUEST_LOGGING, VM_JOURNAL_*, VM_CLEANUP_MIN_FREE_MB
 EOF
 }
 
@@ -99,6 +102,8 @@ HEALTH_URL_EXPLICIT=0
 SKIP_HEALTHCHECK=0
 HEALTH_RETRIES="${HEALTH_RETRIES:-15}"
 HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
+DEPLOY_WARN_FREE_MB="${DEPLOY_WARN_FREE_MB:-}"
+DEPLOY_FAIL_FREE_MB="${DEPLOY_FAIL_FREE_MB:-}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_RENDER_ENV="${DEPLOY_RENDER_ENV:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
@@ -153,6 +158,124 @@ check_health_with_retries() {
   return 1
 }
 
+run_remote_disk_guard() {
+  local phase="$1"
+  local warn_mb="$2"
+  local fail_mb="$3"
+  local target_path_q
+  local app_dir_q
+  local phase_q
+  local remote_script
+
+  target_path_q="$(printf '%q' "$TARGET_PATH")"
+  app_dir_q="$(printf '%q' "$APP_DIR")"
+  phase_q="$(printf '%q' "$phase")"
+
+  remote_script=$(cat <<EOF
+set -euo pipefail
+TARGET_PATH=${target_path_q}
+APP_DIR=${app_dir_q}
+PHASE=${phase_q}
+WARN_MB=${warn_mb}
+FAIL_MB=${fail_mb}
+
+disk_probe_path() {
+  if [[ -e "\$APP_DIR" ]]; then
+    printf '%s' "\$APP_DIR"
+  elif [[ -e "\$TARGET_PATH" ]]; then
+    printf '%s' "\$TARGET_PATH"
+  else
+    printf '/'
+  fi
+}
+
+free_mb() {
+  df -Pm "\$(disk_probe_path)" | awk 'NR==2 {print \$4}'
+}
+
+cleanup_path() {
+  local path="\$1"
+  if [[ -e "\$path" ]]; then
+    sudo rm -rf "\$path"
+    echo "[deploy-changes] \${PHASE}: removed \$path"
+  fi
+}
+
+top_usage() {
+  echo "[deploy-changes] \${PHASE}: top disk usage summary"
+  sudo du -x -m -d 1 /opt /home /var 2>/dev/null | sort -n | tail -n 15 || true
+  if command -v journalctl >/dev/null 2>&1; then
+    sudo journalctl --disk-usage || true
+  fi
+}
+
+before_free="\$(free_mb)"
+echo "[deploy-changes] \${PHASE}: remote free space before cleanup \${before_free} MB"
+
+if command -v journalctl >/dev/null 2>&1; then
+  sudo journalctl --vacuum-time=7d --vacuum-size=200M >/dev/null 2>&1 || true
+fi
+
+cleanup_path "\$TARGET_PATH/exports"
+cleanup_path "\$TARGET_PATH/.worktrees"
+cleanup_path "\$TARGET_PATH/.runtime"
+cleanup_path "\$TARGET_PATH/.turbo"
+cleanup_path "\$TARGET_PATH/coverage"
+cleanup_path "\$TARGET_PATH/playwright-report"
+cleanup_path "\$TARGET_PATH/test-results"
+cleanup_path "\$TARGET_PATH/node_modules"
+cleanup_path "\$TARGET_PATH/.venv"
+cleanup_path "\$TARGET_PATH/services/python-tts/.venv"
+cleanup_path "\$TARGET_PATH/apps/web/.next"
+cleanup_path "\$APP_DIR/exports"
+cleanup_path "\$APP_DIR/.worktrees"
+cleanup_path "\$APP_DIR/.turbo"
+cleanup_path "\$APP_DIR/coverage"
+cleanup_path "\$APP_DIR/playwright-report"
+cleanup_path "\$APP_DIR/test-results"
+
+sudo find /tmp -maxdepth 1 -name 'articlepod-env-upload-*' -mtime +1 -print -exec rm -rf {} + 2>/dev/null || true
+
+after_basic="\$(free_mb)"
+if (( after_basic < WARN_MB )); then
+  echo "[deploy-changes] \${PHASE}: free space \${after_basic} MB below warning floor \${WARN_MB} MB; running pressure cleanup"
+  sudo apt-get clean >/dev/null 2>&1 || true
+  sudo rm -rf \
+    /home/azureuser/.cache/pip \
+    /home/articlepod/.cache/pip \
+    /root/.cache/pip \
+    /home/azureuser/.npm/_cacache \
+    /home/articlepod/.npm/_cacache \
+    /root/.npm/_cacache \
+    /home/azureuser/.local/share/pnpm/store \
+    /home/articlepod/.local/share/pnpm/store \
+    /root/.local/share/pnpm/store \
+    /home/azureuser/.pnpm-store \
+    /home/articlepod/.pnpm-store \
+    /root/.pnpm-store \
+    "\$APP_DIR/apps/web/.next/cache" \
+    || true
+fi
+
+after_cleanup="\$(free_mb)"
+echo "[deploy-changes] \${PHASE}: remote free space after cleanup \${after_cleanup} MB"
+
+if (( after_cleanup < FAIL_MB )); then
+  echo "[deploy-changes] \${PHASE}: insufficient free space (\${after_cleanup} MB < \${FAIL_MB} MB)"
+  top_usage
+  exit 1
+fi
+
+if (( after_cleanup < WARN_MB )); then
+  echo "[deploy-changes] \${PHASE}: warning - free space remains below \${WARN_MB} MB"
+  top_usage
+fi
+EOF
+)
+
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "$remote_script"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --host)
@@ -190,6 +313,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --health-delay)
       HEALTH_RETRY_DELAY="${2:-}"
+      shift 2
+      ;;
+    --warn-free-mb)
+      DEPLOY_WARN_FREE_MB="${2:-}"
+      shift 2
+      ;;
+    --fail-free-mb)
+      DEPLOY_FAIL_FREE_MB="${2:-}"
       shift 2
       ;;
     --full-deploy)
@@ -272,6 +403,37 @@ if ! [[ "$HEALTH_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
+if [[ -z "$DEPLOY_WARN_FREE_MB" ]]; then
+  if [[ "$DEPLOY_FORCE_FULL" == "1" ]]; then
+    DEPLOY_WARN_FREE_MB=8192
+  else
+    DEPLOY_WARN_FREE_MB=4096
+  fi
+fi
+
+if [[ -z "$DEPLOY_FAIL_FREE_MB" ]]; then
+  if [[ "$DEPLOY_FORCE_FULL" == "1" ]]; then
+    DEPLOY_FAIL_FREE_MB=4096
+  else
+    DEPLOY_FAIL_FREE_MB=2048
+  fi
+fi
+
+if ! [[ "$DEPLOY_WARN_FREE_MB" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_WARN_FREE_MB" -lt 1 ]]; then
+  echo "Invalid DEPLOY_WARN_FREE_MB: $DEPLOY_WARN_FREE_MB (expected positive integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_FAIL_FREE_MB" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_FAIL_FREE_MB" -lt 1 ]]; then
+  echo "Invalid DEPLOY_FAIL_FREE_MB: $DEPLOY_FAIL_FREE_MB (expected positive integer)"
+  exit 2
+fi
+
+if [[ "$DEPLOY_FAIL_FREE_MB" -gt "$DEPLOY_WARN_FREE_MB" ]]; then
+  echo "DEPLOY_FAIL_FREE_MB must be less than or equal to DEPLOY_WARN_FREE_MB"
+  exit 2
+fi
+
 if ! DEPLOY_CONFIGURE_INGRESS="$(parse_bool "$DEPLOY_CONFIGURE_INGRESS")"; then
   echo "Invalid DEPLOY_CONFIGURE_INGRESS: $DEPLOY_CONFIGURE_INGRESS (expected 1|0|true|false|yes|no)"
   exit 2
@@ -313,14 +475,6 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" && -n "${APP_URL:-}" && -n "$CANONICAL_HOST" ]
   fi
 fi
 
-echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"
-TARGET_HOST="$TARGET_HOST" \
-TARGET_USER="$TARGET_USER" \
-TARGET_PATH="$TARGET_PATH" \
-TARGET_SSH_KEY="$TARGET_SSH_KEY" \
-TARGET_PORT="$TARGET_PORT" \
-"$ROOT_DIR/scripts/azure/push-to-vm.sh"
-
 # SSH args: use -i for key, -p for port, no extra verify flags (handled by ~/.ssh/config)
 SSH_ARGS=()
 if [[ -n "$TARGET_SSH_KEY" ]]; then
@@ -336,6 +490,16 @@ fi
 SCP_ARGS+=(-P "$TARGET_PORT")
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
+
+run_remote_disk_guard "pre-sync" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
+
+echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"
+TARGET_HOST="$TARGET_HOST" \
+TARGET_USER="$TARGET_USER" \
+TARGET_PATH="$TARGET_PATH" \
+TARGET_SSH_KEY="$TARGET_SSH_KEY" \
+TARGET_PORT="$TARGET_PORT" \
+"$ROOT_DIR/scripts/azure/push-to-vm.sh"
 
 # --- Render and upload runtime env file if requested ---
 if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
@@ -357,6 +521,8 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
     "sudo mkdir -p '$RUNTIME_ENV_DIR' && sudo mv '$REMOTE_TEMP' '$RUNTIME_ENV_FILE' && sudo chown root:$RUNTIME_APP_GROUP '$RUNTIME_ENV_FILE' && sudo chmod 640 '$RUNTIME_ENV_FILE'"
   echo "[deploy-changes] uploaded env file to $RUNTIME_ENV_FILE"
 fi
+
+run_remote_disk_guard "pre-promote" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
 echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}, ingress=${DEPLOY_CONFIGURE_INGRESS}, overflow=${ENABLE_OVERFLOW_WORKER_SERVICE}"
@@ -383,7 +549,7 @@ if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
   sudo '$TARGET_PATH/scripts/azure/bootstrap-vm.sh'
 fi
 sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
-sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' ENABLE_OVERFLOW_WORKER_SERVICE='$ENABLE_OVERFLOW_WORKER_SERVICE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+sudo APP_DIR='$APP_DIR' STAGING_DIR='$TARGET_PATH' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' ENABLE_OVERFLOW_WORKER_SERVICE='$ENABLE_OVERFLOW_WORKER_SERVICE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
 ${REMOTE_INGRESS_SCRIPT}
 EOF
 )

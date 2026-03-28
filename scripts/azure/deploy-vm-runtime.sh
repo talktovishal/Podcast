@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 
 APP_DIR="${APP_DIR:-$RUNTIME_APP_DIR}"
+STAGING_DIR="${STAGING_DIR:-$RUNTIME_STAGING_DIR}"
 ENV_FILE="${ENV_FILE:-$RUNTIME_ENV_FILE}"
 APP_USER="${APP_USER:-$RUNTIME_APP_USER}"
 APP_GROUP="${APP_GROUP:-$APP_USER}"
@@ -347,6 +348,7 @@ fi
 remove_app_local_env_files
 ensure_runtime_dirs
 ensure_deploy_state_dir
+sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
 run_pnpm_install_if_needed
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run prisma:generate"
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run prisma:generate"

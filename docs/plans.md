@@ -39,6 +39,10 @@
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
   - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag lists, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+- Azure VM disk guardrails track (`M102`) is implemented:
+  - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
+  - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
+  - bootstrap/runtime now install journald caps plus a recurring maintenance timer that vacuums system logs, prunes staging junk, and pressure-cleans caches when free space falls below the configured floor.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -157,6 +161,7 @@
 | Reusable live-site regression harness and prod-probe runner | M99 |
 | Capture importance + tags metadata with Recent items filters | M100 |
 | Extraction-quality audit + bulk HTML regression harness | M101 |
+| Azure VM disk guardrails + recurring maintenance automation | M102 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -303,6 +308,7 @@ Milestone metadata contract:
 | M99 | Done | 2026-03-28 | 2026-03-24 | local validation + reusable live-site regression harness pass (2026-03-24) |
 | M100 | Done | 2026-03-31 | 2026-03-25 | local validation + importance/tags capture metadata pass (2026-03-25) |
 | M101 | Done | 2026-04-02 | 2026-03-25 | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25) |
+| M102 | Done | 2026-04-04 | 2026-03-28 | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -2961,6 +2967,44 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/extraction-quality typecheck`
   - `pnpm --filter @articlepod/extraction-quality test`
   - `npm run extraction-quality:audit`
+
+### M102 - Azure VM Disk Guardrails + Maintenance Automation
+- status: Done
+- target_finish: 2026-04-04
+- completed_on: 2026-03-28
+- evidence: local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28)
+- Scope:
+  - Stop syncing non-runtime local artifacts such as `exports/`, worktrees, and test report directories to the VM staging/runtime paths.
+  - Add remote disk-headroom checks before VM sync and before promote/build, with automatic safe cleanup and actionable failure output when free space stays below the configured floor.
+  - Install journald size/retention caps on Azure VMs and a recurring root-owned maintenance timer for journal vacuuming, staging cleanup, and pressure-based cache cleanup.
+  - Align Azure env/docs defaults so local structured logs age out after 7 days and operators can tune journald/disk thresholds without editing scripts.
+- Key files/modules:
+  - `scripts/azure/sync-excludes.txt`
+  - `scripts/azure/push-to-vm.sh`
+  - `scripts/azure/promote-runtime.sh`
+  - `scripts/azure/deploy-changes.sh`
+  - `scripts/azure/deploy-vm-runtime.sh`
+  - `scripts/azure/bootstrap-vm.sh`
+  - `scripts/azure/install-systemd.sh`
+  - `scripts/azure/configure-journald.sh`
+  - `scripts/azure/cleanup-vm-disk.sh`
+  - `infra/systemd/articlepod-maintenance.service`
+  - `infra/systemd/articlepod-maintenance.timer`
+  - `docs/Prompts.md`
+  - `docs/env.md`
+  - `docs/azure-ci-cd.md`
+  - `docs/azure-deploy.md`
+  - `scripts/azure/README.md`
+- Acceptance criteria:
+  - Deploy sync and runtime promotion exclude `exports/` and other non-runtime artifact directories from the VM.
+  - `deploy-changes.sh` fails before sync/promote when remote free space remains below the configured floor after safe cleanup, and prints enough context for operators to understand where disk is going.
+  - Bootstrap/runtime install journald caps and an enabled maintenance timer on the VM without requiring manual post-deploy steps.
+  - The maintenance routine vacuums systemd journal, prunes staging-only artifacts and stale env uploads, and escalates to cache cleanup only when free space drops below the configured threshold.
+  - Azure env examples/docs expose the log-retention and VM disk-guard variables with sensible low-cost defaults.
+- Verification commands:
+  - `bash -n scripts/azure/push-to-vm.sh scripts/azure/promote-runtime.sh scripts/azure/deploy-changes.sh scripts/azure/deploy-vm-runtime.sh scripts/azure/bootstrap-vm.sh scripts/azure/install-systemd.sh scripts/azure/render-env.sh scripts/azure/configure-journald.sh scripts/azure/cleanup-vm-disk.sh`
+  - `./scripts/azure/deploy-changes.sh --help`
+  - `TARGET_HOST=<vm-ip-or-fqdn> APP_URL=https://articlepod.com CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> ./scripts/azure/deploy-changes.sh --render-env --skip-healthcheck`
 
 ---
 

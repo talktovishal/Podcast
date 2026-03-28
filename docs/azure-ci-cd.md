@@ -93,12 +93,15 @@ The workflow performs:
 2. ✅ Validates `main` branch + required deploy settings
 3. ✅ Sets up SSH credentials for CI deploy access
 4. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
+   - shared exclusion list now skips local `exports/`, worktrees, `.runtime`, test reports, and other non-runtime artifacts
+   - remote disk guard runs before sync and auto-cleans safe junk before deciding whether there is enough headroom
 5. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
 6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
 7. ✅ Runs incremental runtime deploy on VM:
    - `pnpm install` only when `pnpm-lock.yaml` changed
    - python-tts setup only when requirements/assets changed
    - demo seed once by default (`auto` mode)
+   - recurring maintenance timer + journald caps are installed/updated during runtime setup
 8. ✅ Configures nginx ingress for canonical host + alias redirects
    - auto-tunes `server_names_hash_*` in `/etc/nginx/nginx.conf` only when nginx reports hash-size insufficiency
 9. ✅ Provisions/renews Let’s Encrypt certificates (SAN cert includes canonical + aliases)
@@ -215,15 +218,27 @@ After each deployment, check the workflow summary for:
   - If you changed dependencies, rerun workflow with **Force full runtime setup**
 
 #### "No space left on device" during python-tts setup
-- **Current behavior**: runtime deploy installs CPU-only torch wheels and disables pip cache to reduce disk usage.
+- **Current behavior**:
+  - deploy preflight now refuses to continue when free space stays below the configured floor after safe cleanup
+  - runtime deploy installs CPU-only torch wheels and disables pip cache to reduce disk usage
+  - VM maintenance timer vacuums journald, removes staging-only artifacts, and pressure-cleans caches every 6 hours
 - **If it still appears**:
   - SSH to VM and reclaim space:
     ```bash
     df -h
-    sudo apt-get clean
-    rm -rf ~/.cache/pip /home/articlepod/.cache/pip
+    sudo /opt/articlepod/scripts/azure/cleanup-vm-disk.sh
+    sudo journalctl --disk-usage
+    sudo systemctl status articlepod-maintenance.timer
     ```
   - Re-run deployment workflow.
+
+#### Remote disk guard thresholds
+- `deploy-changes.sh` warns below `4096 MB` free and fails below `2048 MB` by default.
+- `--full-deploy` raises the defaults to `8192 MB` warn / `4096 MB` fail.
+- Override when needed with:
+  - `DEPLOY_WARN_FREE_MB`
+  - `DEPLOY_FAIL_FREE_MB`
+  - or CLI flags `--warn-free-mb` / `--fail-free-mb`
 
 ## Manual Deployment (Local)
 

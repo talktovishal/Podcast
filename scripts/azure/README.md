@@ -48,12 +48,15 @@ Default deploy mode is incremental:
 - skips `pnpm install` when `pnpm-lock.yaml` is unchanged
 - skips python-tts package/model provisioning when requirements/assets are unchanged
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
+- refuses to sync/promote when remote free space stays below the configured floor after safe cleanup (`DEPLOY_WARN_FREE_MB`, `DEPLOY_FAIL_FREE_MB`)
 - retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)
 - treats transient HTTP error responses from the health endpoint as retryable probes in both deploy and TLS verification paths, so post-ingress `502` windows do not abort the deploy on the first curl failure
 - configures nginx + TLS on every deploy (`DEPLOY_CONFIGURE_INGRESS=1`)
 - auto-heals nginx `server_names_hash_*` sizing in `nginx.conf` only when needed
 - removes legacy managed hash-tuning snippets during ingress reconfigure to avoid duplicate directives
 - hardens VM sync with SSH keep-alive, SSH connect timeout, and rsync I/O timeout (`PUSH_TO_VM_SSH_*`, `PUSH_TO_VM_RSYNC_TIMEOUT`) to fail fast instead of hanging indefinitely
+- excludes non-runtime local artifacts (`exports/`, worktrees, `.runtime`, test reports) from VM sync/promotion
+- installs `articlepod-maintenance.timer`, which vacuums journald and prunes staging/cache artifacts every 6 hours
 - keeps overflow worker service disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`)
 
 Force a full runtime refresh:

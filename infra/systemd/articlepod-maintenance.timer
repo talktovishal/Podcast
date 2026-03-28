@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ArticlePod VM maintenance regularly
+
+[Timer]
+OnBootSec=15m
+OnUnitActiveSec=6h
+RandomizedDelaySec=5m
+Persistent=true
+Unit=articlepod-maintenance.service
+
+[Install]
+WantedBy=timers.target
