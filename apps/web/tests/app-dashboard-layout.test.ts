@@ -120,14 +120,21 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('aria-controls="submission-optional-details"'), true);
   assert.equal(source.includes('{showOptionalDetails ? "Hide" : "Show"}'), true);
   assert.equal(source.includes(">Optional<"), false);
+  assert.equal(source.includes("Importance:"), true);
+  assert.equal(source.includes("financial, personal, retirement"), true);
+  assert.equal(source.includes("Optional title"), false);
+  // Filters have been moved to the summaries page
+  assert.equal(source.includes("Filter by importance"), false);
+  assert.equal(source.includes("Filter by tag"), false);
+  assert.equal(source.includes("No recent items match the current importance or tag filters."), false);
+});
+
+test("summary studio client exposes importance and tag filters", () => {
+  const source = readFileSync(new URL("../src/components/summary-studio-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes("Filter by importance"), true);
   assert.equal(source.includes("Filter by tag"), true);
   assert.equal(source.includes("All importance levels"), true);
   assert.equal(source.includes("All tags"), true);
-  assert.equal(source.includes("Importance:"), true);
-  assert.equal(source.includes("financial, personal, retirement"), true);
-  assert.equal(source.includes("No recent items match the current importance or tag filters."), true);
-  assert.equal(source.includes("Optional title"), false);
 });
 
 test("dashboard client supports dedicated podcast and extension setup pages", () => {
