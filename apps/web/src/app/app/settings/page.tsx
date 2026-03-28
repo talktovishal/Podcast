@@ -6,16 +6,23 @@ import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
 import Link from "next/link";
 import { ensureUserDigestSettings, getAuthUserFromCookies } from "@/lib/auth";
-import { getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
-import { getRecentDigestRuns, getUserDemographicSurvey, getUserTtsSettings } from "@/lib/dashboard";
+import {
+  getBillingAccountSnapshot,
+  isBillingCheckoutConfigured,
+} from "@/lib/billing";
+import {
+  getRecentDigestRuns,
+  getUserDemographicSurvey,
+  getUserTtsSettings,
+} from "@/lib/dashboard";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: false }
+  robots: { index: false, follow: false },
 };
 
 export default async function AppSettingsPage({
-  searchParams
+  searchParams,
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
@@ -24,18 +31,26 @@ export default async function AppSettingsPage({
     redirect("/login");
   }
 
-  const [digestSettings, digestRuns, ttsSettings, ttsAvailability, demographicSurvey] = await Promise.all([
+  const [
+    digestSettings,
+    digestRuns,
+    ttsSettings,
+    ttsAvailability,
+    demographicSurvey,
+  ] = await Promise.all([
     ensureUserDigestSettings(user.id),
     getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
-    getUserDemographicSurvey(user.id)
+    getUserDemographicSurvey(user.id),
   ]);
   const billing = await getBillingAccountSnapshot(user.id);
-  const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
+  const billingSearchParam = Array.isArray(searchParams?.billing)
+    ? searchParams?.billing[0]
+    : searchParams?.billing;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
-    voice: ttsSettings.voice
+    voice: ttsSettings.voice,
   });
   const ttsCatalog = getTtsCatalog();
 
@@ -50,7 +65,10 @@ export default async function AppSettingsPage({
             </div>
             <div>
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">Manage your default voice, digest cadence, billing, and the rest of your account preferences.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Manage your default voice, digest cadence, billing, and the rest
+                of your account preferences.
+              </p>
             </div>
           </div>
         </header>
@@ -60,20 +78,25 @@ export default async function AppSettingsPage({
           settingsSections={["voice", "digest"]}
           feedUrl={null}
           isAdmin={user.role === "ADMIN"}
-          digestFeedUrl={null}
           initialDigestSettings={{
             timezone: digestSettings.timezone,
             dailyEmailEnabled: digestSettings.dailyEmailEnabled,
             dailyPodcastEnabled: digestSettings.dailyPodcastEnabled,
             dailyHour: digestSettings.dailyHour,
             dailyMinute: digestSettings.dailyMinute,
-            dailyLengthMinutes: digestSettings.dailyLengthMinutes as 5 | 15 | 30,
+            dailyLengthMinutes: digestSettings.dailyLengthMinutes as
+              | 5
+              | 15
+              | 30,
             weeklyEmailEnabled: digestSettings.weeklyEmailEnabled,
             weeklyPodcastEnabled: digestSettings.weeklyPodcastEnabled,
             weeklyDayOfWeek: digestSettings.weeklyDayOfWeek,
             weeklyHour: digestSettings.weeklyHour,
             weeklyMinute: digestSettings.weeklyMinute,
-            weeklyLengthMinutes: digestSettings.weeklyLengthMinutes as 5 | 15 | 30
+            weeklyLengthMinutes: digestSettings.weeklyLengthMinutes as
+              | 5
+              | 15
+              | 30,
           }}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
@@ -92,7 +115,6 @@ export default async function AppSettingsPage({
           settingsSections={["demographics", "digest-runs"]}
           feedUrl={null}
           isAdmin={user.role === "ADMIN"}
-          digestFeedUrl={null}
           initialDigestRuns={digestRuns.map((run) => ({
             id: run.id,
             cadence: run.cadence,
@@ -105,7 +127,7 @@ export default async function AppSettingsPage({
             emailEnabled: run.emailEnabled,
             emailStatus: run.emailStatus,
             podcastEnabled: run.podcastEnabled,
-            podcastStatus: run.podcastStatus
+            podcastStatus: run.podcastStatus,
           }))}
           initialDemographicSurvey={demographicSurvey}
           initialTtsSelection={normalizedSelection}
@@ -117,9 +139,15 @@ export default async function AppSettingsPage({
         {user.role === "ADMIN" ? (
           <section className="card p-4 sm:p-5">
             <h2 className="text-lg font-semibold">Admin</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">Open the admin dashboard for analytics, feedback triage, and operational tools.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Open the admin dashboard for analytics, feedback triage, and
+              operational tools.
+            </p>
             <div className="mt-3">
-              <Link className="inline-flex rounded-lg border px-3 py-2 text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50" href="/admin">
+              <Link
+                className="inline-flex rounded-lg border px-3 py-2 text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50"
+                href="/admin"
+              >
                 Open admin dashboard
               </Link>
             </div>

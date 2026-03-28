@@ -174,8 +174,6 @@ type Props = {
   feedUrl: string | null;
   feedUrlMessage?: string | null;
   isAdmin?: boolean;
-  digestFeedUrl?: string | null;
-  digestFeedUrlMessage?: string | null;
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
   initialDigestSettings?: DigestSettings;
@@ -234,8 +232,6 @@ export function DashboardClient({
   feedUrl,
   feedUrlMessage = null,
   isAdmin = false,
-  digestFeedUrl = "",
-  digestFeedUrlMessage = null,
   isDemoAccount = false,
   initialSubmissionQuota = null,
   initialDigestSettings = DEFAULT_DIGEST_SETTINGS,
@@ -281,7 +277,6 @@ export function DashboardClient({
   const isChromeExtensionView = viewMode === "chrome-extension";
   const showFeedSection = readOnly || isPodcastAppsView;
   const showSettingsSection = !readOnly && isSettingsView;
-  const showPodcastAppsSection = !readOnly && isPodcastAppsView;
   const showSubmissionSection = !readOnly && viewMode === "workspace";
   const showExtensionSection = !readOnly && isChromeExtensionView;
   const showItemsSection = viewMode === "workspace";
@@ -557,28 +552,6 @@ export function DashboardClient({
       window.location.reload();
     } finally {
       setIsBusy(false);
-    }
-  }
-
-  async function rotateDigestToken() {
-    setIsDigestBusy(true);
-    setStatusMessage(null);
-    try {
-      const response = await fetch("/api/digest-feed-token/rotate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ reason: "manual rotation" })
-      });
-      const json = await response.json();
-      if (!response.ok) {
-        setStatusMessage(json.error_message || "Digest token rotation failed.");
-        return;
-      }
-
-      setStatusMessage(`Digest feed token rotated. New URL: ${json.feed_url}`);
-      window.location.reload();
-    } finally {
-      setIsDigestBusy(false);
     }
   }
 
@@ -907,38 +880,6 @@ export function DashboardClient({
                 </button>
               ) : null}
             </div>
-
-            {showPodcastAppsSection ? (
-              <div className="rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-50/50 p-4">
-                <h3 className="text-sm font-semibold">Digest podcast feed</h3>
-                <p className="mt-1 text-sm text-[var(--muted)]">
-                  Use this separate feed for scheduled summaries and manual summary podcast episodes.
-                </p>
-                <div className="mt-3">
-                  {digestFeedUrl ? (
-                    <CopyableValueBox
-                      copiedMessage="Digest feed URL copied."
-                      idleMessage="Tap or click the box to copy your private digest feed URL."
-                      label="Digest feed URL"
-                      value={digestFeedUrl}
-                    />
-                  ) : (
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3">
-                      <p className="text-sm font-medium text-slate-900">Digest feed URL</p>
-                      <p className="mt-1 text-sm text-[var(--muted)]">
-                        {digestFeedUrlMessage ||
-                          "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace it in your podcast app."}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-                  <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateDigestToken} disabled={isDigestBusy}>
-                    Rotate digest token
-                  </button>
-                </div>
-              </div>
-            ) : null}
           </div>
         </section>
       ) : null}

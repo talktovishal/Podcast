@@ -332,7 +332,8 @@ E) Web UI (polished)
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
-  - private feed copy/open shortcuts, rotation, and digest feed access lead the page
+  - private feed copy/open shortcuts and rotation lead the page
+  - Apple Podcasts and YouTube Music shortcuts appear first, with app-first mobile handoff before browser fallback
   - quick start and walkthrough guidance sit below the live feed tools
 - `/app/chrome-extension`:
   - Chrome extension install + connect/revoke controls lead the page

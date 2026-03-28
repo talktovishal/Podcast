@@ -42,6 +42,15 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
   assert.equal(source.includes("Tap or click the box to copy your private feed URL."), true);
   assert.equal(source.includes("Feed URL copied."), true);
   assert.equal(source.includes("this legacy URL can no longer be shown here"), true);
+  assert.equal(source.includes("Featured apps"), true);
+  assert.equal(source.includes("Other podcast apps"), true);
+  assert.equal(source.includes("ApplePodcastsIcon"), true);
+  assert.equal(source.includes("YouTubeMusicIcon"), true);
+  assert.equal(source.includes("com.google.android.apps.youtube.music"), true);
+  assert.equal(source.includes("🎙 Apple Podcasts"), false);
+  assert.equal(source.includes("▶️ YouTube Music"), false);
+  assert.equal(source.indexOf('label: "Apple Podcasts"') < source.indexOf('label: "YouTube Music"'), true);
+  assert.equal(source.indexOf('label: "YouTube Music"') < source.indexOf('label: "Pocket Casts"'), true);
 });
 
 test("settings page exists and renders settings-only dashboard mode", () => {
@@ -72,6 +81,8 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(podcastPageSource.includes("App walkthroughs"), true);
   assert.equal(podcastPageSource.indexOf('viewMode="podcast-apps"') < podcastPageSource.indexOf("Quick start"), true);
   assert.equal(podcastPageSource.indexOf("Quick start") < podcastPageSource.indexOf("App walkthroughs"), true);
+  assert.equal(podcastPageSource.includes("ensureUserDigestFeedTokenAccess"), false);
+  assert.equal(podcastPageSource.includes("digestFeedUrl"), false);
   assert.equal(extensionPageSource.includes('viewMode="chrome-extension"'), true);
   assert.equal(extensionPageSource.includes("Chrome Extension"), true);
   assert.equal(extensionPageSource.includes("Quick start"), true);
@@ -109,11 +120,10 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('const [tagsInput, setTagsInput] = useState("");'), true);
   assert.equal(source.includes('const [showOptionalDetails, setShowOptionalDetails] = useState(false);'), true);
   assert.equal(source.includes('const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";'), true);
-  assert.equal(source.includes("window.localStorage.getItem(OPTIONAL_DETAILS_STORAGE_KEY)"), true);
-  assert.equal(
-    source.includes('window.localStorage.setItem(OPTIONAL_DETAILS_STORAGE_KEY, showOptionalDetails ? "expanded" : "collapsed")'),
-    true
-  );
+  assert.equal(source.includes("window.localStorage.getItem("), true);
+  assert.equal(source.includes("OPTIONAL_DETAILS_STORAGE_KEY"), true);
+  assert.equal(source.includes("window.localStorage.setItem("), true);
+  assert.equal(source.includes('showOptionalDetails ? "expanded" : "collapsed"'), true);
   assert.equal(source.includes("Optional details"), true);
   assert.equal(source.includes("Title, importance, and tags are optional."), true);
   assert.equal(source.includes('aria-controls="submission-optional-details"'), true);
@@ -146,18 +156,25 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
   assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
   assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined}'), true);
   assert.equal(source.includes("Podcast Apps"), true);
-  assert.equal(source.includes("manual summary podcast episodes"), true);
+  assert.equal(source.includes("Digest podcast feed"), false);
+  assert.equal(source.includes("manual summary podcast episodes"), false);
+  assert.equal(source.includes("/api/digest-feed-token/rotate"), false);
   assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
   assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
   assert.equal(source.includes("Open extension settings"), false);
   assert.equal(source.includes("const showFeedSection = readOnly || isPodcastAppsView;"), true);
   assert.equal(source.includes("const showExtensionSection = !readOnly && isChromeExtensionView;"), true);
-  assert.equal(source.includes('const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");'), true);
-  assert.equal(source.includes('const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");'), true);
+  assert.equal(source.includes("const showVoiceSettingsSection ="), true);
+  assert.equal(source.includes('requestedSettingsSections.has("voice")'), true);
+  assert.equal(source.includes("const showDigestSettingsSection ="), true);
+  assert.equal(source.includes('requestedSettingsSections.has("digest")'), true);
   assert.equal(source.includes("is valid for 24 hours"), true);
-  assert.equal(source.includes("If you do not use it in time, generate a new one."), true);
-  assert.equal(source.includes("Once you connect the extension, it stays authorized until you revoke it."), true);
-  assert.equal(source.includes("the code stops working and you must generate a new one"), true);
+  assert.equal(source.includes("If you do not use"), true);
+  assert.equal(source.includes("it in time, generate a new one."), true);
+  assert.equal(source.includes("Once you connect the extension, it"), true);
+  assert.equal(source.includes("stays authorized until you revoke it."), true);
+  assert.equal(source.includes("the code stops working and you must"), true);
+  assert.equal(source.includes("generate a new one."), true);
   assert.equal(source.includes("does not expire automatically"), true);
   assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
   assert.equal(source.includes("Extension connect code copied."), true);
@@ -201,8 +218,9 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('preload="metadata" src={previewAudioUrl}'), true);
-  assert.equal(source.includes('preload="metadata" src={mediaUrl}'), true);
+  assert.equal(source.includes('preload="metadata"'), true);
+  assert.equal(source.includes("src={previewAudioUrl}"), true);
+  assert.equal(source.includes("src={mediaUrl}"), true);
   assert.equal(source.includes("manage feed rotation only when you are ready to"), true);
   assert.equal(source.includes("Create workspace demo link"), true);
   assert.equal(source.includes("Share episode"), true);
