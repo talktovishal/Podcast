@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
+import { PodcastAppWalkthroughs } from "@/components/podcast-app-walkthroughs";
 import { ensureUserDigestFeedTokenAccess, ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
@@ -47,7 +48,7 @@ export default async function PodcastAppsPage() {
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Podcast Apps</h1>
-              <p className="text-sm text-[var(--muted)]">Copy your private feed, add it in Apple Podcasts or YouTube Music, and keep the live feed tools front and center.</p>
+              <p className="text-sm text-[var(--muted)]">Copy your private feed URL and add it to any RSS-capable podcast app — on iPhone, Android, or desktop.</p>
             </div>
           </div>
         </header>
@@ -65,21 +66,24 @@ export default async function PodcastAppsPage() {
           initialItems={[]}
         />
 
-        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Walkthroughs</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              This page now starts with the live feed controls, so the setup videos and app-specific screenshots can stay below as optional guidance instead of competing with the feed itself.
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-lg font-semibold">Quick start</h2>
+          <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+            <li>1. Copy your private feed URL using the box above.</li>
+            <li>2. Tap one of the app buttons to copy the URL and open the app at the same time.</li>
+            <li>3. Paste the URL inside the app&apos;s &ldquo;Add by URL&rdquo; or &ldquo;Add a Show by URL&rdquo; flow.</li>
+            <li>4. Only rotate the feed token when you are ready to re-add the new URL in every app where you subscribed — rotating invalidates the old URL immediately.</li>
+          </ol>
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">App walkthroughs</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Expand an app below for step-by-step instructions. Tap the app button first so your feed URL is already in your clipboard.
             </p>
           </div>
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Quick start</h2>
-            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>1. Copy your private feed URL above.</li>
-              <li>2. Open your podcast app and use its Add by URL flow.</li>
-              <li>3. Only rotate the feed token when you are ready to replace the subscription inside the podcast app.</li>
-            </ol>
-          </div>
+          <PodcastAppWalkthroughs />
         </section>
       </div>
     </main>
