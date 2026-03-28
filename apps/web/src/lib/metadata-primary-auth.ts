@@ -30,6 +30,16 @@ export type PrimaryFeedTokenRecord = {
   rotatedAt: Date | null;
 };
 
+export type PrimaryShareTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  tokenValue: string | null;
+  scope: string;
+  expiresAt: Date | null;
+  createdAt: Date;
+};
+
 function requirePrimaryStore() {
   if (!webPrimaryStore) {
     throw new Error("Azure Table primary store is not configured.");
@@ -511,6 +521,7 @@ export async function createPrimaryShareToken(input: {
   userId: string;
   tokenHash: string;
   tokenValue?: string | null;
+  scope?: string;
   expiresAt?: Date;
 }) {
   if (!webUsesAzureTablePrimary()) {
@@ -519,6 +530,7 @@ export async function createPrimaryShareToken(input: {
         userId: input.userId,
         tokenHash: input.tokenHash,
         tokenValue: input.tokenValue ?? null,
+        scope: input.scope ?? "read_only",
         expiresAt: input.expiresAt
       }
     });
@@ -529,8 +541,63 @@ export async function createPrimaryShareToken(input: {
     userId: input.userId,
     tokenHash: input.tokenHash,
     tokenValue: input.tokenValue ?? null,
+    scope: input.scope ?? "read_only",
     expiresAt: input.expiresAt
   });
+}
+
+export async function findPrimaryShareTokenById(id: string): Promise<PrimaryShareTokenRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findUnique({
+      where: { id }
+    });
+  }
+
+  return requirePrimaryStore().findShareTokenById(id);
+}
+
+export async function findPrimaryShareTokenByUserIdAndScope(
+  userId: string,
+  scope: string
+): Promise<PrimaryShareTokenRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findFirst({
+      where: { userId, scope },
+      orderBy: { createdAt: "asc" }
+    });
+  }
+
+  return requirePrimaryStore().findShareTokenByUserIdAndScope(userId, scope);
+}
+
+export async function listPrimaryShareTokensByUserIdAndScopePrefix(
+  userId: string,
+  scopePrefix: string
+): Promise<PrimaryShareTokenRecord[]> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findMany({
+      where: {
+        userId,
+        scope: {
+          startsWith: scopePrefix
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  return requirePrimaryStore().listShareTokensByUserIdAndScopePrefix(userId, scopePrefix);
+}
+
+export async function deletePrimaryShareTokensByUserIdAndScope(userId: string, scope: string): Promise<number> {
+  if (!webUsesAzureTablePrimary()) {
+    const result = await prisma.shareToken.deleteMany({
+      where: { userId, scope }
+    });
+    return result.count;
+  }
+
+  return requirePrimaryStore().deleteShareTokensByUserIdAndScope(userId, scope);
 }
 
 export async function findPrimaryUserByShareTokenHash(tokenHash: string): Promise<PrimaryAuthUserRecord | null> {

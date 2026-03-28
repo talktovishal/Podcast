@@ -1457,6 +1457,40 @@ export class AzureTablePrimaryStore {
     return entity ? this.toShareTokenRow(entity) : null;
   }
 
+  async findShareTokenById(id: string): Promise<AzureTablePrimaryShareTokenRow | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("shareTokens", "share", id);
+    return entity ? this.toShareTokenRow(entity) : null;
+  }
+
+  async findShareTokenByUserIdAndScope(userId: string, scope: string): Promise<AzureTablePrimaryShareTokenRow | null> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId), filterEquals("scope", scope))
+    );
+    const shareRows = rows.map((row) => this.toShareTokenRow(row)).sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+    return shareRows[0] ?? null;
+  }
+
+  async listShareTokensByUserIdAndScopePrefix(userId: string, scopePrefix: string): Promise<AzureTablePrimaryShareTokenRow[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId))
+    );
+    return rows
+      .map((row) => this.toShareTokenRow(row))
+      .filter((row) => row.scope.startsWith(scopePrefix))
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+  }
+
+  async deleteShareTokensByUserIdAndScope(userId: string, scope: string): Promise<number> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId), filterEquals("scope", scope))
+    );
+    await Promise.all(rows.map((row) => this.deleteEntity("shareTokens", "share", String(row.rowKey))));
+    return rows.length;
+  }
+
   async findOAuthIdentity(provider: string, providerUserId: string): Promise<AzureTablePrimaryOAuthIdentity | null> {
     const entity = await this.getEntity<Record<string, unknown>>(
       "oauthIdentities",

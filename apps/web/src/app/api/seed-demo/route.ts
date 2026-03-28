@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       errorCode: item.errorCode,
       errorMessage: item.errorMessage,
       createdAt: item.createdAt.toISOString(),
+      share: item.share,
       episode: item.episode
         ? {
             id: item.episode.id,

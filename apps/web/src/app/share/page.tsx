@@ -82,6 +82,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,
             createdAt: item.createdAt.toISOString(),
+            share: item.share,
             episode: item.episode
               ? {
                   id: item.episode.id,

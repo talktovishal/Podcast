@@ -6,6 +6,7 @@ const PUBLIC_PREFIXES: string[] = [
   "/api/auth/",
   "/api/health",
   "/api/media/",
+  "/api/share-media/",
   "/api/digest-media/",
   "/api/internal/",
   "/rss/",
@@ -22,6 +23,7 @@ const PUBLIC_PREFIXES: string[] = [
 const PUBLIC_EXACT: Set<string> = new Set([
   "/",
   "/login",
+  "/api/share/cta",
   "/api/items/html-snapshot",
   "/apple-icon.png",
   "/manifest.webmanifest",

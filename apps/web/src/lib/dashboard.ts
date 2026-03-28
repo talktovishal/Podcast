@@ -8,6 +8,7 @@ import { env } from "./env";
 import {
   findPrimaryActiveFeedTokenByUserId,
   findPrimaryDigestSettingsByUserId,
+  listPrimaryShareTokensByUserIdAndScopePrefix,
   findPrimaryUserByFeedTokenHash,
   findPrimaryUserById,
   findPrimaryUserDemographicSurvey,
@@ -15,6 +16,11 @@ import {
 } from "./metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
+import {
+  buildPublicEpisodeShareUrl,
+  parsePublicEpisodeShareItemId,
+  PUBLIC_EPISODE_SHARE_SCOPE_PREFIX
+} from "./share-links";
 
 const ADMIN_MAX_RETRY_ATTEMPTS = Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5);
 
@@ -37,6 +43,12 @@ type DashboardItemRecord = {
   textHash: string | null;
   createdAt: Date;
   updatedAt: Date;
+  share:
+    | {
+        shareId: string;
+        shareUrl: string;
+      }
+    | null;
   episode:
     | {
         id: string;
@@ -59,6 +71,19 @@ export async function getActiveFeedTokenForUser(userId: string): Promise<string 
 }
 
 export async function getDashboardItems(userId: string): Promise<DashboardItemRecord[]> {
+  const shares = await listPrimaryShareTokensByUserIdAndScopePrefix(userId, PUBLIC_EPISODE_SHARE_SCOPE_PREFIX);
+  const sharesByItemId = new Map<string, { shareId: string; shareUrl: string }>();
+  for (const share of shares) {
+    const itemId = parsePublicEpisodeShareItemId(share.scope);
+    if (!itemId || sharesByItemId.has(itemId)) {
+      continue;
+    }
+    sharesByItemId.set(itemId, {
+      shareId: share.id,
+      shareUrl: buildPublicEpisodeShareUrl(share)
+    });
+  }
+
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const [items, episodes] = await Promise.all([webPrimaryStore.listItemsByUser(userId, 50), webPrimaryStore.listEpisodesForUser(userId)]);
     const episodesByItemId = new Map(episodes.map((episode) => [episode.itemId, episode]));
@@ -79,6 +104,7 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
       textHash: item.textHash,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
+      share: sharesByItemId.get(item.id) ?? null,
       episode: episodesByItemId.get(item.id) ?? null
     }));
   }
@@ -109,6 +135,7 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
     textHash: item.textHash,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    share: sharesByItemId.get(item.id) ?? null,
     episode: item.episode
   }));
 }

@@ -4,7 +4,11 @@ export const analyticsEventTypes = [
   "ITEM_SUBMITTED",
   "ITEM_READY",
   "ITEM_FAILED",
-  "PLAYBACK_STARTED"
+  "PLAYBACK_STARTED",
+  "SHARE_LINK_CREATED",
+  "SHARE_PAGE_VIEWED",
+  "SHARE_PLAYBACK_STARTED",
+  "SHARE_CTA_CLICKED"
 ] as const;
 
 export type AnalyticsEventType = (typeof analyticsEventTypes)[number];

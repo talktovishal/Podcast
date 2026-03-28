@@ -12,7 +12,9 @@ import {
   createPrimaryExtensionConnectCode,
   createPrimaryExtensionToken,
   createPrimaryFeedToken,
+  deletePrimaryShareTokensByUserIdAndScope,
   type PrimaryFeedTokenRecord,
+  type PrimaryShareTokenRecord,
   createPrimarySession,
   createPrimaryShareToken,
   createPrimaryOAuthIdentity,
@@ -24,6 +26,7 @@ import {
   findPrimaryExtensionConnectCodeWithUserByHash,
   findPrimaryExtensionTokenWithUserByHash,
   findPrimaryOAuthIdentityWithUser,
+  findPrimaryShareTokenByUserIdAndScope,
   findPrimaryShareTokenWithUserByHash,
   findPrimarySessionWithUserByTokenHash,
   findPrimaryUserByEmail,
@@ -36,6 +39,7 @@ import {
   upsertPrimaryDigestSettings,
   consumePrimaryExtensionConnectCode
 } from "./metadata-primary-auth";
+import { buildPublicEpisodeShareScope, buildPublicEpisodeShareUrl, isExpiredShare } from "./share-links";
 
 const SESSION_COOKIE = AUTH_COOKIE_NAMES.session;
 const LEGACY_SESSION_COOKIE = AUTH_COOKIE_NAMES.legacySession;
@@ -386,6 +390,42 @@ export async function createShareToken(userId: string, expiresAt?: Date): Promis
   });
 
   return token.plain;
+}
+
+export async function ensurePublicEpisodeShareLink(
+  userId: string,
+  itemId: string
+): Promise<{ share: PrimaryShareTokenRecord; shareUrl: string; created: boolean }> {
+  const scope = buildPublicEpisodeShareScope(itemId);
+  const existing = await findPrimaryShareTokenByUserIdAndScope(userId, scope);
+  if (existing && !isExpiredShare(existing)) {
+    return {
+      share: existing,
+      shareUrl: buildPublicEpisodeShareUrl(existing),
+      created: false
+    };
+  }
+
+  if (existing) {
+    await deletePrimaryShareTokensByUserIdAndScope(userId, scope);
+  }
+
+  const token = createSecretToken();
+  const share = await createPrimaryShareToken({
+    userId,
+    tokenHash: token.hash,
+    scope
+  });
+
+  return {
+    share,
+    shareUrl: buildPublicEpisodeShareUrl(share),
+    created: true
+  };
+}
+
+export async function revokePublicEpisodeShareLink(userId: string, itemId: string): Promise<number> {
+  return deletePrimaryShareTokensByUserIdAndScope(userId, buildPublicEpisodeShareScope(itemId));
 }
 
 export async function getUserByShareToken(plain: string): Promise<AuthUser | null> {

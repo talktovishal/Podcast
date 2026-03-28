@@ -8,12 +8,14 @@ test("isPublicPathForAuth allows expected unauthenticated assets and pages", () 
   const allowed = [
     "/",
     "/login",
+    "/api/share/cta",
     "/api/items/html-snapshot",
     "/manifest.webmanifest",
     "/apple-icon.png",
     "/brand/brain-mark-192.png",
     "/rss/token",
-    "/api/media/items/demo/episode.mp3"
+    "/api/media/items/demo/episode.mp3",
+    "/api/share-media/items/demo/episode.mp3"
   ];
 
   for (const pathname of allowed) {

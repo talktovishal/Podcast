@@ -204,6 +204,11 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes('preload="metadata" src={previewAudioUrl}'), true);
   assert.equal(source.includes('preload="metadata" src={mediaUrl}'), true);
   assert.equal(source.includes("manage feed rotation only when you are ready to"), true);
+  assert.equal(source.includes("Create workspace demo link"), true);
+  assert.equal(source.includes("Share episode"), true);
+  assert.equal(source.includes("Copy share link"), true);
+  assert.equal(source.includes("Revoke share link"), true);
+  assert.equal(source.includes("Episode share URL copied to clipboard."), true);
 });
 
 test("login redirects admins directly to admin dashboard", () => {

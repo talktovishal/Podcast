@@ -29,6 +29,12 @@ type DashboardItem = {
   errorCode: string | null;
   errorMessage: string | null;
   createdAt: string;
+  share:
+    | {
+        shareId: string;
+        shareUrl: string;
+      }
+    | null;
   episode:
     | {
         id: string;
@@ -258,6 +264,7 @@ export function DashboardClient({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isDigestBusy, setIsDigestBusy] = useState(false);
+  const [shareBusyItemId, setShareBusyItemId] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
   const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
@@ -584,7 +591,62 @@ export function DashboardClient({
     }
 
     await navigator.clipboard.writeText(json.share_url);
-    setStatusMessage("Read-only share URL copied to clipboard.");
+    setStatusMessage("Workspace demo URL copied to clipboard.");
+  }
+
+  async function copyEpisodeShareLink(item: DashboardItem) {
+    setStatusMessage(null);
+    if (item.share?.shareUrl) {
+      await navigator.clipboard.writeText(item.share.shareUrl);
+      setStatusMessage("Episode share URL copied to clipboard.");
+      return;
+    }
+
+    setShareBusyItemId(item.id);
+    try {
+      const response = await fetch(`/api/share/episode/${item.id}`, { method: "POST" });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Failed to create episode share link.");
+        return;
+      }
+
+      setItems((previous) =>
+        previous.map((current) =>
+          current.id === item.id
+            ? {
+                ...current,
+                share: {
+                  shareId: json.share_id,
+                  shareUrl: json.share_url
+                }
+              }
+            : current
+        )
+      );
+      await navigator.clipboard.writeText(json.share_url);
+      setStatusMessage("Episode share URL copied to clipboard.");
+    } finally {
+      setShareBusyItemId(null);
+    }
+  }
+
+  async function revokeEpisodeShareLink(itemId: string) {
+    setStatusMessage(null);
+    setShareBusyItemId(itemId);
+    try {
+      const response = await fetch(`/api/share/episode/${itemId}`, { method: "DELETE" });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Failed to revoke episode share link.");
+        return;
+      }
+
+      setItems((previous) => previous.map((current) => (current.id === itemId ? { ...current, share: null } : current)));
+      setStatusMessage("Episode share link revoked.");
+    } finally {
+      setShareBusyItemId(null);
+    }
   }
 
   async function generateExtensionConnectCode() {
@@ -841,7 +903,7 @@ export function DashboardClient({
               ) : null}
               {!readOnly ? (
                 <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
-                  Create read-only link
+                  Create workspace demo link
                 </button>
               ) : null}
             </div>
@@ -1493,6 +1555,24 @@ export function DashboardClient({
                       {showRetry ? (
                         <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
                           Retry
+                        </button>
+                      ) : null}
+                      {item.episode ? (
+                        <button
+                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                          disabled={shareBusyItemId === item.id}
+                          onClick={() => copyEpisodeShareLink(item)}
+                        >
+                          {item.share ? "Copy share link" : "Share episode"}
+                        </button>
+                      ) : null}
+                      {item.share ? (
+                        <button
+                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                          disabled={shareBusyItemId === item.id}
+                          onClick={() => revokeEpisodeShareLink(item.id)}
+                        >
+                          Revoke share link
                         </button>
                       ) : null}
                       <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
