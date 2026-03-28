@@ -220,6 +220,8 @@ test("shared episode page renders branded playback with noindex metadata", async
     assert.match(html, /Download audio/);
     assert.match(html, /Create account/);
     assert.match(html, /Open original source/);
+    assert.match(html, /This link only shares this episode\./);
+    assert.doesNotMatch(html, /intentionally lightweight/);
     assert.doesNotMatch(html, /Private Owner/);
     assert.doesNotMatch(html, new RegExp(user.email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 

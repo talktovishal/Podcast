@@ -231,7 +231,9 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("Share episode"), true);
   assert.equal(source.includes("Copy share link"), true);
   assert.equal(source.includes("Revoke share link"), true);
-  assert.equal(source.includes("Episode share URL copied to clipboard."), true);
+  assert.equal(source.includes("Share link copied."), true);
+  assert.equal(source.includes("Share link revoked."), true);
+  assert.equal(source.includes("Creating share link..."), true);
 });
 
 test("login redirects admins directly to admin dashboard", () => {

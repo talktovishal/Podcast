@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CopyableValueBox } from "@/components/copyable-value-box";
+import { copyText } from "@/lib/copy-text";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import { FeedUrlActions } from "@/components/feed-url-actions";
 import {
@@ -135,6 +136,15 @@ const CHROME_WEB_STORE_URL = "https://chromewebstore.google.com/detail/articlepo
 const ACTIVE_REFRESH_INTERVAL_MS = 3000;
 const IDLE_REFRESH_INTERVAL_MS = 20000;
 const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";
+const INLINE_ACTION_FEEDBACK_RESET_MS = 2500;
+
+type ShareActionFeedback =
+  | {
+      itemId: string;
+      kind: "copied" | "revoked" | "error";
+      message: string;
+    }
+  | null;
 
 function defaultTimezone(): string {
   try {
@@ -260,7 +270,8 @@ export function DashboardClient({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isDigestBusy, setIsDigestBusy] = useState(false);
-  const [shareBusyItemId, setShareBusyItemId] = useState<string | null>(null);
+  const [shareBusyState, setShareBusyState] = useState<{ itemId: string; action: "create" | "revoke" } | null>(null);
+  const [shareActionFeedback, setShareActionFeedback] = useState<ShareActionFeedback>(null);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
   const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
@@ -272,6 +283,7 @@ export function DashboardClient({
   const [extensionCodeExpiresAt, setExtensionCodeExpiresAt] = useState<string | null>(null);
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const shareActionFeedbackTimerRef = useRef<number | null>(null);
   const isSettingsView = viewMode === "settings";
   const isPodcastAppsView = viewMode === "podcast-apps";
   const isChromeExtensionView = viewMode === "chrome-extension";
@@ -332,6 +344,34 @@ export function DashboardClient({
       // Ignore storage access issues and keep the in-memory preference only.
     }
   }, [hasLoadedOptionalDetailsPreference, showOptionalDetails]);
+
+  useEffect(() => {
+    return () => {
+      if (shareActionFeedbackTimerRef.current !== null) {
+        window.clearTimeout(shareActionFeedbackTimerRef.current);
+      }
+    };
+  }, []);
+
+  const showShareActionFeedback = useCallback((feedback: Exclude<ShareActionFeedback, null>) => {
+    if (shareActionFeedbackTimerRef.current !== null) {
+      window.clearTimeout(shareActionFeedbackTimerRef.current);
+      shareActionFeedbackTimerRef.current = null;
+    }
+
+    setShareActionFeedback(feedback);
+    shareActionFeedbackTimerRef.current = window.setTimeout(() => {
+      setShareActionFeedback((current) =>
+        current &&
+        current.itemId === feedback.itemId &&
+        current.kind === feedback.kind &&
+        current.message === feedback.message
+          ? null
+          : current
+      );
+      shareActionFeedbackTimerRef.current = null;
+    }, INLINE_ACTION_FEEDBACK_RESET_MS);
+  }, []);
 
   const refreshItems = useCallback(async () => {
     const response = await fetch(`/api/seed-demo?refresh=items&t=${Date.now()}`, {
@@ -563,24 +603,40 @@ export function DashboardClient({
       return;
     }
 
-    await navigator.clipboard.writeText(json.share_url);
-    setStatusMessage("Workspace demo URL copied to clipboard.");
+    const copied = await copyText(json.share_url);
+    setStatusMessage(copied ? "Workspace demo URL copied." : "Workspace demo link is ready, but we could not copy it automatically.");
   }
 
   async function copyEpisodeShareLink(item: DashboardItem) {
     setStatusMessage(null);
     if (item.share?.shareUrl) {
-      await navigator.clipboard.writeText(item.share.shareUrl);
-      setStatusMessage("Episode share URL copied to clipboard.");
+      const copied = await copyText(item.share.shareUrl);
+      showShareActionFeedback(
+        copied
+          ? {
+              itemId: item.id,
+              kind: "copied",
+              message: "Share link copied."
+            }
+          : {
+              itemId: item.id,
+              kind: "error",
+              message: "Could not copy automatically. Try Copy share link again."
+            }
+      );
       return;
     }
 
-    setShareBusyItemId(item.id);
+    setShareBusyState({ itemId: item.id, action: "create" });
     try {
       const response = await fetch(`/api/share/episode/${item.id}`, { method: "POST" });
       const json = await response.json();
       if (!response.ok) {
-        setStatusMessage(json.error_message || "Failed to create episode share link.");
+        showShareActionFeedback({
+          itemId: item.id,
+          kind: "error",
+          message: json.error_message || "Failed to create episode share link."
+        });
         return;
       }
 
@@ -597,28 +653,48 @@ export function DashboardClient({
             : current
         )
       );
-      await navigator.clipboard.writeText(json.share_url);
-      setStatusMessage("Episode share URL copied to clipboard.");
+      const copied = await copyText(json.share_url);
+      showShareActionFeedback(
+        copied
+          ? {
+              itemId: item.id,
+              kind: "copied",
+              message: "Share link copied."
+            }
+          : {
+              itemId: item.id,
+              kind: "error",
+              message: "Share link created. Tap Copy share link again if you still need it."
+            }
+      );
     } finally {
-      setShareBusyItemId(null);
+      setShareBusyState(null);
     }
   }
 
   async function revokeEpisodeShareLink(itemId: string) {
     setStatusMessage(null);
-    setShareBusyItemId(itemId);
+    setShareBusyState({ itemId, action: "revoke" });
     try {
       const response = await fetch(`/api/share/episode/${itemId}`, { method: "DELETE" });
       const json = await response.json();
       if (!response.ok) {
-        setStatusMessage(json.error_message || "Failed to revoke episode share link.");
+        showShareActionFeedback({
+          itemId,
+          kind: "error",
+          message: json.error_message || "Failed to revoke episode share link."
+        });
         return;
       }
 
       setItems((previous) => previous.map((current) => (current.id === itemId ? { ...current, share: null } : current)));
-      setStatusMessage("Episode share link revoked.");
+      showShareActionFeedback({
+        itemId,
+        kind: "revoked",
+        message: "Share link revoked."
+      });
     } finally {
-      setShareBusyItemId(null);
+      setShareBusyState(null);
     }
   }
 
@@ -1429,6 +1505,12 @@ export function DashboardClient({
                 : null;
               const helpText = statusHelpText(item.status, item.errorMessage);
               const showRetry = statusText === "FAILED" && !recommendsChromeExtensionCapture(item.errorMessage);
+              const shareFeedback = shareActionFeedback?.itemId === item.id ? shareActionFeedback : null;
+              const isShareBusy = shareBusyState?.itemId === item.id;
+              const isCreatingShare = isShareBusy && shareBusyState?.action === "create";
+              const isRevokingShare = isShareBusy && shareBusyState?.action === "revoke";
+              const shareCopied = shareFeedback?.kind === "copied";
+              const shareFeedbackClassName = shareFeedback?.kind === "error" ? "text-[var(--danger)]" : "text-emerald-700";
 
               return (
                 <article key={item.id} className="rounded-xl border p-3 sm:p-4">
@@ -1484,41 +1566,101 @@ export function DashboardClient({
                   ) : null}
 
                   {!readOnly ? (
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:gap-2">
-                      {isAdmin ? (
-                        <button
-                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
-                          onClick={() => viewMarkdown(item.id, item.title)}
-                        >
-                          View markdown
+                    <div className="mt-3">
+                      <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2">
+                        {isAdmin ? (
+                          <button
+                            className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                            onClick={() => viewMarkdown(item.id, item.title)}
+                          >
+                            View markdown
+                          </button>
+                        ) : null}
+                        {showRetry ? (
+                          <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
+                            Retry
+                          </button>
+                        ) : null}
+                        {item.episode ? (
+                          <button
+                            className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition sm:w-auto ${
+                              shareCopied
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                : "text-[var(--ink)] hover:border-slate-300 hover:bg-white"
+                            }`}
+                            disabled={isShareBusy}
+                            onClick={() => copyEpisodeShareLink(item)}
+                          >
+                            {shareCopied ? (
+                              <>
+                                <svg
+                                  aria-hidden="true"
+                                  className="h-3.5 w-3.5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path d="M5 12.5 9.5 17 19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Copied
+                              </>
+                            ) : isCreatingShare ? (
+                              "Creating share link..."
+                            ) : item.share ? (
+                              "Copy share link"
+                            ) : (
+                              "Share episode"
+                            )}
+                          </button>
+                        ) : null}
+                        {item.share ? (
+                          <button
+                            className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
+                            disabled={isShareBusy}
+                            onClick={() => revokeEpisodeShareLink(item.id)}
+                          >
+                            {isRevokingShare ? "Revoking..." : "Revoke share link"}
+                          </button>
+                        ) : null}
+                        <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
+                          Delete
                         </button>
+                      </div>
+                      {shareFeedback ? (
+                        <p aria-live="polite" className={`mt-2 flex items-center gap-1.5 text-xs ${shareFeedbackClassName}`}>
+                          {shareFeedback.kind === "error" ? (
+                            <svg
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 8v5" strokeLinecap="round" strokeLinejoin="round" />
+                              <path d="M12 16h.01" strokeLinecap="round" strokeLinejoin="round" />
+                              <path
+                                d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          ) : (
+                            <svg
+                              aria-hidden="true"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M5 12.5 9.5 17 19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                          <span>{shareFeedback.message}</span>
+                        </p>
                       ) : null}
-                      {showRetry ? (
-                        <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => retryItem(item.id)}>
-                          Retry
-                        </button>
-                      ) : null}
-                      {item.episode ? (
-                        <button
-                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
-                          disabled={shareBusyItemId === item.id}
-                          onClick={() => copyEpisodeShareLink(item)}
-                        >
-                          {item.share ? "Copy share link" : "Share episode"}
-                        </button>
-                      ) : null}
-                      {item.share ? (
-                        <button
-                          className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto"
-                          disabled={shareBusyItemId === item.id}
-                          onClick={() => revokeEpisodeShareLink(item.id)}
-                        >
-                          Revoke share link
-                        </button>
-                      ) : null}
-                      <button className="w-full rounded-lg border px-3 py-2 text-xs sm:w-auto" onClick={() => deleteItem(item.id)}>
-                        Delete
-                      </button>
                     </div>
                   ) : null}
                 </article>

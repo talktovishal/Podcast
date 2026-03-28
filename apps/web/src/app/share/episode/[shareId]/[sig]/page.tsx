@@ -52,8 +52,8 @@ export async function generateMetadata({
   const shareUrl = buildPublicEpisodeShareUrl(context.share);
   const description =
     context.item.sourceUrl && (context.item.sourceType === "URL" || context.item.sourceType === "HTML_SNAPSHOT")
-      ? `Listen to this shared ArticlePod episode and jump back to the original source when you want the full context.`
-      : "Listen to this shared ArticlePod episode and create your own account to build a private podcast feed.";
+      ? "Listen to this shared ArticlePod episode, then jump back to the original source whenever you want the full context."
+      : "Listen to this shared ArticlePod episode and preview how ArticlePod turns reading into a private podcast workflow.";
 
   return {
     title: `${context.episode.title} | Shared Episode`,
@@ -149,7 +149,7 @@ export default async function SharedEpisodePage({
             </p>
             <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">{context.episode.title}</h1>
             <p className="max-w-2xl text-sm text-[var(--muted)] sm:text-base">
-              Listen here, download the audio, and create your own private ArticlePod feed when you&apos;re ready.
+              Listen here, download the audio, and start your own private ArticlePod feed when you&apos;re ready.
             </p>
           </div>
 
@@ -174,21 +174,21 @@ export default async function SharedEpisodePage({
 
           <div className="grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
             <article className="space-y-2">
-              <h2 className="text-lg font-semibold">Why listen on ArticlePod?</h2>
+              <h2 className="text-lg font-semibold">Why ArticlePod?</h2>
               <p className="text-sm text-[var(--muted)]">
-                Turn articles, PDFs, and captures from the Chrome extension into instant episodes, then keep building a private feed you
-                can take into your podcast app.
+                Turn articles, PDFs, and browser captures into podcast-ready episodes, then keep everything in one private feed you can
+                open in your podcast app.
               </p>
               <p className="text-sm text-[var(--muted)]">
-                The public share page is intentionally lightweight: playback first, context second, and a clear path to start your own
-                account when this clicks for you.
+                This link only shares this episode. The owner&apos;s private feed stays private, and the share can be revoked at any time.
               </p>
             </article>
 
             <aside className="rounded-2xl border border-[#d7e8e3] bg-[#f8fcfb] p-4">
               <h2 className="text-lg font-semibold">Start your own feed</h2>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                Save a URL, generate an episode, and keep everything in one private ArticlePod feed.
+                Save a URL or PDF, generate an episode, and keep everything in one private feed that works with the podcast app you
+                already use.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <a className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href={loginCta}>
