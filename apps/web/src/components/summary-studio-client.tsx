@@ -95,19 +95,21 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
     return Array.from(new Set(items.flatMap((item) => item.tags))).sort((left, right) => left.localeCompare(right));
   }, [items]);
 
-  const filteredItems = items.filter((item) => {
-    if (selectedImportanceFilter !== "ALL" && item.importance !== selectedImportanceFilter) {
-      return false;
-    }
-    if (selectedTagFilter !== "ALL" && !item.tags.includes(selectedTagFilter)) {
-      return false;
-    }
-    const query = search.trim().toLowerCase();
-    if (!query) {
-      return true;
-    }
-    return [item.title || "", item.sourceUrl || "", item.sourceType].some((value) => value.toLowerCase().includes(query));
-  });
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      if (selectedImportanceFilter !== "ALL" && item.importance !== selectedImportanceFilter) {
+        return false;
+      }
+      if (selectedTagFilter !== "ALL" && !item.tags.includes(selectedTagFilter)) {
+        return false;
+      }
+      const query = search.trim().toLowerCase();
+      if (!query) {
+        return true;
+      }
+      return [item.title || "", item.sourceUrl || "", item.sourceType].some((value) => value.toLowerCase().includes(query));
+    });
+  }, [items, selectedImportanceFilter, selectedTagFilter, search]);
 
   async function refreshItems(): Promise<void> {
     const response = await fetch(`/api/summary/items?limit=200`);
@@ -334,9 +336,11 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
             </div>
 
             <div className="space-y-2 rounded-xl border p-3">
-              {filteredItems.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">No ready saved articles matched your search or filters.</p>
-              ) : (
+                {items.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">No ready saved articles are available yet.</p>
+                ) : filteredItems.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">No articles match the current search or filters.</p>
+                ) : (
                 filteredItems.map((item) => {
                   const checked = selectedItemIds.includes(item.id);
                   return (

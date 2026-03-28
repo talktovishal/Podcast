@@ -8,6 +8,7 @@ const DEFAULT_SUMMARY_ITEM_LIMIT = 200;
 const DEFAULT_SUMMARY_RUN_LIMIT = 20;
 const DEFAULT_SELECTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_DEFAULT_SELECTION_COUNT = 30;
+const DEFAULT_ITEM_PRIORITY = "LOW";
 
 export type SelectableSummaryItem = {
   id: string;
@@ -111,7 +112,7 @@ export async function listSelectableSummaryItems(
         title: item.title,
         sourceType: item.sourceType,
         sourceUrl: item.sourceUrl,
-        importance: item.priority ?? "LOW",
+        importance: item.priority ?? DEFAULT_ITEM_PRIORITY,
         tags: item.tags ?? [],
         createdAt: item.createdAt
       }))
@@ -158,7 +159,7 @@ export async function listSelectableSummaryItems(
       title: item.title,
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
-      importance: item.priority ?? "LOW",
+      importance: item.priority ?? DEFAULT_ITEM_PRIORITY,
       tags: parseStoredItemTags(item.tagsJson),
       createdAt: item.createdAt
     }));
