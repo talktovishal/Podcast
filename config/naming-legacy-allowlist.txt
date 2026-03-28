@@ -12,6 +12,7 @@ packages/core/src/config/naming.ts
 infra/systemd/articlepod-python-tts.service
 infra/systemd/articlepod-web.service
 infra/systemd/articlepod-worker.service
+scripts/azure/deploy-changes.sh
 scripts/azure/migrate-runtime-naming.sh
 scripts/azure/runtime-naming.sh
 scripts/naming/check.mjs

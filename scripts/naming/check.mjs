@@ -1,5 +1,5 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, dirname, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -39,25 +39,44 @@ const allowlist = new Set(
     .filter((line) => line && !line.startsWith("#"))
 );
 
-const SKIP_DIRS = new Set([".git", "node_modules", ".runtime", "dist"]);
+const SKIP_DIRS = new Set([
+  ".data",
+  ".git",
+  ".next",
+  "node_modules",
+  ".runtime",
+  ".venv",
+  ".turbo",
+  ".worktrees",
+  "coverage",
+  "dist",
+  "exports",
+  "playwright-report",
+  "test-results"
+]);
 const LEGACY_PATTERN = /(listenlater|@listenlater\/)/;
+const ENV_FILE_PATTERN = /^\.env(\..+)?$/;
 
-function* walkFiles(dir) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) {
-      continue;
-    }
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      yield* walkFiles(fullPath);
-    } else if (entry.isFile()) {
-      yield fullPath;
-    }
+function shouldSkipPath(path) {
+  const segments = path.split("/");
+  if (segments.some((segment) => SKIP_DIRS.has(segment))) {
+    return true;
   }
+
+  return ENV_FILE_PATTERN.test(basename(path));
+}
+
+function listFiles() {
+  return run("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])
+    .split("\0")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .filter((value) => !shouldSkipPath(value))
+    .map((value) => resolve(repoRoot, value));
 }
 
 const violations = [];
-for (const filePath of walkFiles(repoRoot)) {
+for (const filePath of listFiles()) {
   const normalized = relative(repoRoot, filePath);
   if (allowlist.has(normalized)) {
     continue;
