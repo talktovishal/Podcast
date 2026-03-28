@@ -1,7 +1,8 @@
-import { verifyMediaUrl, verifyStableMediaUrl } from "@articlepod/core";
+import { verifyStableMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { contentTypeForPath, parseRangeHeader, validateLegacyMediaToken } from "@/lib/media-utils";
 import { findPrimaryActiveFeedTokenByUserId } from "@/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
@@ -9,58 +10,6 @@ import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 
 const DIGEST_MEDIA_ROUTE = "/api/digest-media/[...path]";
-
-function contentTypeForPath(path: string): string {
-  if (path.endsWith(".mp3")) {
-    return "audio/mpeg";
-  }
-  if (path.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  return "audio/mp4";
-}
-
-function validateLegacyMediaToken(path: string, token: string | null): boolean {
-  if (!token) {
-    return false;
-  }
-  if (!env.mediaSigningKey) {
-    return token.length > 0;
-  }
-  const result = verifyMediaUrl(path, token, env.mediaSigningKey);
-  return result.valid;
-}
-
-function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-  if (!match) {
-    return null;
-  }
-
-  const startPart = match[1];
-  const endPart = match[2];
-
-  if (!startPart && !endPart) {
-    return null;
-  }
-
-  if (!startPart) {
-    const suffixLength = Number(endPart);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-      return null;
-    }
-    const start = suffixLength >= size ? 0 : size - suffixLength;
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(startPart);
-  const end = endPart ? Number(endPart) : size - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
-    return null;
-  }
-
-  return { start, end: Math.min(end, size - 1) };
-}
 
 async function resolveScopedEpisode(
   path: string,
@@ -143,6 +92,20 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const rawKey = context.params.path.join("/");
+  if (rawKey.includes("..")) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request rejected", {
+        ...requestMeta,
+        route: DIGEST_MEDIA_ROUTE,
+        status: 400,
+        media_kind: "digest",
+        reason: "path_traversal",
+        duration_ms: Date.now() - startedAt
+      });
+    }
+    return new NextResponse(null, { status: 400 });
+  }
+
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
   const summaryEpisodeId = request.nextUrl.searchParams.get("seid");
@@ -177,19 +140,6 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
     return new NextResponse(null, { status: 401 });
   }
 
-  if (rawKey.includes("..")) {
-    if (env.podcastRequestLoggingEnabled) {
-      await logger.warn("Podcast media request rejected", {
-        ...requestMeta,
-        route: DIGEST_MEDIA_ROUTE,
-        status: 400,
-        media_kind: "digest",
-        reason: "path_traversal",
-        duration_ms: Date.now() - startedAt
-      });
-    }
-    return new NextResponse(null, { status: 400 });
-  }
   const key = rawKey;
 
   try {
@@ -241,6 +191,20 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
   const rawKey = context.params.path.join("/");
+  if (rawKey.includes("..")) {
+    if (env.podcastRequestLoggingEnabled) {
+      await logger.warn("Podcast media request rejected", {
+        ...requestMeta,
+        route: DIGEST_MEDIA_ROUTE,
+        status: 400,
+        media_kind: "digest",
+        reason: "path_traversal",
+        duration_ms: Date.now() - startedAt
+      });
+    }
+    return new NextResponse("Bad Request", { status: 400 });
+  }
+
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const digestEpisodeId = request.nextUrl.searchParams.get("deid");
   const summaryEpisodeId = request.nextUrl.searchParams.get("seid");
@@ -276,19 +240,6 @@ export async function GET(request: NextRequest, context: { params: { path: strin
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  if (rawKey.includes("..")) {
-    if (env.podcastRequestLoggingEnabled) {
-      await logger.warn("Podcast media request rejected", {
-        ...requestMeta,
-        route: DIGEST_MEDIA_ROUTE,
-        status: 400,
-        media_kind: "digest",
-        reason: "path_traversal",
-        duration_ms: Date.now() - startedAt
-      });
-    }
-    return new NextResponse("Bad Request", { status: 400 });
-  }
   const key = rawKey;
 
   try {

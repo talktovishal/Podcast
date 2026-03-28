@@ -25,3 +25,11 @@ export interface ObjectStorage {
   headObject(key: string): Promise<StoredObjectHead>;
   deleteObject(key: string): Promise<void>;
 }
+
+export function normalizeStorageKey(key: string): string {
+  return key.replace(/^\/+/, "").replace(/\\/g, "/");
+}
+
+export function isLikelyLegacyAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
+}

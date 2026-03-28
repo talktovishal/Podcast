@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { AnalyticsSourceType } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
+import { contentTypeForPath, parseRangeHeader } from "@/lib/media-utils";
 import { getArtifactStorage } from "@/lib/storage";
 import {
   getPublicEpisodeShareContextById,
@@ -10,48 +11,8 @@ import {
 
 const SHARE_MEDIA_ROUTE = "/api/share-media/[...path]";
 
-function contentTypeForPath(path: string): string {
-  if (path.endsWith(".mp3")) {
-    return "audio/mpeg";
-  }
-  if (path.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  return "audio/mp4";
-}
-
 function normalizeSourceType(sourceType: string): AnalyticsSourceType | null {
   return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT" ? sourceType : null;
-}
-
-function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-  if (!match) {
-    return null;
-  }
-
-  const startPart = match[1];
-  const endPart = match[2];
-  if (!startPart && !endPart) {
-    return null;
-  }
-
-  if (!startPart) {
-    const suffixLength = Number(endPart);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-      return null;
-    }
-    const start = suffixLength >= size ? 0 : size - suffixLength;
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(startPart);
-  const end = endPart ? Number(endPart) : size - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
-    return null;
-  }
-
-  return { start, end: Math.min(end, size - 1) };
 }
 
 function attachmentDisposition(path: string): string {

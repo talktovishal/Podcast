@@ -16,5 +16,5 @@ if (process.env.NODE_ENV !== "production") {
 // Enable WAL journal mode for SQLite to reduce lock contention between the
 // Next.js web process and the worker process sharing the same database file.
 if (env.databaseUrl.startsWith("file:")) {
-  void prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL");
+  void prisma.$executeRaw`PRAGMA journal_mode=WAL`;
 }

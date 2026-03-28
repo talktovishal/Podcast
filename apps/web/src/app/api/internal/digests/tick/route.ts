@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { digestSchedulerTickSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
@@ -13,6 +13,15 @@ function bearerToken(request: NextRequest): string | null {
   }
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || null;
+}
+
+function constantTimeEquals(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  if (aBuf.length !== bBuf.length) {
+    return false;
+  }
+  return timingSafeEqual(aBuf, bBuf);
 }
 
 export async function POST(request: NextRequest) {
@@ -30,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const token = bearerToken(request);
-    if (!token || token !== configuredSecret) {
+    if (!token || !constantTimeEquals(token, configuredSecret)) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 

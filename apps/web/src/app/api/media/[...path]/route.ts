@@ -1,9 +1,10 @@
-import { hashIncomingToken, verifyMediaUrl, verifyStableMediaUrl } from "@articlepod/core";
+import { hashIncomingToken, verifyStableMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
+import { contentTypeForPath, parseRangeHeader, validateLegacyMediaToken } from "@/lib/media-utils";
 import { findPrimaryActiveFeedTokenByUserId, findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
@@ -11,28 +12,6 @@ import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 
 const MEDIA_ROUTE = "/api/media/[...path]";
-
-function contentTypeForPath(path: string): string {
-  if (path.endsWith(".mp3")) {
-    return "audio/mpeg";
-  }
-  if (path.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  return "audio/mp4";
-}
-
-function validateLegacyMediaToken(path: string, token: string | null): boolean {
-  if (!token) {
-    return false;
-  }
-  // In simple profile mediaSigningKey may be empty; accept any non-empty token as fallback
-  if (!env.mediaSigningKey) {
-    return token.length > 0;
-  }
-  const result = verifyMediaUrl(path, token, env.mediaSigningKey);
-  return result.valid;
-}
 
 async function resolveEpisodeAccess(path: string, episodeId: string | null): Promise<{ id: string; userId: string } | null> {
   if (!episodeId) {
@@ -125,37 +104,6 @@ async function validateLegacyFeedTokenForPath(path: string, feedToken: string | 
         });
 
   return Boolean(episode);
-}
-
-function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-  if (!match) {
-    return null;
-  }
-
-  const startPart = match[1];
-  const endPart = match[2];
-
-  if (!startPart && !endPart) {
-    return null;
-  }
-
-  if (!startPart) {
-    const suffixLength = Number(endPart);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-      return null;
-    }
-    const start = suffixLength >= size ? 0 : size - suffixLength;
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(startPart);
-  const end = endPart ? Number(endPart) : size - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
-    return null;
-  }
-
-  return { start, end: Math.min(end, size - 1) };
 }
 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
