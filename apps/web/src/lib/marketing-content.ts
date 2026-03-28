@@ -25,6 +25,11 @@ export const marketingCopy = {
   heroChips: ["Instant article podcasts", "Daily + weekly digest episodes", "Companion reading email"],
   heroSecondary:
     "As your library grows, unlock monthly and yearly trend recaps grounded in your own source articles.",
+  securityBullets: [
+    "Sign-in via Google, Facebook, or Apple — sessions stay server-side in secure cookies.",
+    "Chrome extension connects with a one-time code and a scoped token that never sees your feed URL.",
+    "Your podcast feed is never exposed directly — episode audio uses signed, per-episode redirects."
+  ] as const,
   ctaPrimary: "Start your knowledge feed",
   ctaSecondary: "Open app"
 } as const;

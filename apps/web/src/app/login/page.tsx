@@ -151,6 +151,18 @@ export default function LoginPage() {
               ))}
             </div>
             <p className="text-sm text-[var(--muted)]">{marketingCopy.heroSecondary}</p>
+
+            <div className="space-y-2 pt-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">Security</p>
+              <ul className="space-y-1">
+                {marketingCopy.securityBullets.map((bullet) => (
+                  <li key={bullet} className="flex items-start gap-2 text-sm text-[var(--muted)]">
+                    <span aria-hidden="true" className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-[#4d7b72]" />
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </section>
 
           <section className="card border-[#cde5df] p-4 sm:p-6">
