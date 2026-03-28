@@ -144,6 +144,11 @@ test("summary studio client exposes importance and tag filters", () => {
   assert.equal(source.includes("Filter by tag"), true);
   assert.equal(source.includes("All importance levels"), true);
   assert.equal(source.includes("All tags"), true);
+  assert.equal(source.includes("default 7-day selection"), false);
+  assert.equal(source.includes("HTML_SNAPSHOT"), false);
+  assert.equal(source.includes("Create podcast episode too"), false);
+  assert.equal(source.includes("Podcast Publish"), true);
+  assert.equal(source.includes("Also publish as podcast"), true);
 });
 
 test("dashboard client supports dedicated podcast and extension setup pages", () => {

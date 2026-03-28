@@ -108,7 +108,8 @@
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
   - private GitHub mirror support is env-gated and excludes submitter email from mirrored issue bodies.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
-  - manual `/app/summary` workflow supports explicit article selection, default last-7-days preselection, length presets, and optional podcast creation.
+  - manual `/app/summary` workflow supports explicit article selection, title-first saved-article cards, default last-7-days preselection, length presets, and optional podcast creation.
+  - summary setup now keeps the podcast publish control in a lower secondary section so the primary desktop/mobile layout stays focused on article selection and markdown options.
   - summary runs persist markdown/audio artifacts separately from scheduled digest runs while reusing the existing digest feed/media surface.
   - Azure OpenAI is now a first-class summary provider in deploy/runtime automation with nano-first routing and mini fallback.
 - Feed stability + extension lifetime UX track (`M92`) is implemented:

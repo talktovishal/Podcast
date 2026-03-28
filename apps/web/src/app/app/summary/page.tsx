@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { SummaryStudioClient } from "@/components/summary-studio-client";
 import { getAuthUserFromCookies } from "@/lib/auth";
-import { listSelectableSummaryItems, listSummaryRunsForUser } from "@/lib/summaries";
+import {
+  listSelectableSummaryItems,
+  listSummaryRunsForUser,
+} from "@/lib/summaries";
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: false }
+  robots: { index: false, follow: false },
 };
 
 export default async function SummaryStudioPage() {
@@ -15,7 +18,10 @@ export default async function SummaryStudioPage() {
     redirect("/login");
   }
 
-  const [items, runs] = await Promise.all([listSelectableSummaryItems(user.id), listSummaryRunsForUser(user.id, 20)]);
+  const [items, runs] = await Promise.all([
+    listSelectableSummaryItems(user.id),
+    listSummaryRunsForUser(user.id, 20),
+  ]);
 
   return (
     <main className="py-5 sm:py-8">
@@ -23,12 +29,17 @@ export default async function SummaryStudioPage() {
         <header className="card p-4 sm:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <p className="text-sm text-[var(--muted)]">Manual editorial workspace</p>
+              <p className="text-sm text-[var(--muted)]">
+                Manual editorial workspace
+              </p>
               <AppShellNav current="summary" />
             </div>
             <div>
               <h1 className="font-bold text-2xl">Summaries</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">Build curated summary episodes from ready items, refine the markdown, and publish them into the digest feed.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Build curated markdown roundups from ready items and optionally
+                turn them into audio when you need it.
+              </p>
             </div>
           </div>
         </header>
@@ -36,7 +47,7 @@ export default async function SummaryStudioPage() {
         <SummaryStudioClient
           initialItems={items.map((item) => ({
             ...item,
-            createdAt: item.createdAt.toISOString()
+            createdAt: item.createdAt.toISOString(),
           }))}
           initialRuns={runs.map((run) => ({
             id: run.id,
@@ -55,7 +66,7 @@ export default async function SummaryStudioPage() {
             errorCode: run.errorCode,
             errorMessage: run.errorMessage,
             completedAt: run.completedAt ? run.completedAt.toISOString() : null,
-            createdAt: run.createdAt.toISOString()
+            createdAt: run.createdAt.toISOString(),
           }))}
         />
       </div>

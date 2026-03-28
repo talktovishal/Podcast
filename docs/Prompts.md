@@ -147,7 +147,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
   - `/app` Recent items now renders saved importance plus tag chips, while `/app/summary` article selection includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
-  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
+  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, title-first article cards, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
+  - podcast publish controls are kept below the primary summary setup so the main desktop/mobile composition stays focused on selection and markdown options first.
   - manual summary runs persist polished markdown artifacts plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - existing digest RSS/media pipeline now also publishes manual summary episodes on the private digest feed.
