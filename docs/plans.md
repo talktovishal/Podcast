@@ -42,7 +42,7 @@
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
-  - bootstrap/runtime now install journald caps plus a recurring maintenance timer that vacuums system logs, prunes staging junk, and pressure-cleans caches when free space falls below the configured floor.
+  - bootstrap/runtime now install journald caps plus a recurring maintenance timer that vacuums system logs, prunes staging junk, pressure-cleans caches, and removes stale legacy `listenlater` runtime trees once they are no longer referenced.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -2976,7 +2976,7 @@ Milestone metadata contract:
 - Scope:
   - Stop syncing non-runtime local artifacts such as `exports/`, worktrees, and test report directories to the VM staging/runtime paths.
   - Add remote disk-headroom checks before VM sync and before promote/build, with automatic safe cleanup and actionable failure output when free space stays below the configured floor.
-  - Install journald size/retention caps on Azure VMs and a recurring root-owned maintenance timer for journal vacuuming, staging cleanup, and pressure-based cache cleanup.
+  - Install journald size/retention caps on Azure VMs and a recurring root-owned maintenance timer for journal vacuuming, staging cleanup, pressure-based cache cleanup, and safe pruning of unused legacy runtime trees.
   - Align Azure env/docs defaults so local structured logs age out after 7 days and operators can tune journald/disk thresholds without editing scripts.
 - Key files/modules:
   - `scripts/azure/sync-excludes.txt`

@@ -96,6 +96,36 @@ clean_runtime_non_artifacts() {
   remove_if_present "$APP_DIR/test-results"
 }
 
+legacy_runtime_in_use() {
+  local service
+
+  for service in \
+    "$(legacy_runtime_service_name web)" \
+    "$(legacy_runtime_service_name worker)" \
+    "$(legacy_runtime_service_name python-tts)"; do
+    if systemctl cat "$service" 2>/dev/null | grep -Fq "$LEGACY_RUNTIME_APP_DIR"; then
+      return 0
+    fi
+  done
+
+  if command -v pgrep >/dev/null 2>&1 && pgrep -af -- "$LEGACY_RUNTIME_APP_DIR" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
+}
+
+clean_legacy_runtime_dirs() {
+  if legacy_runtime_in_use; then
+    echo "[cleanup-vm-disk] keeping legacy runtime paths because they still appear in active configuration"
+    return
+  fi
+
+  remove_if_present "$LEGACY_RUNTIME_APP_DIR"
+  remove_if_present "/home/$LEGACY_RUNTIME_APP_USER"
+  remove_if_present "$LEGACY_RUNTIME_STAGING_DIR"
+}
+
 clean_temp_uploads() {
   find /tmp -maxdepth 1 -name 'articlepod-env-upload-*' -mtime +1 -print -exec rm -rf {} + 2>/dev/null || true
 }
@@ -154,6 +184,7 @@ echo "[cleanup-vm-disk] free space before cleanup: ${FREE_BEFORE} MB"
 vacuum_journal
 clean_staging_artifacts
 clean_runtime_non_artifacts
+clean_legacy_runtime_dirs
 clean_temp_uploads
 clean_app_log_archives
 

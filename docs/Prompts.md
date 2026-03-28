@@ -44,7 +44,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Deploy helper now supports automated canonical-domain ingress/TLS reconciliation (`CANONICAL_HOST` + `HOST_ALIASES` + `LETSENCRYPT_EMAIL`) on each deploy.
   - Deploy sync/runtime now share one exclusion list, so local exports/worktrees/test artifacts are never copied onto the VM staging/runtime paths.
   - Deploy helper now enforces remote disk headroom before sync and before promote/build, with automatic safe cleanup plus a clear failure before the VM reaches zero free space.
-  - Azure VM bootstrap/runtime now install journald size/retention caps and a recurring maintenance timer that vacuums system logs, prunes staging artifacts, and pressure-cleans caches when free space gets tight.
+  - Azure VM bootstrap/runtime now install journald size/retention caps and a recurring maintenance timer that vacuums system logs, prunes staging artifacts, pressure-cleans caches when free space gets tight, and removes stale legacy `listenlater` runtime trees once they are no longer referenced.
   - nginx/TLS automation now enforces canonical-domain redirects (`www` -> apex) and SAN certificates for both hosts.
   - nginx ingress automation now applies idempotent `server_names_hash_*` fallback tuning in `nginx.conf` only when needed, preventing certbot duplicate-directive failures on reruns.
   - Canonical-domain GitHub deploy validation passed end-to-end on `2026-02-25` (`Deploy to Azure` run `22389243416`), including apex health, `www` redirects, TLS SAN coverage, and podcast contract checks.

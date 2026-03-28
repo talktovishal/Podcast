@@ -209,6 +209,21 @@ top_usage() {
   fi
 }
 
+legacy_runtime_in_use() {
+  local service
+  for service in listenlater-web.service listenlater-worker.service listenlater-python-tts.service; do
+    if systemctl cat "\$service" 2>/dev/null | grep -Fq /opt/listenlater; then
+      return 0
+    fi
+  done
+
+  if command -v pgrep >/dev/null 2>&1 && pgrep -af -- /opt/listenlater >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
+}
+
 before_free="\$(free_mb)"
 echo "[deploy-changes] \${PHASE}: remote free space before cleanup \${before_free} MB"
 
@@ -233,6 +248,12 @@ cleanup_path "\$APP_DIR/.turbo"
 cleanup_path "\$APP_DIR/coverage"
 cleanup_path "\$APP_DIR/playwright-report"
 cleanup_path "\$APP_DIR/test-results"
+
+if ! legacy_runtime_in_use; then
+  cleanup_path /opt/listenlater
+  cleanup_path /home/listenlater
+  cleanup_path /home/azureuser/listenlater
+fi
 
 sudo find /tmp -maxdepth 1 -name 'articlepod-env-upload-*' -mtime +1 -print -exec rm -rf {} + 2>/dev/null || true
 
