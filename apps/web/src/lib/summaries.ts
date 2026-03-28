@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { AppError, errorCodes, type CreateSummaryRunInput } from "@articlepod/core";
+import { AppError, errorCodes, parseStoredItemTags, type CreateSummaryRunInput } from "@articlepod/core";
 import { prisma } from "./prisma";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { getArtifactStorage } from "./storage";
@@ -14,6 +14,8 @@ export type SelectableSummaryItem = {
   title: string | null;
   sourceType: string;
   sourceUrl: string | null;
+  importance: string;
+  tags: string[];
   createdAt: Date;
   defaultSelected: boolean;
 };
@@ -109,6 +111,8 @@ export async function listSelectableSummaryItems(
         title: item.title,
         sourceType: item.sourceType,
         sourceUrl: item.sourceUrl,
+        importance: item.priority ?? "LOW",
+        tags: item.tags ?? [],
         createdAt: item.createdAt
       }))
       .filter((item) => {
@@ -154,6 +158,8 @@ export async function listSelectableSummaryItems(
       title: item.title,
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
+      importance: item.priority ?? "LOW",
+      tags: parseStoredItemTags(item.tagsJson),
       createdAt: item.createdAt
     }));
 

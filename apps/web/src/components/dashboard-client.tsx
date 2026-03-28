@@ -278,7 +278,6 @@ export function DashboardClient({
   const showSubmissionSection = !readOnly && viewMode === "workspace";
   const showExtensionSection = !readOnly && isChromeExtensionView;
   const showItemsSection = viewMode === "workspace";
-  const showItemFilters = !readOnly && viewMode === "workspace";
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
   const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
@@ -291,22 +290,6 @@ export function DashboardClient({
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
   }, [items]);
-  const [selectedImportanceFilter, setSelectedImportanceFilter] = useState<"ALL" | ItemImportance>("ALL");
-  const [selectedTagFilter, setSelectedTagFilter] = useState("ALL");
-  const availableTagFilters = useMemo(() => {
-    return Array.from(new Set(items.flatMap((item) => item.tags))).sort((left, right) => left.localeCompare(right));
-  }, [items]);
-  const filteredItems = useMemo(() => {
-    return newestFirst.filter((item) => {
-      if (selectedImportanceFilter !== "ALL" && item.importance !== selectedImportanceFilter) {
-        return false;
-      }
-      if (selectedTagFilter !== "ALL" && !item.tags.includes(selectedTagFilter)) {
-        return false;
-      }
-      return true;
-    });
-  }, [newestFirst, selectedImportanceFilter, selectedTagFilter]);
   const inProgressCount = useMemo(() => newestFirst.filter((item) => isPendingStatus(item.status)).length, [newestFirst]);
   const ttsVoicesForProvider = useMemo(() => {
     return ttsCatalog.voicesByProvider.kokoro || [];
@@ -323,12 +306,6 @@ export function DashboardClient({
       setTtsVoice(fallback);
     }
   }, [ttsCatalog.defaults.voiceByProvider, ttsVoice, ttsVoicesForProvider]);
-
-  useEffect(() => {
-    if (selectedTagFilter !== "ALL" && !availableTagFilters.includes(selectedTagFilter)) {
-      setSelectedTagFilter("ALL");
-    }
-  }, [availableTagFilters, selectedTagFilter]);
 
   useEffect(() => {
     try {
@@ -1436,48 +1413,12 @@ export function DashboardClient({
             </div>
           </div>
 
-          {showItemFilters ? (
-            <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/70 p-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Filter by importance</span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={selectedImportanceFilter}
-                  onChange={(event) => setSelectedImportanceFilter(event.target.value as "ALL" | ItemImportance)}
-                >
-                  <option value="ALL">All importance levels</option>
-                  <option value="HIGH">High</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LOW">Low</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">Filter by tag</span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={selectedTagFilter}
-                  onChange={(event) => setSelectedTagFilter(event.target.value)}
-                >
-                  <option value="ALL">All tags</option>
-                  {availableTagFilters.map((tag) => (
-                    <option key={tag} value={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : null}
-
           <div className="space-y-3">
             {newestFirst.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">No items yet. Submit a URL or upload a PDF.</p>
-            ) : filteredItems.length === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No recent items match the current importance or tag filters.</p>
             ) : null}
 
-            {filteredItems.map((item) => {
+            {newestFirst.map((item) => {
               const badgeClass = item.status.toLowerCase();
               const statusText = item.status.toUpperCase();
               const mediaUrl = item.episode

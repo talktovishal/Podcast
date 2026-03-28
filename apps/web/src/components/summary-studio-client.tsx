@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type ItemImportance = "LOW" | "MEDIUM" | "HIGH";
 
 type SummaryStudioItem = {
   id: string;
   title: string | null;
   sourceType: string;
   sourceUrl: string | null;
+  importance: string;
+  tags: string[];
   createdAt: string;
   defaultSelected: boolean;
 };
@@ -85,7 +89,19 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
   const [markdownPreview, setMarkdownPreview] = useState<{ title: string; markdown: string } | null>(null);
   const [isMarkdownLoading, setIsMarkdownLoading] = useState(false);
 
+  const [selectedImportanceFilter, setSelectedImportanceFilter] = useState<"ALL" | ItemImportance>("ALL");
+  const [selectedTagFilter, setSelectedTagFilter] = useState("ALL");
+  const availableTagFilters = useMemo(() => {
+    return Array.from(new Set(items.flatMap((item) => item.tags))).sort((left, right) => left.localeCompare(right));
+  }, [items]);
+
   const filteredItems = items.filter((item) => {
+    if (selectedImportanceFilter !== "ALL" && item.importance !== selectedImportanceFilter) {
+      return false;
+    }
+    if (selectedTagFilter !== "ALL" && !item.tags.includes(selectedTagFilter)) {
+      return false;
+    }
     const query = search.trim().toLowerCase();
     if (!query) {
       return true;
@@ -110,6 +126,12 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
     }
     setRuns(Array.isArray(payload.runs) ? payload.runs : []);
   }
+
+  useEffect(() => {
+    if (selectedTagFilter !== "ALL" && !availableTagFilters.includes(selectedTagFilter)) {
+      setSelectedTagFilter("ALL");
+    }
+  }, [availableTagFilters, selectedTagFilter]);
 
   useEffect(() => {
     if (selectedRunId) {
@@ -279,9 +301,41 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
               />
             </label>
 
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/70 p-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Filter by importance</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={selectedImportanceFilter}
+                  onChange={(event) => setSelectedImportanceFilter(event.target.value as "ALL" | ItemImportance)}
+                >
+                  <option value="ALL">All importance levels</option>
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Filter by tag</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  value={selectedTagFilter}
+                  onChange={(event) => setSelectedTagFilter(event.target.value)}
+                >
+                  <option value="ALL">All tags</option>
+                  {availableTagFilters.map((tag) => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <div className="space-y-2 rounded-xl border p-3">
               {filteredItems.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">No ready saved articles matched your search.</p>
+                <p className="text-sm text-[var(--muted)]">No ready saved articles matched your search or filters.</p>
               ) : (
                 filteredItems.map((item) => {
                   const checked = selectedItemIds.includes(item.id);
