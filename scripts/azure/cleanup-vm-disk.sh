@@ -108,7 +108,7 @@ legacy_runtime_in_use() {
     fi
   done
 
-  if command -v pgrep >/dev/null 2>&1 && pgrep -af -- "$LEGACY_RUNTIME_APP_DIR" >/dev/null 2>&1; then
+  if find /proc/[0-9]*/cwd -lname "${LEGACY_RUNTIME_APP_DIR}*" -print -quit 2>/dev/null | grep -q .; then
     return 0
   fi
 

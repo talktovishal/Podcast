@@ -217,7 +217,7 @@ legacy_runtime_in_use() {
     fi
   done
 
-  if command -v pgrep >/dev/null 2>&1 && pgrep -af -- /opt/listenlater >/dev/null 2>&1; then
+  if find /proc/[0-9]*/cwd -lname '/opt/listenlater*' -print -quit 2>/dev/null | grep -q .; then
     return 0
   fi
 
