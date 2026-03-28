@@ -145,7 +145,9 @@ curl -X GET "$APP_URL/api/billing/status" \
 ```
 
 ```bash
-rg 'billing' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 100
+rg 'billing' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 100
 ```
 
 ## Serverless metadata migration runbook
@@ -187,9 +189,16 @@ Fresh-start production note:
 
 ## Observability runbook
 Dedicated local log root:
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/worker/app.log.jsonl`
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/python-tts/app.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web/errors.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/worker/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/worker/errors.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/python-tts/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/python-tts/errors.log.jsonl`
+
+Retention intent:
+- activity logs (`DEBUG`/`INFO`/`WARN`) age under `LOG_RETENTION_DAYS`
+- `ERROR`/`FATAL` logs age under `LOG_ERROR_RETENTION_DAYS`
 
 Collect and bundle diagnostics:
 ```bash
@@ -205,12 +214,16 @@ Output:
 
 Podcast playback diagnostics (RSS + media request traces):
 ```bash
-rg '"msg":"Podcast (feed|media) request' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+rg '"msg":"Podcast (feed|media) request' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 200
 ```
 
 Filter recent range-related failures (`401`, `404`, `416`):
 ```bash
-rg '"msg":"Podcast media request (unauthorized|invalid range|object not found)"' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+rg '"msg":"Podcast media request (unauthorized|invalid range|object not found)"' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 200
 ```
 
 ## Admin analytics runbook

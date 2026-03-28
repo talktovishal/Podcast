@@ -92,6 +92,8 @@ function parseJobEventStorageMode(raw: string | undefined): JobEventStorageMode 
 }
 
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
+const logRetentionDays = parseNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
+const logErrorRetentionDays = parseNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
 
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
@@ -119,7 +121,8 @@ export const env = {
   mediaRoot: normalizeLocalPath(process.env.MEDIA_ROOT ?? resolve(process.cwd(), ".data/media")),
   uploadRoot: normalizeLocalPath(process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads")),
   logRoot: normalizeLocalPath(process.env.LOG_ROOT ?? defaultLogRoot),
-  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  logRetentionDays,
+  logErrorRetentionDays,
   logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
   podcastRequestLoggingEnabled: (process.env.PODCAST_REQUEST_LOGGING ?? "1") !== "0",

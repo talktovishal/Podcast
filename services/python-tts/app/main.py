@@ -47,11 +47,14 @@ def _default_log_root() -> Path:
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROOT = Path(os.getenv("LOG_ROOT", str(_default_log_root())))
-LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
+LOG_EVENTS_PATH = LOG_ROOT / "events" / "python-tts" / "events.log.jsonl"
+LOG_ERRORS_PATH = LOG_ROOT / "errors" / "python-tts" / "errors.log.jsonl"
 LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(1 * 1024 * 1024)))
 LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
+LOG_ERROR_RETENTION_DAYS = int(os.getenv("LOG_ERROR_RETENTION_DAYS", str(max(LOG_RETENTION_DAYS, 30))))
 TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))
+ERROR_LEVELS = {"ERROR", "FATAL"}
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 
@@ -60,25 +63,36 @@ def _utc_now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
 
-def _rotate_logs_if_needed() -> None:
+def _log_sink_for_level(level: str) -> tuple[Path, int]:
+    if level in ERROR_LEVELS:
+        return LOG_ERRORS_PATH, LOG_ERROR_RETENTION_DAYS
+    return LOG_EVENTS_PATH, LOG_RETENTION_DAYS
+
+
+def _rotate_logs_if_needed(log_path: Path, retention_days: int) -> None:
     try:
-        if not LOG_PATH.exists() or LOG_PATH.stat().st_size <= LOG_MAX_BYTES:
-            return
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
-        rotated = LOG_PATH.with_name(f"{LOG_PATH.name}.{timestamp}")
-        LOG_PATH.rename(rotated)
-        LOG_PATH.touch(exist_ok=True)
+        if log_path.exists() and log_path.stat().st_size > LOG_MAX_BYTES:
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
+            rotated = log_path.with_name(f"{log_path.name}.{timestamp}")
+            log_path.rename(rotated)
+            log_path.touch(exist_ok=True)
     except Exception:
         return
 
     try:
+        cutoff = time.time() - retention_days * 24 * 60 * 60
+        kept = 0
         rotated_logs = sorted(
-            [entry for entry in LOG_PATH.parent.glob(f"{LOG_PATH.name}.*") if entry.is_file()],
+            [entry for entry in log_path.parent.glob(f"{log_path.name}.*") if entry.is_file()],
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        for stale in rotated_logs[LOG_MAX_FILES:]:
-            stale.unlink(missing_ok=True)
+        for stale in rotated_logs:
+            stale_mtime = stale.stat().st_mtime
+            if stale_mtime < cutoff or kept >= LOG_MAX_FILES:
+                stale.unlink(missing_ok=True)
+                continue
+            kept += 1
     except Exception:
         pass
 
@@ -120,7 +134,8 @@ def _log_event(
     traceparent: str | None = None,
     attrs: dict[str, Any] | None = None,
 ) -> None:
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    log_path, retention_days = _log_sink_for_level(level)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     event = {
         "ts": _utc_now_iso(),
         "level": level,
@@ -136,9 +151,9 @@ def _log_event(
         "user_id_hash": _safe_user_hash(os.getenv("DEMO_EMAIL")),
         "attrs": attrs or {},
     }
-    with LOG_PATH.open("a", encoding="utf-8") as handle:
+    with log_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=True) + "\n")
-    _rotate_logs_if_needed()
+    _rotate_logs_if_needed(log_path, retention_days)
 
 
 def _request_context(request: Request) -> dict[str, str | None]:

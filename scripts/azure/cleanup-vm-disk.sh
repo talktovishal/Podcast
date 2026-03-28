@@ -131,11 +131,27 @@ clean_temp_uploads() {
 }
 
 clean_app_log_archives() {
+  local events_root="$LOG_ROOT/events"
+  local errors_root="$LOG_ROOT/errors"
+
   if [[ ! -d "$LOG_ROOT" ]]; then
     return
   fi
 
-  find "$LOG_ROOT" -type f -name '*.jsonl.*' -mtime +"$LOG_RETENTION_DAYS" -print -delete 2>/dev/null || true
+  if [[ -d "$events_root" ]]; then
+    find "$events_root" -type f -name '*.jsonl.*' -mtime +"$LOG_RETENTION_DAYS" -print -delete 2>/dev/null || true
+  fi
+  if [[ -d "$errors_root" ]]; then
+    find "$errors_root" -type f -name '*.jsonl.*' -mtime +"$LOG_ERROR_RETENTION_DAYS" -print -delete 2>/dev/null || true
+  fi
+  find "$LOG_ROOT" \
+    -type f \
+    -name '*.jsonl.*' \
+    ! -path "$events_root/*" \
+    ! -path "$errors_root/*" \
+    -mtime +"$LOG_RETENTION_DAYS" \
+    -print \
+    -delete 2>/dev/null || true
   find "$LOG_ROOT" -type d -empty -delete 2>/dev/null || true
 }
 
@@ -174,6 +190,19 @@ if [[ "$LOG_ROOT" != /* ]]; then
   LOG_ROOT="$APP_DIR/$LOG_ROOT"
 fi
 LOG_RETENTION_DAYS="$(resolve_setting LOG_RETENTION_DAYS 7)"
+if ! [[ "$LOG_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+  LOG_RETENTION_DAYS=7
+fi
+LOG_ERROR_RETENTION_DAYS="$(resolve_setting LOG_ERROR_RETENTION_DAYS "")"
+if [[ -z "$LOG_ERROR_RETENTION_DAYS" ]]; then
+  if [[ "$LOG_RETENTION_DAYS" -gt 30 ]]; then
+    LOG_ERROR_RETENTION_DAYS="$LOG_RETENTION_DAYS"
+  else
+    LOG_ERROR_RETENTION_DAYS=30
+  fi
+elif ! [[ "$LOG_ERROR_RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
+  LOG_ERROR_RETENTION_DAYS=30
+fi
 VM_JOURNAL_MAX_USE="$(resolve_setting VM_JOURNAL_MAX_USE 200M)"
 VM_JOURNAL_RETENTION="$(resolve_setting VM_JOURNAL_RETENTION 7day)"
 VM_CLEANUP_MIN_FREE_MB="$(resolve_setting VM_CLEANUP_MIN_FREE_MB 3072)"

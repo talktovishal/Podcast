@@ -128,7 +128,9 @@ curl -X GET "$APP_URL/api/billing/status" \
 Useful log grep:
 
 ```bash
-rg 'billing' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 100
+rg 'billing' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 100
 ```
 
 ## Prisma migration caveat

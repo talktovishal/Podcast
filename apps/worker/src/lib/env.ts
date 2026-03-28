@@ -96,6 +96,8 @@ function parseJobEventStorageMode(value: string | undefined): JobEventStorageMod
 }
 
 const pythonTtsTimeoutMs = toPositiveInt(process.env.PYTHON_TTS_TIMEOUT_MS, 120000);
+const logRetentionDays = toNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
+const logErrorRetentionDays = toNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
 
 export const workerEnv = {
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
@@ -133,7 +135,8 @@ export const workerEnv = {
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
   mediaRoot: normalizeLocalPath(process.env.MEDIA_ROOT ?? resolve(process.cwd(), "../web/.data/media")),
   logRoot: normalizeLocalPath(process.env.LOG_ROOT ?? defaultLogRoot),
-  logRetentionDays: Number(process.env.LOG_RETENTION_DAYS ?? 14),
+  logRetentionDays,
+  logErrorRetentionDays,
   logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
   telemetryEnabled: process.env.OTEL_ENABLED === "1",

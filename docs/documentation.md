@@ -198,6 +198,8 @@ Current implementation baseline:
 ## Observability status
 Current implementation:
 - structured JSONL runtime logs in `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`
+- activity logs (`DEBUG`/`INFO`/`WARN`) write to `events/<service>/events.log.jsonl`
+- `ERROR`/`FATAL` logs write to `errors/<service>/errors.log.jsonl`
 - support IDs included on API error payloads from shared error helper
 - correlation propagation from worker to python-tts (`traceparent`, request/job/item IDs)
 - admin analytics dashboard includes tabbed investor + operations views:

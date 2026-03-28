@@ -7,5 +7,6 @@ export const workerLogger = createStructuredLogger({
   logRoot: workerEnv.logRoot,
   maxBytes: workerEnv.logMaxBytes,
   maxFiles: workerEnv.logMaxFiles,
-  retentionDays: workerEnv.logRetentionDays
+  retentionDays: workerEnv.logRetentionDays,
+  errorRetentionDays: workerEnv.logErrorRetentionDays
 });

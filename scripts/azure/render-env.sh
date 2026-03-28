@@ -77,6 +77,11 @@ analytics_storage_mode_default="full"
 job_event_storage_mode_default="database"
 demo_extraction_trace_default="1"
 log_retention_days_default="7"
+resolved_log_retention_days="${LOG_RETENTION_DAYS:-$log_retention_days_default}"
+log_error_retention_days_default="30"
+if [[ "$resolved_log_retention_days" =~ ^[0-9]+$ ]] && (( resolved_log_retention_days > log_error_retention_days_default )); then
+  log_error_retention_days_default="$resolved_log_retention_days"
+fi
 if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" ]]; then
   analytics_storage_mode_default="off"
   job_event_storage_mode_default="off"
@@ -135,6 +140,7 @@ WORKER_MAX_PROCESSING_MS=${WORKER_MAX_PROCESSING_MS:-2700000}
 WORKER_RETRY_POLL_MS=${WORKER_RETRY_POLL_MS:-5000}
 LOG_ROOT=${LOG_ROOT:-${RUNTIME_APP_DIR}/.runtime/logs}
 LOG_RETENTION_DAYS=${LOG_RETENTION_DAYS:-$log_retention_days_default}
+LOG_ERROR_RETENTION_DAYS=${LOG_ERROR_RETENTION_DAYS:-$log_error_retention_days_default}
 LOG_MAX_BYTES=${LOG_MAX_BYTES:-1048576}
 LOG_MAX_FILES=${LOG_MAX_FILES:-10}
 ARTICLEPOD_CONSOLE_LOGS=${ARTICLEPOD_CONSOLE_LOGS:-0}

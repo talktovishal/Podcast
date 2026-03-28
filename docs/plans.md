@@ -43,6 +43,9 @@
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
   - bootstrap/runtime now install journald caps plus a recurring maintenance timer that vacuums system logs, prunes staging junk, pressure-cleans caches, and removes stale legacy `listenlater` runtime trees once they are no longer referenced.
+- Severity-split local log retention track (`M103`) is implemented:
+  - web, worker, and python-tts now write routine activity logs and `ERROR`/`FATAL` logs into separate local folders/files.
+  - app/runtime retention now treats `events/` and `errors/` logs independently so failure history can outlive routine success noise on local disk.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -162,6 +165,7 @@
 | Capture importance + tags metadata with Recent items filters | M100 |
 | Extraction-quality audit + bulk HTML regression harness | M101 |
 | Azure VM disk guardrails + recurring maintenance automation | M102 |
+| Severity-split local log retention for activity vs errors | M103 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -309,6 +313,7 @@ Milestone metadata contract:
 | M100 | Done | 2026-03-31 | 2026-03-25 | local validation + importance/tags capture metadata pass (2026-03-25) |
 | M101 | Done | 2026-04-02 | 2026-03-25 | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25) |
 | M102 | Done | 2026-04-04 | 2026-03-28 | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28) |
+| M103 | Done | 2026-04-05 | 2026-03-28 | local validation + severity-split local log retention pass (2026-03-28) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -3005,6 +3010,48 @@ Milestone metadata contract:
   - `bash -n scripts/azure/push-to-vm.sh scripts/azure/promote-runtime.sh scripts/azure/deploy-changes.sh scripts/azure/deploy-vm-runtime.sh scripts/azure/bootstrap-vm.sh scripts/azure/install-systemd.sh scripts/azure/render-env.sh scripts/azure/configure-journald.sh scripts/azure/cleanup-vm-disk.sh`
   - `./scripts/azure/deploy-changes.sh --help`
   - `TARGET_HOST=<vm-ip-or-fqdn> APP_URL=https://articlepod.com CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> ./scripts/azure/deploy-changes.sh --render-env --skip-healthcheck`
+
+### M103 - Severity-Split Local Log Retention
+- status: Done
+- target_finish: 2026-04-05
+- completed_on: 2026-03-28
+- evidence: local validation + severity-split local log retention pass (2026-03-28)
+- Scope:
+  - Split local structured logs into separate activity vs. `ERROR`/`FATAL` directory trees so routine noise and failures can age independently on disk.
+  - Add a dedicated `LOG_ERROR_RETENTION_DAYS` control for web, worker, python-tts, and Azure env rendering while keeping the default error window longer than the general activity window.
+  - Keep recursive diagnostics tooling working without changing how operators collect or triage logs from the repo root.
+  - Update Azure cleanup behavior and repo docs so maintenance scripts prune rotated `events/` and `errors/` archives independently.
+- Key files/modules:
+  - `packages/core/src/logging/structured.ts`
+  - `packages/core/tests/logging.test.ts`
+  - `apps/web/src/lib/env.ts`
+  - `apps/web/src/lib/logger.ts`
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/src/lib/logger.ts`
+  - `services/python-tts/app/main.py`
+  - `services/python-tts/tests/test_logging_split.py`
+  - `scripts/azure/cleanup-vm-disk.sh`
+  - `scripts/azure/render-env.sh`
+  - `.env.azure.example`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/env.md`
+  - `docs/operations.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/billing/README.md`
+- Acceptance criteria:
+  - `DEBUG`/`INFO`/`WARN` events write to `LOG_ROOT/events/<service>/events.log.jsonl`.
+  - `ERROR`/`FATAL` events write to `LOG_ROOT/errors/<service>/errors.log.jsonl`.
+  - `LOG_RETENTION_DAYS` and `LOG_ERROR_RETENTION_DAYS` can differ, with error retention defaulting longer than routine activity retention.
+  - VM cleanup prunes rotated `events/` and `errors/` archives independently without breaking older mixed-layout cleanup.
+  - Existing recursive log collection/triage tooling continues to work against the new directory layout.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/logging.test.ts`
+  - `corepack pnpm --filter @articlepod/web typecheck`
+  - `corepack pnpm --filter @articlepod/worker typecheck`
+  - `services/python-tts/.venv/bin/python3 -m pytest services/python-tts/tests/test_logging_split.py`
+  - `bash -n scripts/azure/cleanup-vm-disk.sh scripts/azure/render-env.sh`
 
 ---
 

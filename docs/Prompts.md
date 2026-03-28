@@ -51,6 +51,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Observability baseline milestones are implemented:
   - shared error/log schema and support IDs
   - local structured JSONL logs with rotation
+  - local severity-split sinks so routine activity logs and `ERROR`/`FATAL` logs retain independently on disk
   - worker/python-tts correlation propagation
   - log triage and diagnostics collection scripts.
   - Azure VM defaults now keep structured logs on local disk for 7 days, cap systemd journal size/time, and run recurring disk maintenance instead of relying on ad hoc manual cleanup.

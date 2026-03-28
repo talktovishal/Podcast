@@ -225,8 +225,9 @@ All runtime services emit structured JSON events with shared fields:
 - correlation keys: `trace_id`, `span_id`, `request_id`, `job_id`, `item_id`
 
 Local sink:
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/<service>/app.log.jsonl`
-- rotation/retention controlled by `LOG_MAX_BYTES`, `LOG_MAX_FILES`, `LOG_RETENTION_DAYS`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/<service>/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/<service>/errors.log.jsonl`
+- retention is controlled by `LOG_MAX_BYTES`, `LOG_MAX_FILES`, `LOG_RETENTION_DAYS`, and `LOG_ERROR_RETENTION_DAYS`
 
 Correlation propagation:
 - internal calls carry `traceparent`, `x-request-id`, `x-job-id`, `x-item-id`
