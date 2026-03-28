@@ -5,12 +5,11 @@ import test from "node:test";
 test("app dashboard uses direct navigation links and logout icon", () => {
   const source = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
 
-  assert.equal(source.includes('current="workspace"'), true);
-  assert.equal(source.includes("AppShellNav"), true);
+  assert.match(source, /<AppShellNav\b[^>]*\bcurrent=\"workspace\"/);
+  assert.match(source, /<DashboardClient\b[\s\S]*\bviewMode=\"workspace\"/);
+  assert.match(source, /\bisAdmin=\{user\.role\s*=\s*\==\s*\"ADMIN\"\}/);
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
-  assert.equal(source.includes('viewMode="workspace"'), true);
-  assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
@@ -53,12 +52,12 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(source.includes('current="settings"'), true);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('settingsSections={["voice", "digest"]}'), true);
-  assert.equal(source.includes('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.includes('settingsSections={['voice', 'digest']}'), true);
+  assert.equal(source.includes('settingsSections={['demographics', 'digest-runs']}'), true);
   assert.equal(source.includes('href="/app/podcast-apps"'), false);
   assert.equal(source.includes('href="/app/chrome-extension"'), false);
-  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>"), true);
-  assert.equal(source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.indexOf('settingsSections={['voice', 'digest']}') < source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>"), true);
+  assert.equal(source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>") < source.indexOf('settingsSections={['demographics', 'digest-runs']}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
@@ -80,7 +79,7 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(extensionPageSource.indexOf('viewMode="chrome-extension"') < extensionPageSource.indexOf("Walkthroughs"), true);
   assert.equal(extensionPageSource.indexOf("Walkthroughs") < extensionPageSource.indexOf("Quick start"), true);
   assert.equal(summaryPageSource.includes("Summaries"), true);
-  assert.equal(summaryPageSource.includes('<h1 className="font-bold text-2xl">Summary Studio</h1>'), false);
+  assert.equal(summaryPageSource.includes('<h1 className=\"font-bold text-2xl\">Summary Studio</h1>'), false);
 });
 
 test("feedback page exists and keeps message as the first field", () => {
@@ -144,8 +143,8 @@ test("dashboard client supports dedicated podcast and extension setup pages", ()
   assert.equal(source.includes('settingsSections?: ReadonlyArray<SettingsSection>;'), true);
   assert.equal(source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'), true);
   assert.equal(source.includes('const isChromeExtensionView = viewMode === "chrome-extension";'), true);
-  assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
-  assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined}'), true);
+  assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined};'), true);
+  assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined};'), true);
   assert.equal(source.includes("Podcast Apps"), true);
   assert.equal(source.includes("manual summary podcast episodes"), true);
   assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
