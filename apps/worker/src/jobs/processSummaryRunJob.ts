@@ -4,6 +4,7 @@ import {
   buildEpisodeDescription,
   chunkText,
   digestTargetWords,
+  episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
   type DigestLengthMinutes
@@ -352,6 +353,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
         );
         const guid = `summary-${claimResult.id}`;
         const description = buildEpisodeDescription(summary.plainText || narration);
+        const publishedAt = new Date();
+        const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
         if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
           await workerPrimaryStore.upsertSummaryEpisode({
@@ -364,7 +367,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: new Date()
+            publishedAt,
+            expiresAt
           });
         } else {
           await prisma.summaryEpisode.upsert({
@@ -377,7 +381,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             },
             create: {
               summaryRunId: claimResult.id,
@@ -388,7 +393,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             }
           });
         }

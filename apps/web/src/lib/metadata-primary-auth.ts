@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { hashIncomingToken } from "@articlepod/core";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
+import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
 
 export type PrimaryAuthUserRecord = {
   id: string;
@@ -956,7 +957,7 @@ export async function upsertPrimaryDigestSettings(input: {
 
 export async function listPrimaryDigestRunsByUser(userId: string, limit = 20) {
   if (!webUsesAzureTablePrimary()) {
-    return prisma.digestRun.findMany({
+    const runs = await prisma.digestRun.findMany({
       where: { userId },
       orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
       take: limit,
@@ -967,16 +968,21 @@ export async function listPrimaryDigestRunsByUser(userId: string, limit = 20) {
             audioPath: true,
             audioBytes: true,
             mimeType: true,
-            publishedAt: true
+            publishedAt: true,
+            expiresAt: true
           }
         }
       }
     });
+    return runs.map((run) => ({
+      ...run,
+      episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
+    }));
   }
 
   const store = requirePrimaryStore();
   const [runs, digestEpisodes] = await Promise.all([store.listDigestRunsByUser(userId, limit), store.listDigestEpisodesForUser(userId)]);
-  const episodesByRunId = new Map(digestEpisodes.map((episode) => [episode.digestRunId, episode]));
+  const episodesByRunId = new Map(filterUnexpiredAudioEpisodes(digestEpisodes).map((episode) => [episode.digestRunId, episode]));
   return runs.map((run) => ({
     ...run,
     episode: episodesByRunId.get(run.id)

@@ -65,6 +65,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
   - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.
+- Audio retention lifecycle (`M105`) is implemented:
+  - generated item, digest, and summary MP3 episodes now carry a 60-day expiry timestamp by default.
+  - expired episode audio is hidden from feeds, dashboard/share playback, and media routes before purge deletes the underlying blob/object.
+  - bulk backfill and purge commands keep existing stored audio aligned with the retention policy.
 - Docs governance baseline is implemented:
   - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
   - status reconciliation ledger captures corrections with confidence notes.
@@ -394,6 +398,7 @@ I) Extraction artifacts (near-term track)
   - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags and legacy table remnants stripped before TTS.
   - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.
   - apply retention lifecycle to raw artifacts (target 90 days).
+  - apply retention lifecycle to generated audio episodes (target 60 days) with backfill + purge tooling for existing rows.
 
 ### Explicit non-goals (MVP)
 - Native mobile app

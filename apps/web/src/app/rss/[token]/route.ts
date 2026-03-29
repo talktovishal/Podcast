@@ -10,6 +10,7 @@ import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
+import { isAudioAvailable } from "@/lib/audio-retention";
 
 const FEED_ROUTE = "/rss/[token]";
 const FEED_HEADERS = {
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   }
   const { user, tokenHash, repaired } = resolvedAccess;
 
+  const now = new Date();
   const episodes =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await (async () => {
@@ -71,7 +73,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
           ]);
           const readyItemIds = new Set(itemRows.filter((item) => item.status === "READY").map((item) => item.id));
           return episodeRows
-            .filter((episode) => readyItemIds.has(episode.itemId))
+            .filter((episode) => readyItemIds.has(episode.itemId) && isAudioAvailable(episode.expiresAt, now))
             .map((episode) => ({
               ...episode,
               item: itemRows.find((item) => item.id === episode.itemId) ?? null
@@ -86,6 +88,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         })()
       : await prisma.episode.findMany({
           where: {
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
             item: {
               userId: user.id,
               status: "READY"

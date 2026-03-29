@@ -16,6 +16,14 @@ function parseNonNegativeInt(raw: string | undefined, fallback: number): number 
   return parsed;
 }
 
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
 function parseBoolean(raw: string | undefined, fallback = false): boolean {
   if (raw === undefined) {
     return fallback;
@@ -125,6 +133,7 @@ export const env = {
   logErrorRetentionDays,
   logMaxBytes: Number(process.env.LOG_MAX_BYTES ?? 1 * 1024 * 1024),
   logMaxFiles: Number(process.env.LOG_MAX_FILES ?? 10),
+  audioRetentionDays: parsePositiveInt(process.env.AUDIO_RETENTION_DAYS ?? process.env.WORKER_AUDIO_RETENTION_DAYS, 60),
   podcastRequestLoggingEnabled: (process.env.PODCAST_REQUEST_LOGGING ?? "1") !== "0",
   telemetryEnabled: process.env.OTEL_ENABLED === "1",
   telemetryServiceName: process.env.OTEL_SERVICE_NAME ?? "web",

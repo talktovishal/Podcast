@@ -1,5 +1,6 @@
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
+import { purgeExpiredAudioEpisodes } from "../src/lib/audio-retention-purge";
 
 async function main() {
   const now = new Date();
@@ -36,9 +37,10 @@ async function main() {
       OR: [{ revokedAt: { not: null } }, { expiresAt: { lt: now } }]
     }
   });
+  const audioPurge = await purgeExpiredAudioEpisodes(now);
 
   console.log(
-    `[artifacts:purge] removed ${expiredArtifacts.length} expired artifacts, ${connectCodePurge.count} connect codes, ${extensionTokenPurge.count} extension tokens`
+    `[artifacts:purge] removed ${expiredArtifacts.length} expired artifacts, ${audioPurge.itemEpisodesPurged} item episodes, ${audioPurge.digestEpisodesPurged} digest episodes, ${audioPurge.summaryEpisodesPurged} summary episodes, ${connectCodePurge.count} connect codes, ${extensionTokenPurge.count} extension tokens`
   );
 }
 
@@ -46,4 +48,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

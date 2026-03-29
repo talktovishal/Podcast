@@ -149,6 +149,7 @@ export const workerEnv = {
   retryPollMs: Number(process.env.WORKER_RETRY_POLL_MS ?? 5000),
   maxRetryAttempts: Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5),
   rawArtifactRetentionDays: Number(process.env.WORKER_RAW_ARTIFACT_RETENTION_DAYS ?? 90),
+  audioRetentionDays: toPositiveInt(process.env.AUDIO_RETENTION_DAYS ?? process.env.WORKER_AUDIO_RETENTION_DAYS, 60),
   ttsChunkMaxChars: Number(process.env.WORKER_TTS_CHUNK_MAX_CHARS ?? 1800),
   digestInternalSchedulerEnabled: (process.env.DIGEST_INTERNAL_SCHEDULER_ENABLED ?? "1") !== "0",
   digestSchedulerTickMs: Number(process.env.DIGEST_SCHEDULER_TICK_MS ?? 60_000),

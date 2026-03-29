@@ -12,6 +12,7 @@ import {
   cleanExtractedMarkdown,
   chunkText,
   errorCodes,
+  episodeAudioExpiryDate,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
   extractTextFromPdf,
@@ -1149,6 +1150,8 @@ export async function processJob(jobId: string): Promise<boolean> {
 
     const guid = `episode-${item.id}`;
     const description = buildEpisodeDescription(narrationText);
+    const publishedAt = now();
+    const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
     stage = "persist";
     if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
@@ -1162,7 +1165,8 @@ export async function processJob(jobId: string): Promise<boolean> {
         audioPath: audio.relativePath,
         audioBytes: audio.bytes,
         mimeType: audio.mimeType,
-        publishedAt: now()
+        publishedAt,
+        expiresAt
       });
       await workerPrimaryStore.updateItem(item.id, {
         title: resolvedTitle,
@@ -1189,7 +1193,8 @@ export async function processJob(jobId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: now()
+            publishedAt,
+            expiresAt
           },
           create: {
             itemId: item.id,
@@ -1199,7 +1204,8 @@ export async function processJob(jobId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: now()
+            publishedAt,
+            expiresAt
           }
         });
 

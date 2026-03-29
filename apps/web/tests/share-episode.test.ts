@@ -196,6 +196,41 @@ test("share episode route enforces ownership and shareable state", async () => {
   }
 });
 
+test("expired episodes cannot be shared", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-share-expired`;
+  const user = await prisma.user.create({
+    data: {
+      email: `share-expired-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+  const session = await createSession(user.id);
+  const seeded = await seedReadyItem({ uniq, userId: user.id });
+
+  try {
+    await prisma.episode.update({
+      where: { id: seeded.episode.id },
+      data: {
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    const response = await postEpisodeShare(
+      new NextRequest(`http://localhost/api/share/episode/${seeded.item.id}`, {
+        method: "POST",
+        headers: {
+          cookie: `articlepod_session=${session}`
+        }
+      }),
+      { params: { itemId: seeded.item.id } }
+    );
+    assert.equal(response.status, 409);
+  } finally {
+    await cleanupUserTree(user.id, [seeded.audioPath]);
+  }
+});
+
 test("shared episode page renders branded playback with noindex metadata", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);

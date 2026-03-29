@@ -198,6 +198,57 @@ test("media route accepts legacy feed_token for matching owner and rejects other
   }
 });
 
+test("media route rejects expired episodes even when the owner feed token is valid", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-expired`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-expired-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = await ensureUserFeedToken(user.id);
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/media-expired/${uniq}`,
+      status: "READY"
+    }
+  });
+  const key = `items/${item.id}/episode.mp3`;
+  const payload = Buffer.from("expired-media-owner-token", "utf8");
+  await storage.putObject(key, payload, { contentType: "audio/mpeg" });
+
+  try {
+    await prisma.episode.create({
+      data: {
+        itemId: item.id,
+        guid: `episode-expired-${item.id}`,
+        title: `Expired media ${uniq}`,
+        description: "expired media",
+        audioPath: key,
+        audioBytes: payload.byteLength,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-15T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(feedToken)}`),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(response.status, 401);
+  } finally {
+    await storage.deleteObject(key).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("media route rejects path traversal attempts", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);

@@ -6,6 +6,7 @@ import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/l
 import { fromError, ok } from "@/lib/http";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
+import { isAudioAvailable } from "@/lib/audio-retention";
 
 function normalizeSourceType(sourceType: string): AnalyticsSourceType | null {
   return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT" ? sourceType : null;
@@ -19,7 +20,7 @@ async function findOwnerItemWithEpisode(itemId: string, userId: string) {
     }
     return {
       item,
-      episode
+      episode: episode && isAudioAvailable(episode.expiresAt) ? episode : null
     };
   }
 
@@ -32,7 +33,7 @@ async function findOwnerItemWithEpisode(itemId: string, userId: string) {
   }
   return {
     item,
-    episode: item.episode
+    episode: item.episode && isAudioAvailable(item.episode.expiresAt) ? item.episode : null
   };
 }
 

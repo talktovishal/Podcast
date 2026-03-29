@@ -8,6 +8,7 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
+import { filterUnexpiredAudioEpisodes } from "@/lib/audio-retention";
 
 const DIGEST_FEED_ROUTE = "/rss/digest/[token]";
 const FEED_HEADERS = {
@@ -60,22 +61,31 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   }
   const { user, tokenHash, repaired } = resolvedAccess;
 
+  const now = new Date();
   const episodes =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? [
-          ...(await webPrimaryStore.listDigestEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "digest" as const })),
-          ...(await webPrimaryStore.listSummaryEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+          ...filterUnexpiredAudioEpisodes(await webPrimaryStore.listDigestEpisodesForUser(user.id), now).map((episode) => ({
+            ...episode,
+            feedKind: "digest" as const
+          })),
+          ...filterUnexpiredAudioEpisodes(await webPrimaryStore.listSummaryEpisodesForUser(user.id), now).map((episode) => ({
+            ...episode,
+            feedKind: "summary" as const
+          }))
         ]
       : [
           ...(await prisma.digestEpisode.findMany({
             where: {
-              userId: user.id
+              userId: user.id,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
             },
             orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
           })).map((episode) => ({ ...episode, feedKind: "digest" as const })),
           ...(await prisma.summaryEpisode.findMany({
             where: {
-              userId: user.id
+              userId: user.id,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
             },
             orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
           })).map((episode) => ({ ...episode, feedKind: "summary" as const }))

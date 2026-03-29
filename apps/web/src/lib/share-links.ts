@@ -4,6 +4,7 @@ import type { PrimaryShareTokenRecord } from "./metadata-primary-auth";
 import { findPrimaryShareTokenById } from "./metadata-primary-auth";
 import { env } from "./env";
 import { prisma } from "./prisma";
+import { isAudioAvailable } from "./audio-retention";
 
 export const PUBLIC_EPISODE_SHARE_SCOPE_PREFIX = "public_episode_item:";
 
@@ -136,7 +137,7 @@ export async function getPublicEpisodeShareContextById(shareId: string): Promise
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const [item, episode] = await Promise.all([webPrimaryStore.findItemById(itemId), webPrimaryStore.findEpisodeByItemId(itemId)]);
-    if (!item || !episode) {
+    if (!item || !episode || !isAudioAvailable(episode.expiresAt)) {
       return null;
     }
 
@@ -161,6 +162,9 @@ export async function getPublicEpisodeShareContextById(shareId: string): Promise
     }
   });
   if (!item || !item.episode) {
+    return null;
+  }
+  if (!isAudioAvailable(item.episode.expiresAt)) {
     return null;
   }
 

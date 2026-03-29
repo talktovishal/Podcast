@@ -43,6 +43,10 @@ const faqItems: ReadonlyArray<{ q: string; a: string }> = [
     a: "Long sources are synthesized in chunks to keep jobs resilient and recoverable. Chunking improves reliability for long-form content and reduces the chance of total job failure. It can take a bit longer, but it preserves stability and restart safety."
   },
   {
+    q: "How long do you keep generated podcast audio?",
+    a: "Generated MP3 episodes stay available for 60 days after publication. After that, ArticlePod automatically removes the audio from active feeds and playback links so storage stays manageable for regular use."
+  },
+  {
     q: "Can ArticlePod create long-term recaps?",
     a: "Yes. As your archive grows, monthly and yearly recap workflows can summarize how themes changed over time. These long-horizon views are designed to show progression across the exact sources you collected. That keeps recap outputs grounded and auditable."
   }

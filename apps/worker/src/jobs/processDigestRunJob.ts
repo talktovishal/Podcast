@@ -5,6 +5,7 @@ import {
   buildDigestGuid,
   chunkText,
   digestTargetWords,
+  episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
   type DigestLengthMinutes
@@ -416,6 +417,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           periodKey: claimResult.periodKey
         });
         const description = buildEpisodeDescription(summary.plainText || narration);
+        const publishedAt = new Date();
+        const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
         if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
           await workerPrimaryStore.upsertDigestEpisode({
@@ -428,7 +431,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: new Date()
+            publishedAt,
+            expiresAt
           });
         } else {
           await prisma.digestEpisode.upsert({
@@ -441,7 +445,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             },
             create: {
               digestRunId: claimResult.id,
@@ -452,7 +457,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             }
           });
         }

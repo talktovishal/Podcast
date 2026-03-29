@@ -67,6 +67,7 @@ Current behavior (`M57`-`M64` implemented):
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
   - cleaned extracted markdown artifact (`MARKDOWN`) retained for downstream workflows
   - summary markdown artifacts (`summaries/<user>/<run>/summary.md`) for manual summary publishing and reuse
+  - generated item/digest/summary episode audio retained for 60 days from `publishedAt` before purge removes the blob/object and episode row
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - extracted-item markdown passes through shared rule-based cleanup before persistence:
@@ -88,7 +89,7 @@ Current behavior (`M57`-`M64` implemented):
 3. Worker extracts + normalizes text.
 4. Worker chunks text deterministically and computes hash key.
 5. Worker resolves TTS selection and uses chunk cache when available.
-6. Worker writes final audio artifact to object storage and upserts `Episode`.
+6. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
 
 ## Billing flow

@@ -10,6 +10,7 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
+import { isAudioAvailable } from "@/lib/audio-retention";
 
 const MEDIA_ROUTE = "/api/media/[...path]";
 
@@ -20,7 +21,7 @@ async function resolveEpisodeAccess(path: string, episodeId: string | null): Pro
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const episode = await webPrimaryStore.findEpisodeById(episodeId);
-    if (!episode || episode.audioPath !== path) {
+    if (!episode || episode.audioPath !== path || !isAudioAvailable(episode.expiresAt)) {
       return null;
     }
     return {
@@ -36,6 +37,7 @@ async function resolveEpisodeAccess(path: string, episodeId: string | null): Pro
     select: {
       id: true,
       audioPath: true,
+      expiresAt: true,
       item: {
         select: {
           userId: true
@@ -44,7 +46,7 @@ async function resolveEpisodeAccess(path: string, episodeId: string | null): Pro
     }
   });
 
-  if (!episode || episode.audioPath !== path) {
+  if (!episode || episode.audioPath !== path || !isAudioAvailable(episode.expiresAt)) {
     return null;
   }
 
@@ -99,11 +101,12 @@ async function validateLegacyFeedTokenForPath(path: string, feedToken: string | 
             }
           },
           select: {
-            id: true
+            id: true,
+            expiresAt: true
           }
         });
 
-  return Boolean(episode);
+  return Boolean(episode && isAudioAvailable(episode.expiresAt));
 }
 
 export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {

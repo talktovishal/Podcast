@@ -52,6 +52,10 @@
   - shared episode URLs open branded, `noindex` landing pages with browser playback, download, source attribution when available, concise trust copy about private feeds staying private, and signup/pricing CTAs.
   - public shared playback uses a dedicated share-media route with `HEAD` + byte-range `206` support and separate share-scoped auth, leaving private RSS/media auth unchanged.
   - raw analytics now capture share-link creation, share-page views, playback starts, and CTA clicks for growth instrumentation.
+- Audio retention lifecycle track (`M105`) is implemented:
+  - item, digest, and summary episode rows now carry a 60-day `expiresAt` derived from `publishedAt`.
+  - expired audio disappears from RSS, dashboard/share playback, and media authorization before purge removes the backing blob/object plus episode row.
+  - bulk backfill and purge tooling now cover the retained-audio contract so existing episodes can be stamped and cleaned without resets.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -175,6 +179,7 @@
 | Azure VM disk guardrails + recurring maintenance automation | M102 |
 | Severity-split local log retention for activity vs errors | M103 |
 | Public episode share links + branded landing page + growth instrumentation | M104 |
+| 60-day generated audio retention lifecycle + feed/media expiry gating | M105 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -324,6 +329,7 @@ Milestone metadata contract:
 | M102 | Done | 2026-04-04 | 2026-03-28 | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28) |
 | M103 | Done | 2026-04-05 | 2026-03-28 | local validation + severity-split local log retention pass (2026-03-28) |
 | M104 | Done | 2026-04-06 | 2026-03-28 | local validation + public episode share link implementation pass (2026-03-28) |
+| M105 | Done | 2026-04-07 | 2026-03-28 | local validation + audio retention expiry/backfill/purge pass (2026-03-28) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -3101,6 +3107,46 @@ Milestone metadata contract:
   - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/media-route.test.ts tests/middleware-auth.test.ts tests/app-dashboard-layout.test.ts`
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/core run typecheck`
+
+---
+
+### M105 - Audio Retention Lifecycle
+- status: Done
+- target_finish: 2026-04-07
+- completed_on: 2026-03-28
+- evidence: local validation + audio retention expiry/backfill/purge pass (2026-03-28)
+- Scope:
+  - Add a first-class 60-day retention expiry to generated item, digest, and summary audio metadata.
+  - Stamp new audio rows with `expiresAt` during worker publish and backfill existing stored episode rows without destructive resets.
+  - Hide expired audio from RSS feeds, dashboard/share playback surfaces, and media authorization so retention is honored before physical purge runs.
+  - Extend purge tooling to delete expired audio blobs/objects plus their episode rows, while keeping raw-source retention behavior unchanged.
+  - Update user-facing FAQ copy and internal runbooks/docs for the MP3 retention policy.
+- Key files/modules:
+  - `packages/core/src/audio/retention.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/jobs/processSummaryRunJob.ts`
+  - `apps/web/src/lib/audio-retention.ts`
+  - `apps/web/src/lib/audio-retention-backfill.ts`
+  - `apps/web/src/lib/audio-retention-purge.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
+  - `apps/web/src/lib/share-links.ts`
+  - `apps/web/src/app/faq/page.tsx`
+- Acceptance criteria:
+  - New item, digest, and summary episodes persist a 60-day `expiresAt` derived from `publishedAt`.
+  - Expired audio no longer appears in private RSS feeds, shared episode playback, digest history playback, or dashboard playback controls.
+  - Expired audio requests do not silently enqueue regeneration just because the blob/object is missing by retention policy.
+  - Backfill tooling stamps existing rows idempotently, and purge tooling removes expired audio blobs/objects plus their corresponding episode rows.
+  - Prisma and Azure Table primary metadata paths preserve the same episode expiry semantics.
+- Verification commands:
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/audio-retention-ops.test.ts tests/rss-delete-route.test.ts tests/media-route.test.ts tests/digest-routes.test.ts tests/share-episode.test.ts`
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run audio:backfill-retention -- --dry-run`
 
 ---
 

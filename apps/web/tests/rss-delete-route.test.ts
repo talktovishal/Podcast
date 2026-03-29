@@ -114,6 +114,68 @@ test("deleted item is removed from RSS feed output", async () => {
   }
 });
 
+test("expired episodes are omitted from RSS feed output", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-expired`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `rss-expired-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/expired/${uniq}`,
+      status: "READY"
+    }
+  });
+  const audioPath = `items/${item.id}/episode.mp3`;
+  await storage.putObject(audioPath, Buffer.from("rss-expired-audio", "utf8"), {
+    contentType: "audio/mpeg"
+  });
+
+  const episode = await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Expired RSS ${uniq}`,
+      description: "expired rss",
+      audioPath,
+      audioBytes: 17,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date("2026-01-15T12:00:00.000Z"),
+      expiresAt: new Date("2026-03-01T00:00:00.000Z")
+    }
+  });
+
+  try {
+    const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    assert.equal(response.status, 200);
+    const xml = await response.text();
+    assert.equal(xml.includes(episode.guid), false);
+  } finally {
+    await storage.deleteObject(audioPath).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("rss feed keeps enclosure URLs stable and HEAD mirrors feed headers", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-stable`;

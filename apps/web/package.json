@@ -23,6 +23,7 @@
     "artifacts:cleanup-markdown": "tsx scripts/cleanup-markdown-artifacts.ts",
     "artifacts:purge": "tsx scripts/purge-expired-artifacts.ts",
     "audio:backfill-mp3": "tsx scripts/backfill-episode-audio.ts",
+    "audio:backfill-retention": "tsx scripts/backfill-audio-retention.ts",
     "analytics:backfill": "tsx scripts/backfill-admin-analytics.ts",
     "metadata:backfill": "tsx scripts/metadata-backfill-table.ts",
     "metadata:check": "tsx scripts/metadata-consistency-check.ts",

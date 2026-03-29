@@ -87,7 +87,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "episodes",
     delegate: "episode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "Job",
@@ -167,7 +167,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "digestEpisodes",
     delegate: "digestEpisode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "SummaryRun",
@@ -188,7 +188,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "summaryEpisodes",
     delegate: "summaryEpisode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "DigestSchedulerTick",

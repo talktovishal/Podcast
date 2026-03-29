@@ -8,6 +8,7 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
+import { isAudioAvailable } from "@/lib/audio-retention";
 
 const DIGEST_MEDIA_ROUTE = "/api/digest-media/[...path]";
 
@@ -26,9 +27,9 @@ async function resolveScopedEpisode(
         ? await webPrimaryStore.findDigestEpisodeById(digestEpisodeId)
         : await prisma.digestEpisode.findFirst({
             where: { id: digestEpisodeId },
-            select: { id: true, audioPath: true, userId: true }
+            select: { id: true, audioPath: true, userId: true, expiresAt: true }
           });
-    if (!digestEpisode || digestEpisode.audioPath !== path) {
+    if (!digestEpisode || digestEpisode.audioPath !== path || !isAudioAvailable(digestEpisode.expiresAt)) {
       return null;
     }
     return {
@@ -42,9 +43,9 @@ async function resolveScopedEpisode(
       ? await webPrimaryStore.findSummaryEpisodeById(summaryEpisodeId as string)
       : await prisma.summaryEpisode.findFirst({
           where: { id: summaryEpisodeId as string },
-          select: { id: true, audioPath: true, userId: true }
+          select: { id: true, audioPath: true, userId: true, expiresAt: true }
         });
-  if (!summaryEpisode || summaryEpisode.audioPath !== path) {
+  if (!summaryEpisode || summaryEpisode.audioPath !== path || !isAudioAvailable(summaryEpisode.expiresAt)) {
     return null;
   }
   return {

@@ -307,6 +307,99 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
   }
 });
 
+test("digest rss omits expired digest and summary episodes", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-digest-expired`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `digest-expired-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const token = await ensureUserDigestFeedToken(user.id);
+    const digestAudioKey = `digests/${user.id}/expired/${uniq}/episode.mp3`;
+    const summaryAudioKey = `summaries/${user.id}/expired/${uniq}/episode.mp3`;
+    await Promise.all([
+      storage.putObject(digestAudioKey, Buffer.from("expired-digest", "utf8"), { contentType: "audio/mpeg" }),
+      storage.putObject(summaryAudioKey, Buffer.from("expired-summary", "utf8"), { contentType: "audio/mpeg" })
+    ]);
+
+    const digestRun = await prisma.digestRun.create({
+      data: {
+        userId: user.id,
+        cadence: "DAILY",
+        periodKey: `digest-expired-${uniq}`,
+        windowStart: new Date("2026-01-01T00:00:00.000Z"),
+        windowEnd: new Date("2026-01-02T00:00:00.000Z"),
+        scheduledFor: new Date("2026-01-02T00:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 5,
+        sourceItemCount: 1,
+        emailEnabled: false,
+        podcastEnabled: true
+      }
+    });
+
+    const summaryRun = await prisma.summaryRun.create({
+      data: {
+        userId: user.id,
+        windowStart: new Date("2026-01-01T00:00:00.000Z"),
+        windowEnd: new Date("2026-01-02T00:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 15,
+        selectedItemCount: 1,
+        podcastEnabled: true
+      }
+    });
+
+    await prisma.digestEpisode.create({
+      data: {
+        digestRunId: digestRun.id,
+        userId: user.id,
+        guid: `digest-expired-guid-${uniq}`,
+        title: "Expired Digest Episode",
+        description: "expired digest",
+        audioPath: digestAudioKey,
+        audioBytes: 14,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-02T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    await prisma.summaryEpisode.create({
+      data: {
+        summaryRunId: summaryRun.id,
+        userId: user.id,
+        guid: `summary-expired-guid-${uniq}`,
+        title: "Expired Summary Episode",
+        description: "expired summary",
+        audioPath: summaryAudioKey,
+        audioBytes: 15,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-02T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    const response = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    assert.equal(response.status, 200);
+    const xml = await response.text();
+    assert.equal(xml.includes("Expired Digest Episode"), false);
+    assert.equal(xml.includes("Expired Summary Episode"), false);
+  } finally {
+    await storage.deleteObject(`digests/${user.id}/expired/${uniq}/episode.mp3`).catch(() => undefined);
+    await storage.deleteObject(`summaries/${user.id}/expired/${uniq}/episode.mp3`).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("digest rss self-heals mismatched digest feed token hashes without changing the URL", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-digest-repair`;

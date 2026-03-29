@@ -261,8 +261,11 @@ Current (`M57`-`M64` implemented):
 - generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
 - low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.
 - markdown artifacts are retained for reuse and can be viewed through authorized dashboard/API flows.
+- generated item, digest, and summary MP3 episodes now carry a 60-day retention expiry and disappear from feed/playback surfaces once expired.
 - raw artifacts use retention metadata (default target: 90 days), with purge tooling available:
   - `npm run artifacts:purge`
+- migration helper to backfill the 60-day audio expiry onto existing stored episodes:
+  - `npm run audio:backfill-retention`
 - migration helper to backfill markdown artifacts for ready legacy items:
   - `npm run artifacts:backfill`
 - migration helper to clean existing stored markdown artifacts in place and queue regeneration when hashes change:

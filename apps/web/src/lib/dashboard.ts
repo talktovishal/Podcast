@@ -21,6 +21,7 @@ import {
   parsePublicEpisodeShareItemId,
   PUBLIC_EPISODE_SHARE_SCOPE_PREFIX
 } from "./share-links";
+import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
 
 const ADMIN_MAX_RETRY_ATTEMPTS = Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5);
 
@@ -86,7 +87,7 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const [items, episodes] = await Promise.all([webPrimaryStore.listItemsByUser(userId, 50), webPrimaryStore.listEpisodesForUser(userId)]);
-    const episodesByItemId = new Map(episodes.map((episode) => [episode.itemId, episode]));
+    const episodesByItemId = new Map(filterUnexpiredAudioEpisodes(episodes).map((episode) => [episode.itemId, episode]));
     return items.map((item) => ({
       id: item.id,
       userId: item.userId,
@@ -136,7 +137,7 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     share: sharesByItemId.get(item.id) ?? null,
-    episode: item.episode
+    episode: item.episode && isAudioAvailable(item.episode.expiresAt) ? item.episode : null
   }));
 }
 

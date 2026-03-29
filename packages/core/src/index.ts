@@ -1,4 +1,5 @@
 export * from "./types/domain";
+export * from "./audio/retention";
 export * from "./errors/codes";
 export * from "./security/urlPolicy";
 export * from "./security/tokens";

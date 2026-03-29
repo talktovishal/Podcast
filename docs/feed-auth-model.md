@@ -46,7 +46,7 @@ From the podcast app's point of view, both the feed URL and the episode enclosur
 ### Media auth token
 - Used by: episode enclosure/media URLs returned inside RSS
 - Surface: media route query params
-- Expected lifetime: stable for a given episode until the owning feed token is rotated
+- Expected lifetime: stable for a given episode until the owning feed token is rotated or the episode itself expires under product retention policy
 - Rotation trigger: explicit feed-token rotation or explicit episode/media regeneration that changes the underlying object key
 - Podcast app impact: during normal refreshes, enclosure URLs must not churn
 
@@ -196,6 +196,7 @@ As of the current implementation:
 - Feed URL: stable until explicit user rotation
 - Digest feed URL: stable until explicit user rotation
 - Media/enclosure URLs: stable until feed rotation for unchanged episodes
+- Published episode audio itself may still age out under product retention policy; once expired, the episode is intentionally removed from active RSS/media surfaces instead of being regenerated silently
 - Extension connect code: short-lived and one-time
 - Extension installed token: does not expire automatically and stays valid until revoked
 - Workspace demo share link: separate from podcast auth and revocable by share policy

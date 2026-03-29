@@ -330,6 +330,7 @@ export const azureTablePrimaryBackfillConfigs = [
       audioBytes: true,
       mimeType: true,
       publishedAt: true,
+      expiresAt: true,
       createdAt: true,
       item: {
         select: {
@@ -350,6 +351,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }
@@ -466,6 +468,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }
@@ -544,6 +547,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }

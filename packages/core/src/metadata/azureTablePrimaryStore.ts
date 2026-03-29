@@ -208,6 +208,7 @@ export type AzureTablePrimaryEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -290,6 +291,7 @@ export type AzureTablePrimaryDigestEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -343,6 +345,7 @@ export type AzureTablePrimarySummaryEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -917,6 +920,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -1009,6 +1013,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -1070,6 +1075,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -2144,6 +2150,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryEpisode> {
     const createdAt = input.createdAt ?? new Date();
@@ -2161,6 +2168,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("episodes", entity);
@@ -2194,6 +2202,7 @@ export class AzureTablePrimaryStore {
       audioBytes: number;
       mimeType: string;
       publishedAt: Date;
+      expiresAt: Date | null;
     }>
   ): Promise<AzureTablePrimaryEpisode | null> {
     const current = await this.getEntity<Record<string, unknown>>("episodes", "episode", episodeId);
@@ -2210,7 +2219,8 @@ export class AzureTablePrimaryStore {
       audioPath: input.audioPath ?? current.audioPath,
       audioBytes: input.audioBytes ?? current.audioBytes,
       mimeType: input.mimeType ?? current.mimeType,
-      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
     };
     const success = await this.updateEntity("episodes", entity, current.etag);
     if (!success) {
@@ -2224,6 +2234,11 @@ export class AzureTablePrimaryStore {
       "episodes",
       joinFilters(filterEquals("PartitionKey", "episode"), filterEquals("userId", userId))
     );
+    return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listAllEpisodes(): Promise<AzureTablePrimaryEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("episodes", filterEquals("PartitionKey", "episode"));
     return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
   }
 
@@ -2637,6 +2652,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryDigestEpisode> {
     const existing = await this.findDigestEpisodeByRunId(input.digestRunId);
@@ -2654,6 +2670,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("digestEpisodes", entity);
@@ -2677,11 +2694,53 @@ export class AzureTablePrimaryStore {
     await this.deleteEntity("digestEpisodes", "digestEpisode", id);
   }
 
+  async updateDigestEpisode(
+    id: string,
+    input: Partial<{
+      guid: string;
+      title: string;
+      description: string;
+      audioPath: string;
+      audioBytes: number;
+      mimeType: string;
+      publishedAt: Date;
+      expiresAt: Date | null;
+    }>
+  ): Promise<AzureTablePrimaryDigestEpisode | null> {
+    const current = await this.getEntity<Record<string, unknown>>("digestEpisodes", "digestEpisode", id);
+    if (!current) {
+      return null;
+    }
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "digestEpisode",
+      rowKey: id,
+      guid: input.guid ?? current.guid,
+      title: input.title ?? current.title,
+      description: input.description ?? current.description,
+      audioPath: input.audioPath ?? current.audioPath,
+      audioBytes: input.audioBytes ?? current.audioBytes,
+      mimeType: input.mimeType ?? current.mimeType,
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
+    };
+    const success = await this.updateEntity("digestEpisodes", entity, current.etag);
+    if (!success) {
+      return this.findDigestEpisodeById(id);
+    }
+    return this.toDigestEpisode(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
   async listDigestEpisodesForUser(userId: string): Promise<AzureTablePrimaryDigestEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "digestEpisodes",
       joinFilters(filterEquals("PartitionKey", "digestEpisode"), filterEquals("userId", userId))
     );
+    return sortByDateDesc(rows.map((row) => this.toDigestEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listAllDigestEpisodes(): Promise<AzureTablePrimaryDigestEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("digestEpisodes", filterEquals("PartitionKey", "digestEpisode"));
     return sortByDateDesc(rows.map((row) => this.toDigestEpisode(row)), (entry) => entry.publishedAt);
   }
 
@@ -2933,6 +2992,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimarySummaryEpisode> {
     const existing = await this.findSummaryEpisodeByRunId(input.summaryRunId);
@@ -2950,6 +3010,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("summaryEpisodes", entity);
@@ -2973,11 +3034,53 @@ export class AzureTablePrimaryStore {
     await this.deleteEntity("summaryEpisodes", "summaryEpisode", id);
   }
 
+  async updateSummaryEpisode(
+    id: string,
+    input: Partial<{
+      guid: string;
+      title: string;
+      description: string;
+      audioPath: string;
+      audioBytes: number;
+      mimeType: string;
+      publishedAt: Date;
+      expiresAt: Date | null;
+    }>
+  ): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const current = await this.getEntity<Record<string, unknown>>("summaryEpisodes", "summaryEpisode", id);
+    if (!current) {
+      return null;
+    }
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "summaryEpisode",
+      rowKey: id,
+      guid: input.guid ?? current.guid,
+      title: input.title ?? current.title,
+      description: input.description ?? current.description,
+      audioPath: input.audioPath ?? current.audioPath,
+      audioBytes: input.audioBytes ?? current.audioBytes,
+      mimeType: input.mimeType ?? current.mimeType,
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
+    };
+    const success = await this.updateEntity("summaryEpisodes", entity, current.etag);
+    if (!success) {
+      return this.findSummaryEpisodeById(id);
+    }
+    return this.toSummaryEpisode(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
   async listSummaryEpisodesForUser(userId: string): Promise<AzureTablePrimarySummaryEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "summaryEpisodes",
       joinFilters(filterEquals("PartitionKey", "summaryEpisode"), filterEquals("userId", userId))
     );
+    return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listAllSummaryEpisodes(): Promise<AzureTablePrimarySummaryEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("summaryEpisodes", filterEquals("PartitionKey", "summaryEpisode"));
     return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
   }
 

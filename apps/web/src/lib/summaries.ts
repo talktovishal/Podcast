@@ -3,6 +3,7 @@ import { AppError, errorCodes, parseStoredItemTags, type CreateSummaryRunInput }
 import { prisma } from "./prisma";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { getArtifactStorage } from "./storage";
+import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
 
 const DEFAULT_SUMMARY_ITEM_LIMIT = 200;
 const DEFAULT_SUMMARY_RUN_LIMIT = 20;
@@ -299,7 +300,7 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
       store.listSummaryRunsByUser(userId, normalizedLimit),
       store.listSummaryEpisodesForUser(userId)
     ]);
-    const episodesByRunId = new Map(episodes.map((episode) => [episode.summaryRunId, episode]));
+    const episodesByRunId = new Map(filterUnexpiredAudioEpisodes(episodes).map((episode) => [episode.summaryRunId, episode]));
     return runs.map((run) => ({
       ...run,
       episode: episodesByRunId.get(run.id)
@@ -325,11 +326,17 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
           audioPath: true,
           audioBytes: true,
           mimeType: true,
-          publishedAt: true
+          publishedAt: true,
+          expiresAt: true
         }
       }
     }
-  });
+  }).then((runs) =>
+    runs.map((run) => ({
+      ...run,
+      episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
+    }))
+  );
 }
 
 export async function getSummaryRunMarkdown(userId: string, runId: string): Promise<{ title: string; markdown: string }> {
