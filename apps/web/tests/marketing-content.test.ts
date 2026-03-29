@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   containsBannedMarketingPhrase,
@@ -37,4 +38,19 @@ test("security bullets has exactly three concise entries", () => {
     assert.ok(bullet.length > 0, "bullet must not be empty");
     assert.ok(bullet.length <= 120, `bullet too long (${bullet.length} chars): ${bullet}`);
   }
+});
+
+test("pricing page exposes only Starter and Pro with explicit monthly billing policy", () => {
+  const source = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("Simple pricing for personal listening"), true);
+  assert.equal(source.includes("$15/mo"), true);
+  assert.equal(source.includes("Billed upfront monthly."), true);
+  assert.equal(source.includes("Renews automatically until canceled."), true);
+  assert.equal(source.includes("Cancel anytime. Access stays on through the current billing period."), true);
+  assert.equal(source.includes("Annual billing is not offered yet."), true);
+  assert.equal(source.includes("scale into Pro or Team"), false);
+  assert.equal(source.includes("<h2 className=\"text-lg font-semibold\">Team</h2>"), false);
+  assert.equal(source.includes("$79/mo"), false);
+  assert.equal(source.includes("$19/mo"), false);
 });

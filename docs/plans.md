@@ -80,6 +80,7 @@
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
+  - `/pricing` now presents only `Starter` plus one self-serve paid `Pro` plan, with explicit monthly billing policy copy and a `$15/mo` public price point
 - Digest automation controls (`M72`-`M79`) are implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
   - separate private digest RSS token/route and digest media range/HEAD delivery path.

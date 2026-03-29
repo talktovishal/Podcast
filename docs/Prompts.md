@@ -87,6 +87,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
   - access is granted or extended only from webhook-confirmed billing events; `/app/settings` now shows pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
+  - the public pricing page now shows only `Starter` and one self-serve paid option, `Pro`, with clear monthly billing policy copy (`$15/mo`, billed upfront, auto-renews until canceled, access through period end after cancelation)
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).

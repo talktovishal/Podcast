@@ -33,6 +33,8 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - admin can grant extra submission credits or add complimentary Pro access from `/admin`
 - Billing:
   - `/pricing` supports self-serve upgrade to `Pro monthly` through Stripe-hosted Checkout when billing env vars are configured
+  - `/pricing` now presents only `Starter` and `Pro` publicly, with Pro positioned at `$15/mo`
+  - `/pricing` includes explicit monthly billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
   - `/app/settings` shows current plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then links to Stripe Customer Portal for self-serve management
   - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod and Checkout redirects do not grant access on their own

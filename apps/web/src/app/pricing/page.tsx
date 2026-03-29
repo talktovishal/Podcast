@@ -8,8 +8,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description:
-    "Plans for instant article podcasts and ongoing daily and weekly intelligence digests. Start free with the Starter plan and scale into Pro or Team.",
+  description: "Simple pricing for personal article podcasts. Start free or upgrade to Pro for $15 per month.",
   alternates: { canonical: "/pricing" }
 };
 
@@ -31,9 +30,9 @@ export default async function PricingPage({
           <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
             Pricing
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Plans for instant episodes and ongoing briefings</h1>
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple pricing for personal listening</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Start with article podcasts today, then scale into daily and weekly intelligence digests with companion email reports.
+            Start free. Upgrade when you want more captures, episodes, and daily briefings.
           </p>
           {billingSearchParam === "canceled" ? (
             <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
@@ -42,10 +41,10 @@ export default async function PricingPage({
           ) : null}
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <section className="mt-8 grid gap-4 md:grid-cols-2">
           <article className="card p-5">
             <h2 className="text-lg font-semibold">Starter</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">For individual experimentation.</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">For trying it out.</p>
             <p className="mt-3 text-2xl font-bold">$0</p>
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
               <li>- Limited monthly episodes</li>
@@ -64,15 +63,16 @@ export default async function PricingPage({
           </article>
 
           <article className="card border-[#9ad0c0] p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Most practical</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Recommended</p>
             <h2 className="mt-1 text-lg font-semibold">Pro</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">For heavy personal learning workflows.</p>
-            <p className="mt-3 text-2xl font-bold">$19/mo</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">For regular use.</p>
+            <p className="mt-3 text-2xl font-bold">$15/mo</p>
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
               <li>- Higher monthly ingest + episode limits</li>
               <li>- Chrome extension capture</li>
               <li>- Daily podcast + email briefing</li>
             </ul>
+            <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
             <div className="mt-4">
               {!user ? (
                 <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
@@ -97,18 +97,16 @@ export default async function PricingPage({
               )}
             </div>
           </article>
+        </section>
 
-          <article className="card p-5">
-            <h2 className="text-lg font-semibold">Team</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">For groups and internal knowledge sharing.</p>
-            <p className="mt-3 text-2xl font-bold">$79/mo</p>
-            <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-              <li>- Shared administration</li>
-              <li>- Weekly topic digest podcast</li>
-              <li>- Team email summary reports</li>
-            </ul>
-            <p className="mt-4 text-sm text-[var(--muted)]">Team billing is planned, but not self-serve yet. Use the contact path first.</p>
-          </article>
+        <section className="mt-8 card p-5">
+          <h2 className="text-lg font-semibold">Billing policy</h2>
+          <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
+            <li>- Billed upfront monthly.</li>
+            <li>- Renews automatically until canceled.</li>
+            <li>- Cancel anytime. Access stays on through the current billing period.</li>
+            <li>- Annual billing is not offered yet.</li>
+          </ul>
         </section>
 
         <section className="mt-8 card p-5">
