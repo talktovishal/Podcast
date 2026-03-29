@@ -67,6 +67,7 @@ services:
       AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
       AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      MEDIA_SIGNING_KEY: ${MEDIA_SIGNING_KEY}
       PYTHON_TTS_URL: http://python-tts:8010
       PYTHON_TTS_TIMEOUT_MS: "120000"
       DEMO_EMAIL: ${DEMO_EMAIL:-demo@articlepod.local}

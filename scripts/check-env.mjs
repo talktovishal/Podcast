@@ -123,6 +123,7 @@ function profileRequirements(profile) {
         "STORAGE_BACKEND",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_STORAGE_CONTAINER",
+        "MEDIA_SIGNING_KEY",
         "PYTHON_TTS_URL"
       ],
       optional: [...commonOptional, "RUNTIME_PROFILE", "WORKER_POLL_MS", "WORKER_STALE_PROCESSING_MS"]
@@ -130,7 +131,7 @@ function profileRequirements(profile) {
   }
 
   return {
-    required: ["DATABASE_URL", "APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER"],
+    required: ["DATABASE_URL", "APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER", "MEDIA_SIGNING_KEY"],
     optional: [
       ...commonOptional,
       "AZURE_STORAGE_CONNECTION_STRING",

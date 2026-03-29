@@ -36,6 +36,7 @@ test("parity compose waits for azurite health before starting web and worker", (
     source,
     /web:\n(?: {2}.+\n)+ {4}depends_on:\n(?: {6}.+\n)+ {6}azurite:\n {8}condition: service_healthy/m
   );
+  assert.match(source, / {6}MEDIA_SIGNING_KEY: \$\{MEDIA_SIGNING_KEY\}/m);
   assert.match(
     source,
     /worker:\n(?: {2}.+\n)+ {4}depends_on:\n(?: {6}.+\n)+ {6}azurite:\n {8}condition: service_healthy/m
@@ -48,4 +49,16 @@ test("parity-up emits compose diagnostics when startup fails", () => {
 
   assert.match(source, /startup failed, collecting docker compose diagnostics/);
   assert.match(source, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=200 web worker azurite postgres python-tts/);
+});
+
+test("parity env fixtures and checks require media signing", () => {
+  const root = resolve(process.cwd(), "../..");
+  const envSource = readFileSync(resolve(root, ".env.parity.example"), "utf8");
+  const checkEnvSource = readFileSync(resolve(root, "scripts/check-env.mjs"), "utf8");
+
+  assert.match(envSource, /^MEDIA_SIGNING_KEY="[^"]+"/m);
+  assert.match(
+    checkEnvSource,
+    /if \(profile === "parity"\) \{\n    return \{\n      required: \[\n(?:\s+"[^"]+",\n)+\s+"MEDIA_SIGNING_KEY",/m
+  );
 });
