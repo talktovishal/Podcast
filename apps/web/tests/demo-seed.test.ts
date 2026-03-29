@@ -23,3 +23,25 @@ test("parity compose gives the web healthcheck a startup grace period", () => {
     /web:\n(?: {2}.+\n)+ {4}healthcheck:\n(?: {6}.+\n)* {6}start_period: 120s/m
   );
 });
+
+test("parity compose waits for azurite health before starting web and worker", () => {
+  const composePath = resolve(process.cwd(), "../..", "docker-compose.parity.yml");
+  const source = readFileSync(composePath, "utf8");
+
+  assert.match(
+    source,
+    /web:\n(?: {2}.+\n)+ {4}depends_on:\n(?: {6}.+\n)+ {6}azurite:\n {8}condition: service_healthy/m
+  );
+  assert.match(
+    source,
+    /worker:\n(?: {2}.+\n)+ {4}depends_on:\n(?: {6}.+\n)+ {6}azurite:\n {8}condition: service_healthy/m
+  );
+});
+
+test("parity-up emits compose diagnostics when startup fails", () => {
+  const scriptPath = resolve(process.cwd(), "../..", "scripts/parity-up.sh");
+  const source = readFileSync(scriptPath, "utf8");
+
+  assert.match(source, /startup failed, collecting docker compose diagnostics/);
+  assert.match(source, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=200 web worker azurite postgres python-tts/);
+});

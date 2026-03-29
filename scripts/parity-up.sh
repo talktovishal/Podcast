@@ -4,6 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+dump_compose_diagnostics() {
+  local exit_code="$1"
+  if [[ "$exit_code" -eq 0 ]]; then
+    return
+  fi
+
+  echo "[parity-up] startup failed, collecting docker compose diagnostics..."
+  docker compose -f docker-compose.parity.yml ps || true
+  docker compose -f docker-compose.parity.yml logs --no-color --tail=200 web worker azurite postgres python-tts || true
+}
+
+trap 'dump_compose_diagnostics "$?"' EXIT
+
 PARITY_ENV_FILE=".env.parity"
 if [[ ! -f "$PARITY_ENV_FILE" && -f ".env.parity.example" ]]; then
   PARITY_ENV_FILE=".env.parity.example"

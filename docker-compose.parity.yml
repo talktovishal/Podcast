@@ -56,7 +56,7 @@ services:
       postgres:
         condition: service_healthy
       azurite:
-        condition: service_started
+        condition: service_healthy
       python-tts:
         condition: service_healthy
     environment:
@@ -96,7 +96,7 @@ services:
       postgres:
         condition: service_healthy
       azurite:
-        condition: service_started
+        condition: service_healthy
       python-tts:
         condition: service_healthy
       web:
