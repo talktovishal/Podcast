@@ -119,7 +119,7 @@ Current behavior (`M57`-`M64` implemented):
 4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
 5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
 6. Worker stores `summary.md` plus optional episode audio under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
-7. When podcast generation is enabled, the resulting `SummaryEpisode` is published into the existing private digest RSS/media surface.
+7. When podcast generation is enabled, the resulting `SummaryEpisode` is published into the main private RSS/media surface so it appears alongside regular episodes.
 
 ## Admin analytics pipeline (`M66`-`M70`)
 Event sources:

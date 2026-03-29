@@ -83,7 +83,8 @@ Connect flow:
 - Media URL: `/api/media/...`
 - Digest media URL: `/api/digest-media/...`
 - Media route supports `HEAD` and byte-range `206 Partial Content`
-- Digest feed contains both scheduled digest episodes and manual summary episodes when generated with podcast enabled.
+- Main feed contains regular item episodes plus any podcast-enabled manual summary episodes.
+- Digest feed is reserved for scheduled digest episodes.
 - RSS-generated media URLs are HMAC-signed per episode and remain stable until the owning feed token is rotated, so enclosure URLs do not churn between feed refreshes.
 - RSS feed routes also include a compatibility fallback for legacy token rows whose stored plaintext token and stored hash drifted apart during storage cutovers: the feed request repairs the hash in place and continues serving the same feed URL instead of returning `404`.
 - Newly created and rotated item/digest feed-token rows currently retain plaintext `tokenValue` for dashboard compatibility, so users can re-open `/app/settings` without silently invalidating an already-subscribed private feed URL.

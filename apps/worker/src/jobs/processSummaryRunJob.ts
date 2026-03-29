@@ -7,6 +7,8 @@ import {
   episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
+  toSummaryPodcastUserMessage,
+  toSummaryRunUserMessage,
   type DigestLengthMinutes
 } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
@@ -402,7 +404,10 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
         podcastStatus = "SUCCEEDED";
       } catch (error) {
         podcastStatus = "FAILED";
-        podcastError = toSafeErrorMessage(error);
+        podcastError = toSafeErrorMessage(
+          toSummaryPodcastUserMessage(error instanceof AppError ? error.userMessage : error instanceof Error ? error.message : null) ||
+            "The summary is ready, but we couldn't publish the audio version. Please try again."
+        );
       }
     }
 
@@ -464,7 +469,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
   } catch (error) {
     const mappedError = mapSummaryError(error);
     const retryRecommended = claimResult.attempt < workerEnv.digestRunMaxRetryAttempts;
-    const safeErrorMessage = toSafeErrorMessage(mappedError.userMessage);
+    const safeErrorMessage = toSafeErrorMessage(toSummaryRunUserMessage(mappedError.userMessage, mappedError.code));
 
     try {
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {

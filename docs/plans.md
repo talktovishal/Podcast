@@ -116,7 +116,7 @@
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
   - manual `/app/summary` workflow supports explicit article selection, title-first saved-article cards, default last-7-days preselection, length presets, and optional podcast creation.
   - summary setup now keeps the podcast publish control in a lower secondary section so the primary desktop/mobile layout stays focused on article selection and markdown options.
-  - summary runs persist markdown/audio artifacts separately from scheduled digest runs while reusing the existing digest feed/media surface.
+  - summary runs persist markdown/audio artifacts separately from scheduled digest runs, and podcast-enabled summaries now publish into the main private feed/media surface.
   - Azure OpenAI is now a first-class summary provider in deploy/runtime automation with nano-first routing and mini fallback.
 - Feed stability + extension lifetime UX track (`M92`) is implemented:
   - item and digest RSS now emit stable episode-scoped enclosure URLs until feed-token rotation instead of per-request signature churn.
@@ -2573,22 +2573,27 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
-- evidence: local validation + implementation pass (2026-03-21)
+- evidence: local validation + implementation pass (2026-03-21), summary feed consolidation follow-up (2026-03-29)
 - Scope:
-  - Publish manual summary episodes into the existing private digest feed.
-  - Extend digest media authorization and range handling to summary episodes.
+  - Publish manual summary episodes into the main private feed while keeping scheduled digests on the separate digest feed.
+  - Extend main-feed media authorization and range handling to summary episodes while preserving backward compatibility for older digest summary media URLs.
   - Ensure account deletion and operational backfill paths include manual summary records/artifacts.
 - Key files/modules:
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
   - `apps/web/src/app/rss/digest/[token]/route.ts`
   - `apps/web/src/app/api/digest-media/[...path]/route.ts`
   - `apps/web/src/app/api/account/delete/route.ts`
   - `apps/web/src/lib/ops/database-snapshot.ts`
   - `apps/web/src/lib/ops/azure-table-primary-backfill.ts`
   - `apps/web/tests/digest-routes.test.ts`
+  - `apps/web/tests/rss-delete-route.test.ts`
+  - `apps/web/tests/media-route.test.ts`
   - `apps/web/tests/storage-cutover-config.test.ts`
 - Acceptance criteria:
-  - Digest RSS includes scheduled digest episodes and manual summary episodes in newest-first order with unique enclosure URLs.
-  - Digest media route serves manual summary episodes with the same `HEAD` and byte-range `206` contract.
+  - Main RSS includes regular episodes plus manual summary episodes in newest-first order with unique enclosure URLs.
+  - Main media route serves manual summary episodes with the same `HEAD` and byte-range `206` contract.
+  - Digest RSS remains limited to scheduled digest episodes.
   - Summary records are included in lifecycle cleanup and metadata backfill coverage.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- digest-routes`

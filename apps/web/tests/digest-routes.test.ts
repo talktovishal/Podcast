@@ -307,7 +307,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
   }
 });
 
-test("digest rss omits expired digest and summary episodes", async () => {
+test("digest rss omits expired digest episodes and does not list summary episodes", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-digest-expired`;
   const storage = getArtifactStorage();
@@ -480,7 +480,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
   }
 });
 
-test("digest rss merges manual summary episodes and digest media serves them with summary scope", async () => {
+test("digest rss excludes manual summary episodes now that summary podcasts publish on the main feed", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);
   const storage = getArtifactStorage();
@@ -496,8 +496,8 @@ test("digest rss merges manual summary episodes and digest media serves them wit
 
   try {
     const token = await ensureUserDigestFeedToken(user.id);
-    const audioKey = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
-    await storage.putObject(audioKey, Buffer.from("abcdefghijklmnop", "utf8"), {
+    const userAudioKey = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
+    await storage.putObject(userAudioKey, Buffer.from("abcdefghijklmnop", "utf8"), {
       contentType: "audio/mpeg"
     });
 
@@ -526,7 +526,7 @@ test("digest rss merges manual summary episodes and digest media serves them wit
         guid: `summary-guid-${uniq}`,
         title: "Manual summary run",
         description: "Manual summary description",
-        audioPath: audioKey,
+        audioPath: userAudioKey,
         audioBytes: 16,
         mimeType: "audio/mpeg",
         publishedAt: new Date("2026-02-27T16:05:00.000Z")
@@ -536,31 +536,10 @@ test("digest rss merges manual summary episodes and digest media serves them wit
     const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
     assert.equal(rssResponse.status, 200);
     const xml = await rssResponse.text();
-    assert.equal(xml.includes("Manual summary run"), true);
-    const enclosureMatch = /enclosure url="([^"]*seid=[^"]+)"/.exec(xml);
-    assert.ok(enclosureMatch, "summary enclosure URL must include seid");
-    const enclosureUrl = enclosureMatch[1];
-    const enclosurePath = new URL(enclosureUrl).pathname.replace("/api/digest-media/", "");
-    const enclosureSearch = new URL(enclosureUrl).search;
-
-    const headResponse = await digestMediaHead(
-      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
-      { params: { path: enclosurePath.split("/") } }
-    );
-    assert.equal(headResponse.status, 200);
-    assert.equal(headResponse.headers.get("content-length"), "16");
-
-    const rangeResponse = await digestMediaGet(
-      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`, {
-        headers: {
-          range: "bytes=0-1"
-        }
-      }),
-      { params: { path: enclosurePath.split("/") } }
-    );
-    assert.equal(rangeResponse.status, 206);
-    assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
+    assert.equal(xml.includes("Manual summary run"), false);
+    assert.equal(xml.includes("seid="), false);
   } finally {
+    await storage.deleteObject(`summaries/${user.id}/summary-run-${uniq}/episode.mp3`).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

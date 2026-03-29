@@ -184,3 +184,60 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("summary runs endpoint scrubs technical failure details into user-friendly copy", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-errors`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `summary-errors-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const session = await createSession(user.id);
+
+    await prisma.summaryRun.create({
+      data: {
+        userId: user.id,
+        requestedTitle: "Failed summary run",
+        windowStart: new Date("2026-03-20T00:00:00.000Z"),
+        windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+        status: "FAILED",
+        targetLengthMinutes: 15,
+        selectedItemCount: 2,
+        podcastEnabled: true,
+        podcastStatus: "FAILED",
+        errorCode: "EXTRACTION_FAILED",
+        errorMessage: "Azure OpenAI returned 400.",
+        podcastError: "Azure OpenAI returned 400."
+      }
+    });
+
+    const runsResponse = await summaryRunsGet(
+      new NextRequest("http://localhost/api/summary/runs?limit=10", {
+        headers: {
+          cookie: `articlepod_session=${session}`
+        }
+      })
+    );
+    assert.equal(runsResponse.status, 200);
+
+    const runsPayload = (await runsResponse.json()) as {
+      ok: boolean;
+      runs: Array<{ errorMessage: string | null; podcastError: string | null }>;
+    };
+    assert.equal(runsPayload.ok, true);
+    assert.equal(runsPayload.runs[0]?.errorMessage, "We couldn't finish this summary right now. Please try again.");
+    assert.equal(
+      runsPayload.runs[0]?.podcastError,
+      "The summary is ready, but we couldn't publish the audio version. Please try again."
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

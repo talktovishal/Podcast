@@ -157,7 +157,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - podcast publish controls are kept below the primary summary setup so the main desktop/mobile composition stays focused on selection and markdown options first.
   - manual summary runs persist polished markdown artifacts plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
-  - existing digest RSS/media pipeline now also publishes manual summary episodes on the private digest feed.
+  - podcast-enabled manual summaries now publish into the main private RSS/media feed alongside regular episodes instead of a separate summary-only feed surface.
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
 - Public episode sharing (`M104`) is implemented:
   - owners can create one stable, revocable public share link per ready item episode from `/app`.

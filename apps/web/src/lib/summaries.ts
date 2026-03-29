@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { AppError, errorCodes, parseStoredItemTags, type CreateSummaryRunInput } from "@articlepod/core";
+import {
+  AppError,
+  errorCodes,
+  parseStoredItemTags,
+  toSummaryPodcastUserMessage,
+  toSummaryRunUserMessage,
+  type CreateSummaryRunInput
+} from "@articlepod/core";
 import { prisma } from "./prisma";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { getArtifactStorage } from "./storage";
@@ -59,6 +66,14 @@ export type SummaryRunListEntry = {
       }
     | null;
 };
+
+function toUserFacingSummaryRun(run: SummaryRunListEntry): SummaryRunListEntry {
+  return {
+    ...run,
+    podcastError: toSummaryPodcastUserMessage(run.podcastError),
+    errorMessage: toSummaryRunUserMessage(run.errorMessage, run.errorCode)
+  };
+}
 
 function isSupportedSummarySourceType(sourceType: string): boolean {
   return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT";
@@ -301,18 +316,20 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
       store.listSummaryEpisodesForUser(userId)
     ]);
     const episodesByRunId = new Map(filterUnexpiredAudioEpisodes(episodes).map((episode) => [episode.summaryRunId, episode]));
-    return runs.map((run) => ({
-      ...run,
-      episode: episodesByRunId.get(run.id)
-        ? {
-            id: episodesByRunId.get(run.id)?.id || "",
-            audioPath: episodesByRunId.get(run.id)?.audioPath || "",
-            audioBytes: episodesByRunId.get(run.id)?.audioBytes || 0,
-            mimeType: episodesByRunId.get(run.id)?.mimeType || "audio/mpeg",
-            publishedAt: episodesByRunId.get(run.id)?.publishedAt || run.createdAt
-          }
-        : null
-    }));
+    return runs.map((run) =>
+      toUserFacingSummaryRun({
+        ...run,
+        episode: episodesByRunId.get(run.id)
+          ? {
+              id: episodesByRunId.get(run.id)?.id || "",
+              audioPath: episodesByRunId.get(run.id)?.audioPath || "",
+              audioBytes: episodesByRunId.get(run.id)?.audioBytes || 0,
+              mimeType: episodesByRunId.get(run.id)?.mimeType || "audio/mpeg",
+              publishedAt: episodesByRunId.get(run.id)?.publishedAt || run.createdAt
+            }
+          : null
+      })
+    );
   }
 
   return prisma.summaryRun.findMany({
@@ -332,10 +349,12 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
       }
     }
   }).then((runs) =>
-    runs.map((run) => ({
-      ...run,
-      episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
-    }))
+    runs.map((run) =>
+      toUserFacingSummaryRun({
+        ...run,
+        episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
+      })
+    )
   );
 }
 

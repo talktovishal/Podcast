@@ -3079,6 +3079,18 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
   }
 
+  async findSummaryEpisodeByAudioPathForUser(audioPath: string, userId: string): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "summaryEpisodes",
+      joinFilters(
+        filterEquals("PartitionKey", "summaryEpisode"),
+        filterEquals("audioPath", audioPath),
+        filterEquals("userId", userId)
+      )
+    );
+    return entity ? this.toSummaryEpisode(entity) : null;
+  }
+
   async listAllSummaryEpisodes(): Promise<AzureTablePrimarySummaryEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>("summaryEpisodes", filterEquals("PartitionKey", "summaryEpisode"));
     return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);

@@ -1,6 +1,8 @@
 import { buildRssXml, hashIncomingToken, signStableMediaUrl } from "@articlepod/core";
-import { NextRequest, NextResponse } from "next/server";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
+import { NextRequest, NextResponse } from "next/server";
+import { isAudioAvailable } from "@/lib/audio-retention";
+import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
@@ -9,8 +11,6 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
-import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
-import { isAudioAvailable } from "@/lib/audio-retention";
 
 const FEED_ROUTE = "/rss/[token]";
 const FEED_HEADERS = {
@@ -18,8 +18,25 @@ const FEED_HEADERS = {
   "cache-control": "private, no-store"
 };
 
+type MainFeedEpisode = {
+  id: string;
+  itemId: string | null;
+  guid: string;
+  title: string;
+  description: string;
+  audioPath: string;
+  audioBytes: number;
+  mimeType: string;
+  publishedAt: Date;
+  feedKind: "item" | "summary";
+};
+
 function normalizeFeedToken(value: string): string {
   return value.replace(/\.xml$/i, "");
+}
+
+function comparePublishedDesc<T extends { publishedAt: Date; id: string }>(left: T, right: T): number {
+  return right.publishedAt.getTime() - left.publishedAt.getTime() || left.id.localeCompare(right.id);
 }
 
 async function resolveItemFeedAccess(token: string) {
@@ -64,53 +81,101 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   const { user, tokenHash, repaired } = resolvedAccess;
 
   const now = new Date();
-  const episodes =
+  const episodes: MainFeedEpisode[] =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await (async () => {
-          const [episodeRows, itemRows] = await Promise.all([
+          const [episodeRows, itemRows, summaryEpisodes] = await Promise.all([
             webPrimaryStore.listEpisodesForUser(user.id),
-            webPrimaryStore.listItemsByUser(user.id, 500)
+            webPrimaryStore.listItemsByUser(user.id, 500),
+            webPrimaryStore.listSummaryEpisodesForUser(user.id)
           ]);
           const readyItemIds = new Set(itemRows.filter((item) => item.status === "READY").map((item) => item.id));
-          return episodeRows
-            .filter((episode) => readyItemIds.has(episode.itemId) && isAudioAvailable(episode.expiresAt, now))
-            .map((episode) => ({
-              ...episode,
-              item: itemRows.find((item) => item.id === episode.itemId) ?? null
-            }))
-            .sort((a, b) => {
-              const publishedDiff = b.publishedAt.getTime() - a.publishedAt.getTime();
-              if (publishedDiff !== 0) {
-                return publishedDiff;
-              }
-              return a.id.localeCompare(b.id);
-            });
+          return [
+            ...episodeRows
+              .filter((episode) => readyItemIds.has(episode.itemId) && isAudioAvailable(episode.expiresAt, now))
+              .map((episode) => ({
+                id: episode.id,
+                itemId: episode.itemId,
+                guid: episode.guid,
+                title: episode.title,
+                description: episode.description,
+                audioPath: episode.audioPath,
+                audioBytes: episode.audioBytes,
+                mimeType: episode.mimeType,
+                publishedAt: episode.publishedAt,
+                feedKind: "item" as const
+              })),
+            ...summaryEpisodes
+              .filter((episode) => isAudioAvailable(episode.expiresAt, now))
+              .map((episode) => ({
+                id: episode.id,
+                itemId: null,
+                guid: episode.guid,
+                title: episode.title,
+                description: episode.description,
+                audioPath: episode.audioPath,
+                audioBytes: episode.audioBytes,
+                mimeType: episode.mimeType,
+                publishedAt: episode.publishedAt,
+                feedKind: "summary" as const
+              }))
+          ].sort(comparePublishedDesc);
         })()
-      : await prisma.episode.findMany({
-          where: {
-            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-            item: {
-              userId: user.id,
-              status: "READY"
-            }
-          },
-          include: {
-            item: true
-          },
-          orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-        });
+      : await (async () => {
+          const [itemEpisodes, summaryEpisodes] = await Promise.all([
+            prisma.episode.findMany({
+              where: {
+                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+                item: {
+                  userId: user.id,
+                  status: "READY"
+                }
+              },
+              select: {
+                id: true,
+                itemId: true,
+                guid: true,
+                title: true,
+                description: true,
+                audioPath: true,
+                audioBytes: true,
+                mimeType: true,
+                publishedAt: true
+              },
+              orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+            }),
+            prisma.summaryEpisode.findMany({
+              where: {
+                userId: user.id,
+                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
+              },
+              select: {
+                id: true,
+                guid: true,
+                title: true,
+                description: true,
+                audioPath: true,
+                audioBytes: true,
+                mimeType: true,
+                publishedAt: true
+              },
+              orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+            })
+          ]);
+          return [
+            ...itemEpisodes.map((episode) => ({
+              ...episode,
+              feedKind: "item" as const
+            })),
+            ...summaryEpisodes.map((episode) => ({
+              ...episode,
+              itemId: null,
+              feedKind: "summary" as const
+            }))
+          ].sort(comparePublishedDesc);
+        })();
   const storage = getArtifactStorage();
-  const availableEpisodes: Array<{
-    id: string;
-    itemId: string;
-    guid: string;
-    title: string;
-    description: string;
-    audioPath: string;
-    audioBytes: number;
-    mimeType: string;
-    publishedAt: Date;
-  }> = [];
+  const availableEpisodes: MainFeedEpisode[] = [];
   let missingEpisodeCount = 0;
   let repairEnqueuedCount = 0;
 
@@ -122,6 +187,23 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     }
 
     missingEpisodeCount += 1;
+
+    if (episode.feedKind === "summary") {
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.warn("Podcast feed item skipped due to missing media", {
+          ...requestMeta,
+          route: FEED_ROUTE,
+          feed_kind: "item",
+          status: 200,
+          user_id: user.id,
+          summary_episode_id: episode.id,
+          media_key: episode.audioPath,
+          repair_enqueued: false
+        });
+      }
+      continue;
+    }
+
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: episode.id,
       userId: user.id,
@@ -168,12 +250,13 @@ export async function GET(request: NextRequest, context: { params: { token: stri
     episodes: availableEpisodes.map((episode) => {
       const mediaPath = episode.audioPath;
       const mediaToken = signStableMediaUrl(mediaPath, env.mediaSigningKey || episode.guid, tokenHash, episode.id);
+      const episodeScope = episode.feedKind === "summary" ? "seid" : "eid";
       return {
         guid: episode.guid,
         title: episode.title,
         description: episode.description,
         pubDate: episode.publishedAt,
-        enclosureUrl: `${env.appUrl}/api/media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&eid=${episode.id}`,
+        enclosureUrl: `${env.appUrl}/api/media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&${episodeScope}=${episode.id}`,
         enclosureLength: episode.audioBytes,
         enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
       };
@@ -188,6 +271,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
       status: 200,
       user_id: user.id,
       episode_count: availableEpisodes.length,
+      summary_episode_count: availableEpisodes.filter((episode) => episode.feedKind === "summary").length,
       missing_episode_count: missingEpisodeCount,
       repair_enqueued_count: repairEnqueuedCount,
       enclosure_mime_types: Array.from(new Set(availableEpisodes.map((episode) => episode.mimeType))).sort(),

@@ -198,6 +198,86 @@ test("media route accepts legacy feed_token for matching owner and rejects other
   }
 });
 
+test("media route accepts legacy feed_token for main-feed summary episodes", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-legacy`;
+  const storage = getArtifactStorage();
+
+  const owner = await prisma.user.create({
+    data: {
+      email: `media-summary-owner-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+  const otherUser = await prisma.user.create({
+    data: {
+      email: `media-summary-other-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const ownerFeedToken = await ensureUserFeedToken(owner.id);
+  const otherFeedToken = await ensureUserFeedToken(otherUser.id);
+  const key = `summaries/${owner.id}/legacy-${uniq}/episode.mp3`;
+  const payload = Buffer.from("summary-feed-token", "utf8");
+  await storage.putObject(key, payload, { contentType: "audio/mpeg" });
+
+  const run = await prisma.summaryRun.create({
+    data: {
+      userId: owner.id,
+      requestedTitle: "Legacy summary",
+      title: "Legacy summary",
+      windowStart: new Date("2026-03-20T00:00:00.000Z"),
+      windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+      status: "SUCCEEDED",
+      targetLengthMinutes: 15,
+      selectedItemCount: 1,
+      podcastEnabled: true,
+      podcastStatus: "SUCCEEDED"
+    }
+  });
+
+  await prisma.summaryEpisode.create({
+    data: {
+      summaryRunId: run.id,
+      userId: owner.id,
+      guid: `summary-legacy-${uniq}`,
+      title: `Legacy summary ${uniq}`,
+      description: "legacy summary feed token fallback",
+      audioPath: key,
+      audioBytes: payload.byteLength,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const authorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(authorizedResponse.status, 200);
+    assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
+
+    const unauthorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(unauthorizedResponse.status, 401);
+
+    const headResponse = await HEAD(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
+      { params: { path: key.split("/") } }
+    );
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
+  } finally {
+    await storage.deleteObject(key).catch(() => undefined);
+    await prisma.user.delete({ where: { id: owner.id } });
+    await prisma.user.delete({ where: { id: otherUser.id } });
+  }
+});
+
 test("media route rejects expired episodes even when the owner feed token is valid", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-expired`;

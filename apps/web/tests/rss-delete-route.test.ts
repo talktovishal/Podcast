@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { DELETE as deleteItemRoute } from "../src/app/api/items/[id]/route";
-import { HEAD as mediaHead } from "../src/app/api/media/[...path]/route";
+import { GET as mediaGet, HEAD as mediaHead } from "../src/app/api/media/[...path]/route";
 import { GET as rssGet, HEAD as rssHead } from "../src/app/rss/[token]/route";
 import { createSession } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
@@ -172,6 +172,140 @@ test("expired episodes are omitted from RSS feed output", async () => {
     assert.equal(xml.includes(episode.guid), false);
   } finally {
     await storage.deleteObject(audioPath).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("main rss merges manual summary episodes and serves them through the main media route", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-main-feed`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `rss-summary-main-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = createSecretToken();
+  await prisma.feedToken.create({
+    data: {
+      userId: user.id,
+      tokenValue: feedToken.plain,
+      tokenHash: feedToken.hash,
+      active: true
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: "Regular episode",
+      sourceType: "URL",
+      sourceUrl: `https://example.com/main-feed/${uniq}`,
+      status: "READY"
+    }
+  });
+  const itemAudioPath = `items/${item.id}/episode.mp3`;
+  const summaryAudioPath = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
+  await Promise.all([
+    storage.putObject(itemAudioPath, Buffer.from("rss-main-feed-item", "utf8"), {
+      contentType: "audio/mpeg"
+    }),
+    storage.putObject(summaryAudioPath, Buffer.from("abcdefghijklmnop", "utf8"), {
+      contentType: "audio/mpeg"
+    })
+  ]);
+
+  await prisma.episode.create({
+    data: {
+      itemId: item.id,
+      guid: `episode-${item.id}`,
+      title: `Regular episode ${uniq}`,
+      description: "regular episode",
+      audioPath: itemAudioPath,
+      audioBytes: 18,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date("2026-03-21T09:00:00.000Z")
+    }
+  });
+
+  const summaryRun = await prisma.summaryRun.create({
+    data: {
+      userId: user.id,
+      requestedTitle: "Manual summary run",
+      title: "Manual summary run",
+      windowStart: new Date("2026-03-20T00:00:00.000Z"),
+      windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+      status: "SUCCEEDED",
+      targetLengthMinutes: 15,
+      selectedItemCount: 2,
+      podcastEnabled: true,
+      podcastStatus: "SUCCEEDED",
+      completedAt: new Date("2026-03-21T10:00:00.000Z")
+    }
+  });
+
+  try {
+    await prisma.summaryEpisode.create({
+      data: {
+        summaryRunId: summaryRun.id,
+        userId: user.id,
+        guid: `summary-guid-${uniq}`,
+        title: "Manual summary run",
+        description: "Manual summary description",
+        audioPath: summaryAudioPath,
+        audioBytes: 16,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-03-21T10:00:00.000Z")
+      }
+    });
+
+    const firstResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    const secondResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
+      params: { token: feedToken.plain }
+    });
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 200);
+
+    const firstXml = await firstResponse.text();
+    const secondXml = await secondResponse.text();
+    assert.equal(firstXml.includes(`Regular episode ${uniq}`), true);
+    assert.equal(firstXml.includes("Manual summary run"), true);
+    assert.equal(firstXml.indexOf("Manual summary run") < firstXml.indexOf(`Regular episode ${uniq}`), true);
+
+    const firstEnclosure = /enclosure url="([^"]*seid=[^"]+)"/.exec(firstXml)?.[1];
+    const secondEnclosure = /enclosure url="([^"]*seid=[^"]+)"/.exec(secondXml)?.[1];
+    assert.ok(firstEnclosure);
+    assert.equal(firstEnclosure, secondEnclosure);
+
+    const enclosureUrl = new URL(firstEnclosure!);
+    const enclosurePath = enclosureUrl.pathname.replace("/api/media/", "");
+    const enclosureSearch = enclosureUrl.search;
+
+    const headResponse = await mediaHead(
+      new NextRequest(`http://localhost/api/media/${enclosurePath}${enclosureSearch}`, { method: "HEAD" }),
+      { params: { path: enclosurePath.split("/") } }
+    );
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-length"), "16");
+
+    const rangeResponse = await mediaGet(
+      new NextRequest(`http://localhost/api/media/${enclosurePath}${enclosureSearch}`, {
+        headers: {
+          range: "bytes=0-1"
+        }
+      }),
+      { params: { path: enclosurePath.split("/") } }
+    );
+    assert.equal(rangeResponse.status, 206);
+    assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
+  } finally {
+    await storage.deleteObject(itemAudioPath).catch(() => undefined);
+    await storage.deleteObject(summaryAudioPath).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

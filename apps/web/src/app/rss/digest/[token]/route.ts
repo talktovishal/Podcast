@@ -68,10 +68,6 @@ export async function GET(request: NextRequest, context: { params: { token: stri
           ...filterUnexpiredAudioEpisodes(await webPrimaryStore.listDigestEpisodesForUser(user.id), now).map((episode) => ({
             ...episode,
             feedKind: "digest" as const
-          })),
-          ...filterUnexpiredAudioEpisodes(await webPrimaryStore.listSummaryEpisodesForUser(user.id), now).map((episode) => ({
-            ...episode,
-            feedKind: "summary" as const
           }))
         ]
       : [
@@ -81,19 +77,12 @@ export async function GET(request: NextRequest, context: { params: { token: stri
               OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
             },
             orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-          })).map((episode) => ({ ...episode, feedKind: "digest" as const })),
-          ...(await prisma.summaryEpisode.findMany({
-            where: {
-              userId: user.id,
-              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
-            },
-            orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-          })).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+          })).map((episode) => ({ ...episode, feedKind: "digest" as const }))
         ];
 
   const xml = buildRssXml({
     title: `${user.name || user.email} - ${BRAND_NAME} Digest`,
-    description: `Private ${BRAND_NAME} digest and summary feed`,
+    description: `Private ${BRAND_NAME} digest feed`,
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/digest/${token}.xml`,
     language: "en-us",
@@ -106,9 +95,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         title: episode.title,
         description: episode.description,
         pubDate: episode.publishedAt,
-        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&${
-          episode.feedKind === "summary" ? "seid" : "deid"
-        }=${episode.id}`,
+        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&deid=${episode.id}`,
         enclosureLength: episode.audioBytes,
         enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
       };

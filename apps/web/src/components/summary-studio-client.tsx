@@ -83,6 +83,68 @@ function runLabel(run: SummaryStudioRun): string {
   );
 }
 
+function formatRunStatus(status: string): string {
+  const normalized = status.toUpperCase();
+  if (normalized === "READY" || normalized === "SUCCEEDED") {
+    return "Ready";
+  }
+  if (normalized === "FAILED") {
+    return "Needs attention";
+  }
+  if (normalized === "PROCESSING") {
+    return "Processing";
+  }
+  if (normalized === "SKIPPED") {
+    return "Skipped";
+  }
+  return "Queued";
+}
+
+function runProgressMessage(run: SummaryStudioRun): string {
+  const normalized = run.status.toUpperCase();
+  if (normalized === "QUEUED") {
+    return "Waiting for processing to start";
+  }
+  if (normalized === "PROCESSING") {
+    return run.podcastEnabled
+      ? "Creating your summary and audio draft"
+      : "Creating your summary";
+  }
+  if (normalized === "FAILED") {
+    return "Processing stopped before this summary could finish";
+  }
+  if (normalized === "SKIPPED") {
+    return "This run finished without publishing a new summary";
+  }
+  if (run.podcastEnabled && run.podcastStatus === "SUCCEEDED") {
+    return "Summary ready. Audio is now in your main private feed";
+  }
+  if (run.podcastEnabled && run.podcastStatus === "FAILED") {
+    return "Summary ready. Audio publishing needs another try";
+  }
+  return "Summary ready";
+}
+
+function runFailureMessage(run: SummaryStudioRun): string | null {
+  if (run.errorMessage) {
+    return run.errorMessage;
+  }
+  if (run.status.toUpperCase() === "FAILED") {
+    return "We couldn't finish this summary right now. Please try again.";
+  }
+  return null;
+}
+
+function runPodcastFailureMessage(run: SummaryStudioRun): string | null {
+  if (run.podcastStatus?.toUpperCase() !== "FAILED") {
+    return null;
+  }
+  return (
+    run.podcastError ||
+    "The summary is ready, but we couldn't publish the audio version. Please try again."
+  );
+}
+
 export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
   const [items, setItems] = useState(initialItems);
   const [runs, setRuns] = useState(initialRuns);
@@ -309,7 +371,9 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
       );
       setSelectedRunId(payload.run.id);
       setStatusMessage(
-        "Summary run queued. The markdown and podcast will appear when processing finishes.",
+        podcastEnabled
+          ? "Summary requested. Waiting for processing to start. When it's ready, the audio version will appear in your main feed."
+          : "Summary requested. Waiting for processing to start.",
       );
       void refreshRuns().catch(() => undefined);
     } catch (error) {
@@ -538,8 +602,8 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
             <h2 className="font-semibold text-lg">Podcast Publish</h2>
             <p className="text-sm text-[var(--muted)]">
               Keep this off unless you want the finished summary to also become
-              an audio episode. When enabled, it publishes through your digest
-              feed.
+              an audio episode. When enabled, it appears in your main private
+              podcast feed alongside your regular episodes.
             </p>
           </div>
 
@@ -615,29 +679,26 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
                           {run.podcastEnabled ? "podcast on" : "markdown only"}
                         </p>
                         <p className="text-xs text-[var(--muted)]">
-                          {run.summaryProvider
-                            ? `${run.summaryProvider} / ${run.summaryDeployment || run.summaryModel}`
-                            : "Waiting for model"}
-                          {run.fallbackUsed ? " • nano retried on mini" : ""}
+                          {runProgressMessage(run)}
                         </p>
                       </div>
                       <div className="flex flex-col items-start gap-2 sm:items-end">
                         <span className={badgeClass(run.status)}>
-                          {run.status}
+                          {formatRunStatus(run.status)}
                         </span>
                         <span className="text-xs text-[var(--muted)]">
                           {formatDate(run.completedAt || run.createdAt)}
                         </span>
                       </div>
                     </div>
-                    {run.errorMessage ? (
+                    {runFailureMessage(run) ? (
                       <p className="mt-2 text-sm text-[var(--danger)]">
-                        {run.errorMessage}
+                        {runFailureMessage(run)}
                       </p>
                     ) : null}
-                    {run.podcastStatus === "FAILED" && run.podcastError ? (
+                    {runPodcastFailureMessage(run) ? (
                       <p className="mt-2 text-sm text-[var(--danger)]">
-                        Podcast failed: {run.podcastError}
+                        {runPodcastFailureMessage(run)}
                       </p>
                     ) : null}
                   </button>
