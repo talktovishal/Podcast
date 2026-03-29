@@ -123,6 +123,7 @@ function profileRequirements(profile) {
         "STORAGE_BACKEND",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_STORAGE_CONTAINER",
+        "DIGEST_SCHEDULER_SECRET",
         "MEDIA_SIGNING_KEY",
         "PYTHON_TTS_URL"
       ],
