@@ -73,6 +73,7 @@ Current behavior (`M57`-`M64` implemented):
   - remove image/link scaffolding, bare transport URLs, leading metadata, caption/credit noise, and footer/legal/nav chrome
   - strip timestamp/read-time chrome, subscriber upsell fragments, and short trailing tag-list paragraphs without treating ordinary article mentions of `privacy` / `terms` as footer noise
   - flatten table-heavy extracted markup into regular markdown/text instead of preserving raw table HTML
+  - strip residual raw HTML tags, decode common HTML entities, and flatten legacy HTML/markdown table remnants before narration text is derived
   - shared markdown quality analysis reports residual URLs, leading metadata, image wrappers, footer/legal noise, language selectors, share/comment noise, and low-signal post-cleanup cases for audits/tests
   - preserve substantive prose, headings, and meaningful inline link text
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.

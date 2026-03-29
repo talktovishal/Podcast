@@ -256,6 +256,25 @@ English (US)
   assert.ok(!cleaned.includes("English (US)"));
 });
 
+test("cleanExtractedMarkdown flattens legacy raw HTML tables and strips tag remnants", () => {
+  const cleaned = cleanExtractedMarkdown(`
+The harness comparison below was captured from an older stored markdown artifact.
+
+<table><tbody><tr><th><strong>Harness</strong></th><th><strong>Duration</strong></th><th><strong>Cost</strong></th></tr><tr><td>Solo</td><td>20 min</td><td>$9</td></tr><tr><td>Full harness</td><td>6 hr</td><td>$200</td></tr></tbody></table>
+
+Agent &amp; Phase summary stays useful for narration after cleanup.
+`);
+
+  assert.ok(cleaned.includes("The harness comparison below was captured"));
+  assert.ok(cleaned.includes("Harness"));
+  assert.ok(cleaned.includes("Duration"));
+  assert.ok(cleaned.includes("Full harness"));
+  assert.ok(cleaned.includes("Agent & Phase summary stays useful for narration after cleanup."));
+  assert.ok(!cleaned.includes("<table"));
+  assert.ok(!cleaned.includes("<th"));
+  assert.ok(!cleaned.includes("&amp;"));
+});
+
 test("markdownToNarrationText preserves inline link text and normalizes escaped markdown artifacts", () => {
   const cleaned = cleanExtractedMarkdown(`
 Ever since it showed up on my GH feed, Karpathy's [Autoresearch](https://example.com/autoresearch) was rattling around in the back of my mind.
@@ -268,4 +287,23 @@ I added a \\[scratchpad\\] file for the agent to use as working memory. This wor
   assert.ok(narration.includes("I added a [scratchpad] file for the agent to use as working memory."));
   assert.ok(!narration.includes("https://"));
   assert.ok(!narration.includes("↩"));
+});
+
+test("markdownToNarrationText strips raw HTML tags and markdown table separator remnants", () => {
+  const narration = markdownToNarrationText(`
+The final test scores are below.
+
+<table><thead><tr><th>Mean Rank</th><th>img->txt R@5</th></tr></thead><tbody><tr><td><strong>34.30</strong></td><td><strong>53.0%</strong></td></tr></tbody></table>
+
+| Method | Pros | Cons |
+| --- | --- | --- |
+| Automated evals | Faster iteration | Up-front investment |
+`);
+
+  assert.ok(narration.includes("Mean Rank"));
+  assert.ok(narration.includes("34.30"));
+  assert.ok(narration.includes("Automated evals"));
+  assert.ok(!narration.includes("<table"));
+  assert.ok(!narration.includes("thead"));
+  assert.ok(!narration.includes("| ---"));
 });

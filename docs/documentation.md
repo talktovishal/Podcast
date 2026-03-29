@@ -256,6 +256,7 @@ Current (`M57`-`M64` implemented):
 - source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
 - cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.
 - HTML-to-markdown conversion now flattens table-heavy extracted shells into regular markdown/text instead of preserving raw table HTML, so cleanup can normalize list-heavy pages without leaving `href` blobs behind.
+- canonical cleanup and narration normalization also strip residual raw HTML tags, decode common HTML entities, and flatten legacy HTML/markdown table remnants so TTS does not speak tag names like `td` / `th`.
 - shared markdown quality analysis classifies residual URLs, image wrappers, leading metadata, footer/legal noise, language footers, share/comment noise, and low-signal post-cleanup outputs for audits and regression reporting.
 - generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
 - low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.

@@ -60,6 +60,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + cleaned extracted `MARKDOWN`) with lifecycle metadata.
   - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
   - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
+  - Canonical markdown cleanup and narration normalization now also strip residual raw HTML tags, decode common HTML entities, and flatten legacy table markup / markdown table separator remnants before TTS.
   - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
@@ -390,7 +391,7 @@ I) Extraction artifacts (near-term track)
   - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
   - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
   - apply aggressive site-chrome cleanup only to extracted source markdown, not to generated summary markdown.
-  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown.
+  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags and legacy table remnants stripped before TTS.
   - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.
   - apply retention lifecycle to raw artifacts (target 90 days).
 

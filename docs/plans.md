@@ -38,7 +38,7 @@
   - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
-  - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag lists, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+  - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, short trailing tag lists, residual raw HTML tags, and legacy HTML/markdown table remnants, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.

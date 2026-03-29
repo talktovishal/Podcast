@@ -198,6 +198,76 @@ Another paragraph explains why the building matters, how the author framed the s
   }
 });
 
+test("backfill rewrites legacy raw HTML table artifacts before regeneration", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-legacy-table`;
+  const storage = getArtifactStorage();
+  const markdown = `
+The harness comparison below was captured from an older stored markdown artifact and still contains raw HTML.
+
+<table><tbody><tr><th><strong>Harness</strong></th><th><strong>Duration</strong></th><th><strong>Cost</strong></th></tr><tr><td>Solo</td><td>20 min</td><td>$9</td></tr><tr><td>Full harness</td><td>6 hr</td><td>$200</td></tr></tbody></table>
+
+Agent &amp; Phase summary stays useful for narration after cleanup.
+`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `backfill-legacy-table-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Legacy Table ${uniq}`,
+        sourceType: "URL",
+        sourceUrl: `https://example.com/legacy-table/${uniq}`,
+        status: "READY",
+        textHash: "old-hash"
+      }
+    });
+
+    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+
+    const summary = await backfillCleanedMarkdownArtifacts({ itemIds: [item.id] });
+    const refreshedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const jobs = await prisma.job.findMany({ where: { itemId: item.id } });
+    const storedMarkdown = (await storage.getObject(stored.key)).toString("utf8");
+    const narration = markdownToNarrationText(storedMarkdown);
+
+    assert.equal(summary.scanned, 1);
+    assert.equal(summary.updatedArtifacts, 1);
+    assert.equal(summary.regenerationQueued, 1);
+    assert.equal(refreshedItem?.status, "QUEUED");
+    assert.equal(jobs.length, 1);
+    assert.ok(storedMarkdown.includes("Harness"));
+    assert.ok(storedMarkdown.includes("Full harness"));
+    assert.ok(storedMarkdown.includes("Agent & Phase summary stays useful for narration after cleanup."));
+    assert.ok(!storedMarkdown.includes("<table"));
+    assert.ok(!storedMarkdown.includes("<th"));
+    assert.ok(!storedMarkdown.includes("&amp;"));
+    assert.ok(!narration.includes("tbody"));
+    assert.ok(!narration.includes("<table"));
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("backfill reports published low-signal items without deleting live episodes", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-published-low-signal`;

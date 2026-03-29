@@ -9,6 +9,15 @@ const ESCAPED_MARKDOWN_PATTERN = /\\([()[\]])/g;
 const FOOTNOTE_BACKREF_PATTERN = /\s*↩\s*/g;
 const FOOTNOTE_REF_PATTERN = /\[\d+\]/g;
 const MULTIPLE_NEWLINES_PATTERN = /\n{3,}/g;
+const HTML_BREAK_TAG_PATTERN = /<\s*br\s*\/?>/gi;
+const HTML_TABLE_SECTION_TAG_PATTERN = /<\s*\/?\s*(?:table|thead|tbody|tfoot|caption|colgroup|col)\b[^>]*>/gi;
+const HTML_TABLE_ROW_TAG_PATTERN = /<\s*\/?\s*tr\b[^>]*>/gi;
+const HTML_TABLE_CELL_TAG_PATTERN = /<\s*\/?\s*(?:td|th)\b[^>]*>/gi;
+const HTML_BLOCK_TAG_PATTERN =
+  /<\s*\/?\s*(?:address|article|aside|blockquote|details|div|dl|dt|dd|figure|figcaption|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|ul)\b[^>]*>/gi;
+const RAW_HTML_TAG_PATTERN = /<\/?[A-Za-z][^>\n]*>/g;
+const MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN = /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/gm;
+const MARKDOWN_TABLE_ROW_PATTERN = /^\s*\|(.+?)\|\s*$/gm;
 const LEADING_METADATA_DATE_PATTERNS = [
   /^(?:written on\s+)?[A-Za-z]+\s+\d{1,2},\s+\d{4}$/i,
   /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?z$/i,
@@ -133,8 +142,65 @@ export interface MarkdownQualityAnalysis {
   issueCounts: Record<MarkdownQualityIssueType, number>;
 }
 
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#(\d+);/g, (_match, decimal: string) => {
+      const codePoint = Number.parseInt(decimal, 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : " ";
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => {
+      const codePoint = Number.parseInt(hex, 16);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : " ";
+    });
+}
+
+function normalizeMarkdownTableRows(input: string): string {
+  return input
+    .replace(MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN, "")
+    .replace(MARKDOWN_TABLE_ROW_PATTERN, (_match, row: string) =>
+      row
+        .split("|")
+        .map((cell) => cell.trim())
+        .filter(Boolean)
+        .join("\n")
+    );
+}
+
+function stripRawHtmlArtifacts(input: string): string {
+  const normalized = input
+    .replace(HTML_BREAK_TAG_PATTERN, "\n")
+    .replace(HTML_TABLE_SECTION_TAG_PATTERN, "\n\n")
+    .replace(HTML_TABLE_ROW_TAG_PATTERN, "\n")
+    .replace(HTML_TABLE_CELL_TAG_PATTERN, "\n")
+    .replace(HTML_BLOCK_TAG_PATTERN, "\n")
+    .replace(RAW_HTML_TAG_PATTERN, " ");
+
+  return decodeHtmlEntities(normalized).replace(RAW_HTML_TAG_PATTERN, " ");
+}
+
+function normalizeUnicodeArtifacts(input: string): string {
+  return input
+    .replace(/\u2192/g, "->")
+    .replace(/\u2190/g, "<-")
+    .replace(/\u2194/g, "<->")
+    .replace(/\u21d2/g, "=>")
+    .replace(/\u21d0/g, "<=")
+    .replace(/\u21d4/g, "<=>")
+    .replace(/\u2022/g, "-")
+    .replace(/\u00b7/g, "-")
+    .replace(/\u00a0/g, " ")
+    .replace(/\u200b/g, "")
+    .replace(/\uFEFF/g, "");
+}
+
 function normalizeTransport(markdown: string): string {
-  return markdown
+  return normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeUnicodeArtifacts(markdown)))
     .replace(/\r\n/g, "\n")
     .replace(IMAGE_LINK_PATTERN, "\n")
     .replace(IMAGE_PATTERN, "\n")
@@ -465,8 +531,7 @@ export function cleanExtractedMarkdown(markdown: string): string {
 }
 
 export function markdownToNarrationText(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, "\n")
+  return normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeTransport(markdown)))
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]+)`/g, "$1")
