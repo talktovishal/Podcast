@@ -86,6 +86,9 @@ type SubmissionQuotaSnapshot = {
   extraSubmissionCredits: number;
   totalFreeSubmissionAllowance: number;
   remainingFreeSubmissions: number | null;
+  dailyPodcastLimit: number | null;
+  podcastsUsedLast24Hours: number;
+  remainingDailyPodcasts: number | null;
 };
 
 type DigestSettings = {
@@ -265,7 +268,7 @@ export function DashboardClient({
   initialItems
 }: Props) {
   const [items, setItems] = useState(initialItems);
-  const [submissionQuota] = useState(initialSubmissionQuota);
+  const [submissionQuota, setSubmissionQuota] = useState(initialSubmissionQuota);
   const [demoDiagnostics, setDemoDiagnostics] = useState(initialDemoDiagnostics);
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
@@ -305,7 +308,10 @@ export function DashboardClient({
   const showItemsSection = viewMode === "workspace";
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
-  const submissionBlocked = showSubmissionQuota && !submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0;
+  const submissionBlocked =
+    showSubmissionQuota &&
+    ((submissionQuota?.isPaid && (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0) ||
+      (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
   const requestedSettingsSections = useMemo(() => new Set(settingsSections), [settingsSections]);
   const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
   const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
@@ -554,6 +560,19 @@ export function DashboardClient({
       }
 
       setStatusMessage("URL received. Processing has started and status will update automatically.");
+      setSubmissionQuota((current) =>
+        current
+          ? {
+              ...current,
+              submissionCount: current.isPaid ? current.submissionCount : current.submissionCount + 1,
+              remainingFreeSubmissions:
+                current.isPaid || current.remainingFreeSubmissions === null ? current.remainingFreeSubmissions : Math.max(0, current.remainingFreeSubmissions - 1),
+              podcastsUsedLast24Hours: current.isPaid ? current.podcastsUsedLast24Hours + 1 : current.podcastsUsedLast24Hours,
+              remainingDailyPodcasts:
+                !current.isPaid || current.remainingDailyPodcasts === null ? current.remainingDailyPodcasts : Math.max(0, current.remainingDailyPodcasts - 1)
+            }
+          : current
+      );
       setUrlInput("");
       setTitleInput("");
       setImportanceInput("LOW");
@@ -593,6 +612,19 @@ export function DashboardClient({
       }
 
       setStatusMessage("PDF uploaded. Processing has started and status will update automatically.");
+      setSubmissionQuota((current) =>
+        current
+          ? {
+              ...current,
+              submissionCount: current.isPaid ? current.submissionCount : current.submissionCount + 1,
+              remainingFreeSubmissions:
+                current.isPaid || current.remainingFreeSubmissions === null ? current.remainingFreeSubmissions : Math.max(0, current.remainingFreeSubmissions - 1),
+              podcastsUsedLast24Hours: current.isPaid ? current.podcastsUsedLast24Hours + 1 : current.podcastsUsedLast24Hours,
+              remainingDailyPodcasts:
+                !current.isPaid || current.remainingDailyPodcasts === null ? current.remainingDailyPodcasts : Math.max(0, current.remainingDailyPodcasts - 1)
+            }
+          : current
+      );
       setPdfFile(null);
       setTitleInput("");
       setImportanceInput("LOW");
@@ -1427,7 +1459,15 @@ export function DashboardClient({
               }`}
             >
               {submissionQuota?.isPaid ? (
-                <p>Paid plan active. Submissions are unlimited for this account.</p>
+                <>
+                  <p>
+                    Paid plan active. {submissionQuota?.remainingDailyPodcasts ?? 0} of {submissionQuota?.dailyPodcastLimit ?? 0} new podcast
+                    episodes left in the last 24 hours.
+                  </p>
+                  {submissionBlocked ? (
+                    <p className="mt-1">This Pro plan has reached its current 24-hour episode limit. Try again later.</p>
+                  ) : null}
+                </>
               ) : (
                 <>
                   <p>

@@ -2,11 +2,11 @@
 
 Use this note when you come back to Stripe billing work later.
 
-Status as of 2026-03-28:
-- Stripe-hosted Checkout, Customer Portal, invoice-aware webhook sync, billing status, and support visibility are implemented for `Pro monthly`.
+Status as of 2026-03-29:
+- Stripe-hosted Checkout, Customer Portal, invoice-aware webhook sync, billing status, and support visibility are implemented for `Pro monthly` and `Pro annual`.
 - ArticlePod stores Stripe billing metadata, entitlement state, latest invoice/payment state, and webhook audit watermarks. Card details stay in Stripe-hosted flows.
-- Self-serve billing stays scoped to `Starter` free + `Pro monthly` for MVP.
-- `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain out of scope for the current launch track.
+- Self-serve billing stays scoped to `Starter` free + `Pro` only for MVP, with monthly and annual cadences.
+- `Team`, coupons, trials, seats, usage billing, and non-card methods remain out of scope for the current launch track.
 
 ## What is already done
 
@@ -29,7 +29,7 @@ Persisted billing state:
 - Matching Azure Table metadata support exists for the same effective billing fields, with compatibility defaults for older rows that do not yet have the additive billing columns
 
 UI already wired:
-- `/pricing` starts hosted checkout for `Pro`
+- `/pricing` starts hosted checkout for `Pro monthly` or `Pro annual`
 - `/app/settings` shows billing status, renewal date, cancel-at-period-end state, pending activation, payment-issue banners, and launches Stripe Customer Portal
 - `/pricing` and settings only submit approved internal plan keys; raw Stripe price ids never come from the browser
 - Admins can grant `complimentaryPro` instead of mutating Stripe-managed state
@@ -63,7 +63,7 @@ This billing rollout is additive and upgrade-in-place:
 
 - `B01` Done: billing docs and milestone expansion are reconciled across `docs/plans.md`, `docs/Prompts.md`, and this handoff.
 - `B02` Done: billing state contract hardening across Prisma and Azure Table metadata backends.
-- `B03` Done: approved plan catalog and checkout contract hardening for `PRO_MONTHLY`.
+- `B03` Done: approved plan catalog and checkout contract hardening for `PRO_MONTHLY` and `PRO_ANNUAL`.
 - `B04` Done: invoice-aware webhook and entitlement engine.
 - `B05` Done: richer `/app/settings` billing UX plus clearer hosted portal recovery paths.
 - `B06` Done: admin support visibility and webhook observability hardening.
@@ -78,23 +78,24 @@ Founder or operator-owned Stripe Dashboard work before launch:
 1. Create or verify the Stripe account and complete business verification or KYC.
 2. Connect the payout bank account and set statement descriptor, support email, and support URL.
 3. Create the `Pro monthly` recurring price in Stripe and keep the internal naming tied to `PRO_MONTHLY`.
-4. Configure Stripe Customer Portal:
+4. Create the `Pro annual` recurring price in Stripe and keep the internal naming tied to `PRO_ANNUAL`.
+5. Configure Stripe Customer Portal:
    - payment method updates enabled
    - invoice history enabled
    - cancellation allowed at period end
    - plan switching only if you intentionally enable future multi-price self-serve behavior
-5. Configure retry, dunning, and customer email defaults for recurring billing.
-6. Decide the Stripe Tax policy before live launch:
+6. Configure retry, dunning, and customer email defaults for recurring billing.
+7. Decide the Stripe Tax policy before live launch:
    - either launch without Stripe Tax and manage obligations manually
    - or enable Stripe Tax intentionally
-7. Configure checkout and portal branding.
-8. Create the webhook endpoint that points to:
+8. Configure checkout and portal branding.
+9. Create the webhook endpoint that points to:
 
 ```text
 https://<your-domain>/api/billing/webhook
 ```
 
-9. Subscribe the webhook to the implemented event set:
+10. Subscribe the webhook to the implemented event set:
 - `checkout.session.completed`
 - `customer.subscription.created`
 - `customer.subscription.updated`
@@ -102,13 +103,13 @@ https://<your-domain>/api/billing/webhook
 - `invoice.paid`
 - `invoice.payment_failed`
 - `invoice.payment_action_required`
-10. Provide test, staging, and production Stripe secrets through normal secret management, keeping webhook secrets separate per environment.
+11. Provide test, staging, and production Stripe secrets through normal secret management, keeping webhook secrets separate per environment.
 
 Recommended Stripe dashboard follow-up:
 - confirm your branding/logo in hosted Checkout and Portal
 - confirm cancelation is set to end-of-period for MVP
 - confirm proration behavior for any later self-serve plan changes
-- leave coupons, trials, annual pricing, team billing, seats, usage billing, and non-card methods disabled for this MVP
+- leave coupons, trials, team billing, seats, usage billing, and non-card methods disabled for this MVP
 - review customer email settings
 - resolve the Stripe Tax decision before opening billing outside the US or moving to live launch
 
@@ -120,6 +121,7 @@ Set these wherever the web app runs:
 STRIPE_SECRET_KEY=sk_live_or_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 STRIPE_PRICE_PRO_MONTHLY=price_...
+STRIPE_PRICE_PRO_ANNUAL=price_...
 STRIPE_BILLING_PORTAL_CONFIGURATION_ID=bpc_...   # optional
 ```
 
@@ -138,7 +140,7 @@ See also:
 Required local or staging scenarios:
 
 1. Purchase and activation
-   - new user buys `Pro monthly`
+   - new user buys `Pro monthly` or `Pro annual`
    - app redirects to Stripe Checkout and back to `/app/settings?billing=success`
    - settings shows pending activation until webhook confirmation
    - `invoice.paid` (or equivalent test lifecycle confirmation) grants access and updates renewal date
@@ -177,7 +179,7 @@ stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
 ```
 
 3. Sign in as a test user.
-4. Open `/pricing` and start Pro checkout.
+4. Open `/pricing` and start Pro monthly or Pro annual checkout.
 5. Complete checkout with a Stripe test card.
 6. Confirm `/app/settings` first shows pending activation, then updates to the expected plan, renewal date, and status after webhook confirmation.
 7. Launch Customer Portal from settings and test:
@@ -237,11 +239,12 @@ When you pick this back up, the safest order is:
 
 ## Product constraints to remember
 
-- v1 billing is `Starter` plus `Pro monthly`
+- v1 billing is `Starter` plus `Pro monthly` and `Pro annual`
 - `Team` still needs a later org/seat design before self-serve billing
 - webhook state is the source of truth for subscription status
 - `isPaid` is only a compatibility cache for the rest of the app
 - `complimentaryPro` is the manual support/admin override
+- paid Pro access is guarded to 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
 - founder must make the Stripe Tax decision before live launch; engineering should not silently choose that policy
 - checkout success redirect is not the source of truth for access; webhook-confirmed billing events remain authoritative
 - for incident response, keep webhook handling and the billing portal live for existing customers even if you temporarily disable new checkout
@@ -257,7 +260,6 @@ When you pick this back up, the safest order is:
 ## Nice-to-have follow-ups
 
 These are optional and were not part of the initial billing launch:
-- annual Pro pricing
 - coupons/promo codes
 - self-serve Team billing
 - Stripe Tax rollout for broader geography

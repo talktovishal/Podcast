@@ -9,10 +9,13 @@ type SubmissionQuotaSnapshot = {
   extraSubmissionCredits: number;
   totalFreeSubmissionAllowance: number;
   remainingFreeSubmissions: number | null;
+  dailyPodcastLimit: number | null;
+  podcastsUsedLast24Hours: number;
+  remainingDailyPodcasts: number | null;
 };
 
 type BillingSnapshot = {
-  planCode: "STARTER" | "PRO_MONTHLY";
+  planCode: "STARTER" | "PRO_MONTHLY" | "PRO_ANNUAL";
   planAccessLevel: "STARTER" | "PRO";
   status: "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
   entitlementStatus: "INACTIVE" | "ACTIVE" | "GRACE_PERIOD";
@@ -243,7 +246,7 @@ export function AdminQuotaManager() {
                   </p>
                   <p className="text-xs text-[var(--muted)]">{quotaLabel(user)}</p>
                   <p className="text-xs text-[var(--muted)]">
-                    Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro" : "Starter"} · status:{" "}
+                    Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro Monthly" : user.billing.planCode === "PRO_ANNUAL" ? "Pro Annual" : "Starter"} · status:{" "}
                     {user.billing.status.toLowerCase()}
                   </p>
                   <p className="text-xs text-[var(--muted)]">

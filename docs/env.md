@@ -74,6 +74,8 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
+- `PRO_DAILY_PODCAST_LIMIT` (default `15`; paid Pro guardrail for new podcast episodes created in the last 24 hours)
+- `PRO_WEEKLY_SUMMARY_LIMIT` (default `5`; paid Pro guardrail for manual summaries created in the last 7 days)
 - `EXTENSION_CONNECT_CODE_TTL_MINUTES` (default `1440`; one-time connect code lifetime)
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`
@@ -102,14 +104,15 @@ Behavior:
 - `STRIPE_SECRET_KEY` (required to create Checkout and Customer Portal sessions)
 - `STRIPE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
 - `STRIPE_PRICE_PRO_MONTHLY` (Stripe recurring price id for the Pro plan)
+- `STRIPE_PRICE_PRO_ANNUAL` (Stripe recurring yearly price id for the Pro annual plan)
 - `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit portal configuration; default Stripe portal config is used when unset)
 
 Behavior:
-- Billing routes stay unavailable until the Stripe secret key and Pro price id are set.
+- Billing routes stay unavailable until the Stripe secret key and at least one Pro price id are set.
 - ArticlePod stores only Stripe customer/subscription metadata, local entitlement state, latest invoice/payment state, and webhook audit metadata; card details remain in Stripe-hosted flows.
 - Use separate Stripe secret keys, price ids, portal configuration ids, and webhook secrets for local, staging, and production.
 - Never mix live Stripe credentials into local or staging environments.
-- If you need to pause new self-serve checkout without breaking existing billing management, unset only `STRIPE_PRICE_PRO_MONTHLY`; keep the Stripe secret and webhook secret configured so Portal and webhook sync continue to work for existing subscribers.
+- If you need to pause new self-serve checkout without breaking existing billing management, unset the specific price ids you want to stop offering and keep the Stripe secret and webhook secret configured so Portal and webhook sync continue to work for existing subscribers.
 
 ## Worker controls
 - `PINNED_FETCH_IPV6_ENABLED` (`0` default for Azure, otherwise enabled unless overridden; disable IPv6 pinned-IP fetch attempts on single-stack hosts)

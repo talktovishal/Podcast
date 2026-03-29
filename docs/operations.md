@@ -127,6 +127,7 @@ Required Stripe env for recurring billing:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_PRO_MONTHLY`
+- `STRIPE_PRICE_PRO_ANNUAL`
 - `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional)
 
 Environment isolation rules:
@@ -175,7 +176,7 @@ Recommended billing log patterns to watch:
 
 Lifecycle QA checklist:
 1. Purchase success:
-   - buy `Pro monthly`
+   - buy `Pro monthly` and `Pro annual`
    - confirm settings shows pending activation before webhook confirmation
    - confirm the account becomes paid only after webhook processing
 2. Initial payment failure:
@@ -196,7 +197,7 @@ Lifecycle QA checklist:
    - confirm invalid signatures are rejected
 
 Safe-disable and rollback guidance:
-- to pause new self-serve purchases, unset `STRIPE_PRICE_PRO_MONTHLY` and redeploy; do not remove `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` if existing subscribers still need Portal or webhook sync
+- to pause new self-serve purchases, unset `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_ANNUAL`, or both and redeploy; do not remove `STRIPE_SECRET_KEY` or `STRIPE_WEBHOOK_SECRET` if existing subscribers still need Portal or webhook sync
 - do not disable the webhook endpoint while live subscriptions still exist, because Stripe remains the system of record for payment and cancelation state
 - the billing schema changes are additive; rollback should prefer application-level feature disablement over destructive schema rollback
 - existing quota checks still rely on `isPaid` as a compatibility cache, so emergency rollback does not require clearing the new billing columns

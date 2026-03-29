@@ -7,6 +7,7 @@ import {
   listSelectableSummaryItems,
   listSummaryRunsForUser,
 } from "@/lib/summaries";
+import { getSummaryUsageSnapshot } from "@/lib/summary-usage";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -18,9 +19,10 @@ export default async function SummaryStudioPage() {
     redirect("/login");
   }
 
-  const [items, runs] = await Promise.all([
+  const [items, runs, summaryUsage] = await Promise.all([
     listSelectableSummaryItems(user.id),
     listSummaryRunsForUser(user.id, 20),
+    getSummaryUsageSnapshot(user.id),
   ]);
 
   return (
@@ -49,6 +51,7 @@ export default async function SummaryStudioPage() {
             ...item,
             createdAt: item.createdAt.toISOString(),
           }))}
+          initialSummaryUsage={summaryUsage}
           initialRuns={runs.map((run) => ({
             id: run.id,
             requestedTitle: run.requestedTitle,

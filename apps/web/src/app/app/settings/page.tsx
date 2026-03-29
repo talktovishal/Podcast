@@ -8,7 +8,7 @@ import Link from "next/link";
 import { ensureUserDigestSettings, getAuthUserFromCookies } from "@/lib/auth";
 import {
   getBillingAccountSnapshot,
-  isBillingCheckoutConfigured,
+  isBillingPlanCheckoutConfigured,
 } from "@/lib/billing";
 import {
   getRecentDigestRuns,
@@ -45,6 +45,8 @@ export default async function AppSettingsPage({
     getUserDemographicSurvey(user.id),
   ]);
   const billing = await getBillingAccountSnapshot(user.id);
+  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
+  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
   const billingSearchParam = Array.isArray(searchParams?.billing)
     ? searchParams?.billing[0]
     : searchParams?.billing;
@@ -106,8 +108,9 @@ export default async function AppSettingsPage({
 
         <BillingSettingsCard
           activationHint={billingSearchParam === "success"}
-          billingConfigured={isBillingCheckoutConfigured()}
+          annualCheckoutConfigured={annualCheckoutConfigured}
           initialBilling={billing}
+          monthlyCheckoutConfigured={monthlyCheckoutConfigured}
         />
 
         <DashboardClient

@@ -93,7 +93,7 @@ Current behavior (`M57`-`M64` implemented):
 7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
 
 ## Billing flow
-1. Authenticated user starts `Pro monthly` checkout from `/pricing` or `/app/settings`.
+1. Authenticated user starts `Pro monthly` or `Pro annual` checkout from `/pricing` or `/app/settings`.
 2. Web maps the approved internal plan key to the configured Stripe price id, reuses or creates a Stripe customer keyed to the local `User`, and creates a hosted Checkout session in subscription mode.
 3. Stripe handles card capture and recurring billing outside ArticlePod; the redirect back to `/app/settings?billing=success` is treated only as a hint, not the access source of truth.
 4. `checkout.session.completed` records the Stripe customer and subscription linkage locally and may leave the account in `INCOMPLETE` pending activation.

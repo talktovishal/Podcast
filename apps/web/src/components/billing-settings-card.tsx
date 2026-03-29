@@ -13,7 +13,8 @@ import {
 
 type Props = {
   initialBilling: BillingAccountSnapshot;
-  billingConfigured: boolean;
+  monthlyCheckoutConfigured: boolean;
+  annualCheckoutConfigured: boolean;
   activationHint?: boolean;
 };
 
@@ -26,7 +27,12 @@ type BillingStatusResponse = {
 const ACTIVATION_POLL_MS = 3000;
 const ACTIVATION_POLL_LIMIT = 20;
 
-export function BillingSettingsCard({ initialBilling, billingConfigured, activationHint = false }: Props) {
+export function BillingSettingsCard({
+  initialBilling,
+  monthlyCheckoutConfigured,
+  annualCheckoutConfigured,
+  activationHint = false
+}: Props) {
   const [billing, setBilling] = useState(initialBilling);
   const [pollMessage, setPollMessage] = useState<string | null>(
     activationHint && !initialBilling.hasPaidAccess
@@ -155,12 +161,25 @@ export function BillingSettingsCard({ initialBilling, billingConfigured, activat
               className="w-full rounded-lg border px-4 py-2 text-sm font-semibold sm:w-auto"
               label={billing.hasBillingIssue ? "Open billing to fix payment" : "Manage billing"}
             />
-          ) : billingConfigured ? (
-            <BillingActionButton
-              action="checkout"
-              className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-              label="Upgrade to Pro"
-            />
+          ) : monthlyCheckoutConfigured || annualCheckoutConfigured ? (
+            <div className="space-y-2 sm:min-w-[220px]">
+              {monthlyCheckoutConfigured ? (
+                <BillingActionButton
+                  action="checkout"
+                  planCode="PRO_MONTHLY"
+                  className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  label="Choose Pro Monthly"
+                />
+              ) : null}
+              {annualCheckoutConfigured ? (
+                <BillingActionButton
+                  action="checkout"
+                  planCode="PRO_ANNUAL"
+                  className="w-full rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                  label="Choose Pro Annual"
+                />
+              ) : null}
+            </div>
           ) : (
             <p className="text-sm text-[var(--muted)]">Billing setup is not configured in this environment yet.</p>
           )}

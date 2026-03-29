@@ -188,3 +188,44 @@ test("admin quota API is admin-only and returns quota rows", async () => {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
+
+test("paid users are capped at 15 new podcast episodes per 24 hours", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-paid`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `quota-paid-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_MONTHLY",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const userSession = await createSession(user.id);
+
+    for (let index = 0; index < 15; index += 1) {
+      const response = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-${index}`));
+      assert.equal(response.status, 200);
+    }
+
+    const blocked = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-blocked`));
+    assert.equal(blocked.status, 402);
+    const payload = (await blocked.json()) as {
+      ok: boolean;
+      error_code: string;
+      error_message: string;
+    };
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
+    assert.equal(payload.error_message.includes("15 new podcast episodes per 24 hours"), true);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});

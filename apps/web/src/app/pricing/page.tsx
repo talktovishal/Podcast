@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import { BillingActionButton } from "@/components/billing-action-button";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
-import { billingPlanLabel, billingStatusLabel, getBillingAccountSnapshot, isBillingCheckoutConfigured } from "@/lib/billing";
+import {
+  billingPlanLabel,
+  billingStatusLabel,
+  getBillingAccountSnapshot,
+  isBillingPlanCheckoutConfigured
+} from "@/lib/billing";
 import { getAuthUserFromCookies } from "@/lib/auth";
 import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "Simple pricing for personal article podcasts. Start free or upgrade to Pro for $15 per month.",
+  description: "Simple pricing for personal article podcasts. Start free or upgrade to Pro for $15 monthly or $130 annually.",
   alternates: { canonical: "/pricing" }
 };
 
@@ -19,7 +24,8 @@ export default async function PricingPage({
 }) {
   const user = await getAuthUserFromCookies();
   const billing = user ? await getBillingAccountSnapshot(user.id) : null;
-  const billingConfigured = isBillingCheckoutConfigured();
+  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
+  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
   const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
 
   return (
@@ -32,7 +38,7 @@ export default async function PricingPage({
           </p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple pricing for personal listening</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Start free. Upgrade when you want more captures, episodes, and daily briefings.
+            Start free. Upgrade to Pro when you want more listening volume, manual summaries, and a better margin on regular use.
           </p>
           {billingSearchParam === "canceled" ? (
             <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
@@ -41,7 +47,7 @@ export default async function PricingPage({
           ) : null}
         </section>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2">
+        <section className="mt-8 grid gap-4 lg:grid-cols-3">
           <article className="card p-5">
             <h2 className="text-lg font-semibold">Starter</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">For trying it out.</p>
@@ -63,12 +69,12 @@ export default async function PricingPage({
           </article>
 
           <article className="card border-[#9ad0c0] p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Recommended</p>
-            <h2 className="mt-1 text-lg font-semibold">Pro</h2>
+            <h2 className="text-lg font-semibold">Pro Monthly</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">For regular use.</p>
             <p className="mt-3 text-2xl font-bold">$15/mo</p>
             <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-              <li>- Higher monthly ingest + episode limits</li>
+              <li>- 15 new private podcast episodes per 24 hours</li>
+              <li>- 5 manual summaries per 7 days</li>
               <li>- Chrome extension capture</li>
               <li>- Daily podcast + email briefing</li>
             </ul>
@@ -86,14 +92,54 @@ export default async function PricingPage({
                 <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
                   Manage billing
                 </Link>
-              ) : billingConfigured ? (
+              ) : monthlyCheckoutConfigured ? (
                 <BillingActionButton
                   action="checkout"
+                  planCode="PRO_MONTHLY"
                   className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  label="Upgrade to Pro"
+                  label="Choose monthly"
                 />
               ) : (
                 <p className="text-sm text-[var(--muted)]">Billing setup is not configured in this environment yet.</p>
+              )}
+            </div>
+          </article>
+
+          <article className="card border-[#9ad0c0] bg-[#f8fcfb] p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Best value</p>
+            <h2 className="mt-1 text-lg font-semibold">Pro Annual</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">For committed use.</p>
+            <p className="mt-3 text-2xl font-bold">$130/yr</p>
+            <p className="mt-1 text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
+            <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+              <li>- 15 new private podcast episodes per 24 hours</li>
+              <li>- 5 manual summaries per 7 days</li>
+              <li>- Chrome extension capture</li>
+              <li>- Daily podcast + email briefing</li>
+            </ul>
+            <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
+            <div className="mt-4">
+              {!user ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
+                  Sign in to upgrade
+                </Link>
+              ) : billing?.accessReason === "complimentary" ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
+                  View current access
+                </Link>
+              ) : billing?.customerId ? (
+                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/app/settings">
+                  Manage billing
+                </Link>
+              ) : annualCheckoutConfigured ? (
+                <BillingActionButton
+                  action="checkout"
+                  planCode="PRO_ANNUAL"
+                  className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  label="Choose annual"
+                />
+              ) : (
+                <p className="text-sm text-[var(--muted)]">Annual billing is not configured in this environment yet.</p>
               )}
             </div>
           </article>
@@ -102,10 +148,10 @@ export default async function PricingPage({
         <section className="mt-8 card p-5">
           <h2 className="text-lg font-semibold">Billing policy</h2>
           <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-            <li>- Billed upfront monthly.</li>
+            <li>- Billed upfront monthly or yearly.</li>
             <li>- Renews automatically until canceled.</li>
-            <li>- Cancel anytime. Access stays on through the current billing period.</li>
-            <li>- Annual billing is not offered yet.</li>
+            <li>- Cancel anytime. Access stays on through the current paid period.</li>
+            <li>- Annual plans stay active through the paid term, then stop renewing.</li>
           </ul>
         </section>
 

@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 export const runtime = "nodejs";
 
 const checkoutSchema = z.object({
-  planCode: z.enum(["PRO_MONTHLY"]).default("PRO_MONTHLY")
+  planCode: z.enum(["PRO_MONTHLY", "PRO_ANNUAL"]).default("PRO_MONTHLY")
 });
 
 export async function POST(request: NextRequest) {

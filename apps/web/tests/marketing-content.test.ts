@@ -40,15 +40,19 @@ test("security bullets has exactly three concise entries", () => {
   }
 });
 
-test("pricing page exposes only Starter and Pro with explicit monthly billing policy", () => {
+test("pricing page exposes Starter plus monthly and annual Pro choices with clear billing policy", () => {
   const source = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
 
   assert.equal(source.includes("Simple pricing for personal listening"), true);
   assert.equal(source.includes("$15/mo"), true);
-  assert.equal(source.includes("Billed upfront monthly."), true);
+  assert.equal(source.includes("$130/yr"), true);
+  assert.equal(source.includes("Save nearly 30%"), true);
+  assert.equal(source.includes("Billed upfront monthly or yearly."), true);
   assert.equal(source.includes("Renews automatically until canceled."), true);
-  assert.equal(source.includes("Cancel anytime. Access stays on through the current billing period."), true);
-  assert.equal(source.includes("Annual billing is not offered yet."), true);
+  assert.equal(source.includes("Cancel anytime. Access stays on through the current paid period."), true);
+  assert.equal(source.includes("Annual plans stay active through the paid term, then stop renewing."), true);
+  assert.equal(source.includes("15 new private podcast episodes per 24 hours"), true);
+  assert.equal(source.includes("5 manual summaries per 7 days"), true);
   assert.equal(source.includes("scale into Pro or Team"), false);
   assert.equal(source.includes("<h2 className=\"text-lg font-semibold\">Team</h2>"), false);
   assert.equal(source.includes("$79/mo"), false);

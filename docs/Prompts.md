@@ -82,12 +82,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Submission monetization baseline is implemented:
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
+  - paid Pro access now carries guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
   - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are implemented for the Pro plan
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
   - access is granted or extended only from webhook-confirmed billing events; `/app/settings` now shows pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
-  - the public pricing page now shows only `Starter` and one self-serve paid option, `Pro`, with clear monthly billing policy copy (`$15/mo`, billed upfront, auto-renews until canceled, access through period end after cancelation)
+  - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and “save nearly 30%” annual positioning
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).
@@ -175,14 +176,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
   - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
 - Billing hardening track (`B01`-`B08`) is implemented in repo:
-  - server-side plan catalog stays locked to `Starter` free + `Pro monthly` self-serve, with raw Stripe price ids never accepted from clients
+  - server-side plan catalog now supports `Starter` free plus `Pro monthly` and `Pro annual` self-serve cadences, with raw Stripe price ids never accepted from clients
   - webhook handling now covers checkout completion, subscription lifecycle events, `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`, with duplicate and stale-event protection
   - `/app/settings` and `/admin` now surface billing activation, payment recovery, renewal, cancellation, and support visibility paths that match the Stripe-first MVP architecture
   - founder-owned Stripe setup, environment-secret requirements, Stripe CLI/Test Clock QA, and launch checklists are now documented in the billing and operations docs
 - Billing release gate (`B09`) remains open until staging and launch evidence exists:
   - founder must finish Stripe Dashboard setup, retry/email settings, branding, and the Stripe Tax decision
   - staging must prove checkout, portal, webhook sync, payment-failure handling, observability, and environment isolation before live keys are introduced
-  - `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods remain later phases
+  - `Team`, coupons, trials, seats, usage billing, and non-card methods remain later phases
 - Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store

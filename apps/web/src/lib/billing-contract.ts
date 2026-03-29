@@ -1,4 +1,4 @@
-export type BillingPlanCode = "STARTER" | "PRO_MONTHLY";
+export type BillingPlanCode = "STARTER" | "PRO_MONTHLY" | "PRO_ANNUAL";
 export type BillingPlanAccessLevel = "STARTER" | "PRO";
 export type BillingStatus = "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
 export type BillingPaymentStatus = "NONE" | "PAID" | "FAILED" | "ACTION_REQUIRED";
@@ -30,7 +30,14 @@ export type BillingAccountSnapshot = {
 };
 
 export function billingPlanLabel(planCode: BillingPlanCode): string {
-  return planCode === "PRO_MONTHLY" ? "Pro" : "Starter";
+  switch (planCode) {
+    case "PRO_MONTHLY":
+      return "Pro Monthly";
+    case "PRO_ANNUAL":
+      return "Pro Annual";
+    default:
+      return "Starter";
+  }
 }
 
 export function billingStatusLabel(status: BillingStatus): string {

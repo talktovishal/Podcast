@@ -62,6 +62,38 @@ test("buildBillingSnapshot prefers complimentary access when present", () => {
   assert.equal(snapshot.entitlementStatus, "ACTIVE");
 });
 
+test("buildBillingSnapshot preserves active annual Pro subscriptions", () => {
+  const snapshot = buildBillingSnapshot({
+    id: "user_annual",
+    email: "annual@example.com",
+    name: null,
+    complimentaryPro: false,
+    billingProvider: "stripe",
+    billingCustomerId: "cus_annual",
+    billingSubscriptionId: "sub_annual",
+    billingPriceId: "price_annual",
+    billingPlanCode: "PRO_ANNUAL",
+    billingStatus: "ACTIVE",
+    billingEntitlementStatus: "ACTIVE",
+    billingLastPaymentStatus: "PAID",
+    billingLastInvoiceId: "in_annual",
+    billingCurrentPeriodEnd: new Date("2026-12-31T00:00:00.000Z"),
+    billingCancelAtPeriodEnd: false,
+    billingLastStripeEventId: "evt_annual",
+    billingLastStripeEventCreatedAt: new Date("2026-03-29T00:00:00.000Z"),
+    billingLastSubscriptionEventAt: new Date("2026-03-29T00:00:00.000Z"),
+    billingLastInvoiceEventAt: new Date("2026-03-29T00:00:00.000Z"),
+    billingUpdatedAt: new Date("2026-03-29T00:00:00.000Z"),
+    isPaid: true
+  });
+
+  assert.equal(snapshot.planCode, "PRO_ANNUAL");
+  assert.equal(snapshot.hasPaidAccess, true);
+  assert.equal(snapshot.planAccessLevel, "PRO");
+  assert.equal(snapshot.status, "ACTIVE");
+  assert.equal(snapshot.lastPaymentStatus, "PAID");
+});
+
 test("buildStripeDashboardLinks points to the Stripe test dashboard", () => {
   const links = buildStripeDashboardLinks({
     provider: "stripe",

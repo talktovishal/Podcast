@@ -22,7 +22,7 @@ import {
 } from "./metadata-primary-auth";
 
 const STRIPE_PROVIDER = "stripe";
-const SELF_SERVE_BILLING_PLAN_CODES = ["PRO_MONTHLY"] as const;
+const SELF_SERVE_BILLING_PLAN_CODES = ["PRO_MONTHLY", "PRO_ANNUAL"] as const;
 
 export type SelfServeBillingPlanCode = (typeof SELF_SERVE_BILLING_PLAN_CODES)[number];
 export type {
@@ -129,9 +129,18 @@ function billingPlanCatalogEntry(planCode: SelfServeBillingPlanCode): BillingPla
   if (planCode === "PRO_MONTHLY") {
     return {
       planCode,
-      label: "Pro",
+      label: "Pro Monthly",
       accessLevel: "PRO",
       priceId: env.stripePriceProMonthly ?? null
+    };
+  }
+
+  if (planCode === "PRO_ANNUAL") {
+    return {
+      planCode,
+      label: "Pro Annual",
+      accessLevel: "PRO",
+      priceId: env.stripePriceProAnnual ?? null
     };
   }
 
@@ -139,7 +148,11 @@ function billingPlanCatalogEntry(planCode: SelfServeBillingPlanCode): BillingPla
 }
 
 export function isBillingCheckoutConfigured(): boolean {
-  return supportedSelfServePlanCodes().every((planCode) => Boolean(billingPlanCatalogEntry(planCode).priceId)) && Boolean(env.stripeSecretKey);
+  return supportedSelfServePlanCodes().some((planCode) => isBillingPlanCheckoutConfigured(planCode)) && Boolean(env.stripeSecretKey);
+}
+
+export function isBillingPlanCheckoutConfigured(planCode: SelfServeBillingPlanCode): boolean {
+  return Boolean(env.stripeSecretKey && billingPlanCatalogEntry(planCode).priceId);
 }
 
 export function isBillingWebhookConfigured(): boolean {
@@ -147,7 +160,10 @@ export function isBillingWebhookConfigured(): boolean {
 }
 
 export function normalizeBillingPlanCode(value: string | null | undefined): BillingPlanCode {
-  return value === "PRO_MONTHLY" ? "PRO_MONTHLY" : "STARTER";
+  if (value === "PRO_MONTHLY" || value === "PRO_ANNUAL") {
+    return value;
+  }
+  return "STARTER";
 }
 
 export function normalizeBillingStatus(value: string | null | undefined): BillingStatus {
@@ -237,10 +253,10 @@ function hasNewEntitlementEvidence(input: {
 function legacyEntitlementStatus(input: { billingPlanCode: string; billingStatus: string }): BillingEntitlementStatus {
   const planCode = normalizeBillingPlanCode(input.billingPlanCode);
   const status = normalizeBillingStatus(input.billingStatus);
-  if (planCode === "PRO_MONTHLY" && status === "ACTIVE") {
+  if (planCode !== "STARTER" && status === "ACTIVE") {
     return "ACTIVE";
   }
-  if (planCode === "PRO_MONTHLY" && status === "GRACE_PERIOD") {
+  if (planCode !== "STARTER" && status === "GRACE_PERIOD") {
     return "GRACE_PERIOD";
   }
   return "INACTIVE";
@@ -389,6 +405,9 @@ function planCodeFromPriceId(priceId: string | null | undefined): BillingPlanCod
   if (priceId === env.stripePriceProMonthly) {
     return "PRO_MONTHLY";
   }
+  if (priceId === env.stripePriceProAnnual) {
+    return "PRO_ANNUAL";
+  }
   return "STARTER";
 }
 
@@ -484,7 +503,11 @@ export async function createStripeCheckoutSession(input: {
   const billingUser = user as BillingUserRecord;
   const snapshot = buildBillingSnapshot(billingUser);
   if (snapshot.hasPaidAccess && snapshot.planCode === input.planCode) {
-    throw new AppError(errorCodes.INVALID_INPUT, "Pro is already active for this account.", 400);
+    throw new AppError(errorCodes.INVALID_INPUT, `${billingPlanLabel(input.planCode)} is already active for this account.`, 400);
+  }
+
+  if (snapshot.hasPaidAccess && snapshot.planCode !== "STARTER") {
+    throw new AppError(errorCodes.INVALID_INPUT, "A Pro subscription is already active. Open billing to change or cancel it.", 400);
   }
 
   const customerId = await ensureStripeCustomer(billingUser);
@@ -986,8 +1009,8 @@ async function applyInvoiceEvent(event: Stripe.Event, invoice: Stripe.Invoice): 
         billingSubscriptionId: subscriptionId ?? user.billingSubscriptionId,
         billingPriceId: nextPriceId,
         billingPlanCode: nextPlanCode,
-        billingStatus: nextPlanCode === "PRO_MONTHLY" ? "ACTIVE" : normalizeBillingStatus(user.billingStatus),
-        billingEntitlementStatus: nextPlanCode === "PRO_MONTHLY" ? "ACTIVE" : "INACTIVE",
+        billingStatus: nextPlanCode !== "STARTER" ? "ACTIVE" : normalizeBillingStatus(user.billingStatus),
+        billingEntitlementStatus: nextPlanCode !== "STARTER" ? "ACTIVE" : "INACTIVE",
         billingLastPaymentStatus: "PAID",
         billingLastInvoiceId: invoiceId,
         billingCurrentPeriodEnd: nextPeriodEnd

@@ -80,7 +80,8 @@
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
-  - `/pricing` now presents only `Starter` plus one self-serve paid `Pro` plan, with explicit monthly billing policy copy and a `$15/mo` public price point
+  - paid Pro access now carries default usage guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days
+  - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy
 - Digest automation controls (`M72`-`M79`) are implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
   - separate private digest RSS token/route and digest media range/HEAD delivery path.
@@ -3817,11 +3818,11 @@ Milestone metadata contract:
 ### B01 - Billing Track Reconciliation and Scope Lock
 - status: Done
 - target_finish: 2026-04-18
-- completed_on: 2026-03-28
-- evidence: local docs sync + billing milestone expansion pass (2026-03-28)
+- completed_on: 2026-03-29
+- evidence: local docs sync + billing milestone expansion pass (2026-03-28), annual pricing + usage guardrail follow-up (2026-03-29)
 - Scope:
   - Audit current repo reality against docs so billing is no longer described as both "implemented" and "planned."
-  - Lock MVP defaults from the Stripe spec: hosted Checkout, hosted Customer Portal, monthly only, card only, cancel at period end, proration on, no coupons, no trials.
+  - Lock MVP defaults from the Stripe spec: hosted Checkout, hosted Customer Portal, card only, cancel at period end, proration on, no coupons, no trials, and a single paid Pro tier with monthly plus annual cadences.
   - Document the split between developer-owned work and founder-owned Stripe Dashboard setup before additional billing hardening starts.
 - Key files/modules:
   - `docs/Prompts.md`
@@ -3829,7 +3830,7 @@ Milestone metadata contract:
   - `docs/billing/README.md`
 - Acceptance criteria:
   - `docs/plans.md`, `docs/Prompts.md`, and billing handoff docs describe the same billing scope and same responsibility split.
-  - The expanded billing track preserves the current `Starter` + `Pro monthly` MVP and leaves `Team`, annual billing, coupons, trials, seats, usage billing, and non-card methods out of scope.
+  - The expanded billing track preserves the current `Starter` + `Pro` MVP, with annual enabled for the same paid tier while `Team`, coupons, trials, seats, usage billing, and non-card methods remain out of scope.
 - Verification commands:
   - Manual cross-doc review
 
@@ -3856,10 +3857,10 @@ Milestone metadata contract:
 ### B03 - Plan Catalog and Checkout Contract
 - status: Done
 - target_finish: 2026-05-02
-- completed_on: 2026-03-28
-- evidence: server-side plan catalog + checkout hardening + targeted validation (2026-03-28)
+- completed_on: 2026-03-29
+- evidence: server-side plan catalog + checkout hardening + targeted validation (2026-03-28), annual cadence activation follow-up (2026-03-29)
 - Scope:
-  - Refactor checkout around an approved server-side plan catalog that is multi-price ready while only enabling `PRO_MONTHLY` for launch.
+  - Refactor checkout around an approved server-side plan catalog that supports `PRO_MONTHLY` and `PRO_ANNUAL` without ever trusting client-supplied Stripe price ids.
   - Ensure checkout reuses or creates Stripe customers, attaches metadata, uses idempotency where appropriate, and never grants access from the redirect alone.
 - Key files/modules:
   - `apps/web/src/lib/billing.ts`
@@ -3944,7 +3945,7 @@ Milestone metadata contract:
   - `docs/operations.md`
 - Acceptance criteria:
   - The billing track clearly shows what engineering owns versus what founders must complete before staging and live launch.
-  - Stripe Dashboard setup, policy decisions, and secret-management requirements are documented without expanding MVP scope beyond `Pro monthly`.
+  - Stripe Dashboard setup, policy decisions, and secret-management requirements are documented for both `Pro monthly` and `Pro annual`, without expanding MVP scope beyond a single paid Pro tier.
 - Verification commands:
   - Manual Stripe setup checklist review
 

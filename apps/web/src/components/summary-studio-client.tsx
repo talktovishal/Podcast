@@ -35,9 +35,17 @@ type SummaryStudioRun = {
   createdAt: string;
 };
 
+type SummaryUsageSnapshot = {
+  hasPaidAccess: boolean;
+  summaryLimitPer7Days: number | null;
+  summariesUsedLast7Days: number;
+  remainingSummariesLast7Days: number | null;
+};
+
 type Props = {
   initialItems: SummaryStudioItem[];
   initialRuns: SummaryStudioRun[];
+  initialSummaryUsage: SummaryUsageSnapshot;
 };
 
 const LENGTH_PRESETS: Array<{
@@ -145,9 +153,10 @@ function runPodcastFailureMessage(run: SummaryStudioRun): string | null {
   );
 }
 
-export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
+export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryUsage }: Props) {
   const [items, setItems] = useState(initialItems);
   const [runs, setRuns] = useState(initialRuns);
+  const [summaryUsage, setSummaryUsage] = useState(initialSummaryUsage);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>(
     initialItems.filter((item) => item.defaultSelected).map((item) => item.id),
   );
@@ -199,6 +208,10 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
       );
     });
   }, [items, selectedImportanceFilter, selectedTagFilter, search]);
+  const summaryBlocked =
+    summaryUsage.hasPaidAccess &&
+    summaryUsage.remainingSummariesLast7Days !== null &&
+    summaryUsage.remainingSummariesLast7Days <= 0;
 
   async function refreshItems(): Promise<void> {
     const response = await fetch(`/api/summary/items?limit=200`);
@@ -341,6 +354,13 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
       return;
     }
 
+    if (summaryBlocked) {
+      setStatusMessage(
+        `This Pro plan has reached its ${summaryUsage.summaryLimitPer7Days ?? 0}-summary limit for the last 7 days. Try again later.`,
+      );
+      return;
+    }
+
     setIsBusy(true);
     setStatusMessage("Creating summary run...");
 
@@ -368,6 +388,18 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
 
       setRuns((current) =>
         [payload.run as SummaryStudioRun, ...current].slice(0, 20),
+      );
+      setSummaryUsage((current) =>
+        current.hasPaidAccess
+          ? {
+              ...current,
+              summariesUsedLast7Days: current.summariesUsedLast7Days + 1,
+              remainingSummariesLast7Days:
+                current.remainingSummariesLast7Days === null
+                  ? null
+                  : Math.max(0, current.remainingSummariesLast7Days - 1),
+            }
+          : current,
       );
       setSelectedRunId(payload.run.id);
       setStatusMessage(
@@ -407,6 +439,11 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
             <div className="text-[var(--muted)]">
               Maximum 30 per summary run
             </div>
+            {summaryUsage.hasPaidAccess && summaryUsage.summaryLimitPer7Days !== null ? (
+              <div className="mt-2 text-[var(--muted)]">
+                {summaryUsage.remainingSummariesLast7Days ?? 0} of {summaryUsage.summaryLimitPer7Days} summaries left in the last 7 days
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
@@ -576,10 +613,23 @@ export function SummaryStudioClient({ initialItems, initialRuns }: Props) {
               output below before reusing it anywhere else.
             </div>
 
+            {summaryUsage.hasPaidAccess && summaryUsage.summaryLimitPer7Days !== null ? (
+              <div
+                className={`rounded-xl border px-3 py-3 text-sm ${
+                  summaryBlocked
+                    ? "border-[#f4c7c3] bg-[#fff5f5] text-[#8a271f]"
+                    : "border-[#cfe7df] bg-[#f1faf7] text-[#155240]"
+                }`}
+              >
+                Manual summaries: {summaryUsage.summariesUsedLast7Days} of {summaryUsage.summaryLimitPer7Days} used in the last 7 days.
+              </div>
+            ) : null}
+
             <button
               className="w-full rounded-lg bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
               disabled={
                 isBusy ||
+                summaryBlocked ||
                 selectedItemIds.length === 0 ||
                 selectedItemIds.length > 30
               }

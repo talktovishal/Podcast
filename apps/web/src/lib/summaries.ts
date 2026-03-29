@@ -11,6 +11,7 @@ import { prisma } from "./prisma";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { getArtifactStorage } from "./storage";
 import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
+import { consumeSummaryRunAllowance } from "./summary-usage";
 
 const DEFAULT_SUMMARY_ITEM_LIMIT = 200;
 const DEFAULT_SUMMARY_RUN_LIMIT = 20;
@@ -184,6 +185,8 @@ export async function listSelectableSummaryItems(
 }
 
 export async function createSummaryRunForUser(userId: string, input: CreateSummaryRunInput): Promise<SummaryRunListEntry> {
+  await consumeSummaryRunAllowance(userId);
+
   const dedupedItemIds = Array.from(new Set(input.itemIds.map((value) => value.trim()).filter(Boolean)));
   if (dedupedItemIds.length === 0) {
     throw new AppError(errorCodes.INVALID_INPUT, "Choose at least one saved article to summarize.", 400);
