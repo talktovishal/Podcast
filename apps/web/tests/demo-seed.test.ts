@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { resolveDemoAudioStrategy } from "../src/lib/demo-seed";
+import { getBundledDemoAudioBuffer, resolveDemoAudioStrategy } from "../src/lib/demo-seed";
 
 test("resolveDemoAudioStrategy prefers fast audio for parity and CI runs", () => {
   assert.equal(resolveDemoAudioStrategy({ ci: "", runtimeProfile: "parity", platform: "linux" }), "fast");
@@ -12,6 +12,24 @@ test("resolveDemoAudioStrategy prefers fast audio for parity and CI runs", () =>
 test("resolveDemoAudioStrategy keeps native and provider defaults outside parity", () => {
   assert.equal(resolveDemoAudioStrategy({ ci: "", platform: "darwin", runtimeProfile: "simple" }), "native");
   assert.equal(resolveDemoAudioStrategy({ ci: "", platform: "linux", runtimeProfile: "simple" }), "provider");
+});
+
+test("bundled demo audio provides a reusable mp3 fixture for fast seeding", () => {
+  const first = getBundledDemoAudioBuffer();
+  const second = getBundledDemoAudioBuffer();
+
+  assert.ok(first.byteLength > 2000);
+  assert.equal(first.subarray(0, 3).toString("utf8"), "ID3");
+  assert.notStrictEqual(first, second);
+  assert.deepEqual(first, second);
+});
+
+test("seed demo fast path no longer shells out to ffmpeg", () => {
+  const seedScriptPath = resolve(process.cwd(), "scripts/seed-demo.ts");
+  const source = readFileSync(seedScriptPath, "utf8");
+
+  assert.match(source, /if \(strategy === "fast"\) \{\n\s+return getBundledDemoAudioBuffer\(\);/m);
+  assert.doesNotMatch(source, /run\("ffmpeg"/);
 });
 
 test("parity compose gives the web healthcheck a startup grace period", () => {
