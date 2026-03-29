@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@articlepod/core";
 import { ensureUserFeedTokenAccess, hashPassword } from "../src/lib/auth";
+import { resolveDemoAudioStrategy } from "../src/lib/demo-seed";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
 import { createPrimaryUser, findPrimaryUserByEmail, updatePrimaryUser } from "../src/lib/metadata-primary-auth";
@@ -46,7 +47,29 @@ async function renderStarterAudioBuffer(): Promise<Buffer> {
   const aiffPath = join(tempDir, "starter.aiff");
 
   try {
-    if (process.platform === "darwin") {
+    const renderSilentMp3Buffer = async () => {
+      await run("ffmpeg", [
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=24000:cl=mono",
+        "-t",
+        "2",
+        "-codec:a",
+        "libmp3lame",
+        mp3Path
+      ]);
+      return readFile(mp3Path);
+    };
+
+    const strategy = resolveDemoAudioStrategy();
+
+    if (strategy === "fast") {
+      return renderSilentMp3Buffer();
+    }
+
+    if (strategy === "native") {
       try {
         await run("say", ["-v", "Samantha", "-o", aiffPath, DEMO_TEXT]);
         await run("afconvert", [aiffPath, "-o", mp3Path, "-f", "MPG3", "-d", ".mp3"]);
@@ -66,20 +89,8 @@ async function renderStarterAudioBuffer(): Promise<Buffer> {
       });
       return readFile(mp3Path);
     } catch {
-      // Final fallback for Linux parity/CI environments: create a short silent MP3 clip.
-      await run("ffmpeg", [
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        "anullsrc=r=24000:cl=mono",
-        "-t",
-        "2",
-        "-codec:a",
-        "libmp3lame",
-        mp3Path
-      ]);
-      return readFile(mp3Path);
+      // Final fallback for environments without an available native/provider voice path.
+      return renderSilentMp3Buffer();
     }
   } finally {
     await rm(tempDir, { recursive: true, force: true });
