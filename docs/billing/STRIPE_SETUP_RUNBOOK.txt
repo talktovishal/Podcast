@@ -1,0 +1,422 @@
+ArticlePod Stripe Setup Runbook
+Last updated: 2026-03-28
+
+Purpose
+- This is the step-by-step operator guide for enabling Stripe payments and billing for ArticlePod.
+- It is specific to this repo and deployment setup.
+- Use this on another computer if you want a single checklist to follow.
+
+Current repo state
+- The app code already supports Stripe-hosted Checkout, Stripe Billing Portal, webhook-driven billing sync, and billing status UX.
+- The live site is https://articlepod.com
+- The production deploy workflow uses the GitHub Actions environment named "production".
+- The app expects these runtime env vars:
+  - STRIPE_SECRET_KEY
+  - STRIPE_WEBHOOK_SECRET
+  - STRIPE_PRICE_PRO_MONTHLY
+  - STRIPE_BILLING_PORTAL_CONFIGURATION_ID (optional)
+
+Important repo-specific note
+- Before billing works in production, Stripe secrets must be stored in the GitHub "production" environment.
+- One small follow-up repo patch is still needed so the deploy workflow forwards those GitHub secrets into the VM runtime env file.
+- After you finish the Stripe Dashboard and GitHub secret steps below, ask Codex to:
+  - wire Stripe secrets into .github/workflows/deploy-azure.yml
+  - wire Stripe env passthrough into scripts/azure/render-env.sh
+
+Launch defaults for this MVP
+- Monthly only
+- One self-serve paid plan: Pro monthly
+- Card payments only
+- Cancel at period end
+- No annual pricing
+- No coupons
+- No free trial
+- No seat-based pricing
+- No usage-based pricing
+
+======================================================================
+PHASE 1 - CREATE AND CONFIGURE STRIPE
+======================================================================
+
+Step 1. Create the Stripe account
+1. Go to https://dashboard.stripe.com/register
+2. Create the account for the business that will receive payouts.
+3. Complete the Stripe onboarding:
+   - legal business name
+   - business address
+   - bank account for payouts
+   - support email
+   - support URL
+   - statement descriptor if Stripe asks for it
+4. Complete identity verification / KYC if Stripe requires it.
+
+Helpful docs
+- Stripe account setup overview:
+  https://docs.stripe.com/get-started/account
+
+What to confirm before moving on
+- You can log into Stripe Dashboard.
+- The business profile is complete enough to create products and prices.
+
+Step 2. Work in Stripe test mode first
+1. In Stripe Dashboard, make sure you are in test mode before creating the first product/price.
+2. Do not start with live mode first.
+3. Create and verify the whole flow in test mode before you use any live keys.
+
+Helpful docs
+- Stripe test mode and testing overview:
+  https://docs.stripe.com/testing
+
+Step 3. Create the product and monthly price
+1. In Stripe Dashboard, create a Product.
+2. Recommended product name:
+   - ArticlePod Pro
+3. Create one recurring monthly Price for that product:
+   - Recurring
+   - Monthly
+   - USD
+   - Your chosen monthly amount
+4. Keep the internal meaning of this price tied to:
+   - PRO_MONTHLY
+5. Copy the resulting Stripe price ID.
+   - It will look like: price_...
+
+Helpful docs
+- Stripe subscriptions overview:
+  https://docs.stripe.com/subscriptions
+- Stripe Checkout + Billing subscription setup:
+  https://docs.stripe.com/billing/subscriptions/set-up-subscription
+
+What to record
+- Test price ID:
+  - STRIPE_PRICE_PRO_MONTHLY = price_...
+
+Step 4. Configure Customer Portal
+1. Open Stripe Customer Portal settings in Dashboard.
+2. Enable the following for MVP:
+   - payment method updates
+   - invoice history / receipts
+   - cancellation
+3. Set cancellation behavior to:
+   - end of billing period
+4. Leave plan switching disabled unless you explicitly want to expose future multi-plan switching.
+5. If Stripe shows a specific portal configuration ID, copy it.
+   - It will look like: bpc_...
+6. If no specific portal configuration ID is needed, you can leave the app's optional env var blank and use Stripe's default portal config.
+
+Helpful docs
+- Stripe customer portal overview:
+  https://docs.stripe.com/customer-management
+- Activate the no-code customer portal:
+  https://docs.stripe.com/customer-management/activate-no-code-customer-portal
+
+What to record
+- Optional portal configuration ID:
+  - STRIPE_BILLING_PORTAL_CONFIGURATION_ID = bpc_...
+
+Step 5. Configure branding and public business info
+1. In Stripe Dashboard branding/public settings, upload:
+   - logo
+   - brand colors if desired
+2. Confirm:
+   - support email
+   - support URL
+   - public business name
+3. This affects Checkout and Portal customer-facing trust.
+
+Helpful docs
+- Stripe branding and customer portal branding:
+  https://docs.stripe.com/customer-management/activate-no-code-customer-portal
+
+Step 6. Configure retries and customer emails
+1. In Stripe Billing settings, configure:
+   - failed payment retries
+   - dunning behavior
+   - invoice / receipt emails
+2. Keep it simple, but do not leave failed-payment behavior undefined.
+
+Helpful docs
+- Stripe Billing settings and subscriptions docs:
+  https://docs.stripe.com/subscriptions
+
+Step 7. Decide tax policy before live launch
+You must make one explicit decision:
+- Option A: do not enable Stripe Tax yet, and handle tax obligations with your CPA/accountant
+- Option B: enable Stripe Tax intentionally
+
+Do not leave this unresolved before going live.
+
+Helpful docs
+- Stripe Tax overview:
+  https://docs.stripe.com/tax
+
+======================================================================
+PHASE 2 - CREATE THE WEBHOOK ENDPOINT IN STRIPE
+======================================================================
+
+Step 8. Create the production webhook endpoint in Stripe
+1. In Stripe Dashboard, go to Workbench / Webhooks.
+2. Create a webhook endpoint for:
+   - https://articlepod.com/api/billing/webhook
+3. Subscribe it to these event types:
+   - checkout.session.completed
+   - customer.subscription.created
+   - customer.subscription.updated
+   - customer.subscription.deleted
+   - invoice.paid
+   - invoice.payment_failed
+   - invoice.payment_action_required
+4. Save the endpoint.
+5. Reveal and copy the signing secret.
+   - It will look like: whsec_...
+
+Helpful docs
+- Stripe webhooks overview:
+  https://docs.stripe.com/webhooks
+- Stripe webhook signature verification:
+  https://docs.stripe.com/webhooks/signatures
+
+What to record
+- Production webhook signing secret:
+  - STRIPE_WEBHOOK_SECRET = whsec_...
+
+Important note
+- Test mode and live mode have different webhook secrets.
+- If you later create a separate test webhook endpoint, its whsec value will be different.
+
+======================================================================
+PHASE 3 - GET THE STRIPE KEYS YOU NEED
+======================================================================
+
+Step 9. Collect the required Stripe values
+For production, you need:
+1. Secret API key
+   - STRIPE_SECRET_KEY
+   - looks like: sk_live_...
+2. Webhook signing secret
+   - STRIPE_WEBHOOK_SECRET
+   - looks like: whsec_...
+3. Pro monthly recurring price ID
+   - STRIPE_PRICE_PRO_MONTHLY
+   - looks like: price_...
+4. Optional portal configuration ID
+   - STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+   - looks like: bpc_...
+
+Where to find them
+- Secret key:
+  Stripe Dashboard -> Developers / API keys / Workbench
+- Webhook signing secret:
+  Stripe Dashboard -> Webhooks -> select endpoint -> reveal secret
+- Price ID:
+  Stripe Dashboard -> Product -> monthly recurring price
+- Portal configuration ID:
+  Stripe Dashboard -> Customer Portal configuration, if Stripe exposes a fixed config ID for the setup you want
+
+Helpful docs
+- Stripe API keys and dashboard docs:
+  https://docs.stripe.com/keys
+
+======================================================================
+PHASE 4 - STORE EVERYTHING IN GITHUB PRODUCTION ENVIRONMENT
+======================================================================
+
+Use GitHub Actions environment secrets, not plain variables, for Stripe-sensitive values.
+
+This repo's deploy workflow references:
+- environment: production
+- file: .github/workflows/deploy-azure.yml
+
+Step 10. Open the GitHub environment
+1. Open the GitHub repo in the browser.
+2. Go to:
+   - Settings
+   - Environments
+   - production
+
+Helpful docs
+- GitHub environments:
+  https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments
+- GitHub secrets in Actions:
+  https://docs.github.com/actions/security-guides/using-secrets-in-github-actions
+
+Step 11. Create these GitHub environment secrets
+Create these secrets in the "production" environment:
+- APP_STRIPE_SECRET_KEY
+- APP_STRIPE_WEBHOOK_SECRET
+- APP_STRIPE_PRICE_PRO_MONTHLY
+- APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+
+Recommended handling
+- Treat all four as secrets for simplicity, even though the price ID is less sensitive.
+- Do not store Stripe secret keys in repository variables.
+- Do not put live Stripe secrets into local or staging environments.
+
+CLI option with GitHub CLI
+- If you have gh installed and authenticated:
+
+  gh secret set --env production APP_STRIPE_SECRET_KEY
+  gh secret set --env production APP_STRIPE_WEBHOOK_SECRET
+  gh secret set --env production APP_STRIPE_PRICE_PRO_MONTHLY
+  gh secret set --env production APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+
+Helpful commands
+- List production environment secrets:
+  gh secret list --env production
+
+======================================================================
+PHASE 5 - TEST MODE RECOMMENDED BEFORE LIVE CUTOVER
+======================================================================
+
+Recommended safe order
+1. Create the same product/price/portal/webhook setup in Stripe test mode first.
+2. Use test secret key, test webhook secret, and test price ID.
+3. Verify the flow locally.
+4. Only after the test flow works, add the live values to GitHub production.
+
+Step 12. Local testing with Stripe test mode
+Useful tools:
+- Stripe CLI for webhook forwarding
+- Stripe test cards
+- Stripe test clocks
+
+Helpful docs
+- Stripe test cards:
+  https://docs.stripe.com/testing
+- Stripe test clocks:
+  https://docs.stripe.com/billing/testing/test-clocks
+
+Useful test cards
+- Successful card:
+  4242 4242 4242 4242
+- Authentication required:
+  4000 0025 0000 3155
+- Card declined:
+  4000 0000 0000 9995
+
+Expected scenarios to test
+1. Purchase success
+2. Initial payment failure
+3. Renewal success
+4. Renewal failure
+5. Cancel at period end
+6. Portal open and payment method update
+7. Duplicate webhook event handling
+8. Invalid signature rejection
+
+======================================================================
+PHASE 6 - REPO FOLLOW-UP NEEDED AFTER YOU ADD THE SECRETS
+======================================================================
+
+Important: adding secrets in GitHub is not the final step by itself.
+
+This repo still needs a small deploy wiring patch so those GitHub secrets become runtime env vars on the VM.
+
+Ask Codex to do this exact follow-up:
+- Add the following mappings in .github/workflows/deploy-azure.yml:
+  - APP_STRIPE_SECRET_KEY -> STRIPE_SECRET_KEY
+  - APP_STRIPE_WEBHOOK_SECRET -> STRIPE_WEBHOOK_SECRET
+  - APP_STRIPE_PRICE_PRO_MONTHLY -> STRIPE_PRICE_PRO_MONTHLY
+  - APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID -> STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+- Add the same Stripe env passthroughs in scripts/azure/render-env.sh so they land in the VM runtime env file.
+
+Why this matters
+- The app code is ready, but the current production deploy script does not yet write Stripe settings into the generated VM env file.
+- Without that patch, storing the GitHub secrets alone will not fully enable billing on the server.
+
+======================================================================
+PHASE 7 - PRODUCTION ENABLEMENT CHECKLIST
+======================================================================
+
+Before you declare billing live, confirm:
+- Stripe account is fully verified
+- Bank account is connected
+- Live product and live monthly price exist
+- Customer Portal is configured
+- Webhook endpoint exists at https://articlepod.com/api/billing/webhook
+- Live webhook secret is stored in GitHub production
+- Live Stripe secret key is stored in GitHub production
+- Live price ID is stored in GitHub production
+- Optional portal configuration ID is stored in GitHub production if you are pinning one
+- The deploy workflow has been patched to forward Stripe env vars
+- The site has been redeployed
+- Checkout opens successfully
+- Customer Portal opens successfully
+- Webhook events arrive successfully
+- Payment issue states display correctly
+- Cancel-at-period-end sync works
+- The tax decision is explicitly made
+
+======================================================================
+QUICK COPY LIST
+======================================================================
+
+Stripe values you must collect
+- STRIPE_SECRET_KEY = sk_live_...
+- STRIPE_WEBHOOK_SECRET = whsec_...
+- STRIPE_PRICE_PRO_MONTHLY = price_...
+- STRIPE_BILLING_PORTAL_CONFIGURATION_ID = bpc_... (optional)
+
+GitHub production environment secret names
+- APP_STRIPE_SECRET_KEY
+- APP_STRIPE_WEBHOOK_SECRET
+- APP_STRIPE_PRICE_PRO_MONTHLY
+- APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+
+Stripe webhook URL
+- https://articlepod.com/api/billing/webhook
+
+Stripe webhook events to subscribe
+- checkout.session.completed
+- customer.subscription.created
+- customer.subscription.updated
+- customer.subscription.deleted
+- invoice.paid
+- invoice.payment_failed
+- invoice.payment_action_required
+
+======================================================================
+LINKS
+======================================================================
+
+Stripe
+- Stripe account setup:
+  https://docs.stripe.com/get-started/account
+- Stripe subscriptions overview:
+  https://docs.stripe.com/subscriptions
+- Build a subscriptions integration:
+  https://docs.stripe.com/billing/subscriptions/set-up-subscription
+- Customer portal overview:
+  https://docs.stripe.com/customer-management
+- Activate no-code customer portal:
+  https://docs.stripe.com/customer-management/activate-no-code-customer-portal
+- Webhooks overview:
+  https://docs.stripe.com/webhooks
+- Webhook signatures:
+  https://docs.stripe.com/webhooks/signatures
+- Testing overview:
+  https://docs.stripe.com/testing
+- Test clocks:
+  https://docs.stripe.com/billing/testing/test-clocks
+- Stripe Tax overview:
+  https://docs.stripe.com/tax
+
+GitHub
+- Manage environments:
+  https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments
+- Use secrets in GitHub Actions:
+  https://docs.github.com/actions/security-guides/using-secrets-in-github-actions
+
+Repo files
+- Billing handoff:
+  /Users/vishalchowdhary/Documents/Podcast/docs/billing/README.md
+- Billing env expectations:
+  /Users/vishalchowdhary/Documents/Podcast/docs/env.md
+- Billing operations runbook:
+  /Users/vishalchowdhary/Documents/Podcast/docs/operations.md
+- Deploy workflow:
+  /Users/vishalchowdhary/Documents/Podcast/.github/workflows/deploy-azure.yml
+- VM env renderer:
+  /Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh
+
+End of file
