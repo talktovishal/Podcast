@@ -258,7 +258,7 @@ class AzureOpenAiSummaryProvider implements SummaryProvider {
           content: buildUserPrompt(input)
         }
       ],
-      temperature: 0.3,
+      // GPT-5 reasoning deployments on Azure reject custom sampling params like temperature.
       response_format: {
         type: "json_schema",
         json_schema: SUMMARY_SCHEMA

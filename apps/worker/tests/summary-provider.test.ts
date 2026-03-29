@@ -82,6 +82,7 @@ test("azure summary provider routes 15-minute summaries to nano deployment", asy
 
   assert.equal(seenBodies.length, 1);
   assert.equal(seenBodies[0]?.model, "digest-summary-nano");
+  assert.equal("temperature" in (seenBodies[0] ?? {}), false);
   assert.equal((seenBodies[0]?.response_format as { type?: string }).type, "json_schema");
   assert.equal(summary.deployment, "digest-summary-nano");
   assert.equal(summary.inputTokens, 123);
@@ -125,6 +126,7 @@ test("azure summary provider routes 30-minute summaries to mini deployment", asy
 
   assert.equal(seenBodies.length, 1);
   assert.equal(seenBodies[0]?.model, "digest-summary-mini");
+  assert.equal("temperature" in (seenBodies[0] ?? {}), false);
   assert.equal(summary.deployment, "digest-summary-mini");
 });
 
