@@ -137,11 +137,19 @@ const ACTIVE_REFRESH_INTERVAL_MS = 3000;
 const IDLE_REFRESH_INTERVAL_MS = 20000;
 const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";
 const INLINE_ACTION_FEEDBACK_RESET_MS = 2500;
+const RECENT_ITEMS_TOAST_RESET_MS = 2600;
 
 type ShareActionFeedback =
   | {
       itemId: string;
       kind: "copied" | "revoked" | "error";
+      message: string;
+    }
+  | null;
+
+type RecentItemsToast =
+  | {
+      kind: "success" | "error";
       message: string;
     }
   | null;
@@ -272,6 +280,8 @@ export function DashboardClient({
   const [isDigestBusy, setIsDigestBusy] = useState(false);
   const [shareBusyState, setShareBusyState] = useState<{ itemId: string; action: "create" | "revoke" } | null>(null);
   const [shareActionFeedback, setShareActionFeedback] = useState<ShareActionFeedback>(null);
+  const [recentItemsToast, setRecentItemsToast] = useState<RecentItemsToast>(null);
+  const [deleteBusyItemId, setDeleteBusyItemId] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
   const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
@@ -284,6 +294,7 @@ export function DashboardClient({
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const shareActionFeedbackTimerRef = useRef<number | null>(null);
+  const recentItemsToastTimerRef = useRef<number | null>(null);
   const isSettingsView = viewMode === "settings";
   const isPodcastAppsView = viewMode === "podcast-apps";
   const isChromeExtensionView = viewMode === "chrome-extension";
@@ -350,6 +361,9 @@ export function DashboardClient({
       if (shareActionFeedbackTimerRef.current !== null) {
         window.clearTimeout(shareActionFeedbackTimerRef.current);
       }
+      if (recentItemsToastTimerRef.current !== null) {
+        window.clearTimeout(recentItemsToastTimerRef.current);
+      }
     };
   }, []);
 
@@ -371,6 +385,25 @@ export function DashboardClient({
       );
       shareActionFeedbackTimerRef.current = null;
     }, INLINE_ACTION_FEEDBACK_RESET_MS);
+  }, []);
+
+  const showRecentItemsToast = useCallback((toast: Exclude<RecentItemsToast, null>) => {
+    if (recentItemsToastTimerRef.current !== null) {
+      window.clearTimeout(recentItemsToastTimerRef.current);
+      recentItemsToastTimerRef.current = null;
+    }
+
+    setRecentItemsToast(toast);
+    recentItemsToastTimerRef.current = window.setTimeout(() => {
+      setRecentItemsToast((current) =>
+        current &&
+        current.kind === toast.kind &&
+        current.message === toast.message
+          ? null
+          : current
+      );
+      recentItemsToastTimerRef.current = null;
+    }, RECENT_ITEMS_TOAST_RESET_MS);
   }, []);
 
   const refreshItems = useCallback(async () => {
@@ -750,9 +783,29 @@ export function DashboardClient({
     await refreshItems();
   }
 
-  async function deleteItem(id: string) {
-    await fetch(`/api/items/${id}`, { method: "DELETE" });
-    await refreshItems();
+  async function deleteItem(item: DashboardItem) {
+    setDeleteBusyItemId(item.id);
+    try {
+      const response = await fetch(`/api/items/${item.id}`, { method: "DELETE" });
+      const json = await response.json().catch(() => null);
+      if (!response.ok) {
+        showRecentItemsToast({
+          kind: "error",
+          message: json?.error_message || "Could not delete item."
+        });
+        return;
+      }
+
+      setItems((previous) => previous.filter((current) => current.id !== item.id));
+      setMarkdownPreview((current) => (current?.itemId === item.id ? null : current));
+      void refreshItems();
+      showRecentItemsToast({
+        kind: "success",
+        message: item.title ? `Deleted "${item.title}".` : "Item deleted."
+      });
+    } finally {
+      setDeleteBusyItemId((current) => (current === item.id ? null : current));
+    }
   }
 
   async function viewMarkdown(itemId: string, title: string | null) {
@@ -1514,6 +1567,7 @@ export function DashboardClient({
               const itemActionClassName =
                 "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
               const hasActionRow = Boolean(mediaUrl) || !readOnly;
+              const isDeletingItem = deleteBusyItemId === item.id;
 
               return (
                 <article key={item.id} className="rounded-xl border p-3 sm:p-4">
@@ -1629,8 +1683,8 @@ export function DashboardClient({
                           </button>
                         ) : null}
                         {!readOnly ? (
-                          <button className={itemActionClassName} onClick={() => deleteItem(item.id)}>
-                            Delete
+                          <button className={itemActionClassName} disabled={isDeletingItem} onClick={() => deleteItem(item)}>
+                            {isDeletingItem ? "Deleting..." : "Delete"}
                           </button>
                         ) : null}
                       </div>
@@ -1675,6 +1729,46 @@ export function DashboardClient({
             })}
           </div>
         </section>
+      ) : null}
+
+      {recentItemsToast ? (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-50 max-w-xs sm:bottom-6 sm:right-6 sm:max-w-sm">
+          <div
+            aria-live="polite"
+            role="status"
+            className={`rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${
+              recentItemsToast.kind === "error"
+                ? "border-red-200 bg-white/95 text-[var(--danger)]"
+                : "border-emerald-200 bg-white/95 text-emerald-700"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              <svg
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={recentItemsToast.kind === "error" ? "1.8" : "2"}
+                viewBox="0 0 24 24"
+              >
+                {recentItemsToast.kind === "error" ? (
+                  <>
+                    <path d="M12 8v5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M12 16h.01" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </>
+                ) : (
+                  <path d="M5 12.5 9.5 17 19 7.5" strokeLinecap="round" strokeLinejoin="round" />
+                )}
+              </svg>
+              <span>{recentItemsToast.message}</span>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {showDiagnosticsSection ? (

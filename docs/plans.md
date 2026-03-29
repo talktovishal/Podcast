@@ -48,7 +48,7 @@
   - app/runtime retention now treats `events/` and `errors/` logs independently so failure history can outlive routine success noise on local disk.
 - Public episode share links track (`M104`) is implemented:
   - `/app` now supports stable, revocable item-scoped public share links for ready episodes without changing the existing workspace demo-share flow.
-  - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still copy the share URL immediately with inline confirmation feedback and revoke confirms in place.
+  - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still copy the share URL immediately with inline confirmation feedback, revoke confirms in place, and delete now uses a short toast plus `Deleting...` button state so the removal is unambiguous.
   - shared episode URLs open branded, `noindex` landing pages with browser playback, download, source attribution when available, concise trust copy about private feeds staying private, and signup/pricing CTAs.
   - public shared playback uses a dedicated share-media route with `HEAD` + byte-range `206` support and separate share-scoped auth, leaving private RSS/media auth unchanged.
   - raw analytics now capture share-link creation, share-page views, playback starts, and CTA clicks for growth instrumentation.
