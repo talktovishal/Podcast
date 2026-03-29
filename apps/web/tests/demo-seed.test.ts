@@ -30,6 +30,10 @@ test("parity compose waits for azurite health before starting web and worker", (
 
   assert.match(
     source,
+    /azurite:\n(?: {2}.+\n)+ {4}healthcheck:\n(?: {6}.+\n)* {6}test: \["CMD-SHELL", "node -e \\"fetch\('http:\/\/127\.0\.0\.1:10000'\)\.then\(\(\)=>process\.exit\(0\)\)\.catch\(\(\)=>process\.exit\(1\)\)\\""\]/m
+  );
+  assert.match(
+    source,
     /web:\n(?: {2}.+\n)+ {4}depends_on:\n(?: {6}.+\n)+ {6}azurite:\n {8}condition: service_healthy/m
   );
   assert.match(
