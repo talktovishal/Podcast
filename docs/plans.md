@@ -3871,6 +3871,7 @@ Milestone metadata contract:
   - `apps/web/src/app/pricing/page.tsx`
 - Acceptance criteria:
   - Signed-in users can create hosted Stripe subscription checkout sessions from `/pricing` or settings only for approved internal plan keys.
+  - Signing in from `/pricing` preserves the upgrade journey and returns the user to billing-ready UI instead of the generic workspace landing page.
   - Billing-unconfigured environments fail with a clear user-facing message, and the app shows a pending activation state until webhook confirmation arrives.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`

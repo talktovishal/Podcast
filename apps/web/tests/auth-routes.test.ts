@@ -18,6 +18,7 @@ import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/rou
 import { POST as pdfPost } from "../src/app/api/items/pdf/route";
 import { POST as urlPost } from "../src/app/api/items/url/route";
 import { GET as itemMarkdownGet } from "../src/app/api/items/[id]/markdown/route";
+import { buildLoginHref } from "../src/lib/auth-redirect";
 import { createSession } from "../src/lib/auth";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
@@ -74,31 +75,34 @@ test("oauth start routes redirect based on provider configuration", async () => 
     };
   };
 
-  const googleResponse = await googleStartGet();
+  const googleResponse = await googleStartGet(new NextRequest("http://localhost/api/auth/google/start?next=%2Fpricing"));
   assert.equal(googleResponse.status, 307);
   const googleLocation = googleResponse.headers.get("location") || "";
   if (providerPayload.providers.google.configured) {
     assert.ok(googleLocation.startsWith("https://accounts.google.com/o/oauth2/v2/auth?"));
+    assert.match(googleResponse.headers.get("set-cookie") || "", /articlepod_auth_return=%2Fpricing|articlepod_auth_return=\/pricing/);
   } else {
-    assert.ok(googleLocation.includes("/login?oauth_error=google_not_configured"));
+    assert.equal(googleLocation, `${env.appUrl}${buildLoginHref({ oauthError: "google_not_configured", next: "/pricing" })}`);
   }
 
-  const facebookResponse = await facebookStartGet();
+  const facebookResponse = await facebookStartGet(new NextRequest("http://localhost/api/auth/facebook/start?next=%2Fpricing"));
   assert.equal(facebookResponse.status, 307);
   const facebookLocation = facebookResponse.headers.get("location") || "";
   if (providerPayload.providers.facebook.configured) {
     assert.ok(facebookLocation.startsWith("https://www.facebook.com/dialog/oauth?"));
+    assert.match(facebookResponse.headers.get("set-cookie") || "", /articlepod_auth_return=%2Fpricing|articlepod_auth_return=\/pricing/);
   } else {
-    assert.ok(facebookLocation.includes("/login?oauth_error=facebook_not_configured"));
+    assert.equal(facebookLocation, `${env.appUrl}${buildLoginHref({ oauthError: "facebook_not_configured", next: "/pricing" })}`);
   }
 
-  const appleResponse = await appleStartGet();
+  const appleResponse = await appleStartGet(new NextRequest("http://localhost/api/auth/apple/start?next=%2Fpricing"));
   assert.equal(appleResponse.status, 307);
   const appleLocation = appleResponse.headers.get("location") || "";
   if (providerPayload.providers.apple.configured) {
     assert.ok(appleLocation.startsWith("https://appleid.apple.com/auth/authorize?"));
+    assert.match(appleResponse.headers.get("set-cookie") || "", /articlepod_auth_return=%2Fpricing|articlepod_auth_return=\/pricing/);
   } else {
-    assert.ok(appleLocation.includes("/login?oauth_error=apple_not_configured"));
+    assert.equal(appleLocation, `${env.appUrl}${buildLoginHref({ oauthError: "apple_not_configured", next: "/pricing" })}`);
   }
 });
 
@@ -106,7 +110,7 @@ test("facebook callback rejects invalid oauth state", async () => {
   const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=wrong-state", {
     method: "GET",
     headers: {
-      cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+      cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state; articlepod_auth_return=%2Fpricing`
     }
   });
 
@@ -114,7 +118,7 @@ test("facebook callback rejects invalid oauth state", async () => {
   assert.equal(response.status, 307);
   assert.equal(
     response.headers.get("location"),
-    `${env.appUrl}/login?oauth_error=facebook_state`
+    `${env.appUrl}${buildLoginHref({ oauthError: "facebook_state", next: "/pricing" })}`
   );
 });
 
@@ -137,7 +141,7 @@ test("facebook callback maps token exchange failures back to login", async () =>
     const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=expected-state", {
       method: "GET",
       headers: {
-        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state; articlepod_auth_return=%2Fpricing`
       }
     });
 
@@ -145,7 +149,7 @@ test("facebook callback maps token exchange failures back to login", async () =>
     assert.equal(response.status, 307);
     assert.equal(
       response.headers.get("location"),
-      `${env.appUrl}/login?oauth_error=facebook_token`
+      `${env.appUrl}${buildLoginHref({ oauthError: "facebook_token", next: "/pricing" })}`
     );
   } finally {
     env.facebookAppId = previousAppId;
@@ -199,13 +203,13 @@ test("facebook callback creates a linked user and session", async () => {
     const request = new NextRequest("http://localhost/api/auth/facebook/callback?code=test-code&state=expected-state", {
       method: "GET",
       headers: {
-        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state`
+        cookie: `${AUTH_COOKIE_NAMES.oauthPrefix}_facebook=expected-state; articlepod_auth_return=%2Fpricing`
       }
     });
 
     const response = await facebookCallbackGet(request);
     assert.equal(response.status, 307);
-    assert.equal(response.headers.get("location"), `${env.appUrl}/app`);
+    assert.equal(response.headers.get("location"), `${env.appUrl}/pricing`);
     assert.match(response.headers.get("set-cookie") || "", /articlepod_session=/);
 
     const user = await prisma.user.findUnique({

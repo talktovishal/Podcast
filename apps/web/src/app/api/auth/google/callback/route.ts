@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearOAuthStateCookie,
+  clearPostAuthRedirectCookie,
   createSession,
   ensureUserFeedToken,
   findOrCreateOAuthUser,
   getOAuthStateFromRequest,
+  getPostAuthRedirectFromRequest,
   isOAuthProviderConfigured,
   setSessionCookie,
   updateUserGeoSnapshotFromRequest
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
+import { buildLoginHref, resolvePostAuthRedirect } from "@/lib/auth-redirect";
 import { env } from "@/lib/env";
 
-function redirectWithError(code: string, clearState = false) {
-  const response = NextResponse.redirect(`${env.appUrl}/login?oauth_error=${code}`);
+function redirectWithError(request: NextRequest, code: string, clearState = false) {
+  const response = NextResponse.redirect(
+    `${env.appUrl}${buildLoginHref({ oauthError: code, next: getPostAuthRedirectFromRequest(request) })}`
+  );
   if (clearState) {
     clearOAuthStateCookie(response, "google");
   }
+  clearPostAuthRedirectCookie(response);
   return response;
 }
 
@@ -26,11 +32,11 @@ export async function GET(request: NextRequest) {
   const cookieState = getOAuthStateFromRequest(request, "google");
 
   if (!code || !state || !cookieState || cookieState !== state) {
-    return redirectWithError("google_state", true);
+    return redirectWithError(request, "google_state", true);
   }
 
   if (!isOAuthProviderConfigured("google")) {
-    return redirectWithError("google_not_configured", true);
+    return redirectWithError(request, "google_not_configured", true);
   }
 
   let tokenData: { access_token?: string } | null = null;
@@ -48,15 +54,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (!tokenResp.ok) {
-      return redirectWithError("google_token", true);
+      return redirectWithError(request, "google_token", true);
     }
     tokenData = (await tokenResp.json()) as { access_token?: string };
   } catch {
-    return redirectWithError("google_token", true);
+    return redirectWithError(request, "google_token", true);
   }
 
   if (!tokenData?.access_token) {
-    return redirectWithError("google_token", true);
+    return redirectWithError(request, "google_token", true);
   }
 
   let profile: { email?: string; name?: string; sub?: string } | null = null;
@@ -68,15 +74,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (!profileResp.ok) {
-      return redirectWithError("google_profile", true);
+      return redirectWithError(request, "google_profile", true);
     }
     profile = (await profileResp.json()) as { email?: string; name?: string; sub?: string };
   } catch {
-    return redirectWithError("google_profile", true);
+    return redirectWithError(request, "google_profile", true);
   }
 
   if (!profile?.sub) {
-    return redirectWithError("google_sub", true);
+    return redirectWithError(request, "google_sub", true);
   }
 
   const oauthResult = await findOrCreateOAuthUser({
@@ -105,8 +111,9 @@ export async function GET(request: NextRequest) {
   await updateUserGeoSnapshotFromRequest(user.id, request);
   const sessionToken = await createSession(user.id, { authMethod: "GOOGLE" });
 
-  const response = NextResponse.redirect(`${env.appUrl}/app`);
+  const response = NextResponse.redirect(`${env.appUrl}${resolvePostAuthRedirect(getPostAuthRedirectFromRequest(request), user.role)}`);
   clearOAuthStateCookie(response, "google");
+  clearPostAuthRedirectCookie(response);
   await setSessionCookie(response, sessionToken);
   return response;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BillingActionButton } from "@/components/billing-action-button";
 import { MarketingCta } from "@/components/marketing-cta";
 import { MarketingHeader } from "@/components/marketing-header";
+import { buildLoginHref } from "@/lib/auth-redirect";
 import {
   billingPlanLabel,
   billingStatusLabel,
@@ -81,7 +82,10 @@ export default async function PricingPage({
             <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
             <div className="mt-4">
               {!user ? (
-                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
+                <Link
+                  className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+                  href={buildLoginHref({ next: "/pricing" })}
+                >
                   Sign in to upgrade
                 </Link>
               ) : billing?.accessReason === "complimentary" ? (
@@ -120,7 +124,10 @@ export default async function PricingPage({
             <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
             <div className="mt-4">
               {!user ? (
-                <Link className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white" href="/login">
+                <Link
+                  className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
+                  href={buildLoginHref({ next: "/pricing" })}
+                >
                   Sign in to upgrade
                 </Link>
               ) : billing?.accessReason === "complimentary" ? (

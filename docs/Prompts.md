@@ -92,6 +92,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - access is granted or extended only from webhook-confirmed billing events; `/app/settings` now shows pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
   - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and “save nearly 30%” annual positioning
+  - login now preserves pricing/billing return intent so “sign in to upgrade” comes back to the hosted checkout path instead of dropping users into the generic workspace
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).

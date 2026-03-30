@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   clearOAuthStateCookie,
+  clearPostAuthRedirectCookie,
   createSession,
   ensureUserFeedToken,
   findOrCreateOAuthUser,
   getOAuthStateFromRequest,
+  getPostAuthRedirectFromRequest,
   isOAuthProviderConfigured,
   setSessionCookie,
   updateUserGeoSnapshotFromRequest
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
+import { buildLoginHref, resolvePostAuthRedirect } from "@/lib/auth-redirect";
 import { env } from "@/lib/env";
 
-function redirectWithError(code: string, clearState = false) {
-  const response = NextResponse.redirect(`${env.appUrl}/login?oauth_error=${code}`);
+function redirectWithError(request: NextRequest, code: string, clearState = false) {
+  const response = NextResponse.redirect(
+    `${env.appUrl}${buildLoginHref({ oauthError: code, next: getPostAuthRedirectFromRequest(request) })}`
+  );
   if (clearState) {
     clearOAuthStateCookie(response, "facebook");
   }
+  clearPostAuthRedirectCookie(response);
   return response;
 }
 
@@ -27,15 +33,15 @@ export async function GET(request: NextRequest) {
   const cookieState = getOAuthStateFromRequest(request, "facebook");
 
   if (callbackError) {
-    return redirectWithError("facebook_access_denied", true);
+    return redirectWithError(request, "facebook_access_denied", true);
   }
 
   if (!code || !state || !cookieState || cookieState !== state) {
-    return redirectWithError("facebook_state", true);
+    return redirectWithError(request, "facebook_state", true);
   }
 
   if (!isOAuthProviderConfigured("facebook")) {
-    return redirectWithError("facebook_not_configured", true);
+    return redirectWithError(request, "facebook_not_configured", true);
   }
 
   let tokenData: { access_token?: string } | null = null;
@@ -50,16 +56,16 @@ export async function GET(request: NextRequest) {
 
     const tokenResp = await fetch(tokenUrl);
     if (!tokenResp.ok) {
-      return redirectWithError("facebook_token", true);
+      return redirectWithError(request, "facebook_token", true);
     }
 
     tokenData = (await tokenResp.json()) as { access_token?: string };
   } catch {
-    return redirectWithError("facebook_token", true);
+    return redirectWithError(request, "facebook_token", true);
   }
 
   if (!tokenData?.access_token) {
-    return redirectWithError("facebook_token", true);
+    return redirectWithError(request, "facebook_token", true);
   }
 
   let profile: { id?: string; email?: string; name?: string } | null = null;
@@ -72,16 +78,16 @@ export async function GET(request: NextRequest) {
 
     const profileResp = await fetch(profileUrl);
     if (!profileResp.ok) {
-      return redirectWithError("facebook_profile", true);
+      return redirectWithError(request, "facebook_profile", true);
     }
 
     profile = (await profileResp.json()) as { id?: string; email?: string; name?: string };
   } catch {
-    return redirectWithError("facebook_profile", true);
+    return redirectWithError(request, "facebook_profile", true);
   }
 
   if (!profile?.id) {
-    return redirectWithError("facebook_id", true);
+    return redirectWithError(request, "facebook_id", true);
   }
 
   const oauthResult = await findOrCreateOAuthUser({
@@ -110,8 +116,9 @@ export async function GET(request: NextRequest) {
   await updateUserGeoSnapshotFromRequest(user.id, request);
   const sessionToken = await createSession(user.id, { authMethod: "FACEBOOK" });
 
-  const response = NextResponse.redirect(`${env.appUrl}/app`);
+  const response = NextResponse.redirect(`${env.appUrl}${resolvePostAuthRedirect(getPostAuthRedirectFromRequest(request), user.role)}`);
   clearOAuthStateCookie(response, "facebook");
+  clearPostAuthRedirectCookie(response);
   await setSessionCookie(response, sessionToken);
   return response;
 }

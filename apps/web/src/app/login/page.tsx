@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MarketingHeader } from "@/components/marketing-header";
+import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
 import { marketingCopy } from "@/lib/marketing-content";
 import {
   oauthProviders as oauthProviderDefinitions,
@@ -61,6 +62,10 @@ export default function LoginPage() {
 
   const oauthError = useMemo(
     () => searchParams.get("oauth_error"),
+    [searchParams],
+  );
+  const nextPath = useMemo(
+    () => normalizePostAuthRedirect(searchParams.get("next")),
     [searchParams],
   );
   const oauthErrorMessage = oauthError
@@ -134,7 +139,7 @@ export default function LoginPage() {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ mode, email, password, name }),
+        body: JSON.stringify({ mode, email, password, name, next: nextPath }),
       });
 
       const json = await response.json();
@@ -143,7 +148,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(json.role === "ADMIN" ? "/admin" : "/app");
+      router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"));
       router.refresh();
     } catch {
       setError("Unexpected error. Please try again.");
@@ -174,7 +179,11 @@ export default function LoginPage() {
               <div>
                 <div className="grid grid-cols-1 gap-2">
                   {configuredProviders.map((provider) => (
-                    <a className={primaryAuthActionClass} href={provider.startPath} key={provider.id}>
+                    <a
+                      className={primaryAuthActionClass}
+                      href={buildOAuthStartHref(provider.startPath, nextPath)}
+                      key={provider.id}
+                    >
                       Continue with {provider.label}
                     </a>
                   ))}

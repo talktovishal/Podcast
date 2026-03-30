@@ -235,18 +235,21 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
 test("login redirects admins directly to admin dashboard", () => {
   const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   const providerSource = readFileSync(new URL("../src/lib/oauth-providers.ts", import.meta.url), "utf8");
-  assert.equal(source.includes('router.push(json.role === "ADMIN" ? "/admin" : "/app")'), true);
+  const pricingSource = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes('router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"))'), true);
   assert.equal(source.includes("Continue to your feed"), true);
   assert.equal(source.includes("First time with Google, Facebook, or Apple?"), true);
   assert.equal(source.includes("Use email instead"), true);
   assert.equal(source.includes("configuredProviders.map"), true);
   assert.equal(source.includes("const primaryAuthActionClass ="), true);
-  assert.equal(source.includes('className={primaryAuthActionClass} href={provider.startPath}'), true);
+  assert.equal(source.includes('href={buildOAuthStartHref(provider.startPath, nextPath)}'), true);
   assert.equal(source.includes('className={primaryAuthActionClass} disabled={isLoading} onClick={submit}'), true);
+  assert.equal(source.includes("next: nextPath"), true);
   assert.equal(source.includes("bg-[var(--accent)]"), true);
   assert.equal(source.includes("text-white"), true);
   assert.equal(source.includes("No social sign-in providers are configured here yet. Use email below."), true);
   assert.equal(source.includes('mode === "login" ? "Log in with email" : "Create account with email"'), true);
+  assert.equal(pricingSource.includes('href={buildLoginHref({ next: "/pricing" })}'), true);
   assert.equal(providerSource.indexOf('id: "google"') < providerSource.indexOf('id: "facebook"'), true);
   assert.equal(providerSource.indexOf('id: "facebook"') < providerSource.indexOf('id: "apple"'), true);
 });

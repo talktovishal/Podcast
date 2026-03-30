@@ -1,11 +1,13 @@
 import { makeToken } from "@articlepod/core";
-import { NextResponse } from "next/server";
-import { isOAuthProviderConfigured, setOAuthStateCookie } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { buildLoginHref } from "@/lib/auth-redirect";
+import { isOAuthProviderConfigured, setOAuthStateCookie, setPostAuthRedirectCookie } from "@/lib/auth";
 import { env } from "@/lib/env";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const next = request.nextUrl.searchParams.get("next");
   if (!isOAuthProviderConfigured("apple")) {
-    return NextResponse.redirect(`${env.appUrl}/login?oauth_error=apple_not_configured`);
+    return NextResponse.redirect(`${env.appUrl}${buildLoginHref({ oauthError: "apple_not_configured", next })}`);
   }
 
   const state = makeToken(16);
@@ -20,5 +22,6 @@ export async function GET() {
 
   const response = NextResponse.redirect(`https://appleid.apple.com/auth/authorize?${search.toString()}`);
   setOAuthStateCookie(response, "apple", state);
+  setPostAuthRedirectCookie(response, next);
   return response;
 }
