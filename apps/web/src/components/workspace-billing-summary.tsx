@@ -88,32 +88,28 @@ export function WorkspaceBillingSummary({
   );
   const tone = toneClasses(billing);
   const message = pollMessage ?? billing.billingIssueMessage;
+  const portalLabel = `Billing · ${billingHeadline(billing)}${billingSubcopy(billing) ? ` · ${billingSubcopy(billing)}` : ""}`;
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${tone.pill}`}>
-          <span className={`h-2 w-2 rounded-full ${tone.dot}`} aria-hidden />
-          <span>Billing</span>
-          <span className="opacity-80">
-            {billingHeadline(billing)} · {billingSubcopy(billing)}
-          </span>
-        </div>
-
         {billing.accessReason === "complimentary" ? (
-          <span className="text-xs text-[var(--muted)]">Managed by an admin.</span>
+          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${tone.pill}`}>
+            <span className={`h-2 w-2 rounded-full ${tone.dot}`} aria-hidden />
+            <span>{portalLabel}</span>
+          </span>
         ) : showPortalAction ? (
           <BillingActionButton
             action="portal"
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold"
-            label={billing.hasBillingIssue ? "Fix billing" : "Manage billing"}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${tone.pill}`}
+            label={portalLabel}
           />
         ) : billingConfigured ? (
           <Link
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50"
+            className="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50"
             href="/pricing"
           >
-            Upgrade
+            Upgrade to Pro
           </Link>
         ) : (
           <span className="text-xs text-[var(--muted)]">Billing setup pending.</span>

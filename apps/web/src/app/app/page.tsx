@@ -55,14 +55,11 @@ export default async function AppDashboardPage({
         <header className="card p-4 sm:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <p className="text-sm text-[var(--muted)]">Your workspace</p>
-                <WorkspaceBillingSummary
-                  activationHint={billingSearchParam === "success"}
-                  billingConfigured={billingConfigured}
-                  initialBilling={billing}
-                />
-              </div>
+              <WorkspaceBillingSummary
+                activationHint={billingSearchParam === "success"}
+                billingConfigured={billingConfigured}
+                initialBilling={billing}
+              />
               <AppShellNav current="workspace" />
             </div>
             <div className="space-y-1">

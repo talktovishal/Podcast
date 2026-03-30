@@ -61,7 +61,7 @@ Connect flow:
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
-  - the header now carries a compact billing status pill plus `Upgrade` or `Manage billing`, while `/app/settings` keeps the fuller plan, renewal, and invoice controls
+  - the header now uses the simplest possible billing control: free users get a single `Upgrade to Pro` action, while paid users get one clickable billing pill that opens Stripe billing; `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
   - `Recent items`
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
