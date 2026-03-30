@@ -219,6 +219,11 @@ model Job {
   attempt     Int       @default(0)
   status      String    @default("QUEUED")
   lockedAt    DateTime?
+  leaseId     String?
+  leaseOwner  String?
+  leaseExpiresAt DateTime?
+  lastHeartbeatAt DateTime?
+  dispatchMessageId String?
   scheduledFor DateTime?
   nextRetryAt DateTime?
   errorCode   String?
@@ -227,9 +232,28 @@ model Job {
   updatedAt   DateTime  @updatedAt
 
   item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  dispatchMessage DispatchQueueMessage?
   events      JobEvent[]
 
   @@index([status, createdAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model DispatchQueueMessage {
+  id               String   @id @default(cuid())
+  jobId             String   @unique
+  jobKind           String
+  visibleAt         DateTime @default(now())
+  dequeueCount      Int      @default(0)
+  reservationToken  String?
+  reservedBy        String?
+  reservedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  job              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([visibleAt, createdAt])
 }
 
 model JobEvent {

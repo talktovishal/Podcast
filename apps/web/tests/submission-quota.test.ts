@@ -48,6 +48,48 @@ function htmlSnapshotRequest(sessionToken: string, suffix: string): NextRequest 
   });
 }
 
+test("enqueueItem creates a dispatch message for queued item jobs", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-dispatch`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `dispatch-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const submission = await enqueueItem({
+      userId: user.id,
+      title: `Dispatch ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/dispatch/${uniq}`,
+      sourceHtml: `<html><body><article><h1>${uniq}</h1><p>dispatch queue test content</p></article></body></html>`,
+      sourceCapturedAt: new Date("2026-03-29T00:00:00.000Z")
+    });
+
+    const job = await prisma.job.findFirst({
+      where: { itemId: submission.item.id },
+      orderBy: { createdAt: "desc" }
+    });
+    const dispatchMessage = job?.id
+      ? await prisma.dispatchQueueMessage.findUnique({
+          where: { jobId: job.id }
+        })
+      : null;
+
+    assert.ok(job);
+    assert.ok(job?.dispatchMessageId);
+    assert.equal(dispatchMessage?.id, job?.dispatchMessageId);
+    assert.equal(dispatchMessage?.jobKind, "ITEM");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("submission quota blocks free users after two submissions and admin can grant extra tries", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);

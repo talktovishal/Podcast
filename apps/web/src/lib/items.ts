@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { serializeItemTags } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
+import { enqueueItemDispatchMessage, webUsesPrismaDispatchQueue } from "./item-dispatch-queue";
+import { logger } from "./logger";
 import { prisma } from "./prisma";
 import { consumeSubmissionCredit, PAID_SUBMISSION_DEFERRED_CODE } from "./submission-quota";
 import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
@@ -57,6 +59,22 @@ export async function enqueueItem(input: {
             errorCode: initialDeferredErrorCode,
             errorMessage: initialAcceptedMessage
           });
+          try {
+            const dispatchMessage = await enqueueItemDispatchMessage({
+              jobId: createdJob.id,
+              visibleAt: initialScheduledFor
+            });
+            await webPrimaryStore.updateJob(createdJob.id, {
+              dispatchMessageId: dispatchMessage.messageId
+            });
+            createdJob.dispatchMessageId = dispatchMessage.messageId;
+          } catch (error) {
+            await logger.warn("Item dispatch enqueue failed; leaving job for reconciliation", {
+              itemId: createdItem.id,
+              jobId: createdJob.id,
+              error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+            });
+          }
           return {
             ...createdItem,
             jobs: [createdJob]
@@ -72,7 +90,7 @@ export async function enqueueItem(input: {
           const acceptedMessage = submissionOutcome.acceptedMessage;
           const deferredErrorCode = queueMode === "DEFERRED" ? PAID_SUBMISSION_DEFERRED_CODE : null;
 
-          return tx.item.create({
+          const createdItem = await tx.item.create({
             include: {
               jobs: {
                 select: {
@@ -83,6 +101,11 @@ export async function enqueueItem(input: {
                   createdAt: true,
                   updatedAt: true,
                   lockedAt: true,
+                  leaseId: true,
+                  leaseOwner: true,
+                  leaseExpiresAt: true,
+                  lastHeartbeatAt: true,
+                  dispatchMessageId: true,
                   scheduledFor: true,
                   nextRetryAt: true,
                   errorCode: true,
@@ -115,7 +138,56 @@ export async function enqueueItem(input: {
               }
             }
           });
+
+          const createdJob = createdItem.jobs[0];
+          if (createdJob && webUsesPrismaDispatchQueue()) {
+            const dispatchMessage = await enqueueItemDispatchMessage({
+              jobId: createdJob.id,
+              visibleAt: scheduledFor,
+              client: tx
+            });
+            await tx.job.update({
+              where: { id: createdJob.id },
+              data: {
+                dispatchMessageId: dispatchMessage.messageId
+              }
+            });
+            createdJob.dispatchMessageId = dispatchMessage.messageId;
+          }
+
+          return createdItem;
         });
+
+  if (!webUsesPrismaDispatchQueue()) {
+    const createdJob = item.jobs[0];
+    if (createdJob && !createdJob.dispatchMessageId) {
+      try {
+        const dispatchMessage = await enqueueItemDispatchMessage({
+          jobId: createdJob.id,
+          visibleAt: initialScheduledFor
+        });
+        if (env.metadataPrimaryBackend === "azure_table" && webPrimaryStore) {
+          await webPrimaryStore.updateJob(createdJob.id, {
+            dispatchMessageId: dispatchMessage.messageId
+          });
+        } else {
+          await prisma.job.update({
+            where: { id: createdJob.id },
+            data: {
+              dispatchMessageId: dispatchMessage.messageId
+            }
+          });
+        }
+        createdJob.dispatchMessageId = dispatchMessage.messageId;
+      } catch (error) {
+        await logger.warn("Item dispatch enqueue failed after item creation; leaving job for reconciliation", {
+          itemId: item.id,
+          jobId: createdJob.id,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        });
+      }
+    }
+  }
 
   const profile = await resolveUserAnalyticsProfile(input.userId);
   await recordAnalyticsEventBestEffort({

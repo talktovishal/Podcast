@@ -7,6 +7,7 @@ type MetadataMirrorBackend = "none" | "azure_table";
 type MetadataPrimaryBackend = "prisma" | "azure_table";
 type AnalyticsStorageMode = "full" | "off";
 type JobEventStorageMode = "database" | "off";
+type ItemDispatchBackend = "prisma" | "azure_queue";
 
 function parseNonNegativeInt(raw: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(raw ?? "", 10);
@@ -99,9 +100,23 @@ function parseJobEventStorageMode(raw: string | undefined): JobEventStorageMode 
   return "database";
 }
 
+function parseItemDispatchBackend(raw: string | undefined): ItemDispatchBackend | "auto" {
+  if (raw === "prisma" || raw === "azure_queue") {
+    return raw;
+  }
+  return "auto";
+}
+
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 const logRetentionDays = parseNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
 const logErrorRetentionDays = parseNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
+const itemDispatchBackendSetting = parseItemDispatchBackend(process.env.ITEM_DISPATCH_BACKEND);
+const itemDispatchBackend: ItemDispatchBackend =
+  itemDispatchBackendSetting === "auto"
+    ? storageBackend === "azure_blob" && (process.env.AZURE_STORAGE_CONNECTION_STRING || (process.env.AZURE_STORAGE_ACCOUNT_URL && process.env.AZURE_STORAGE_SAS_TOKEN))
+      ? "azure_queue"
+      : "prisma"
+    : itemDispatchBackendSetting;
 
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
@@ -126,6 +141,9 @@ export const env = {
   azureStorageAccountUrl: process.env.AZURE_STORAGE_ACCOUNT_URL,
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
+  itemDispatchBackend,
+  itemDispatchQueueName: process.env.ITEM_DISPATCH_QUEUE_NAME ?? `${BRAND_SLUG}-item-dispatch`,
+  itemDispatchCreateQueue: parseBoolean(process.env.ITEM_DISPATCH_CREATE_QUEUE, true),
   mediaRoot: normalizeLocalPath(process.env.MEDIA_ROOT ?? resolve(process.cwd(), ".data/media")),
   uploadRoot: normalizeLocalPath(process.env.UPLOAD_ROOT ?? resolve(process.cwd(), ".data/uploads")),
   logRoot: normalizeLocalPath(process.env.LOG_ROOT ?? defaultLogRoot),

@@ -109,7 +109,10 @@ function startHealthServer(): void {
       const stuckJobs = await (workerUsesAzureTablePrimary() && workerPrimaryStore
         ? workerPrimaryStore.countStuckJobs(staleBefore)
         : prisma.job.count({
-            where: { status: "PROCESSING", lockedAt: { lt: staleBefore } }
+            where: {
+              status: "PROCESSING",
+              OR: [{ leaseExpiresAt: { lt: new Date() } }, { leaseExpiresAt: null, lockedAt: { lt: staleBefore } }]
+            }
           })
       ).catch(() => -1);
       res.writeHead(200, { "content-type": "application/json" });
@@ -207,6 +210,12 @@ async function main() {
     metadataMirrorBackend: workerMetadataMirror.backend,
     metadataMirrorDualWrite: workerEnv.metadataMirrorDualWrite,
     metadataCanaryCompare: workerEnv.metadataCanaryCompare,
+    itemDispatchBackend: workerEnv.itemDispatchBackend,
+    itemDispatchQueueName: workerEnv.itemDispatchQueueName,
+    itemDispatchVisibilityMs: workerEnv.itemDispatchVisibilityMs,
+    itemDispatchHeartbeatMs: workerEnv.itemDispatchHeartbeatMs,
+    itemDispatchMaxDeliveries: workerEnv.itemDispatchMaxDeliveries,
+    workerInstanceId: workerEnv.workerInstanceId,
     ttsLane: ttsRuntime.lane,
     ttsEndpoint: ttsRuntime.pythonTtsUrl
   });

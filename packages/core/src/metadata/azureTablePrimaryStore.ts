@@ -179,6 +179,11 @@ export type AzureTablePrimaryJob = {
   attempt: number;
   status: string;
   lockedAt: Date | null;
+  leaseId: string | null;
+  leaseOwner: string | null;
+  leaseExpiresAt: Date | null;
+  lastHeartbeatAt: Date | null;
+  dispatchMessageId: string | null;
   scheduledFor: Date | null;
   nextRetryAt: Date | null;
   errorCode: string | null;
@@ -557,6 +562,52 @@ function sortByTwoDatesDesc<T>(entries: T[], primary: (entry: T) => Date, second
   });
 }
 
+function jobLeaseDeadline(job: {
+  leaseExpiresAt: Date | null;
+  lockedAt: Date | null;
+}): Date | null {
+  return job.leaseExpiresAt ?? job.lockedAt;
+}
+
+function jobLeaseExpired(
+  job: {
+    leaseExpiresAt: Date | null;
+    lockedAt: Date | null;
+  },
+  now: Date,
+  legacyLockMs = 0
+): boolean {
+  const deadline = job.leaseExpiresAt
+    ? job.leaseExpiresAt
+    : job.lockedAt
+      ? new Date(job.lockedAt.getTime() + legacyLockMs)
+      : null;
+  return deadline !== null && deadline.getTime() <= now.getTime();
+}
+
+function jobEligibleForClaim(
+  job: {
+    status: string;
+    attempt: number;
+    scheduledFor: Date | null;
+    nextRetryAt: Date | null;
+    leaseExpiresAt: Date | null;
+    lockedAt: Date | null;
+  },
+  now: Date,
+  maxRetryAttempts: number,
+  legacyLockMs = 0
+): boolean {
+  const retryable =
+    job.status === "FAILED" &&
+    job.attempt < maxRetryAttempts &&
+    job.nextRetryAt !== null &&
+    job.nextRetryAt.getTime() <= now.getTime();
+  const queuedReady = job.status === "QUEUED" && (job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime());
+  const expiredProcessing = job.status === "PROCESSING" && jobLeaseExpired(job, now, legacyLockMs);
+  return queuedReady || retryable || expiredProcessing;
+}
+
 function isNotFoundError(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "statusCode" in error && (error as { statusCode?: unknown }).statusCode === 404);
 }
@@ -888,6 +939,11 @@ export class AzureTablePrimaryStore {
       attempt: parseNumber(entity.attempt, 0),
       status: parseRequiredString(entity.status, "status"),
       lockedAt: parseDate(entity.lockedAt),
+      leaseId: parseString(entity.leaseId),
+      leaseOwner: parseString(entity.leaseOwner),
+      leaseExpiresAt: parseDate(entity.leaseExpiresAt),
+      lastHeartbeatAt: parseDate(entity.lastHeartbeatAt),
+      dispatchMessageId: parseString(entity.dispatchMessageId),
       scheduledFor: parseDate(entity.scheduledFor),
       nextRetryAt: parseDate(entity.nextRetryAt),
       errorCode: parseString(entity.errorCode),
@@ -1876,6 +1932,11 @@ export class AzureTablePrimaryStore {
     attempt?: number;
     status: string;
     lockedAt?: Date | null;
+    leaseId?: string | null;
+    leaseOwner?: string | null;
+    leaseExpiresAt?: Date | null;
+    lastHeartbeatAt?: Date | null;
+    dispatchMessageId?: string | null;
     scheduledFor?: Date | null;
     nextRetryAt?: Date | null;
     errorCode?: string | null;
@@ -1891,6 +1952,11 @@ export class AzureTablePrimaryStore {
       attempt: input.attempt ?? 0,
       status: input.status,
       lockedAt: isoOrNull(input.lockedAt ?? null),
+      leaseId: input.leaseId ?? null,
+      leaseOwner: input.leaseOwner ?? null,
+      leaseExpiresAt: isoOrNull(input.leaseExpiresAt ?? null),
+      lastHeartbeatAt: isoOrNull(input.lastHeartbeatAt ?? null),
+      dispatchMessageId: input.dispatchMessageId ?? null,
       scheduledFor: isoOrNull(input.scheduledFor ?? null),
       nextRetryAt: isoOrNull(input.nextRetryAt ?? null),
       errorCode: input.errorCode ?? null,
@@ -1963,9 +2029,14 @@ export class AzureTablePrimaryStore {
   async listStaleJobs(staleBefore: Date): Promise<Array<EntityWithEtag<AzureTablePrimaryJob>>> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "jobs",
-      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"), filterLessThan("lockedAt", staleBefore))
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"))
     );
-    return rows.map((row) => ({ ...this.toJob(row), etag: row.etag }));
+    return rows
+      .map((row) => ({ ...this.toJob(row), etag: row.etag }))
+      .filter((row) => {
+        const deadline = jobLeaseDeadline(row);
+        return deadline !== null && deadline.getTime() < staleBefore.getTime();
+      });
   }
 
   async countStuckJobs(staleBefore: Date): Promise<number> {
@@ -1973,30 +2044,38 @@ export class AzureTablePrimaryStore {
     return rows.length;
   }
 
-  async claimJob(jobId: string, now: Date, maxRetryAttempts: number): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
-    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
+  async claimJob(input: {
+    jobId: string;
+    now: Date;
+    maxRetryAttempts: number;
+    staleProcessingMs?: number;
+    leaseId: string;
+    leaseOwner: string;
+    leaseExpiresAt: Date;
+    dispatchMessageId?: string | null;
+  }): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
+    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", input.jobId);
     if (!current) {
       return null;
     }
     const job = this.toJob(current);
-    const retryable =
-      job.status === "FAILED" &&
-      job.attempt < maxRetryAttempts &&
-      job.nextRetryAt !== null &&
-      job.nextRetryAt.getTime() <= now.getTime();
-    const queuedReady = job.status === "QUEUED" && (job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime());
-    if (!(queuedReady || retryable)) {
+    if (!jobEligibleForClaim(job, input.now, input.maxRetryAttempts, input.staleProcessingMs ?? 0)) {
       return null;
     }
 
     const claimedEntity: TableEntity<Record<string, unknown>> = {
       ...current,
       partitionKey: "job",
-      rowKey: jobId,
+      rowKey: input.jobId,
       status: "PROCESSING",
-      lockedAt: now.toISOString(),
+      lockedAt: input.now.toISOString(),
       attempt: job.attempt + 1,
-      updatedAt: now.toISOString()
+      leaseId: input.leaseId,
+      leaseOwner: input.leaseOwner,
+      leaseExpiresAt: input.leaseExpiresAt.toISOString(),
+      lastHeartbeatAt: input.now.toISOString(),
+      dispatchMessageId: input.dispatchMessageId ?? job.dispatchMessageId,
+      updatedAt: input.now.toISOString()
     };
     const success = await this.updateEntity("jobs", claimedEntity, current.etag);
     if (!success) {
@@ -2008,10 +2087,14 @@ export class AzureTablePrimaryStore {
     };
   }
 
-  async listNextEligibleJobs(now: Date, maxRetryAttempts: number): Promise<AzureTablePrimaryJob[]> {
+  async listNextEligibleJobs(now: Date, maxRetryAttempts: number, staleProcessingMs = 0): Promise<AzureTablePrimaryJob[]> {
     const queued = await this.listEntities<Record<string, unknown>>(
       "jobs",
       joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "QUEUED"))
+    );
+    const processing = await this.listEntities<Record<string, unknown>>(
+      "jobs",
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"))
     );
     const retryable = await this.listEntities<Record<string, unknown>>(
       "jobs",
@@ -2022,16 +2105,24 @@ export class AzureTablePrimaryStore {
         filterLessThanOrEqual("nextRetryAt", now)
       )
     );
-    return [...queued.map((row) => this.toJob(row)).filter((job) => job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime()), ...retryable.map((row) => this.toJob(row))].sort(
+    return [
+      ...queued.map((row) => this.toJob(row)).filter((job) => job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime()),
+      ...retryable.map((row) => this.toJob(row)),
+      ...processing.map((row) => this.toJob(row)).filter((job) => jobLeaseExpired(job, now, staleProcessingMs))
+    ].sort(
       (left, right) => {
         const leftPrimary =
           left.status === "QUEUED"
             ? (left.scheduledFor ?? left.createdAt).getTime()
-            : (left.nextRetryAt ?? left.createdAt).getTime();
+            : left.status === "FAILED"
+              ? (left.nextRetryAt ?? left.createdAt).getTime()
+              : (jobLeaseDeadline(left) ?? left.createdAt).getTime();
         const rightPrimary =
           right.status === "QUEUED"
             ? (right.scheduledFor ?? right.createdAt).getTime()
-            : (right.nextRetryAt ?? right.createdAt).getTime();
+            : right.status === "FAILED"
+              ? (right.nextRetryAt ?? right.createdAt).getTime()
+              : (jobLeaseDeadline(right) ?? right.createdAt).getTime();
         if (leftPrimary !== rightPrimary) {
           return leftPrimary - rightPrimary;
         }
@@ -2046,6 +2137,11 @@ export class AzureTablePrimaryStore {
       status: string;
       attempt: number;
       lockedAt: Date | null;
+      leaseId: string | null;
+      leaseOwner: string | null;
+      leaseExpiresAt: Date | null;
+      lastHeartbeatAt: Date | null;
+      dispatchMessageId: string | null;
       scheduledFor: Date | null;
       nextRetryAt: Date | null;
       errorCode: string | null;
@@ -2065,6 +2161,11 @@ export class AzureTablePrimaryStore {
       status: input.status ?? current.status,
       attempt: input.attempt ?? current.attempt,
       lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.leaseId === undefined ? current.leaseId : input.leaseId,
+      leaseOwner: input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      leaseExpiresAt: input.leaseExpiresAt === undefined ? current.leaseExpiresAt : isoOrNull(input.leaseExpiresAt),
+      lastHeartbeatAt: input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : isoOrNull(input.lastHeartbeatAt),
+      dispatchMessageId: input.dispatchMessageId === undefined ? current.dispatchMessageId : input.dispatchMessageId,
       scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
       nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
@@ -2074,6 +2175,63 @@ export class AzureTablePrimaryStore {
     const success = await this.updateEntity("jobs", entity, current.etag);
     if (!success) {
       return this.findJobById(jobId).then((row) => (row ? { ...row } : null));
+    }
+    return this.toJob(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateJobIfLeaseMatches(
+    jobId: string,
+    leaseId: string,
+    input: Partial<{
+      status: string;
+      attempt: number;
+      lockedAt: Date | null;
+      clearLease: boolean;
+      leaseOwner: string | null;
+      leaseExpiresAt: Date | null;
+      lastHeartbeatAt: Date | null;
+      dispatchMessageId: string | null;
+      scheduledFor: Date | null;
+      nextRetryAt: Date | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryJob | null> {
+    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
+    if (!current) {
+      return null;
+    }
+    const job = this.toJob(current);
+    if (job.leaseId !== leaseId || job.status !== "PROCESSING") {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "job",
+      rowKey: jobId,
+      status: input.status ?? current.status,
+      attempt: input.attempt ?? current.attempt,
+      lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.clearLease ? null : leaseId,
+      leaseOwner: input.clearLease ? null : input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      leaseExpiresAt: input.clearLease
+        ? null
+        : input.leaseExpiresAt === undefined
+          ? current.leaseExpiresAt
+          : isoOrNull(input.leaseExpiresAt),
+      lastHeartbeatAt: input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : isoOrNull(input.lastHeartbeatAt),
+      dispatchMessageId: input.dispatchMessageId === undefined ? current.dispatchMessageId : input.dispatchMessageId,
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
+      nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
+      errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
+      errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("jobs", entity, current.etag);
+    if (!success) {
+      return null;
     }
     return this.toJob(entity as TableEntityResult<Record<string, unknown>>);
   }

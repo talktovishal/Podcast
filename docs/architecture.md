@@ -85,12 +85,16 @@ Current behavior (`M57`-`M64` implemented):
 ## Async pipeline
 1. Web validates request and enqueues `Item` + `Job`.
    - before enqueue, submission quota is consumed atomically for non-paid users.
-2. Worker claims due jobs (`QUEUED` or retry-eligible `FAILED`).
+   - item episode jobs also enqueue a tiny dispatch message (`jobId`, `kind`) so workers can use a competing-consumer pull model without scanning the durable job table.
+2. Worker reserves one visible dispatch message and then claims the matching durable job lease.
+   - the durable job row carries `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
+   - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
 4. Worker chunks text deterministically and computes hash key.
 5. Worker resolves TTS selection and uses chunk cache when available.
-6. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
-7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
+6. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
+7. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
+8. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error, then acknowledges or requeues the dispatch message.
 
 ## Billing flow
 1. Authenticated user starts `Pro monthly` or `Pro annual` checkout from `/pricing` or `/app/settings`.
@@ -235,6 +239,7 @@ Locked target architecture:
 - Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
 - Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
 - Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
+- Durable item dispatch: Azure Queue Storage in the same storage account when `ITEM_DISPATCH_BACKEND=azure_queue`
 - Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)
 - Rollback/canary metadata path: optional Prisma/PostgreSQL when explicitly enabled
 - Durable artifacts: Azure Blob Storage
@@ -246,7 +251,7 @@ Locked target architecture:
 
 Durability principle:
 - VM loss must not lose customer records, episodes, or media objects.
-- Recovery relies on re-provisioning compute, reconnecting to existing Azure Table + Blob state, and bootstrapping any auxiliary local SQLite tables as needed.
+- Recovery relies on re-provisioning compute, reconnecting to existing Azure Table + Queue + Blob state, and bootstrapping any auxiliary local SQLite tables as needed.
 
 ## Observability contract (M47+)
 All runtime services emit structured JSON events with shared fields:

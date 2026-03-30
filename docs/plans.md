@@ -56,6 +56,10 @@
   - item, digest, and summary episode rows now carry a 60-day `expiresAt` derived from `publishedAt`.
   - expired audio disappears from RSS, dashboard/share playback, and media authorization before purge removes the backing blob/object plus episode row.
   - bulk backfill and purge tooling now cover the retained-audio contract so existing episodes can be stamped and cleaned without resets.
+- Item dispatch queue hardening (`C08`) is implemented:
+  - item episode work now uses a dispatch queue reservation plus durable lease metadata instead of relying on table scans alone.
+  - the default runtime remains one worker on the same VM, but the lease contract is now safe for future trusted first-party workers on other nodes.
+  - rollout stays upgrade-in-place: durable job rows expand with lease fields, dispatch messages are backfillable, and no reset/drop flow is required.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
 - Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
@@ -185,6 +189,7 @@
 | Severity-split local log retention for activity vs errors | M103 |
 | Public episode share links + branded landing page + growth instrumentation | M104 |
 | 60-day generated audio retention lifecycle + feed/media expiry gating | M105 |
+| Queue-backed item dispatch with single-worker default and future multi-node worker readiness | C08 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
 | Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
@@ -360,6 +365,7 @@ Milestone metadata contract:
 | C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
 | C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
 | C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
+| C08 | Done | 2026-04-25 | 2026-03-29 | queue-backed item dispatch + durable leases + single-worker-ready rollout validation (2026-03-29) |
 | B01 | Done | 2026-04-18 | 2026-03-28 | local docs sync + billing milestone expansion pass (2026-03-28) |
 | B02 | Done | 2026-04-25 | 2026-03-28 | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28) |
 | B03 | Done | 2026-05-02 | 2026-03-28 | server-side plan catalog + checkout hardening + targeted validation (2026-03-28) |
@@ -4126,6 +4132,43 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Budget and anomaly alerts are documented with action thresholds.
   - Operators can execute a known rollback path within one runbook cycle.
+
+### C08 - Queue-Backed Item Dispatch and Durable Lease Cutover
+- status: Done
+- target_finish: 2026-04-25
+- completed_on: 2026-03-29
+- evidence: local typecheck + worker queue resilience validation + docs/migration sync pass (2026-03-29)
+- Scope:
+  - Add a dedicated item dispatch queue adapter with `prisma` and Azure Queue Storage backends.
+  - Expand durable item job rows with `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
+  - Move item worker pickup to queue reservation plus durable lease claim while keeping digest and summary flows on their existing path.
+  - Keep the default runtime shape unchanged: one worker process on the same VM, with remote workers remaining an opt-in future operation.
+- Key files/modules:
+  - `packages/core/src/queue/*`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/item-dispatch-queue.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/lib/item-dispatch-queue.ts`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/migrations/20260329163000_add_item_dispatch_queue_and_job_leases/migration.sql`
+  - `docs/architecture.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - A single worker still processes item jobs end-to-end without requiring more compute.
+  - Any trusted first-party worker can reserve an item dispatch message, claim the durable lease, and renew it during long TTS runs without duplicate completion.
+  - Crashed or stale item work can be reclaimed safely, while stale retries still yield to newer queued jobs before retrying.
+  - Rollout is upgrade-in-place with nullable schema expansion, backfillable dispatch messages, and no reset/drop migration story.
+- Migration/backfill plan:
+  - Expand `Job` with nullable lease fields and add `DispatchQueueMessage`.
+  - New item submissions dual-write durable `Job` rows plus dispatch messages immediately.
+  - Primary workers reconcile missing dispatch messages for existing eligible jobs so pre-cutover queued work is backfilled in place.
+  - Rollback is safe-disable: switch `ITEM_DISPATCH_BACKEND` back to `prisma` or pause dispatch consumers; durable item/job state remains authoritative.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/queue-resilience.test.ts`
 - Verification commands:
   - `npm run check:env:azure`
   - `npm run costs:build`

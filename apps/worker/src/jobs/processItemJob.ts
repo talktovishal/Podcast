@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import {
   AppError,
   BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
+  type ReservedDispatchQueueMessage,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
@@ -29,6 +30,7 @@ import {
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
+import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
@@ -59,9 +61,50 @@ type ExtractionResult = {
   sourceArtifact: SourceArtifact | null;
 };
 
+type ClaimedDispatchJob = {
+  id: string;
+  itemId: string;
+  userId: string;
+  attempt: number;
+  status: string;
+  lockedAt: Date | null;
+  leaseId: string | null;
+  leaseOwner: string | null;
+  leaseExpiresAt: Date | null;
+  lastHeartbeatAt: Date | null;
+  dispatchMessageId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  item: {
+    id: string;
+    userId: string;
+    title: string | null;
+    sourceType: string;
+    sourceUrl: string | null;
+    sourceFilePath: string | null;
+    sourceHtml: string | null;
+    user: {
+      email: string | null;
+      ttsProvider: string | null;
+      ttsVoice: string | null;
+    } | null;
+  };
+  dispatchMessage: ReservedDispatchQueueMessage | null;
+};
+
 const DEMO_TRACE_LIMIT = 10;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const PUBLISHED_AUDIO_FORMAT = "mp3" as const;
+const DISPATCH_RECONCILE_INTERVAL_MS = 60_000;
+const dispatchQueue = createWorkerItemDispatchQueue();
+let lastDispatchReconcileAt = 0;
+
+class LostJobLeaseError extends Error {
+  constructor(message = "Processing lease no longer owned by this worker.") {
+    super(message);
+    this.name = "LostJobLeaseError";
+  }
+}
 
 function now() {
   return new Date();
@@ -81,6 +124,89 @@ function generateSpanId(): string {
 
 function logNow() {
   return new Date().toISOString();
+}
+
+function jobLeaseDeadline(input: {
+  leaseExpiresAt?: Date | null;
+  lockedAt?: Date | null;
+}): Date | null {
+  if (input.leaseExpiresAt) {
+    return input.leaseExpiresAt;
+  }
+  if (input.lockedAt) {
+    return new Date(input.lockedAt.getTime() + workerEnv.staleProcessingMs);
+  }
+  return null;
+}
+
+function jobLeaseExpired(
+  input: {
+    leaseExpiresAt?: Date | null;
+    lockedAt?: Date | null;
+  },
+  nowAt: Date
+): boolean {
+  const deadline = jobLeaseDeadline(input);
+  return deadline !== null && deadline.getTime() <= nowAt.getTime();
+}
+
+function isRetryableJobStatus(input: {
+  status: string;
+  attempt: number;
+  nextRetryAt?: Date | null;
+}): boolean {
+  return (
+    input.status === "FAILED" &&
+    input.attempt < workerEnv.maxRetryAttempts &&
+    input.nextRetryAt != null &&
+    input.nextRetryAt.getTime() <= Date.now()
+  );
+}
+
+function jobIsEligibleForClaim(input: {
+  status: string;
+  attempt: number;
+  scheduledFor?: Date | null;
+  nextRetryAt?: Date | null;
+  leaseExpiresAt?: Date | null;
+  lockedAt?: Date | null;
+}, nowAt: Date): boolean {
+  if (input.status === "QUEUED") {
+    return input.scheduledFor === null || input.scheduledFor === undefined || input.scheduledFor.getTime() <= nowAt.getTime();
+  }
+  if (input.status === "FAILED") {
+    return input.attempt < workerEnv.maxRetryAttempts && input.nextRetryAt != null && input.nextRetryAt.getTime() <= nowAt.getTime();
+  }
+  if (input.status === "PROCESSING") {
+    return jobLeaseExpired(input, nowAt);
+  }
+  return false;
+}
+
+function nextVisibleAtForJobState(input: {
+  status: string;
+  scheduledFor?: Date | null;
+  nextRetryAt?: Date | null;
+  leaseExpiresAt?: Date | null;
+  lockedAt?: Date | null;
+}, nowAt: Date): Date {
+  if (input.status === "FAILED" && input.nextRetryAt && input.nextRetryAt.getTime() > nowAt.getTime()) {
+    return input.nextRetryAt;
+  }
+  if (input.status === "QUEUED" && input.scheduledFor && input.scheduledFor.getTime() > nowAt.getTime()) {
+    return input.scheduledFor;
+  }
+  if (input.status === "PROCESSING") {
+    const leaseDeadline = jobLeaseDeadline(input);
+    if (leaseDeadline && leaseDeadline.getTime() > nowAt.getTime()) {
+      return new Date(leaseDeadline.getTime() + 5_000);
+    }
+  }
+  return nowAt;
+}
+
+function nextLeaseExpiry(nowAt: Date): Date {
+  return new Date(nowAt.getTime() + workerEnv.itemDispatchVisibilityMs);
 }
 
 function appendExtractionLog(
@@ -751,105 +877,640 @@ async function reclaimStaleProcessingJobs(): Promise<StaleProcessingReclaimResul
   return { requeued, failed };
 }
 
-export async function processJob(jobId: string): Promise<boolean> {
-  const nowTs = now();
-  const claimResult =
+async function settleDispatchMessageForCurrentJobState(dispatchMessage: ReservedDispatchQueueMessage): Promise<void> {
+  const nowAt = now();
+  const currentJob =
     workerUsesAzureTablePrimary() && workerPrimaryStore
-      ? await (async () => {
-          const claimed = await workerPrimaryStore.claimJob(jobId, nowTs, workerEnv.maxRetryAttempts);
-          if (!claimed) {
-            return null;
+      ? await workerPrimaryStore.findJobById(dispatchMessage.jobId)
+      : await prisma.job.findUnique({
+          where: { id: dispatchMessage.jobId },
+          select: {
+            id: true,
+            status: true,
+            attempt: true,
+            scheduledFor: true,
+            nextRetryAt: true,
+            lockedAt: true,
+            leaseExpiresAt: true
           }
-          const [item, user] = await Promise.all([
-            workerPrimaryStore.findItemById(claimed.itemId),
-            workerPrimaryStore.findUserById(claimed.userId)
-          ]);
-          if (!item || !user) {
-            return null;
-          }
-          await workerPrimaryStore.updateItem(item.id, {
-            status: "PROCESSING",
-            errorCode: null,
-            errorMessage: "Processing in progress..."
-          });
-          return {
-            ...claimed,
-            item: {
-              ...item,
-              user: {
-                email: user.email,
-                ttsProvider: user.ttsProvider,
-                ttsVoice: user.ttsVoice
-              }
-            }
-          };
-        })()
-      : await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-          const next = await tx.job.findFirst({
-            where: {
-              id: jobId,
-              OR: [
-                {
-                  status: "QUEUED",
-                  OR: [{ scheduledFor: null }, { scheduledFor: { lte: nowTs } }]
-                },
-                {
-                  status: "FAILED",
-                  nextRetryAt: { lte: nowTs },
-                  attempt: { lt: workerEnv.maxRetryAttempts }
-                }
-              ]
-            },
-            include: {
-              item: {
-                include: {
-                  user: {
-                    select: {
-                      email: true,
-                      ttsProvider: true,
-                      ttsVoice: true
-                    }
-                  }
-                }
-              }
-            }
-          });
-
-          if (!next) {
-            return null;
-          }
-
-          const claimed = await tx.job.update({
-            where: { id: next.id },
-            data: {
-              status: "PROCESSING",
-              lockedAt: now(),
-              attempt: { increment: 1 }
-            },
-            include: {
-              item: {
-                include: {
-                  user: {
-                    select: {
-                      email: true,
-                      ttsProvider: true,
-                      ttsVoice: true
-                    }
-                  }
-                }
-              }
-            }
-          });
-
-          await tx.item.update({
-            where: { id: next.itemId },
-            data: { status: "PROCESSING", errorCode: null, errorMessage: "Processing in progress..." }
-          });
-
-          return claimed;
         });
 
+  if (!currentJob) {
+    await dispatchQueue.delete({
+      messageId: dispatchMessage.messageId,
+      receipt: dispatchMessage.receipt
+    });
+    return;
+  }
+
+  const terminal =
+    currentJob.status === "SUCCEEDED" ||
+    (currentJob.status === "FAILED" &&
+      (currentJob.attempt >= workerEnv.maxRetryAttempts || currentJob.nextRetryAt === null));
+
+  if (terminal) {
+    await dispatchQueue.delete({
+      messageId: dispatchMessage.messageId,
+      receipt: dispatchMessage.receipt
+    });
+    return;
+  }
+
+  await dispatchQueue.release({
+    messageId: dispatchMessage.messageId,
+    receipt: dispatchMessage.receipt,
+    jobId: dispatchMessage.jobId,
+    kind: dispatchMessage.kind,
+    visibleAt: nextVisibleAtForJobState(currentJob, nowAt),
+    reservedBy: workerEnv.workerInstanceId
+  });
+}
+
+async function deleteDispatchMessage(claimResult: ClaimedDispatchJob): Promise<void> {
+  if (!claimResult.dispatchMessage) {
+    return;
+  }
+  const deleted = await dispatchQueue.delete({
+    messageId: claimResult.dispatchMessage.messageId,
+    receipt: claimResult.dispatchMessage.receipt
+  });
+  if (!deleted) {
+    await workerLogger.warn("Dispatch message delete failed; a later worker will reconcile it", {
+      jobId: claimResult.id,
+      itemId: claimResult.itemId,
+      messageId: claimResult.dispatchMessage.messageId
+    });
+  }
+}
+
+async function releaseDispatchMessage(claimResult: ClaimedDispatchJob, visibleAt: Date): Promise<void> {
+  if (!claimResult.dispatchMessage) {
+    return;
+  }
+  const updated = await dispatchQueue.release({
+    messageId: claimResult.dispatchMessage.messageId,
+    receipt: claimResult.dispatchMessage.receipt,
+    jobId: claimResult.dispatchMessage.jobId,
+    kind: claimResult.dispatchMessage.kind,
+    visibleAt,
+    reservedBy: workerEnv.workerInstanceId
+  });
+  if (updated) {
+    claimResult.dispatchMessage = updated;
+    return;
+  }
+  await workerLogger.warn("Dispatch message release failed; message will reappear on its existing timeout", {
+    jobId: claimResult.id,
+    itemId: claimResult.itemId,
+    messageId: claimResult.dispatchMessage.messageId
+  });
+}
+
+async function renewClaimLease(claimResult: ClaimedDispatchJob, progressMessage?: string): Promise<void> {
+  const heartbeatAt = new Date();
+  const leaseExpiresAt = nextLeaseExpiry(heartbeatAt);
+
+  if (claimResult.dispatchMessage) {
+    const renewedDispatch = await dispatchQueue.renew({
+      messageId: claimResult.dispatchMessage.messageId,
+      receipt: claimResult.dispatchMessage.receipt,
+      jobId: claimResult.dispatchMessage.jobId,
+      kind: claimResult.dispatchMessage.kind,
+      visibleAt: leaseExpiresAt,
+      reservedBy: workerEnv.workerInstanceId
+    });
+    if (!renewedDispatch) {
+      throw new LostJobLeaseError("Dispatch message reservation was lost.");
+    }
+    claimResult.dispatchMessage = renewedDispatch;
+  }
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const updated = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
+      lockedAt: heartbeatAt,
+      leaseOwner: workerEnv.workerInstanceId,
+      leaseExpiresAt,
+      lastHeartbeatAt: heartbeatAt
+    });
+    if (!updated) {
+      throw new LostJobLeaseError();
+    }
+    if (progressMessage) {
+      await workerPrimaryStore.updateItem(claimResult.item.id, {
+        errorMessage: progressMessage
+      });
+    }
+    claimResult.lockedAt = heartbeatAt;
+    claimResult.leaseExpiresAt = leaseExpiresAt;
+    claimResult.lastHeartbeatAt = heartbeatAt;
+    return;
+  }
+
+  const updated = await prisma.job.updateMany({
+    where: {
+      id: claimResult.id,
+      leaseId: claimResult.leaseId,
+      status: "PROCESSING"
+    },
+    data: {
+      lockedAt: heartbeatAt,
+      leaseOwner: workerEnv.workerInstanceId,
+      leaseExpiresAt,
+      lastHeartbeatAt: heartbeatAt
+    }
+  });
+  if (updated.count !== 1) {
+    throw new LostJobLeaseError();
+  }
+  if (progressMessage) {
+    await prisma.item.updateMany({
+      where: {
+        id: claimResult.item.id,
+        status: "PROCESSING"
+      },
+      data: {
+        errorMessage: progressMessage
+      }
+    });
+  }
+  claimResult.lockedAt = heartbeatAt;
+  claimResult.leaseExpiresAt = leaseExpiresAt;
+  claimResult.lastHeartbeatAt = heartbeatAt;
+}
+
+async function reconcileMissingItemDispatchMessages(force = false): Promise<number> {
+  if (workerEnv.workerRole !== "primary") {
+    return 0;
+  }
+
+  const nowAt = now();
+  if (!force && nowAt.getTime() - lastDispatchReconcileAt < DISPATCH_RECONCILE_INTERVAL_MS) {
+    return 0;
+  }
+  lastDispatchReconcileAt = nowAt.getTime();
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const candidates = (await workerPrimaryStore.listNextEligibleJobs(
+      nowAt,
+      workerEnv.maxRetryAttempts,
+      workerEnv.staleProcessingMs
+    ))
+      .filter((job) => !job.dispatchMessageId)
+      .slice(0, 50);
+    let reconciled = 0;
+    for (const job of candidates) {
+      try {
+        const dispatchMessage = await dispatchQueue.enqueue({
+          jobId: job.id,
+          kind: "ITEM",
+          visibleAt: nextVisibleAtForJobState(job, nowAt)
+        });
+        await workerPrimaryStore.updateJob(job.id, {
+          dispatchMessageId: dispatchMessage.messageId
+        });
+        reconciled += 1;
+      } catch (error) {
+        await workerLogger.warn("Failed to reconcile missing item dispatch message", {
+          jobId: job.id,
+          itemId: job.itemId,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        });
+      }
+    }
+    return reconciled;
+  }
+
+  const candidates = await prisma.job.findMany({
+    where: {
+      dispatchMessageId: null,
+      OR: [
+        {
+          status: "QUEUED",
+          OR: [{ scheduledFor: null }, { scheduledFor: { lte: nowAt } }]
+        },
+        {
+          status: "FAILED",
+          nextRetryAt: { lte: nowAt },
+          attempt: { lt: workerEnv.maxRetryAttempts }
+        },
+        {
+          status: "PROCESSING",
+          OR: [{ leaseExpiresAt: { lte: nowAt } }, { leaseExpiresAt: null, lockedAt: { lte: nowAt } }]
+        }
+      ]
+    },
+    orderBy: [{ createdAt: "asc" }],
+    take: 50,
+    select: {
+      id: true,
+      itemId: true,
+      status: true,
+      scheduledFor: true,
+      nextRetryAt: true,
+      leaseExpiresAt: true,
+      lockedAt: true
+    }
+  });
+
+  let reconciled = 0;
+  for (const job of candidates) {
+    try {
+      const dispatchMessage = await dispatchQueue.enqueue({
+        jobId: job.id,
+        kind: "ITEM",
+        visibleAt: nextVisibleAtForJobState(job, nowAt)
+      });
+      await prisma.job.updateMany({
+        where: {
+          id: job.id,
+          dispatchMessageId: null
+        },
+        data: {
+          dispatchMessageId: dispatchMessage.messageId
+        }
+      });
+      reconciled += 1;
+    } catch (error) {
+      await workerLogger.warn("Failed to reconcile missing item dispatch message", {
+        jobId: job.id,
+        itemId: job.itemId,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      });
+    }
+  }
+  return reconciled;
+}
+
+async function updateClaimProgressMessage(claimResult: ClaimedDispatchJob, progressMessage: string): Promise<void> {
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    await workerPrimaryStore.updateItem(claimResult.item.id, {
+      errorMessage: progressMessage
+    });
+    return;
+  }
+
+  await prisma.item.updateMany({
+    where: {
+      id: claimResult.item.id,
+      status: "PROCESSING"
+    },
+    data: {
+      errorMessage: progressMessage
+    }
+  });
+}
+
+async function claimReservedItemJob(
+  jobId: string,
+  dispatchMessage: ReservedDispatchQueueMessage | null
+): Promise<ClaimedDispatchJob | null> {
+  const claimAt = now();
+  const leaseId = randomUUID();
+  const leaseExpiresAt = nextLeaseExpiry(claimAt);
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const claimed = await workerPrimaryStore.claimJob({
+      jobId,
+      now: claimAt,
+      maxRetryAttempts: workerEnv.maxRetryAttempts,
+      staleProcessingMs: workerEnv.staleProcessingMs,
+      leaseId,
+      leaseOwner: workerEnv.workerInstanceId,
+      leaseExpiresAt,
+      dispatchMessageId: dispatchMessage?.messageId
+    });
+    if (!claimed) {
+      return null;
+    }
+
+    const [item, user] = await Promise.all([
+      workerPrimaryStore.findItemById(claimed.itemId),
+      workerPrimaryStore.findUserById(claimed.userId)
+    ]);
+    if (!item) {
+      await workerPrimaryStore.updateJobIfLeaseMatches(claimed.id, leaseId, {
+        status: "FAILED",
+        lockedAt: null,
+        clearLease: true,
+        lastHeartbeatAt: claimAt,
+        errorCode: errorCodes.INTERNAL_ERROR,
+        errorMessage: "Source item no longer exists."
+      });
+      if (dispatchMessage) {
+        await dispatchQueue.delete({
+          messageId: dispatchMessage.messageId,
+          receipt: dispatchMessage.receipt
+        });
+      }
+      return null;
+    }
+
+    await workerPrimaryStore.updateItem(item.id, {
+      status: "PROCESSING",
+      errorCode: null,
+      errorMessage: "Processing in progress..."
+    });
+
+    return {
+      ...claimed,
+      item: {
+        ...item,
+        user: user
+          ? {
+              email: user.email,
+              ttsProvider: user.ttsProvider,
+              ttsVoice: user.ttsVoice
+            }
+          : null
+      },
+      dispatchMessage
+    };
+  }
+
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const next = await tx.job.findUnique({
+      where: { id: jobId },
+      select: {
+        id: true,
+        itemId: true,
+        attempt: true,
+        status: true,
+        lockedAt: true,
+        leaseId: true,
+        leaseOwner: true,
+        leaseExpiresAt: true,
+        lastHeartbeatAt: true,
+        dispatchMessageId: true,
+        scheduledFor: true,
+        nextRetryAt: true,
+        createdAt: true,
+        updatedAt: true,
+        item: {
+          select: {
+            id: true,
+            title: true,
+            userId: true,
+            sourceType: true,
+            sourceUrl: true,
+            sourceFilePath: true,
+            sourceHtml: true,
+            user: {
+              select: {
+                email: true,
+                ttsProvider: true,
+                ttsVoice: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!next || !jobIsEligibleForClaim(next, claimAt)) {
+      return null;
+    }
+
+    const claimed = await tx.job.updateMany({
+      where: {
+        id: next.id,
+        updatedAt: next.updatedAt
+      },
+      data: {
+        status: "PROCESSING",
+        lockedAt: claimAt,
+        attempt: next.attempt + 1,
+        leaseId,
+        leaseOwner: workerEnv.workerInstanceId,
+        leaseExpiresAt,
+        lastHeartbeatAt: claimAt,
+        dispatchMessageId: dispatchMessage?.messageId ?? next.dispatchMessageId,
+        errorCode: null,
+        errorMessage: null
+      }
+    });
+
+    if (claimed.count !== 1) {
+      return null;
+    }
+
+    await tx.item.update({
+      where: { id: next.itemId },
+      data: {
+        status: "PROCESSING",
+        errorCode: null,
+        errorMessage: "Processing in progress..."
+      }
+    });
+
+    return {
+      id: next.id,
+      itemId: next.itemId,
+      userId: next.item.userId,
+      attempt: next.attempt + 1,
+      status: "PROCESSING",
+      lockedAt: claimAt,
+      leaseId,
+      leaseOwner: workerEnv.workerInstanceId,
+      leaseExpiresAt,
+      lastHeartbeatAt: claimAt,
+      dispatchMessageId: dispatchMessage?.messageId ?? next.dispatchMessageId,
+      createdAt: next.createdAt,
+      updatedAt: claimAt,
+      item: next.item,
+      dispatchMessage
+    };
+  });
+}
+
+async function handleExpiredProcessingReservation(dispatchMessage: ReservedDispatchQueueMessage): Promise<"continue" | "unhandled"> {
+  const nowAt = now();
+  const staleBefore = new Date(nowAt.getTime() - workerEnv.staleProcessingMs);
+  const currentJob =
+    workerUsesAzureTablePrimary() && workerPrimaryStore
+      ? await workerPrimaryStore.findJobById(dispatchMessage.jobId)
+      : await prisma.job.findUnique({
+          where: { id: dispatchMessage.jobId },
+          select: {
+            id: true,
+            itemId: true,
+            attempt: true,
+            status: true,
+            lockedAt: true,
+            leaseId: true,
+            leaseOwner: true,
+            leaseExpiresAt: true,
+            lastHeartbeatAt: true,
+            dispatchMessageId: true,
+            updatedAt: true
+          }
+        });
+
+  if (!currentJob) {
+    await dispatchQueue.delete({
+      messageId: dispatchMessage.messageId,
+      receipt: dispatchMessage.receipt
+    });
+    return "continue";
+  }
+
+  if (currentJob.status !== "PROCESSING" || !jobLeaseExpired(currentJob, nowAt)) {
+    return "unhandled";
+  }
+
+  const terminalError = shouldFailStaleProcessingJob({
+    id: currentJob.id,
+    itemId: currentJob.itemId,
+    attempt: currentJob.attempt
+  });
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const updatedJob =
+      currentJob.leaseId
+        ? await workerPrimaryStore.updateJobIfLeaseMatches(currentJob.id, currentJob.leaseId, {
+            status: "FAILED",
+            lockedAt: null,
+            clearLease: true,
+            lastHeartbeatAt: nowAt,
+            dispatchMessageId: null,
+            nextRetryAt: terminalError ? null : nowAt,
+            errorCode: terminalError?.code ?? null,
+            errorMessage: terminalError?.userMessage ?? null
+          })
+        : await workerPrimaryStore.updateJob(currentJob.id, {
+            status: "FAILED",
+            lockedAt: null,
+            leaseId: null,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            lastHeartbeatAt: nowAt,
+            dispatchMessageId: null,
+            nextRetryAt: terminalError ? null : nowAt,
+            errorCode: terminalError?.code ?? null,
+            errorMessage: terminalError?.userMessage ?? null
+          });
+
+    if (!updatedJob) {
+      await settleDispatchMessageForCurrentJobState(dispatchMessage);
+      return "continue";
+    }
+
+    await workerPrimaryStore.updateItem(currentJob.itemId, {
+      status: terminalError ? "FAILED" : "QUEUED",
+      errorCode: terminalError?.code ?? null,
+      errorMessage: terminalError?.userMessage ?? staleRetryMessage()
+    });
+
+    await dispatchQueue.delete({
+      messageId: dispatchMessage.messageId,
+      receipt: dispatchMessage.receipt
+    });
+
+    if (!terminalError) {
+      try {
+        const replacement = await dispatchQueue.enqueue({
+          jobId: currentJob.id,
+          kind: "ITEM",
+          visibleAt: nowAt
+        });
+        await workerPrimaryStore.updateJob(currentJob.id, {
+          dispatchMessageId: replacement.messageId
+        });
+      } catch (error) {
+        await workerLogger.warn("Failed to replace dispatch message for stale job retry; reconciliation will retry later", {
+          jobId: currentJob.id,
+          itemId: currentJob.itemId,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        });
+      }
+    }
+
+    await syncJobAndItemProjectionByJobId(currentJob.id);
+    return "continue";
+  }
+
+  const persisted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const updatedJob = await tx.job.updateMany({
+      where: {
+        id: currentJob.id,
+        status: "PROCESSING",
+        updatedAt: currentJob.updatedAt,
+        OR: [{ leaseExpiresAt: { lte: nowAt } }, { leaseExpiresAt: null, lockedAt: { lte: staleBefore } }]
+      },
+      data: {
+        status: "FAILED",
+        lockedAt: null,
+        leaseId: null,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastHeartbeatAt: nowAt,
+        dispatchMessageId: null,
+        nextRetryAt: terminalError ? null : nowAt,
+        errorCode: terminalError?.code ?? null,
+        errorMessage: terminalError?.userMessage ?? null
+      }
+    });
+
+    if (updatedJob.count !== 1) {
+      return false;
+    }
+
+    await tx.item.updateMany({
+      where: { id: currentJob.itemId },
+      data: {
+        status: terminalError ? "FAILED" : "QUEUED",
+        errorCode: terminalError?.code ?? null,
+        errorMessage: terminalError?.userMessage ?? staleRetryMessage()
+      }
+    });
+
+    return true;
+  });
+
+  if (!persisted) {
+    await settleDispatchMessageForCurrentJobState(dispatchMessage);
+    return "continue";
+  }
+
+  await dispatchQueue.delete({
+    messageId: dispatchMessage.messageId,
+    receipt: dispatchMessage.receipt
+  });
+
+  if (!terminalError) {
+    try {
+      const replacement = await dispatchQueue.enqueue({
+        jobId: currentJob.id,
+        kind: "ITEM",
+        visibleAt: nowAt
+      });
+      await prisma.job.updateMany({
+        where: {
+          id: currentJob.id,
+          dispatchMessageId: null
+        },
+        data: {
+          dispatchMessageId: replacement.messageId
+        }
+      });
+    } catch (error) {
+      await workerLogger.warn("Failed to replace dispatch message for stale job retry; reconciliation will retry later", {
+        jobId: currentJob.id,
+        itemId: currentJob.itemId,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      });
+    }
+  }
+
+  await syncJobAndItemProjectionByJobId(currentJob.id);
+  return "continue";
+}
+
+export async function processJob(jobId: string, dispatchMessage: ReservedDispatchQueueMessage | null = null): Promise<boolean> {
+  const claimResult = await claimReservedItemJob(jobId, dispatchMessage);
   if (!claimResult) {
+    if (dispatchMessage) {
+      await settleDispatchMessageForCurrentJobState(dispatchMessage);
+    }
     return false;
   }
 
@@ -867,9 +1528,50 @@ export async function processJob(jobId: string): Promise<boolean> {
       ? item.sourceUrl || "URL source"
       : item.sourceType === "HTML_SNAPSHOT"
         ? item.sourceUrl || "Captured browser page"
-      : "Uploaded PDF";
+        : "Uploaded PDF";
   let extractedTextForDiagnostics = "";
   let extractedMarkdownForDiagnostics = "";
+  let heartbeatInterval: NodeJS.Timeout | null = null;
+  let heartbeatFailure: unknown = null;
+  let heartbeatInFlight = false;
+
+  const recordHeartbeatFailure = (error: unknown) => {
+    if (!heartbeatFailure) {
+      heartbeatFailure =
+        error instanceof LostJobLeaseError || error instanceof Error
+          ? error
+          : new LostJobLeaseError(toSafeErrorMessage(error));
+    }
+  };
+
+  const assertLeaseHealthy = () => {
+    if (!heartbeatFailure) {
+      return;
+    }
+    if (heartbeatFailure instanceof Error) {
+      throw heartbeatFailure;
+    }
+    throw new LostJobLeaseError();
+  };
+
+  const runLeaseHeartbeat = async () => {
+    if (heartbeatInFlight) {
+      return;
+    }
+    heartbeatInFlight = true;
+    try {
+      await renewClaimLease(claimResult);
+    } catch (error) {
+      recordHeartbeatFailure(error);
+    } finally {
+      heartbeatInFlight = false;
+    }
+  };
+
+  heartbeatInterval = setInterval(() => {
+    void runLeaseHeartbeat();
+  }, workerEnv.itemDispatchHeartbeatMs);
+  heartbeatInterval.unref?.();
 
   await withLogContext(
     {
@@ -881,7 +1583,10 @@ export async function processJob(jobId: string): Promise<boolean> {
     async () => {
       await workerLogger.info("Job claimed", {
         sourceType: item.sourceType,
-        attempt: claimResult.attempt
+        attempt: claimResult.attempt,
+        leaseId: claimResult.leaseId,
+        workerInstanceId: workerEnv.workerInstanceId,
+        dispatchMessageId: claimResult.dispatchMessage?.messageId ?? claimResult.dispatchMessageId
       });
     }
   );
@@ -920,6 +1625,7 @@ export async function processJob(jobId: string): Promise<boolean> {
     sourceLabelForDiagnostics = extraction.sourceLabel;
     extractedTextForDiagnostics = extraction.text;
     extractedMarkdownForDiagnostics = cleanedMarkdown;
+    assertLeaseHealthy();
     appendExtractionLog(extractionLogs, "extract", "Cleaned extracted markdown", {
       originalBytes: Buffer.byteLength(extraction.markdown, "utf8"),
       cleanedBytes: Buffer.byteLength(cleanedMarkdown, "utf8")
@@ -1078,6 +1784,7 @@ export async function processJob(jobId: string): Promise<boolean> {
       });
       let lastProgressWriteAt = 0;
       audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection, async (current, total) => {
+        assertLeaseHealthy();
         if (Date.now() - lockedAtMs >= workerEnv.maxProcessingMs) {
           throw buildMaxProcessingTimeError();
         }
@@ -1087,41 +1794,11 @@ export async function processJob(jobId: string): Promise<boolean> {
           return;
         }
         lastProgressWriteAt = nowMs;
-        const heartbeatAt = new Date(nowMs);
         const progressMessage =
           total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
-        if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
-          await Promise.all([
-            workerPrimaryStore.updateItem(item.id, {
-              errorMessage: progressMessage
-            }),
-            workerPrimaryStore.updateJob(claimResult.id, {
-              lockedAt: heartbeatAt
-            })
-          ]);
-        } else {
-          await Promise.all([
-            prisma.item.updateMany({
-              where: {
-                id: item.id,
-                status: "PROCESSING"
-              },
-              data: {
-                errorMessage: progressMessage
-              }
-            }),
-            prisma.job.updateMany({
-              where: {
-                id: claimResult.id,
-                status: "PROCESSING"
-              },
-              data: {
-                lockedAt: heartbeatAt
-              }
-            })
-          ]);
-        }
+        await updateClaimProgressMessage(claimResult, progressMessage);
       });
+      assertLeaseHealthy();
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
         await workerPrimaryStore.createChunkCache({
           id: generateStoreId(),
@@ -1157,6 +1834,9 @@ export async function processJob(jobId: string): Promise<boolean> {
     const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
     stage = "persist";
+    assertLeaseHealthy();
+    await renewClaimLease(claimResult);
+    assertLeaseHealthy();
     if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
       await workerPrimaryStore.upsertEpisode({
         id: generateStoreId(),
@@ -1179,14 +1859,42 @@ export async function processJob(jobId: string): Promise<boolean> {
         errorCode: null,
         errorMessage: null
       });
-      await workerPrimaryStore.updateJob(claimResult.id, {
+      const completedJob = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
         status: "SUCCEEDED",
         errorCode: null,
         errorMessage: null,
-        lockedAt: null
+        lockedAt: null,
+        nextRetryAt: null,
+        lastHeartbeatAt: publishedAt,
+        clearLease: true
       });
+      if (!completedJob) {
+        throw new LostJobLeaseError();
+      }
     } else {
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const completedJob = await tx.job.updateMany({
+          where: {
+            id: claimResult.id,
+            leaseId: claimResult.leaseId,
+            status: "PROCESSING"
+          },
+          data: {
+            status: "SUCCEEDED",
+            lockedAt: null,
+            leaseId: null,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            lastHeartbeatAt: publishedAt,
+            nextRetryAt: null,
+            errorCode: null,
+            errorMessage: null
+          }
+        });
+        if (completedJob.count !== 1) {
+          throw new LostJobLeaseError();
+        }
+
         await tx.episode.upsert({
           where: { itemId: item.id },
           update: {
@@ -1223,21 +1931,13 @@ export async function processJob(jobId: string): Promise<boolean> {
             errorMessage: null
           }
         });
-
-        await tx.job.update({
-          where: { id: claimResult.id },
-          data: {
-            status: "SUCCEEDED",
-            errorCode: null,
-            errorMessage: null
-          }
-        });
       });
     }
     appendExtractionLog(extractionLogs, "persist", "Episode and item persisted", {
       guid,
       audioPath: audio.relativePath
     });
+    await deleteDispatchMessage(claimResult);
 
     await appendJobEvent({
       jobId: claimResult.id,
@@ -1290,6 +1990,20 @@ export async function processJob(jobId: string): Promise<boolean> {
       }
     );
   } catch (error) {
+    if (error instanceof LostJobLeaseError) {
+      await workerLogger.warn("Worker lost item lease before completion; skipping final state write", {
+        jobId: claimResult.id,
+        itemId: item.id,
+        workerInstanceId: workerEnv.workerInstanceId,
+        dispatchMessageId: claimResult.dispatchMessage?.messageId ?? claimResult.dispatchMessageId
+      });
+      if (claimResult.dispatchMessage) {
+        await settleDispatchMessageForCurrentJobState(claimResult.dispatchMessage);
+      }
+      await syncJobAndItemProjectionByJobId(claimResult.id);
+      return false;
+    }
+
     const mappedError = mapUnexpectedWorkerError(error, stage);
     const err =
       stage === "extract" && shouldSuggestHtmlSnapshotForError(error)
@@ -1299,23 +2013,51 @@ export async function processJob(jobId: string): Promise<boolean> {
     const retryRecommended =
       shouldRecommendRetry(err) && claimResult.attempt < workerEnv.maxRetryAttempts;
     const safeErrorMessage = toSafeErrorMessage(err.userMessage);
+    const retryAt = retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null;
 
     try {
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        const failedJob = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
+          status: "FAILED",
+          errorCode: err.code,
+          errorMessage: safeErrorMessage,
+          nextRetryAt: retryAt,
+          lockedAt: null,
+          lastHeartbeatAt: now(),
+          clearLease: true
+        });
+        if (!failedJob) {
+          throw new LostJobLeaseError();
+        }
         await workerPrimaryStore.updateItem(item.id, {
           status: "FAILED",
           errorCode: err.code,
           errorMessage: safeErrorMessage
         });
-        await workerPrimaryStore.updateJob(claimResult.id, {
-          status: "FAILED",
-          errorCode: err.code,
-          errorMessage: safeErrorMessage,
-          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null,
-          lockedAt: null
-        });
       } else {
-        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const persisted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const failedJob = await tx.job.updateMany({
+            where: {
+              id: claimResult.id,
+              leaseId: claimResult.leaseId,
+              status: "PROCESSING"
+            },
+            data: {
+              status: "FAILED",
+              lockedAt: null,
+              leaseId: null,
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              lastHeartbeatAt: now(),
+              errorCode: err.code,
+              errorMessage: safeErrorMessage,
+              nextRetryAt: retryAt
+            }
+          });
+          if (failedJob.count !== 1) {
+            return false;
+          }
+
           await tx.item.update({
             where: { id: item.id },
             data: {
@@ -1324,19 +2066,21 @@ export async function processJob(jobId: string): Promise<boolean> {
               errorMessage: safeErrorMessage
             }
           });
-
-          await tx.job.update({
-            where: { id: claimResult.id },
-            data: {
-              status: "FAILED",
-              errorCode: err.code,
-              errorMessage: safeErrorMessage,
-              nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
-            }
-          });
+          return true;
         });
+        if (!persisted) {
+          throw new LostJobLeaseError();
+        }
       }
     } catch (stateError) {
+      if (stateError instanceof LostJobLeaseError) {
+        if (claimResult.dispatchMessage) {
+          await settleDispatchMessageForCurrentJobState(claimResult.dispatchMessage);
+        }
+        await syncJobAndItemProjectionByJobId(claimResult.id);
+        return false;
+      }
+
       const fallbackMessage = toSafeErrorMessage(stateError);
       await workerLogger.errorWithCode({
         msg: "Failed to persist job failure state",
@@ -1349,37 +2093,58 @@ export async function processJob(jobId: string): Promise<boolean> {
       });
 
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
-        await workerPrimaryStore.updateItem(item.id, {
-          status: "FAILED",
-          errorCode: err.code,
-          errorMessage: "Processing failed. Please retry."
-        });
-        await workerPrimaryStore.updateJob(claimResult.id, {
+        const failedJob = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
           status: "FAILED",
           errorCode: err.code,
           errorMessage: "Processing failed. Please retry.",
-          nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null,
-          lockedAt: null
+          nextRetryAt: retryAt,
+          lockedAt: null,
+          lastHeartbeatAt: now(),
+          clearLease: true
         });
-      } else {
-        await prisma.item.updateMany({
-          where: { id: item.id },
-          data: {
+        if (failedJob) {
+          await workerPrimaryStore.updateItem(item.id, {
             status: "FAILED",
             errorCode: err.code,
             errorMessage: "Processing failed. Please retry."
-          }
-        });
-        await prisma.job.updateMany({
-          where: { id: claimResult.id },
+          });
+        }
+      } else {
+        const failedJob = await prisma.job.updateMany({
+          where: {
+            id: claimResult.id,
+            leaseId: claimResult.leaseId,
+            status: "PROCESSING"
+          },
           data: {
             status: "FAILED",
+            lockedAt: null,
+            leaseId: null,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            lastHeartbeatAt: now(),
             errorCode: err.code,
             errorMessage: "Processing failed. Please retry.",
-            nextRetryAt: retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null
+            nextRetryAt: retryAt
           }
         });
+        if (failedJob.count === 1) {
+          await prisma.item.updateMany({
+            where: { id: item.id },
+            data: {
+              status: "FAILED",
+              errorCode: err.code,
+              errorMessage: "Processing failed. Please retry."
+            }
+          });
+        }
       }
+    }
+
+    if (retryAt) {
+      await releaseDispatchMessage(claimResult, retryAt);
+    } else {
+      await deleteDispatchMessage(claimResult);
     }
 
     await appendJobEvent({
@@ -1456,62 +2221,124 @@ export async function processJob(jobId: string): Promise<boolean> {
     await syncJobAndItemProjectionByJobId(claimResult.id);
 
     return false;
+  } finally {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+    }
   }
 }
 
 export async function processNextQueuedJob(): Promise<boolean> {
-  const reclaimed = await reclaimStaleProcessingJobs();
-  if (reclaimed.requeued > 0) {
-    await workerLogger.warn("Requeued stale processing jobs", {
-      requeued: reclaimed.requeued,
-      staleProcessingMs: workerEnv.staleProcessingMs
-    });
-  }
-  if (reclaimed.failed > 0) {
-    await workerLogger.errorWithCode({
-      msg: "Marked stale processing jobs as failed",
-      error_code: errorCodes.PROCESSING_TIMEOUT,
-      attrs: {
-        failed: reclaimed.failed,
-        staleProcessingMs: workerEnv.staleProcessingMs,
-        maxStaleRetries: workerEnv.maxStaleRetries
-      }
+  const reconciled = await reconcileMissingItemDispatchMessages();
+  if (reconciled > 0) {
+    await workerLogger.info("Reconciled missing item dispatch messages", {
+      reconciled,
+      backend: dispatchQueue.backend
     });
   }
 
-  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
-    const candidates = await workerPrimaryStore.listNextEligibleJobs(now(), workerEnv.maxRetryAttempts);
-    const next = candidates[0];
-    if (!next) {
+  for (let attempts = 0; attempts < 3; attempts += 1) {
+    let reserved = await dispatchQueue.reserveNext({
+      visibilityTimeoutMs: workerEnv.itemDispatchVisibilityMs,
+      reservedBy: workerEnv.workerInstanceId
+    });
+    if (!reserved) {
+      if (attempts > 0) {
+        return false;
+      }
+      const forcedReconciled = await reconcileMissingItemDispatchMessages(true);
+      if (forcedReconciled <= 0) {
+        return false;
+      }
+      reserved = await dispatchQueue.reserveNext({
+        visibilityTimeoutMs: workerEnv.itemDispatchVisibilityMs,
+        reservedBy: workerEnv.workerInstanceId
+      });
+      if (!reserved) {
+        return false;
+      }
+    }
+
+    const staleHandled = await handleExpiredProcessingReservation(reserved);
+    if (staleHandled === "continue") {
+      continue;
+    }
+
+    if (reserved.dequeueCount > workerEnv.itemDispatchMaxDeliveries) {
+      const terminalMessage = "Job exceeded the maximum dispatch delivery attempts and was stopped.";
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        const currentJob = await workerPrimaryStore.findJobById(reserved.jobId);
+        if (currentJob) {
+          await workerPrimaryStore.updateJob(currentJob.id, {
+            status: "FAILED",
+            lockedAt: null,
+            leaseId: null,
+            leaseOwner: null,
+            leaseExpiresAt: null,
+            lastHeartbeatAt: now(),
+            nextRetryAt: null,
+            errorCode: errorCodes.INTERNAL_ERROR,
+            errorMessage: terminalMessage,
+            dispatchMessageId: null
+          });
+          await workerPrimaryStore.updateItem(currentJob.itemId, {
+            status: "FAILED",
+            errorCode: errorCodes.INTERNAL_ERROR,
+            errorMessage: terminalMessage
+          });
+        }
+      } else {
+        const currentJob = await prisma.job.findUnique({
+          where: { id: reserved.jobId },
+          select: { id: true, itemId: true }
+        });
+        if (currentJob) {
+          await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            await tx.job.updateMany({
+              where: { id: currentJob.id },
+              data: {
+                status: "FAILED",
+                lockedAt: null,
+                leaseId: null,
+                leaseOwner: null,
+                leaseExpiresAt: null,
+                lastHeartbeatAt: now(),
+                nextRetryAt: null,
+                errorCode: errorCodes.INTERNAL_ERROR,
+                errorMessage: terminalMessage,
+                dispatchMessageId: null
+              }
+            });
+            await tx.item.updateMany({
+              where: { id: currentJob.itemId },
+              data: {
+                status: "FAILED",
+                errorCode: errorCodes.INTERNAL_ERROR,
+                errorMessage: terminalMessage
+              }
+            });
+          });
+        }
+      }
+      await dispatchQueue.delete({
+        messageId: reserved.messageId,
+        receipt: reserved.receipt
+      });
+      await workerLogger.errorWithCode({
+        msg: "Dead-lettered item dispatch message after repeated delivery",
+        error_code: errorCodes.INTERNAL_ERROR,
+        attrs: {
+          jobId: reserved.jobId,
+          messageId: reserved.messageId,
+          dequeueCount: reserved.dequeueCount,
+          maxDeliveries: workerEnv.itemDispatchMaxDeliveries
+        }
+      });
       return false;
     }
-    return processJob(next.id);
+
+    return processJob(reserved.jobId, reserved);
   }
 
-  const nextQueued = await prisma.job.findFirst({
-    where: {
-      status: "QUEUED",
-      OR: [{ scheduledFor: null }, { scheduledFor: { lte: now() } }]
-    },
-    orderBy: [{ scheduledFor: "asc" }, { createdAt: "asc" }]
-  });
-
-  if (nextQueued) {
-    return processJob(nextQueued.id);
-  }
-
-  const nextRetryable = await prisma.job.findFirst({
-    where: {
-      status: "FAILED",
-      nextRetryAt: { lte: now() },
-      attempt: { lt: workerEnv.maxRetryAttempts }
-    },
-    orderBy: [{ nextRetryAt: "asc" }, { createdAt: "asc" }]
-  });
-
-  if (!nextRetryable) {
-    return false;
-  }
-
-  return processJob(nextRetryable.id);
+  return false;
 }

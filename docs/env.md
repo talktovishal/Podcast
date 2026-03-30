@@ -127,6 +127,13 @@ Behavior:
 - `OVERFLOW_PYTHON_TTS_URL` (optional external python-tts endpoint used by overflow workers)
 - `OVERFLOW_PYTHON_TTS_TIMEOUT_MS` (default inherits `PYTHON_TTS_TIMEOUT_MS`)
 - `OVERFLOW_PYTHON_TTS_SECRET` (optional auth secret for overflow python-tts endpoint)
+- `ITEM_DISPATCH_BACKEND` (`auto` default; chooses `azure_queue` when Azure Blob credentials are present, otherwise `prisma`)
+- `ITEM_DISPATCH_QUEUE_NAME` (default `${BRAND_SLUG}-item-dispatch`; queue name used by Azure Queue Storage or the local Prisma dispatch adapter)
+- `ITEM_DISPATCH_CREATE_QUEUE` (`1` default; create the Azure queue automatically when missing)
+- `ITEM_DISPATCH_VISIBILITY_MS` (default follows `WORKER_STALE_PROCESSING_MS`; lease/visibility timeout for a reserved item job)
+- `ITEM_DISPATCH_HEARTBEAT_MS` (default `30000`; heartbeat interval that renews the dispatch reservation and durable lease while TTS runs)
+- `ITEM_DISPATCH_MAX_DELIVERIES` (default `8`; poison-message ceiling before an item job is failed and the dispatch message is removed)
+- `WORKER_INSTANCE_ID` (optional explicit worker identity; defaults to `<hostname>:<pid>` and is stored on durable job leases)
 - `WORKER_POLL_MS`
 - `WORKER_STALE_PROCESSING_MS` (default `900000`; stale `PROCESSING` jobs are considered stalled after 15 minutes without progress)
 - `WORKER_MAX_STALE_RETRIES` (default `1`; a stalled job gets one automatic reclaim before it is marked `PROCESSING_TIMEOUT`)
@@ -151,8 +158,12 @@ Behavior:
 Recommended low-cost Azure setting:
 - `METADATA_PRIMARY_BACKEND=azure_table`
 - `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
+- `ITEM_DISPATCH_BACKEND=azure_queue`
 - `WORKER_QUEUE_PRESSURE_SOURCE=prisma`
 - `METADATA_MIRROR_BACKEND=none` unless you are actively dual-writing for rollback certification
+
+Parity note:
+- When you point `AZURE_STORAGE_CONNECTION_STRING` at Azurite for parity tests, include both `BlobEndpoint=...` and `QueueEndpoint=...` so the item dispatch queue and blob artifacts share the same emulator account.
 
 ## Digest controls
 - `DIGEST_INTERNAL_SCHEDULER_ENABLED` (`1` default; set `0` to rely only on external tick calls)

@@ -10,6 +10,8 @@ import {
   normalizeTtsSelection,
   sha256
 } from "@articlepod/core";
+import { enqueueItemDispatchMessage, webUsesPrismaDispatchQueue } from "./item-dispatch-queue";
+import { logger } from "./logger";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
 import { prisma } from "./prisma";
@@ -442,12 +444,26 @@ async function queueRegeneration(item: BackfillItemRecord, dryRun: boolean): Pro
       errorCode: null,
       errorMessage: null
     });
-    await primaryStore.createJob({
+    const createdJob = await primaryStore.createJob({
       id: randomUUID(),
       itemId: item.id,
       userId: item.userId,
       status: "QUEUED"
     });
+    try {
+      const dispatchMessage = await enqueueItemDispatchMessage({
+        jobId: createdJob.id
+      });
+      await primaryStore.updateJob(createdJob.id, {
+        dispatchMessageId: dispatchMessage.messageId
+      });
+    } catch (error) {
+      await logger.warn("Markdown backfill dispatch enqueue failed; leaving job for reconciliation", {
+        itemId: item.id,
+        jobId: createdJob.id,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      });
+    }
     return;
   }
 
@@ -492,6 +508,7 @@ async function queueRegeneration(item: BackfillItemRecord, dryRun: boolean): Pro
         createdAt: true,
         updatedAt: true,
         lockedAt: true,
+        dispatchMessageId: true,
         scheduledFor: true,
         nextRetryAt: true,
         errorCode: true,
@@ -499,11 +516,46 @@ async function queueRegeneration(item: BackfillItemRecord, dryRun: boolean): Pro
       }
     });
 
+    if (webUsesPrismaDispatchQueue()) {
+      const dispatchMessage = await enqueueItemDispatchMessage({
+        jobId: createdJob.id,
+        client: tx
+      });
+      await tx.job.update({
+        where: { id: createdJob.id },
+        data: {
+          dispatchMessageId: dispatchMessage.messageId
+        }
+      });
+      createdJob.dispatchMessageId = dispatchMessage.messageId;
+    }
+
     return {
       item: updatedItem,
       job: createdJob
     };
   });
+
+  if (!webUsesPrismaDispatchQueue()) {
+    try {
+      const dispatchMessage = await enqueueItemDispatchMessage({
+        jobId: result.job.id
+      });
+      await prisma.job.update({
+        where: { id: result.job.id },
+        data: {
+          dispatchMessageId: dispatchMessage.messageId
+        }
+      });
+      result.job.dispatchMessageId = dispatchMessage.messageId;
+    } catch (error) {
+      await logger.warn("Markdown backfill dispatch enqueue failed after job creation; leaving job for reconciliation", {
+        itemId: item.id,
+        jobId: result.job.id,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      });
+    }
+  }
 
   await syncQueueProjectionFromEnqueue(result);
 }

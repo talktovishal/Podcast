@@ -94,7 +94,22 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "jobs",
     delegate: "job",
     orderByField: "id",
-    dateFields: ["lockedAt", "scheduledFor", "nextRetryAt", "createdAt", "updatedAt"]
+    dateFields: [
+      "lockedAt",
+      "leaseExpiresAt",
+      "lastHeartbeatAt",
+      "scheduledFor",
+      "nextRetryAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  {
+    modelName: "DispatchQueueMessage",
+    exportKey: "dispatchQueueMessages",
+    delegate: "dispatchQueueMessage",
+    orderByField: "id",
+    dateFields: ["visibleAt", "reservedAt", "createdAt", "updatedAt"]
   },
   {
     modelName: "JobEvent",

@@ -1,4 +1,5 @@
 import { config } from "dotenv";
+import { hostname } from "node:os";
 import { resolve } from "node:path";
 import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 
@@ -11,6 +12,7 @@ type MetadataPrimaryBackend = "prisma" | "azure_table";
 type QueuePressureSource = "prisma" | "mirror";
 type AnalyticsStorageMode = "full" | "off";
 type JobEventStorageMode = "database" | "off";
+type ItemDispatchBackend = "prisma" | "azure_queue";
 
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
@@ -95,9 +97,24 @@ function parseJobEventStorageMode(value: string | undefined): JobEventStorageMod
   return "database";
 }
 
+function parseItemDispatchBackend(value: string | undefined): ItemDispatchBackend | "auto" {
+  if (value === "prisma" || value === "azure_queue") {
+    return value;
+  }
+  return "auto";
+}
+
 const pythonTtsTimeoutMs = toPositiveInt(process.env.PYTHON_TTS_TIMEOUT_MS, 120000);
 const logRetentionDays = toNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
 const logErrorRetentionDays = toNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
+const itemDispatchBackendSetting = parseItemDispatchBackend(process.env.ITEM_DISPATCH_BACKEND);
+const itemDispatchBackend: ItemDispatchBackend =
+  itemDispatchBackendSetting === "auto"
+    ? storageBackend === "azure_blob" && (process.env.AZURE_STORAGE_CONNECTION_STRING || (process.env.AZURE_STORAGE_ACCOUNT_URL && process.env.AZURE_STORAGE_SAS_TOKEN))
+      ? "azure_queue"
+      : "prisma"
+    : itemDispatchBackendSetting;
+const defaultWorkerInstanceId = `${hostname()}:${process.pid}`;
 
 export const workerEnv = {
   runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
@@ -133,6 +150,13 @@ export const workerEnv = {
   azureStorageAccountUrl: process.env.AZURE_STORAGE_ACCOUNT_URL,
   azureStorageSasToken: process.env.AZURE_STORAGE_SAS_TOKEN,
   azureStorageCreateContainer: (process.env.AZURE_STORAGE_CREATE_CONTAINER ?? "1") !== "0",
+  itemDispatchBackend,
+  itemDispatchQueueName: process.env.ITEM_DISPATCH_QUEUE_NAME ?? `${BRAND_SLUG}-item-dispatch`,
+  itemDispatchCreateQueue: (process.env.ITEM_DISPATCH_CREATE_QUEUE ?? "1") !== "0",
+  itemDispatchVisibilityMs: toPositiveInt(process.env.ITEM_DISPATCH_VISIBILITY_MS, toPositiveInt(process.env.WORKER_STALE_PROCESSING_MS, 15 * 60 * 1000)),
+  itemDispatchHeartbeatMs: toPositiveInt(process.env.ITEM_DISPATCH_HEARTBEAT_MS, 30_000),
+  itemDispatchMaxDeliveries: toPositiveInt(process.env.ITEM_DISPATCH_MAX_DELIVERIES, 8),
+  workerInstanceId: process.env.WORKER_INSTANCE_ID ?? defaultWorkerInstanceId,
   mediaRoot: normalizeLocalPath(process.env.MEDIA_ROOT ?? resolve(process.cwd(), "../web/.data/media")),
   logRoot: normalizeLocalPath(process.env.LOG_ROOT ?? defaultLogRoot),
   logRetentionDays,

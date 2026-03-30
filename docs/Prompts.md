@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-28)
+## Spec Status (as of 2026-03-29)
 
-### Implemented (as of 2026-03-28)
+### Implemented (as of 2026-03-29)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -70,6 +70,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - generated item, digest, and summary MP3 episodes now carry a 60-day expiry timestamp by default.
   - expired episode audio is hidden from feeds, dashboard/share playback, and media routes before purge deletes the underlying blob/object.
   - bulk backfill and purge commands keep existing stored audio aligned with the retention policy.
+- Item dispatch queue hardening is implemented:
+  - item episode jobs now dual-write durable `Job` state plus a tiny dispatch message (`jobId`, `kind`) so workers reserve work from a queue instead of scanning durable metadata.
+  - durable item jobs now carry lease metadata (`leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, `dispatchMessageId`) so one worker can finish safely today while future trusted first-party workers can scale out on other machines later.
+  - single-worker runtime remains the default shape; extra workers stay opt-in and cost-neutral until operators explicitly add more compute.
+  - long TTS runs renew both the queue reservation and durable lease, while stale reclaimed work still yields to newer queued items before retrying.
 - Docs governance baseline is implemented:
   - milestone snapshot tracks `target_finish`, `completed_on`, and evidence references
   - status reconciliation ledger captures corrections with confidence notes.
@@ -191,6 +196,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store
+  - Azure Queue-backed item dispatch path with single-worker default and future multi-node worker compatibility
   - Azure deploy/runtime helpers that default Azure Table primary mode to local auxiliary SQLite instead of managed PostgreSQL
   - mirror dual-write/backfill/check tooling for rollback certification
 - Azure worker stability hotfix is implemented:
