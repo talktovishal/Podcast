@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   BillingActionButton
 } from "@/components/billing-action-button";
+import { useBillingStatus } from "@/components/use-billing-status";
 import {
   billingPaymentStatusLabel,
   billingPlanLabel,
@@ -18,91 +18,16 @@ type Props = {
   activationHint?: boolean;
 };
 
-type BillingStatusResponse = {
-  ok: boolean;
-  billing?: BillingAccountSnapshot;
-  error_message?: string;
-};
-
-const ACTIVATION_POLL_MS = 3000;
-const ACTIVATION_POLL_LIMIT = 20;
-
 export function BillingSettingsCard({
   initialBilling,
   monthlyCheckoutConfigured,
   annualCheckoutConfigured,
   activationHint = false
 }: Props) {
-  const [billing, setBilling] = useState(initialBilling);
-  const [pollMessage, setPollMessage] = useState<string | null>(
-    activationHint && !initialBilling.hasPaidAccess
-      ? "Payment received. ArticlePod is waiting for Stripe webhook confirmation before unlocking access."
-      : null
+  const { billing, pollMessage } = useBillingStatus(initialBilling, activationHint);
+  const showPortalAction = Boolean(
+    billing.customerId && (billing.hasPaidAccess || billing.hasBillingIssue || billing.planCode !== "STARTER" || billing.isPendingActivation)
   );
-
-  const shouldPollActivation = Boolean((activationHint || billing.isPendingActivation) && !billing.hasPaidAccess && billing.customerId);
-
-  useEffect(() => {
-    setBilling(initialBilling);
-  }, [initialBilling]);
-
-  useEffect(() => {
-    if (!shouldPollActivation) {
-      return;
-    }
-
-    let active = true;
-    let attempts = 0;
-
-    async function pollBillingStatus() {
-      attempts += 1;
-      try {
-        const response = await fetch("/api/billing/status", {
-          cache: "no-store"
-        });
-        const payload = (await response.json()) as BillingStatusResponse;
-        if (!active || !response.ok || !payload.ok || !payload.billing) {
-          return;
-        }
-
-        setBilling(payload.billing);
-
-        if (payload.billing.hasPaidAccess) {
-          setPollMessage("Subscription activated. Pro access is ready.");
-          active = false;
-          return;
-        }
-
-        if (!payload.billing.isPendingActivation) {
-          setPollMessage(payload.billing.billingIssueMessage ?? null);
-          active = false;
-          return;
-        }
-
-        if (attempts >= ACTIVATION_POLL_LIMIT) {
-          setPollMessage("Stripe is still processing this subscription. Refresh this page in a moment or open billing if the state does not update.");
-          active = false;
-        }
-      } catch {
-        if (attempts >= ACTIVATION_POLL_LIMIT && active) {
-          setPollMessage("Stripe activation is still pending. Refresh this page in a moment to confirm access.");
-          active = false;
-        }
-      }
-    }
-
-    void pollBillingStatus();
-    const timer = window.setInterval(() => {
-      if (active) {
-        void pollBillingStatus();
-      }
-    }, ACTIVATION_POLL_MS);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [shouldPollActivation]);
 
   const periodEndLabel = billing.currentPeriodEnd ? new Date(billing.currentPeriodEnd).toLocaleDateString() : null;
   const statusToneClass = billing.hasBillingIssue
@@ -145,7 +70,7 @@ export function BillingSettingsCard({
             <p className={`rounded-lg border px-3 py-2 text-sm ${statusToneClass}`}>{billing.billingIssueMessage}</p>
           ) : null}
 
-          {!billing.accessReason && billing.customerId ? (
+          {!billing.accessReason && showPortalAction ? (
             <p className="text-sm text-[var(--muted)]">
               Billing history, payment methods, and invoices are managed in the hosted Stripe portal.
             </p>
@@ -155,7 +80,7 @@ export function BillingSettingsCard({
         <div className="w-full sm:w-auto">
           {billing.accessReason === "complimentary" ? (
             <p className="text-sm text-[var(--muted)]">Complimentary access is managed by an admin, not through Stripe.</p>
-          ) : billing.customerId ? (
+          ) : showPortalAction ? (
             <BillingActionButton
               action="portal"
               className="w-full rounded-lg border px-4 py-2 text-sm font-semibold sm:w-auto"

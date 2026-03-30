@@ -102,6 +102,14 @@ export type StripeDashboardLinks = {
   invoiceUrl: string | null;
 };
 
+type StripeExpandedInvoice = Stripe.Invoice & {
+  payment_intent?: Stripe.PaymentIntent | string | null;
+};
+
+type StripeExpandedSubscription = Stripe.Subscription & {
+  latest_invoice?: StripeExpandedInvoice | string | null;
+};
+
 let stripeClient: Stripe | null = null;
 
 function stripe(): Stripe {
@@ -372,7 +380,17 @@ export async function getBillingAccountSnapshot(userId: string): Promise<Billing
   if (!user) {
     throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
   }
-  return buildBillingSnapshot(user as BillingUserRecord);
+  const reconciledUser = (await reconcileBillingStateFromStripeIfNeeded(user as BillingUserRecord)) ?? (user as BillingUserRecord);
+  return buildBillingSnapshot(reconciledUser);
+}
+
+export async function refreshBillingStateFromStripe(userId: string): Promise<void> {
+  const user = await findPrimaryUserById(userId);
+  if (!user) {
+    throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
+  }
+
+  await reconcileBillingStateFromStripeIfNeeded(user as BillingUserRecord);
 }
 
 export async function setComplimentaryProAccess(userId: string, complimentaryPro: boolean) {
@@ -581,7 +599,7 @@ export async function createStripeBillingPortalSession(userId: string): Promise<
 
   const session = await stripe().billingPortal.sessions.create({
     customer: customerId,
-    return_url: `${env.appUrl}/app/settings`,
+    return_url: `${env.appUrl}/app`,
     ...(env.stripeBillingPortalConfigurationId ? { configuration: env.stripeBillingPortalConfigurationId } : {})
   });
 
@@ -656,6 +674,187 @@ function sessionSubscriptionId(session: Stripe.Checkout.Session): string | null 
     return typeof session.subscription.id === "string" ? session.subscription.id : null;
   }
   return null;
+}
+
+function shouldReconcileBillingStateFromStripe(user: BillingUserRecord): boolean {
+  if (user.complimentaryPro) {
+    return false;
+  }
+
+  if (!env.stripeSecretKey) {
+    return false;
+  }
+
+  if (user.billingProvider !== STRIPE_PROVIDER || !user.billingCustomerId) {
+    return false;
+  }
+
+  const snapshot = buildBillingSnapshot(user);
+  if (snapshot.hasPaidAccess) {
+    return false;
+  }
+
+  return snapshot.planCode === "STARTER" || snapshot.isPendingActivation;
+}
+
+function stripeSubscriptionSyncPriority(status: Stripe.Subscription.Status): number {
+  switch (status) {
+    case "active":
+    case "trialing":
+      return 6;
+    case "past_due":
+      return 5;
+    case "incomplete":
+      return 4;
+    case "unpaid":
+      return 3;
+    case "paused":
+      return 2;
+    case "canceled":
+      return 1;
+    case "incomplete_expired":
+      return 0;
+    default:
+      return -1;
+  }
+}
+
+export function selectStripeSubscriptionForSync(
+  subscriptions: readonly Stripe.Subscription[]
+): Stripe.Subscription | null {
+  if (subscriptions.length === 0) {
+    return null;
+  }
+
+  return [...subscriptions].sort((left, right) => {
+    const priorityDelta = stripeSubscriptionSyncPriority(right.status) - stripeSubscriptionSyncPriority(left.status);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+
+    const rightPeriodEnd = right.items.data[0]?.current_period_end ?? 0;
+    const leftPeriodEnd = left.items.data[0]?.current_period_end ?? 0;
+    if (rightPeriodEnd !== leftPeriodEnd) {
+      return rightPeriodEnd - leftPeriodEnd;
+    }
+
+    return right.created - left.created;
+  })[0] ?? null;
+}
+
+function expandedInvoiceId(invoice: StripeExpandedInvoice | string | null | undefined): string | null {
+  if (!invoice) {
+    return null;
+  }
+  if (typeof invoice === "string") {
+    return invoice;
+  }
+  return invoice.id;
+}
+
+function paymentStatusFromStripeSubscription(
+  subscription: StripeExpandedSubscription,
+  fallback: BillingPaymentStatus
+): BillingPaymentStatus {
+  const invoice = typeof subscription.latest_invoice === "string" ? null : subscription.latest_invoice ?? null;
+  if (invoice?.status === "paid") {
+    return "PAID";
+  }
+
+  const paymentIntent = invoice && typeof invoice.payment_intent !== "string" ? invoice.payment_intent : null;
+  if (paymentIntent?.status === "requires_action" || paymentIntent?.status === "requires_confirmation") {
+    return "ACTION_REQUIRED";
+  }
+
+  switch (subscription.status) {
+    case "past_due":
+    case "unpaid":
+      return "FAILED";
+    case "incomplete":
+      return "ACTION_REQUIRED";
+    case "active":
+    case "trialing":
+      return "PAID";
+    default:
+      return fallback;
+  }
+}
+
+async function reconcileBillingStateFromStripeIfNeeded(user: BillingUserRecord): Promise<BillingUserRecord | null> {
+  if (!shouldReconcileBillingStateFromStripe(user)) {
+    return null;
+  }
+
+  try {
+    const subscriptions = await stripe().subscriptions.list({
+      customer: user.billingCustomerId ?? undefined,
+      status: "all",
+      limit: 10,
+      expand: ["data.latest_invoice.payment_intent"]
+    });
+    const latestSubscription = selectStripeSubscriptionForSync(subscriptions.data as StripeExpandedSubscription[]) as StripeExpandedSubscription | null;
+    if (!latestSubscription) {
+      return null;
+    }
+
+    const billingStatus = statusFromStripeSubscription(latestSubscription);
+    const patch: Partial<BillingUserRecord> = {
+      billingProvider: STRIPE_PROVIDER,
+      billingCustomerId: user.billingCustomerId,
+      billingSubscriptionId: latestSubscription.id,
+      billingPriceId: subscriptionPriceId(latestSubscription),
+      billingPlanCode: planCodeFromStripeSubscription(latestSubscription),
+      billingStatus,
+      billingEntitlementStatus: entitlementStatusFromBillingStatus(billingStatus),
+      billingLastPaymentStatus: paymentStatusFromStripeSubscription(
+        latestSubscription,
+        normalizeBillingPaymentStatus(user.billingLastPaymentStatus)
+      ),
+      billingLastInvoiceId: expandedInvoiceId(latestSubscription.latest_invoice),
+      billingCurrentPeriodEnd:
+        typeof latestSubscription.items.data[0]?.current_period_end === "number"
+          ? new Date(latestSubscription.items.data[0].current_period_end * 1000)
+          : user.billingCurrentPeriodEnd,
+      billingCancelAtPeriodEnd: latestSubscription.cancel_at_period_end,
+      billingUpdatedAt: new Date()
+    };
+    patch.isPaid = buildEffectivePaidState(user, patch);
+
+    const changed =
+      patch.billingSubscriptionId !== user.billingSubscriptionId ||
+      patch.billingPriceId !== user.billingPriceId ||
+      patch.billingPlanCode !== user.billingPlanCode ||
+      patch.billingStatus !== user.billingStatus ||
+      patch.billingEntitlementStatus !== user.billingEntitlementStatus ||
+      patch.billingLastPaymentStatus !== user.billingLastPaymentStatus ||
+      patch.billingLastInvoiceId !== user.billingLastInvoiceId ||
+      patch.billingCancelAtPeriodEnd !== user.billingCancelAtPeriodEnd ||
+      patch.isPaid !== user.isPaid ||
+      (patch.billingCurrentPeriodEnd instanceof Date
+        ? patch.billingCurrentPeriodEnd.toISOString()
+        : null) !== (user.billingCurrentPeriodEnd ? user.billingCurrentPeriodEnd.toISOString() : null);
+
+    if (!changed) {
+      return null;
+    }
+
+    await logger.warn("Billing state reconciled directly from Stripe because the local cache was stale", {
+      userId: user.id,
+      stripeCustomerId: user.billingCustomerId,
+      stripeSubscriptionId: latestSubscription.id,
+      billingPlanCode: patch.billingPlanCode,
+      billingStatus: patch.billingStatus
+    });
+
+    return (await updatePrimaryUser(user.id, patch)) as BillingUserRecord | null;
+  } catch (error) {
+    await logger.warn("Billing state reconciliation from Stripe failed", {
+      userId: user.id,
+      stripeCustomerId: user.billingCustomerId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return null;
+  }
 }
 
 async function applyCheckoutSessionCompleted(event: Stripe.Event, session: Stripe.Checkout.Session): Promise<StripeWebhookApplyResult> {

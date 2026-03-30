@@ -61,7 +61,7 @@ Connect flow:
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
-  - top-of-page billing card shows current plan and renewal state for paid users, or direct monthly/annual upgrade actions for Starter users
+  - the header now carries a compact billing status pill plus `Upgrade` or `Manage billing`, while `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
   - `Recent items`
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state

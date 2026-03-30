@@ -1,4 +1,5 @@
 import { AppError, errorCodes } from "@articlepod/core";
+import { refreshBillingStateFromStripe } from "./billing";
 import { env } from "./env";
 import { findPrimaryUserById } from "./metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
@@ -52,6 +53,7 @@ function limitMessage(snapshot: SummaryUsageSnapshot): string {
 }
 
 export async function getSummaryUsageSnapshot(userId: string): Promise<SummaryUsageSnapshot> {
+  await refreshBillingStateFromStripe(userId);
   const user = await findPrimaryUserById(userId);
   if (!user) {
     throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);

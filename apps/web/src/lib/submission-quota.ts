@@ -1,5 +1,6 @@
 import { AppError, errorCodes } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
+import { refreshBillingStateFromStripe } from "./billing";
 import { env } from "./env";
 import { findPrimaryUserById, updatePrimaryUser } from "./metadata-primary-auth";
 import { webPrimaryStore } from "./metadata-primary-store";
@@ -272,6 +273,7 @@ export function buildDeferredSubmissionMessage(scheduledFor: Date): string {
 
 export async function getSubmissionQuotaSnapshot(userId: string, tx?: QuotaDbClient): Promise<SubmissionQuotaSnapshot> {
   const nowTs = new Date();
+  await refreshBillingStateFromStripe(userId);
   if (env.metadataPrimaryBackend === "azure_table") {
     const user = await findPrimaryUserById(userId);
     if (!user) {
@@ -312,6 +314,7 @@ export async function consumeSubmissionCredit(input: {
   tx?: Prisma.TransactionClient;
 }): Promise<SubmissionCreditOutcome> {
   const nowTs = new Date();
+  await refreshBillingStateFromStripe(input.userId);
   if (env.metadataPrimaryBackend === "azure_table") {
     const user = await findPrimaryUserById(input.userId);
     if (!user) {

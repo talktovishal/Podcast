@@ -340,7 +340,7 @@ E) Web UI (polished)
   - compact signed-in header focused on navigation, with a lightly highlighted `Feedback` shortcut
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
-  - visible billing status or upgrade card directly under the workspace header
+  - compact billing status plus `Upgrade` or `Manage billing` action inside the workspace header itself, while the fuller billing controls remain on `/app/settings`
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)

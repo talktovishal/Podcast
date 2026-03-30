@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { BillingSettingsCard } from "@/components/billing-settings-card";
 import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
+import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { getBillingAccountSnapshot, isBillingPlanCheckoutConfigured } from "@/lib/billing";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
@@ -26,17 +26,18 @@ export default async function AppDashboardPage({
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota, billing] = await Promise.all([
+  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, billing] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
     isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
-    getSubmissionQuotaSnapshot(user.id),
     getBillingAccountSnapshot(user.id)
   ]);
+  const submissionQuota = await getSubmissionQuotaSnapshot(user.id);
   const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
   const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
+  const billingConfigured = monthlyCheckoutConfigured || annualCheckoutConfigured;
   const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
@@ -54,7 +55,14 @@ export default async function AppDashboardPage({
         <header className="card p-4 sm:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <p className="text-sm text-[var(--muted)]">Your workspace</p>
+              <div className="space-y-2">
+                <p className="text-sm text-[var(--muted)]">Your workspace</p>
+                <WorkspaceBillingSummary
+                  activationHint={billingSearchParam === "success"}
+                  billingConfigured={billingConfigured}
+                  initialBilling={billing}
+                />
+              </div>
               <AppShellNav current="workspace" />
             </div>
             <div className="space-y-1">
@@ -63,13 +71,6 @@ export default async function AppDashboardPage({
             </div>
           </div>
         </header>
-
-        <BillingSettingsCard
-          activationHint={billingSearchParam === "success"}
-          annualCheckoutConfigured={annualCheckoutConfigured}
-          initialBilling={billing}
-          monthlyCheckoutConfigured={monthlyCheckoutConfigured}
-        />
 
         <DashboardClient
           viewMode="workspace"

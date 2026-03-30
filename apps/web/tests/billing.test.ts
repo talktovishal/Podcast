@@ -4,7 +4,12 @@ import { resolve } from "node:path";
 import test from "node:test";
 import type Stripe from "stripe";
 import { fileURLToPath } from "node:url";
-import { applyStripeWebhookEvent, buildBillingSnapshot, buildStripeDashboardLinks } from "../src/lib/billing";
+import {
+  applyStripeWebhookEvent,
+  buildBillingSnapshot,
+  buildStripeDashboardLinks,
+  selectStripeSubscriptionForSync
+} from "../src/lib/billing";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -105,6 +110,80 @@ test("buildStripeDashboardLinks points to the Stripe test dashboard", () => {
   assert.equal(links.customerUrl?.endsWith("/customers/cus_123"), true);
   assert.equal(links.subscriptionUrl?.endsWith("/subscriptions/sub_123"), true);
   assert.equal(links.invoiceUrl?.endsWith("/invoices/in_123"), true);
+});
+
+test("selectStripeSubscriptionForSync prefers active subscriptions over stale canceled ones", () => {
+  const selected = selectStripeSubscriptionForSync([
+    {
+      id: "sub_canceled",
+      status: "canceled",
+      created: 100,
+      items: {
+        data: [
+          {
+            current_period_end: 200,
+            price: {
+              id: "price_canceled"
+            }
+          }
+        ]
+      }
+    } as unknown as Stripe.Subscription,
+    {
+      id: "sub_active",
+      status: "active",
+      created: 150,
+      items: {
+        data: [
+          {
+            current_period_end: 300,
+            price: {
+              id: "price_active"
+            }
+          }
+        ]
+      }
+    } as unknown as Stripe.Subscription
+  ]);
+
+  assert.equal(selected?.id, "sub_active");
+});
+
+test("selectStripeSubscriptionForSync prefers the latest period end when statuses tie", () => {
+  const selected = selectStripeSubscriptionForSync([
+    {
+      id: "sub_older",
+      status: "active",
+      created: 100,
+      items: {
+        data: [
+          {
+            current_period_end: 400,
+            price: {
+              id: "price_older"
+            }
+          }
+        ]
+      }
+    } as unknown as Stripe.Subscription,
+    {
+      id: "sub_newer",
+      status: "active",
+      created: 90,
+      items: {
+        data: [
+          {
+            current_period_end: 800,
+            price: {
+              id: "price_newer"
+            }
+          }
+        ]
+      }
+    } as unknown as Stripe.Subscription
+  ]);
+
+  assert.equal(selected?.id, "sub_newer");
 });
 
 test("applyStripeWebhookEvent updates billing state once per Stripe event id", async () => {
