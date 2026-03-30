@@ -39,7 +39,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`
   - `/pricing` includes explicit billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current paid period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
-  - `/app/settings` shows current plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then links to Stripe Customer Portal for self-serve management
+  - `/app` and `/app/settings` show current plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management
   - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod and Checkout redirects do not grant access on their own
   - admin quota controls expose read-only Stripe customer/subscription/invoice identifiers plus Stripe Dashboard links for support
 - Feedback suggestions:
@@ -61,6 +61,7 @@ Connect flow:
 
 ## Workspace layout
 - `/app` is a focused creation workspace:
+  - top-of-page billing card shows current plan and renewal state for paid users, or direct monthly/annual upgrade actions for Starter users
   - `Add New Episode`
   - `Recent items`
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { BillingSettingsCard } from "@/components/billing-settings-card";
 import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
 import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
+import { getBillingAccountSnapshot, isBillingPlanCheckoutConfigured } from "@/lib/billing";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getSubmissionQuotaSnapshot } from "@/lib/submission-quota";
@@ -13,21 +15,29 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }
 };
 
-export default async function AppDashboardPage() {
+export default async function AppDashboardPage({
+  searchParams
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const user = await getAuthUserFromCookies();
   if (!user) {
     redirect("/login");
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota] = await Promise.all([
+  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, submissionQuota, billing] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
     isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
-    getSubmissionQuotaSnapshot(user.id)
+    getSubmissionQuotaSnapshot(user.id),
+    getBillingAccountSnapshot(user.id)
   ]);
+  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
+  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
+  const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice
@@ -53,6 +63,13 @@ export default async function AppDashboardPage() {
             </div>
           </div>
         </header>
+
+        <BillingSettingsCard
+          activationHint={billingSearchParam === "success"}
+          annualCheckoutConfigured={annualCheckoutConfigured}
+          initialBilling={billing}
+          monthlyCheckoutConfigured={monthlyCheckoutConfigured}
+        />
 
         <DashboardClient
           viewMode="workspace"

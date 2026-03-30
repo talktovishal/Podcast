@@ -89,7 +89,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
   - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are implemented for the Pro plan
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
-  - access is granted or extended only from webhook-confirmed billing events; `/app/settings` now shows pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
+  - access is granted or extended only from webhook-confirmed billing events; `/app` and `/app/settings` now show pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
   - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and “save nearly 30%” annual positioning
   - login now preserves pricing/billing return intent so “sign in to upgrade” comes back to the hosted checkout path instead of dropping users into the generic workspace
@@ -340,6 +340,7 @@ E) Web UI (polished)
   - compact signed-in header focused on navigation, with a lightly highlighted `Feedback` shortcut
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
+  - visible billing status or upgrade card directly under the workspace header
   - URL submit form + mode selector (summary/full optional)
   - PDF upload form
   - recent items list with status and actions (retry/delete)

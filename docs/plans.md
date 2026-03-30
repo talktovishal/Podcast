@@ -3872,6 +3872,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Signed-in users can create hosted Stripe subscription checkout sessions from `/pricing` or settings only for approved internal plan keys.
   - Signing in from `/pricing` preserves the upgrade journey and returns the user to billing-ready UI instead of the generic workspace landing page.
+  - Successful Stripe Checkout redirects back to `/app`, where the workspace shows an upgrade or status card without forcing users through settings.
   - Billing-unconfigured environments fail with a clear user-facing message, and the app shows a pending activation state until webhook confirmation arrives.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`
@@ -3903,6 +3904,7 @@ Milestone metadata contract:
 - evidence: billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28)
 - Scope:
   - Upgrade `/app/settings` billing UI to show current plan, subscription status, renewal date, cancel-at-period-end state, payment-issue banners, and hosted portal entry.
+  - Mirror a concise billing summary or upgrade surface onto `/app` so workspace users always see their current plan or upgrade path.
   - Keep Stripe Customer Portal as the only MVP surface for payment-method updates, invoices, cancelation, and any later self-serve plan switching.
 - Key files/modules:
   - `apps/web/src/app/app/settings/page.tsx`

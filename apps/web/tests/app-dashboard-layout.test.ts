@@ -6,8 +6,13 @@ test("app dashboard uses direct navigation links and logout icon", () => {
   const source = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
 
   assert.match(source, /<AppShellNav\b[^>]*\bcurrent=\"workspace\"/);
+  assert.equal(source.includes("BillingSettingsCard"), true);
+  assert.equal(source.includes('activationHint={billingSearchParam === "success"}'), true);
+  assert.equal(source.includes('monthlyCheckoutConfigured={monthlyCheckoutConfigured}'), true);
+  assert.equal(source.includes('annualCheckoutConfigured={annualCheckoutConfigured}'), true);
   assert.match(source, /<DashboardClient\b[\s\S]*\bviewMode=\"workspace\"/);
   assert.match(source, /\bisAdmin=\{user\.role\s*=\s*\==\s*\"ADMIN\"\}/);
+  assert.equal(source.indexOf("<BillingSettingsCard") < source.indexOf("<DashboardClient"), true);
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);

@@ -517,7 +517,7 @@ export async function createStripeCheckoutSession(input: {
       mode: "subscription",
       customer: customerId,
       client_reference_id: user.id,
-      success_url: `${env.appUrl}/app/settings?billing=success`,
+      success_url: `${env.appUrl}/app?billing=success`,
       cancel_url: `${env.appUrl}/pricing?billing=canceled`,
       line_items: [
         {
