@@ -73,6 +73,8 @@ test("settings page exists and renders settings-only dashboard mode", () => {
 test("podcast apps and chrome extension pages exist as dedicated setup pages", () => {
   const podcastPageSource = readFileSync(new URL("../src/app/app/podcast-apps/page.tsx", import.meta.url), "utf8");
   const extensionPageSource = readFileSync(new URL("../src/app/app/chrome-extension/page.tsx", import.meta.url), "utf8");
+  const resourcesPageSource = readFileSync(new URL("../src/app/resources/page.tsx", import.meta.url), "utf8");
+  const extensionCardSource = readFileSync(new URL("../src/components/chrome-extension-setup-card.tsx", import.meta.url), "utf8");
   const summaryPageSource = readFileSync(new URL("../src/app/app/summary/page.tsx", import.meta.url), "utf8");
 
   assert.equal(podcastPageSource.includes('viewMode="podcast-apps"'), true);
@@ -83,12 +85,17 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(podcastPageSource.indexOf("Quick start") < podcastPageSource.indexOf("App walkthroughs"), true);
   assert.equal(podcastPageSource.includes("ensureUserDigestFeedTokenAccess"), false);
   assert.equal(podcastPageSource.includes("digestFeedUrl"), false);
-  assert.equal(extensionPageSource.includes('viewMode="chrome-extension"'), true);
   assert.equal(extensionPageSource.includes("Chrome Extension"), true);
-  assert.equal(extensionPageSource.includes("Quick start"), true);
-  assert.equal(extensionPageSource.includes("Walkthroughs"), true);
-  assert.equal(extensionPageSource.indexOf('viewMode="chrome-extension"') < extensionPageSource.indexOf("Walkthroughs"), true);
-  assert.equal(extensionPageSource.indexOf("Walkthroughs") < extensionPageSource.indexOf("Quick start"), true);
+  assert.equal(extensionPageSource.includes("ChromeExtensionSetupCard"), true);
+  assert.equal(extensionPageSource.includes("ChromeExtensionGuidePanels"), true);
+  assert.equal(extensionPageSource.includes("DashboardClient"), false);
+  assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), true);
+  assert.equal(resourcesPageSource.includes("ChromeExtensionGuidePanels"), true);
+  assert.equal(resourcesPageSource.includes("getAuthUserFromCookies"), true);
+  assert.equal(resourcesPageSource.includes("isAuthenticated={Boolean(user)}"), true);
+  assert.equal(extensionCardSource.includes("Log in to generate connect code"), true);
+  assert.equal(extensionCardSource.includes("Connect code stays hidden until you log in"), true);
+  assert.equal(extensionCardSource.includes("Public visitors can see the same setup steps"), true);
   assert.equal(summaryPageSource.includes("Summaries"), true);
   assert.equal(summaryPageSource.includes('<h1 className=\"font-bold text-2xl\">Summary Studio</h1>'), false);
 });
@@ -151,39 +158,22 @@ test("summary studio client exposes importance and tag filters", () => {
   assert.equal(source.includes("Also publish as podcast"), true);
 });
 
-test("dashboard client supports dedicated podcast and extension setup pages", () => {
+test("dashboard client supports the dedicated podcast setup page and settings variants", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension"'), true);
+  assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps"'), true);
   assert.equal(source.includes('type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";'), true);
   assert.equal(source.includes('settingsSections?: ReadonlyArray<SettingsSection>;'), true);
   assert.equal(source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'), true);
-  assert.equal(source.includes('const isChromeExtensionView = viewMode === "chrome-extension";'), true);
   assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
-  assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined}'), true);
   assert.equal(source.includes("Podcast Apps"), true);
   assert.equal(source.includes("Digest podcast feed"), false);
   assert.equal(source.includes("manual summary podcast episodes"), false);
   assert.equal(source.includes("/api/digest-feed-token/rotate"), false);
-  assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
-  assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
-  assert.equal(source.includes("Open extension settings"), false);
   assert.equal(source.includes("const showFeedSection = readOnly || isPodcastAppsView;"), true);
-  assert.equal(source.includes("const showExtensionSection = !readOnly && isChromeExtensionView;"), true);
   assert.equal(source.includes("const showVoiceSettingsSection ="), true);
   assert.equal(source.includes('requestedSettingsSections.has("voice")'), true);
   assert.equal(source.includes("const showDigestSettingsSection ="), true);
   assert.equal(source.includes('requestedSettingsSections.has("digest")'), true);
-  assert.equal(source.includes("is valid for 24 hours"), true);
-  assert.equal(source.includes("If you do not use"), true);
-  assert.equal(source.includes("it in time, generate a new one."), true);
-  assert.equal(source.includes("Once you connect the extension, it"), true);
-  assert.equal(source.includes("stays authorized until you revoke it."), true);
-  assert.equal(source.includes("the code stops working and you must"), true);
-  assert.equal(source.includes("generate a new one."), true);
-  assert.equal(source.includes("does not expire automatically"), true);
-  assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
-  assert.equal(source.includes("Extension connect code copied."), true);
-  assert.equal(source.includes("Copy code"), false);
 });
 
 test("extension popup treats installed tokens as non-expiring until revoked", () => {

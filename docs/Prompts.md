@@ -28,6 +28,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - the packaged extension manifest intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require an extra per-site access grant before capture.
   - runtime config still defaults extension connections to `https://articlepod.com`, and local debugging against another ArticlePod origin only requires a temporary `apps/extension/runtime-config.js` override.
   - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
+  - public `/resources` now reuses the same Chrome extension setup cards as `/app/chrome-extension`; logged-out visitors can see the walkthrough but cannot reveal or copy the one-time connect code.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
