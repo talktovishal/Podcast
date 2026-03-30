@@ -36,6 +36,7 @@ type JobProjectionEntity = {
   createdAt: string;
   updatedAt: string;
   lockedAt?: string;
+  scheduledFor?: string;
   nextRetryAt?: string;
   errorCode?: string;
   errorMessage?: string;
@@ -196,6 +197,7 @@ export class AzureTableQueueMetadataMirror implements QueueMetadataMirror {
       createdAt: input.createdAt.toISOString(),
       updatedAt: input.updatedAt.toISOString(),
       lockedAt: toOptionalIso(input.lockedAt),
+      scheduledFor: toOptionalIso(input.scheduledFor),
       nextRetryAt: toOptionalIso(input.nextRetryAt),
       errorCode: input.errorCode ?? undefined,
       errorMessage: input.errorMessage ?? undefined
@@ -273,12 +275,14 @@ export class AzureTableQueueMetadataMirror implements QueueMetadataMirror {
     for (const raw of jobs) {
       const status = typeof raw.status === "string" ? raw.status : "";
       const createdAt = parseDate(raw.createdAt);
+      const scheduledFor = parseDate(raw.scheduledFor);
       const attempt = toNumber(raw.attempt, 0);
       const nextRetryAt = parseDate(raw.nextRetryAt);
 
       if (status === "QUEUED") {
         queuedJobs++;
-        if (createdAt && (!oldestEligibleCreatedAt || createdAt.getTime() < oldestEligibleCreatedAt.getTime())) {
+        const queuedEligible = scheduledFor === null || scheduledFor.getTime() <= input.now.getTime();
+        if (queuedEligible && createdAt && (!oldestEligibleCreatedAt || createdAt.getTime() < oldestEligibleCreatedAt.getTime())) {
           oldestEligibleCreatedAt = createdAt;
         }
         continue;
@@ -300,7 +304,12 @@ export class AzureTableQueueMetadataMirror implements QueueMetadataMirror {
       }
     }
 
-    const eligibleJobs = queuedJobs + retryableFailedJobs;
+    const eligibleQueuedJobs = jobs.filter((raw) => {
+      const status = typeof raw.status === "string" ? raw.status : "";
+      const scheduledFor = parseDate(raw.scheduledFor);
+      return status === "QUEUED" && (scheduledFor === null || scheduledFor.getTime() <= input.now.getTime());
+    }).length;
+    const eligibleJobs = eligibleQueuedJobs + retryableFailedJobs;
     const oldestEligibleJobAgeMs = oldestEligibleCreatedAt ? Math.max(0, input.now.getTime() - oldestEligibleCreatedAt.getTime()) : 0;
 
     return {

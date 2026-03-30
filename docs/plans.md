@@ -81,6 +81,7 @@
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
   - paid Pro access now carries default usage guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days
+  - paid over-limit episode submissions now spill into a capped deferred queue instead of hard-failing immediately
   - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy
 - Digest automation controls (`M72`-`M79`) are implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
@@ -2122,6 +2123,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Non-paid users can submit up to configured free quota and are blocked afterwards.
   - Ingest APIs return `USAGE_LIMIT_EXCEEDED` for exhausted quota.
+  - Paid users who fill the current 24-hour episode-start window are accepted into a bounded deferred queue; only queue-cap submissions are rejected.
   - Admin can search users and update `paid` status or extra credits from dashboard.
   - Granted extra credits immediately allow additional submissions.
 - Verification commands:

@@ -99,6 +99,7 @@ async function backfillJobs(): Promise<number> {
         createdAt: true,
         updatedAt: true,
         lockedAt: true,
+        scheduledFor: true,
         nextRetryAt: true,
         errorCode: true,
         errorMessage: true

@@ -26,6 +26,7 @@ export async function syncQueueProjectionFromEnqueue(input: {
     createdAt: Date;
     updatedAt: Date;
     lockedAt: Date | null;
+    scheduledFor: Date | null;
     nextRetryAt: Date | null;
     errorCode: string | null;
     errorMessage: string | null;
@@ -55,6 +56,7 @@ export async function syncQueueProjectionFromEnqueue(input: {
         createdAt: input.job.createdAt,
         updatedAt: input.job.updatedAt,
         lockedAt: input.job.lockedAt,
+        scheduledFor: input.job.scheduledFor,
         nextRetryAt: input.job.nextRetryAt,
         errorCode: input.job.errorCode,
         errorMessage: input.job.errorMessage

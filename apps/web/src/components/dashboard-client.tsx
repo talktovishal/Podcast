@@ -89,6 +89,8 @@ type SubmissionQuotaSnapshot = {
   dailyPodcastLimit: number | null;
   podcastsUsedLast24Hours: number;
   remainingDailyPodcasts: number | null;
+  queuedDeferredPodcasts: number;
+  maxDeferredPodcasts: number | null;
 };
 
 type DigestSettings = {
@@ -221,6 +223,9 @@ function isPendingStatus(status: string): boolean {
 function statusHelpText(status: string, processingMessage?: string | null): string | null {
   const normalized = status.toUpperCase();
   if (normalized === "QUEUED") {
+    if (processingMessage && processingMessage.trim()) {
+      return processingMessage.trim();
+    }
     return "Queued. Waiting for worker to start processing.";
   }
 
@@ -308,10 +313,15 @@ export function DashboardClient({
   const showItemsSection = viewMode === "workspace";
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
+  const paidQueueFull =
+    Boolean(submissionQuota?.isPaid) &&
+    (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0 &&
+    (submissionQuota?.maxDeferredPodcasts ?? 0) > 0 &&
+    (submissionQuota?.queuedDeferredPodcasts ?? 0) >= (submissionQuota?.maxDeferredPodcasts ?? 0);
+  const paidWillDefer = Boolean(submissionQuota?.isPaid) && !paidQueueFull && (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0;
   const submissionBlocked =
     showSubmissionQuota &&
-    ((submissionQuota?.isPaid && (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0) ||
-      (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
+    (paidQueueFull || (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
   const requestedSettingsSections = useMemo(() => new Set(settingsSections), [settingsSections]);
   const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
   const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
@@ -559,20 +569,13 @@ export function DashboardClient({
         return;
       }
 
-      setStatusMessage("URL received. Processing has started and status will update automatically.");
-      setSubmissionQuota((current) =>
-        current
-          ? {
-              ...current,
-              submissionCount: current.isPaid ? current.submissionCount : current.submissionCount + 1,
-              remainingFreeSubmissions:
-                current.isPaid || current.remainingFreeSubmissions === null ? current.remainingFreeSubmissions : Math.max(0, current.remainingFreeSubmissions - 1),
-              podcastsUsedLast24Hours: current.isPaid ? current.podcastsUsedLast24Hours + 1 : current.podcastsUsedLast24Hours,
-              remainingDailyPodcasts:
-                !current.isPaid || current.remainingDailyPodcasts === null ? current.remainingDailyPodcasts : Math.max(0, current.remainingDailyPodcasts - 1)
-            }
-          : current
+      setStatusMessage(
+        json.accepted_message ||
+          (json.queue_mode === "deferred"
+            ? "Accepted. Processing is queued for the next available Pro window."
+            : "URL received. Processing has started and status will update automatically.")
       );
+      setSubmissionQuota(json.submission_quota ?? null);
       setUrlInput("");
       setTitleInput("");
       setImportanceInput("LOW");
@@ -611,20 +614,13 @@ export function DashboardClient({
         return;
       }
 
-      setStatusMessage("PDF uploaded. Processing has started and status will update automatically.");
-      setSubmissionQuota((current) =>
-        current
-          ? {
-              ...current,
-              submissionCount: current.isPaid ? current.submissionCount : current.submissionCount + 1,
-              remainingFreeSubmissions:
-                current.isPaid || current.remainingFreeSubmissions === null ? current.remainingFreeSubmissions : Math.max(0, current.remainingFreeSubmissions - 1),
-              podcastsUsedLast24Hours: current.isPaid ? current.podcastsUsedLast24Hours + 1 : current.podcastsUsedLast24Hours,
-              remainingDailyPodcasts:
-                !current.isPaid || current.remainingDailyPodcasts === null ? current.remainingDailyPodcasts : Math.max(0, current.remainingDailyPodcasts - 1)
-            }
-          : current
+      setStatusMessage(
+        json.accepted_message ||
+          (json.queue_mode === "deferred"
+            ? "Accepted. Processing is queued for the next available Pro window."
+            : "PDF uploaded. Processing has started and status will update automatically.")
       );
+      setSubmissionQuota(json.submission_quota ?? null);
       setPdfFile(null);
       setTitleInput("");
       setImportanceInput("LOW");
@@ -1462,10 +1458,18 @@ export function DashboardClient({
                 <>
                   <p>
                     Paid plan active. {submissionQuota?.remainingDailyPodcasts ?? 0} of {submissionQuota?.dailyPodcastLimit ?? 0} new podcast
-                    episodes left in the last 24 hours.
+                    episodes can start right away in the current 24-hour window.
                   </p>
-                  {submissionBlocked ? (
-                    <p className="mt-1">This Pro plan has reached its current 24-hour episode limit. Try again later.</p>
+                  {paidWillDefer ? (
+                    <p className="mt-1">
+                      New submissions are still accepted and queued automatically. {submissionQuota?.queuedDeferredPodcasts ?? 0} of{" "}
+                      {submissionQuota?.maxDeferredPodcasts ?? 0} overflow spots are already reserved.
+                    </p>
+                  ) : null}
+                  {paidQueueFull ? (
+                    <p className="mt-1">
+                      The current Pro window is full and the overflow queue is at capacity. Try again later.
+                    </p>
                   ) : null}
                 </>
               ) : (

@@ -179,6 +179,7 @@ export type AzureTablePrimaryJob = {
   attempt: number;
   status: string;
   lockedAt: Date | null;
+  scheduledFor: Date | null;
   nextRetryAt: Date | null;
   errorCode: string | null;
   errorMessage: string | null;
@@ -887,6 +888,7 @@ export class AzureTablePrimaryStore {
       attempt: parseNumber(entity.attempt, 0),
       status: parseRequiredString(entity.status, "status"),
       lockedAt: parseDate(entity.lockedAt),
+      scheduledFor: parseDate(entity.scheduledFor),
       nextRetryAt: parseDate(entity.nextRetryAt),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
@@ -1874,6 +1876,7 @@ export class AzureTablePrimaryStore {
     attempt?: number;
     status: string;
     lockedAt?: Date | null;
+    scheduledFor?: Date | null;
     nextRetryAt?: Date | null;
     errorCode?: string | null;
     errorMessage?: string | null;
@@ -1888,6 +1891,7 @@ export class AzureTablePrimaryStore {
       attempt: input.attempt ?? 0,
       status: input.status,
       lockedAt: isoOrNull(input.lockedAt ?? null),
+      scheduledFor: isoOrNull(input.scheduledFor ?? null),
       nextRetryAt: isoOrNull(input.nextRetryAt ?? null),
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
@@ -1901,6 +1905,14 @@ export class AzureTablePrimaryStore {
   async findJobById(jobId: string): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
     return entity ? { ...this.toJob(entity), etag: entity.etag } : null;
+  }
+
+  async listJobsByUser(userId: string, limit = 100): Promise<AzureTablePrimaryJob[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "jobs",
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toJob(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
   async listJobsByItemId(itemId: string): Promise<AzureTablePrimaryJob[]> {
@@ -1972,7 +1984,8 @@ export class AzureTablePrimaryStore {
       job.attempt < maxRetryAttempts &&
       job.nextRetryAt !== null &&
       job.nextRetryAt.getTime() <= now.getTime();
-    if (!(job.status === "QUEUED" || retryable)) {
+    const queuedReady = job.status === "QUEUED" && (job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime());
+    if (!(queuedReady || retryable)) {
       return null;
     }
 
@@ -2009,9 +2022,21 @@ export class AzureTablePrimaryStore {
         filterLessThanOrEqual("nextRetryAt", now)
       )
     );
-    return sortByDateDesc(
-      [...queued, ...retryable].map((row) => this.toJob(row)),
-      (entry) => entry.createdAt
+    return [...queued.map((row) => this.toJob(row)).filter((job) => job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime()), ...retryable.map((row) => this.toJob(row))].sort(
+      (left, right) => {
+        const leftPrimary =
+          left.status === "QUEUED"
+            ? (left.scheduledFor ?? left.createdAt).getTime()
+            : (left.nextRetryAt ?? left.createdAt).getTime();
+        const rightPrimary =
+          right.status === "QUEUED"
+            ? (right.scheduledFor ?? right.createdAt).getTime()
+            : (right.nextRetryAt ?? right.createdAt).getTime();
+        if (leftPrimary !== rightPrimary) {
+          return leftPrimary - rightPrimary;
+        }
+        return left.createdAt.getTime() - right.createdAt.getTime();
+      }
     );
   }
 
@@ -2021,6 +2046,7 @@ export class AzureTablePrimaryStore {
       status: string;
       attempt: number;
       lockedAt: Date | null;
+      scheduledFor: Date | null;
       nextRetryAt: Date | null;
       errorCode: string | null;
       errorMessage: string | null;
@@ -2039,6 +2065,7 @@ export class AzureTablePrimaryStore {
       status: input.status ?? current.status,
       attempt: input.attempt ?? current.attempt,
       lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
       nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,

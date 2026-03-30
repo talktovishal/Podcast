@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       contentType: "application/pdf"
     });
 
-    const item = await enqueueItem({
+    const submission = await enqueueItem({
       userId: user.id,
       title,
       importance,
@@ -67,11 +67,19 @@ export async function POST(request: NextRequest) {
     });
     await logger.info("PDF item enqueued", {
       requestId,
-      itemId: item.id,
+      itemId: submission.item.id,
       userId: user.id
     });
 
-    return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });
+    return NextResponse.json({
+      ok: true,
+      item_id: submission.item.id,
+      status: submission.item.status.toLowerCase(),
+      queue_mode: submission.queueMode.toLowerCase(),
+      accepted_message: submission.acceptedMessage,
+      scheduled_for: submission.scheduledFor.toISOString(),
+      submission_quota: submission.submissionQuota
+    });
   } catch (error) {
     return fromError(error, {
       requestId,

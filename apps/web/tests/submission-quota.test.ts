@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 import { GET as adminQuotaGet, POST as adminQuotaPost } from "../src/app/api/admin/users/quota/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
 import { createSession } from "../src/lib/auth";
+import { enqueueItem } from "../src/lib/items";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -189,7 +190,7 @@ test("admin quota API is admin-only and returns quota rows", async () => {
   }
 });
 
-test("paid users are capped at 15 new podcast episodes per 24 hours", async () => {
+test("paid users defer overflow submissions after 15 immediate starts", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-paid`;
 
@@ -215,6 +216,75 @@ test("paid users are capped at 15 new podcast episodes per 24 hours", async () =
       assert.equal(response.status, 200);
     }
 
+    const deferred = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-deferred`));
+    assert.equal(deferred.status, 200);
+    const payload = (await deferred.json()) as {
+      ok: boolean;
+      item_id: string;
+      queue_mode: string;
+      accepted_message: string;
+      submission_quota: {
+        remainingDailyPodcasts: number | null;
+        queuedDeferredPodcasts: number;
+        maxDeferredPodcasts: number | null;
+      };
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.queue_mode, "deferred");
+    assert.equal(payload.accepted_message.includes("queued for the next available Pro window"), true);
+    assert.equal(payload.submission_quota.remainingDailyPodcasts, 0);
+    assert.equal(payload.submission_quota.queuedDeferredPodcasts, 1);
+    assert.equal(payload.submission_quota.maxDeferredPodcasts, 30);
+
+    const [item, job] = await Promise.all([
+      prisma.item.findUnique({ where: { id: payload.item_id } }),
+      prisma.job.findFirst({ where: { itemId: payload.item_id } })
+    ]);
+    assert.equal(item?.status, "QUEUED");
+    assert.equal(item?.errorCode, "PRO_DAILY_LIMIT_DEFERRED");
+    assert.equal(item?.errorMessage?.includes("queued for the next available Pro window"), true);
+    assert.equal(job?.status, "QUEUED");
+    assert.ok(job?.scheduledFor instanceof Date);
+    assert.ok(job?.scheduledFor ? job.scheduledFor.getTime() > Date.now() : false);
+    assert.equal(job?.nextRetryAt?.toISOString(), job?.scheduledFor?.toISOString());
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("paid users are blocked once the deferred overflow queue reaches 30 items", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-paid-backlog`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `quota-paid-backlog-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_MONTHLY",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const userSession = await createSession(user.id);
+
+    for (let index = 0; index < 45; index += 1) {
+      const submission = await enqueueItem({
+        userId: user.id,
+        title: `Quota ${uniq}-${index}`,
+        sourceType: "HTML_SNAPSHOT",
+        sourceUrl: `https://example.com/quota/${uniq}-${index}`,
+        sourceHtml: `<html><body><article><h1>${uniq}-${index}</h1><p>quota test content ${uniq}-${index}</p></article></body></html>`,
+        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+      });
+      assert.equal(submission.item.status, "QUEUED");
+    }
+
     const blocked = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-blocked`));
     assert.equal(blocked.status, 402);
     const payload = (await blocked.json()) as {
@@ -224,7 +294,7 @@ test("paid users are capped at 15 new podcast episodes per 24 hours", async () =
     };
     assert.equal(payload.ok, false);
     assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
-    assert.equal(payload.error_message.includes("15 new podcast episodes per 24 hours"), true);
+    assert.equal(payload.error_message.includes("queue is full"), true);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

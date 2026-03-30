@@ -94,7 +94,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "jobs",
     delegate: "job",
     orderByField: "id",
-    dateFields: ["lockedAt", "nextRetryAt", "createdAt", "updatedAt"]
+    dateFields: ["lockedAt", "scheduledFor", "nextRetryAt", "createdAt", "updatedAt"]
   },
   {
     modelName: "JobEvent",

@@ -83,6 +83,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - paid Pro access now carries guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
+  - once paid users fill the 24-hour episode-start window, new submissions are still accepted into a capped deferred queue and start automatically in the next available Pro window
+  - paid over-limit submissions only return `USAGE_LIMIT_EXCEEDED` after the deferred backlog reaches its cap (default: 30 queued items)
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
   - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are implemented for the Pro plan
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends

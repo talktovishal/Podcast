@@ -32,6 +32,8 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin can grant extra submission credits or add complimentary Pro access from `/admin`
   - paid Pro access is guarded to 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
+  - after paid users fill the current 24-hour episode-start window, new submissions are still accepted and queued for the next available Pro window
+  - paid submissions only hard-fail once the deferred overflow queue reaches its cap (default: `30`)
 - Billing:
   - `/pricing` supports self-serve upgrade to `Pro monthly` or `Pro annual` through Stripe-hosted Checkout when billing env vars are configured
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`

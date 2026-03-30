@@ -180,6 +180,57 @@ test("does not process failed job before nextRetryAt", async () => {
   }
 });
 
+test("does not process queued job before scheduledFor", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-queued-future`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `queued-future-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Queued Future ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/queued/future/${uniq}`,
+      sourceHtml: SNAPSHOT_HTML,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED",
+      errorCode: "PRO_DAILY_LIMIT_DEFERRED",
+      errorMessage: "Accepted. Processing is queued for the next available Pro window."
+    }
+  });
+
+  const scheduledFor = new Date(Date.now() + 10 * 60 * 1000);
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED",
+      scheduledFor,
+      nextRetryAt: scheduledFor,
+      errorCode: "PRO_DAILY_LIMIT_DEFERRED",
+      errorMessage: "Accepted. Processing is queued for the next available Pro window."
+    }
+  });
+
+  try {
+    const processed = await processJob(job.id);
+    assert.equal(processed, false);
+
+    const untouched = await prisma.job.findUnique({ where: { id: job.id } });
+    assert.equal(untouched?.status, "QUEUED");
+    assert.equal(untouched?.attempt, 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("stale processing retry does not block newer queued work", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-stale-priority`;

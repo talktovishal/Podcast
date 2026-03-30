@@ -789,7 +789,10 @@ export async function processJob(jobId: string): Promise<boolean> {
             where: {
               id: jobId,
               OR: [
-                { status: "QUEUED" },
+                {
+                  status: "QUEUED",
+                  OR: [{ scheduledFor: null }, { scheduledFor: { lte: nowTs } }]
+                },
                 {
                   status: "FAILED",
                   nextRetryAt: { lte: nowTs },
@@ -1487,9 +1490,10 @@ export async function processNextQueuedJob(): Promise<boolean> {
 
   const nextQueued = await prisma.job.findFirst({
     where: {
-      status: "QUEUED"
+      status: "QUEUED",
+      OR: [{ scheduledFor: null }, { scheduledFor: { lte: now() } }]
     },
-    orderBy: [{ createdAt: "asc" }]
+    orderBy: [{ scheduledFor: "asc" }, { createdAt: "asc" }]
   });
 
   if (nextQueued) {

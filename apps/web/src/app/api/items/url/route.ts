@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
 
     const canonical = await canonicalizeFetchableUrl(payload.url);
 
-    const item = await enqueueItem({
+    const submission = await enqueueItem({
       userId: user.id,
       title: payload.title,
       importance: payload.importance,
@@ -30,13 +30,21 @@ export async function POST(request: NextRequest) {
     });
     await logger.info("URL item enqueued", {
       requestId,
-      itemId: item.id,
+      itemId: submission.item.id,
       userId: user.id,
       canonicalized: canonical.redirected,
       redirectCount: canonical.redirectCount
     });
 
-    return NextResponse.json({ ok: true, item_id: item.id, status: item.status.toLowerCase() });
+    return NextResponse.json({
+      ok: true,
+      item_id: submission.item.id,
+      status: submission.item.status.toLowerCase(),
+      queue_mode: submission.queueMode.toLowerCase(),
+      accepted_message: submission.acceptedMessage,
+      scheduled_for: submission.scheduledFor.toISOString(),
+      submission_quota: submission.submissionQuota
+    });
   } catch (error) {
     return fromError(error, {
       requestId,

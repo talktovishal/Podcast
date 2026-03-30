@@ -3,7 +3,7 @@ import { serializeItemTags } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { prisma } from "./prisma";
-import { consumeSubmissionCredit } from "./submission-quota";
+import { consumeSubmissionCredit, PAID_SUBMISSION_DEFERRED_CODE } from "./submission-quota";
 import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
 import { webPrimaryStore } from "./metadata-primary-store";
 
@@ -18,13 +18,20 @@ export async function enqueueItem(input: {
   sourceHtml?: string;
   sourceCapturedAt?: Date;
 }) {
+  let submissionOutcome: Awaited<ReturnType<typeof consumeSubmissionCredit>> | null = null;
+  if (env.metadataPrimaryBackend === "azure_table" && webPrimaryStore) {
+    submissionOutcome = await consumeSubmissionCredit({
+      userId: input.userId
+    });
+  }
+  const initialQueueMode = submissionOutcome?.queueMode ?? "IMMEDIATE";
+  const initialScheduledFor = submissionOutcome?.scheduledFor ?? new Date();
+  const initialAcceptedMessage = submissionOutcome?.acceptedMessage ?? null;
+  const initialDeferredErrorCode = initialQueueMode === "DEFERRED" ? PAID_SUBMISSION_DEFERRED_CODE : null;
+
   const item =
     env.metadataPrimaryBackend === "azure_table" && webPrimaryStore
       ? await (async () => {
-          await consumeSubmissionCredit({
-            userId: input.userId
-          });
-
           const createdItem = await webPrimaryStore.createItem({
             id: randomUUID(),
             userId: input.userId,
@@ -36,13 +43,19 @@ export async function enqueueItem(input: {
             sourceFilePath: input.sourceFilePath,
             sourceHtml: input.sourceHtml,
             sourceCapturedAt: input.sourceCapturedAt,
-            status: "QUEUED"
+            status: "QUEUED",
+            errorCode: initialDeferredErrorCode,
+            errorMessage: initialAcceptedMessage
           });
           const createdJob = await webPrimaryStore.createJob({
             id: randomUUID(),
             itemId: createdItem.id,
             userId: input.userId,
-            status: "QUEUED"
+            status: "QUEUED",
+            nextRetryAt: initialQueueMode === "DEFERRED" ? initialScheduledFor : null,
+            scheduledFor: initialScheduledFor,
+            errorCode: initialDeferredErrorCode,
+            errorMessage: initialAcceptedMessage
           });
           return {
             ...createdItem,
@@ -50,10 +63,14 @@ export async function enqueueItem(input: {
           };
         })()
       : await prisma.$transaction(async (tx) => {
-          await consumeSubmissionCredit({
+          submissionOutcome = await consumeSubmissionCredit({
             userId: input.userId,
             tx
           });
+          const queueMode = submissionOutcome.queueMode;
+          const scheduledFor = submissionOutcome.scheduledFor;
+          const acceptedMessage = submissionOutcome.acceptedMessage;
+          const deferredErrorCode = queueMode === "DEFERRED" ? PAID_SUBMISSION_DEFERRED_CODE : null;
 
           return tx.item.create({
             include: {
@@ -66,6 +83,7 @@ export async function enqueueItem(input: {
                   createdAt: true,
                   updatedAt: true,
                   lockedAt: true,
+                  scheduledFor: true,
                   nextRetryAt: true,
                   errorCode: true,
                   errorMessage: true
@@ -84,9 +102,15 @@ export async function enqueueItem(input: {
               sourceHtml: input.sourceHtml,
               sourceCapturedAt: input.sourceCapturedAt,
               status: "QUEUED",
+              errorCode: deferredErrorCode,
+              errorMessage: acceptedMessage,
               jobs: {
                 create: {
-                  status: "QUEUED"
+                  status: "QUEUED",
+                  nextRetryAt: queueMode === "DEFERRED" ? scheduledFor : null,
+                  scheduledFor,
+                  errorCode: deferredErrorCode,
+                  errorMessage: acceptedMessage
                 }
               }
             }
@@ -126,5 +150,15 @@ export async function enqueueItem(input: {
     });
   }
 
-  return item;
+  if (!submissionOutcome) {
+    throw new Error("Missing submission quota outcome");
+  }
+
+  return {
+    item,
+    submissionQuota: submissionOutcome.snapshot,
+    queueMode: submissionOutcome.queueMode,
+    acceptedMessage: submissionOutcome.acceptedMessage,
+    scheduledFor: submissionOutcome.scheduledFor
+  };
 }

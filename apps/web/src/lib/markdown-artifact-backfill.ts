@@ -492,6 +492,7 @@ async function queueRegeneration(item: BackfillItemRecord, dryRun: boolean): Pro
         createdAt: true,
         updatedAt: true,
         lockedAt: true,
+        scheduledFor: true,
         nextRetryAt: true,
         errorCode: true,
         errorMessage: true
