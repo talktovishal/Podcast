@@ -5,7 +5,8 @@ import {
   containsBannedMarketingPhrase,
   marketingBannedPhrases,
   marketingCopy,
-  marketingNavItems
+  marketingNavItems,
+  publicMarketingSensitivePhrases
 } from "../src/lib/marketing-content";
 
 test("marketing nav items follow canonical order and routes", () => {
@@ -53,8 +54,29 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
   assert.equal(source.includes("Annual plans stay active through the paid term, then stop renewing."), true);
   assert.equal(source.includes("15 new private podcast episodes per 24 hours"), true);
   assert.equal(source.includes("5 manual summaries per 7 days"), true);
+  assert.equal(source.includes("higher limits, manual summaries, and daily briefings"), true);
   assert.equal(source.includes("scale into Pro or Team"), false);
   assert.equal(source.includes("<h2 className=\"text-lg font-semibold\">Team</h2>"), false);
   assert.equal(source.includes("$79/mo"), false);
   assert.equal(source.includes("$19/mo"), false);
+  assert.equal(source.includes("Capacity, cost, and margins"), false);
+  assert.equal(source.includes("cost model details"), false);
+  assert.equal(source.includes("better margin on regular use"), false);
+});
+
+test("public marketing pages do not leak internal economics or vendor implementation details", () => {
+  const publicPageSources = [
+    "../src/app/page.tsx",
+    "../src/app/product/page.tsx",
+    "../src/app/pricing/page.tsx",
+    "../src/app/resources/page.tsx",
+    "../src/app/faq/page.tsx",
+    "../src/app/about/page.tsx"
+  ]
+    .map((path) => readFileSync(new URL(path, import.meta.url), "utf8").toLowerCase())
+    .join("\n");
+
+  for (const phrase of publicMarketingSensitivePhrases) {
+    assert.equal(publicPageSources.includes(phrase), false, `public marketing pages leaked sensitive phrase: ${phrase}`);
+  }
 });

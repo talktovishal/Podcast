@@ -38,7 +38,7 @@ export default async function PricingPage({
           </p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple pricing for personal listening</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Start free. Upgrade to Pro when you want more listening volume, manual summaries, and a better margin on regular use.
+            Start free. Upgrade to Pro when you want higher limits, manual summaries, and daily briefings.
           </p>
           {billingSearchParam === "canceled" ? (
             <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
@@ -153,18 +153,6 @@ export default async function PricingPage({
             <li>- Cancel anytime. Access stays on through the current paid period.</li>
             <li>- Annual plans stay active through the paid term, then stop renewing.</li>
           </ul>
-        </section>
-
-        <section className="mt-8 card p-5">
-          <h2 className="text-lg font-semibold">Capacity, cost, and margins</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Cost modeling uses your Azure baseline and configurable usage knobs (articles/day, average length, retries, VM count,
-            egress, and reservations). See the{" "}
-            <Link className="underline" href="/resources#cost-model">
-              cost model details
-            </Link>{" "}
-            for the full assumption framework.
-          </p>
         </section>
 
         <MarketingCta />

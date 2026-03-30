@@ -17,6 +17,18 @@ export const marketingBannedPhrases: ReadonlyArray<string> = [
   "async processing pipeline"
 ];
 
+export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
+  "capacity, cost, and margins",
+  "better margin on regular use",
+  "cost model",
+  "azure baseline",
+  "azure openai",
+  "vm count",
+  "egress",
+  "reservations",
+  "unit economics"
+];
+
 export const marketingCopy = {
   heroBadge: "Personalized Podcasts",
   heroHeadline: "Turn saved reading into daily and weekly intelligence.",
