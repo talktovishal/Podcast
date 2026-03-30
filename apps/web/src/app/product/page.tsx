@@ -6,7 +6,7 @@ import { marketingCopy } from "@/lib/marketing-content";
 export const metadata: Metadata = {
   title: "Product",
   description:
-    "ArticlePod converts articles and PDFs into instant episodes, daily recap podcasts, and weekly topic briefings — with companion email summaries.",
+    "ArticlePod converts articles and PDFs into private podcast episodes, with weekly digest summaries and companion email options.",
   alternates: { canonical: "/product" }
 };
 
@@ -21,8 +21,8 @@ export default function ProductPage() {
           </p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">One system for continuous learning</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            ArticlePod starts with article-to-podcast conversion, then layers daily, weekly, and long-horizon summaries on top of
-            your saved sources.
+            ArticlePod starts with one podcast episode per saved source, then adds weekly digest podcast and email summaries when you
+            want a recap layer.
           </p>
         </section>
 
@@ -42,17 +42,17 @@ export default function ProductPage() {
             </p>
           </article>
           <article className="card p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">3. Daily briefing</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">3. Weekly digest</p>
             <h2 className="mt-2 text-lg font-semibold">Podcast + email</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Get a daily recap episode plus a reading-friendly email summary of key takeaways.
+              Add a higher-level weekly recap with a digest podcast and reading-friendly email summary.
             </p>
           </article>
           <article className="card p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">4. Weekly intelligence</p>
-            <h2 className="mt-2 text-lg font-semibold">Topic-structured insights</h2>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">4. Private by default</p>
+            <h2 className="mt-2 text-lg font-semibold">Standard podcast app workflow</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Weekly digests group what changed by topic, with source-backed references.
+              Listen in your regular podcast app with a private RSS feed you control.
             </p>
           </article>
         </section>
@@ -60,10 +60,10 @@ export default function ProductPage() {
         <section className="mt-8 card p-5">
           <h2 className="text-lg font-semibold">What you get over time</h2>
           <ul className="mt-3 grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-2">
-            <li>- Daily and weekly podcast briefings built from your saved reading stream</li>
-            <li>- Companion email summaries for people who prefer reading</li>
-            <li>- Monthly and yearly recap potential as your archive grows</li>
-            <li>- Source-grounded summaries with direct links back to original articles</li>
+            <li>- Full podcast episodes for saved articles, PDFs, and Chrome captures</li>
+            <li>- Weekly digest podcast and email recap options</li>
+            <li>- Private RSS feeds that work in standard podcast apps</li>
+            <li>- Source-grounded listening with direct links back to original articles</li>
           </ul>
         </section>
 

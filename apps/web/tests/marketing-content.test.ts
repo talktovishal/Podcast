@@ -54,7 +54,9 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
   assert.equal(source.includes("Annual plans stay active through the paid term, then stop renewing."), true);
   assert.equal(source.includes("15 new private podcast episodes per 24 hours"), true);
   assert.equal(source.includes("5 manual summaries per 7 days"), true);
-  assert.equal(source.includes("higher limits, manual summaries, and daily briefings"), true);
+  assert.equal(source.includes("higher limits, manual summaries, and weekly digest workflows"), true);
+  assert.equal(source.includes("Weekly digest podcast + email options"), true);
+  assert.equal(source.includes("Daily podcast + email briefing"), false);
   assert.equal(source.includes("scale into Pro or Team"), false);
   assert.equal(source.includes("<h2 className=\"text-lg font-semibold\">Team</h2>"), false);
   assert.equal(source.includes("$79/mo"), false);
@@ -79,4 +81,36 @@ test("public marketing pages do not leak internal economics or vendor implementa
   for (const phrase of publicMarketingSensitivePhrases) {
     assert.equal(publicPageSources.includes(phrase), false, `public marketing pages leaked sensitive phrase: ${phrase}`);
   }
+});
+
+test("public marketing copy focuses on instant episodes and weekly digest options", () => {
+  const marketingSource = readFileSync(new URL("../src/lib/marketing-content.ts", import.meta.url), "utf8");
+  const faqSource = readFileSync(new URL("../src/app/faq/page.tsx", import.meta.url), "utf8");
+  const aboutSource = readFileSync(new URL("../src/app/about/page.tsx", import.meta.url), "utf8");
+  const productSource = readFileSync(new URL("../src/app/product/page.tsx", import.meta.url), "utf8");
+  const layoutSource = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
+
+  assert.equal(marketingSource.includes("Turn saved reading into private podcast episodes."), true);
+  assert.equal(marketingSource.includes("weekly digest podcast and email summaries"), true);
+  assert.equal(marketingSource.includes("monthly and yearly trend recaps"), false);
+  assert.equal(marketingSource.includes("daily recap podcast"), false);
+
+  assert.equal(faqSource.includes("What happens when I save an article?"), true);
+  assert.equal(faqSource.includes("weekly podcast and email options"), true);
+  assert.equal(faqSource.includes("What does the daily podcast include?"), false);
+  assert.equal(faqSource.includes("Can ArticlePod create long-term recaps?"), false);
+  assert.equal(faqSource.includes("Can I upload scanned PDFs?"), true);
+
+  assert.equal(aboutSource.includes("Built for people who save more than they can revisit"), true);
+  assert.equal(aboutSource.includes("weekly digest podcast or email summaries"), true);
+  assert.equal(aboutSource.includes("daily and weekly"), false);
+  assert.equal(aboutSource.includes("Monthly and yearly recaps"), false);
+
+  assert.equal(productSource.includes("one podcast episode per saved source"), true);
+  assert.equal(productSource.includes("Weekly digest"), true);
+  assert.equal(productSource.includes("Daily briefing"), false);
+  assert.equal(productSource.includes("long-horizon summaries"), false);
+
+  assert.equal(layoutSource.includes("weekly digest summary options"), true);
+  assert.equal(layoutSource.includes("daily and weekly briefings"), false);
 });

@@ -31,16 +31,16 @@ export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
 
 export const marketingCopy = {
   heroBadge: "Personalized Podcasts",
-  heroHeadline: "Turn saved reading into daily and weekly intelligence.",
+  heroHeadline: "Turn saved reading into private podcast episodes.",
   heroSubheading:
-    "ArticlePod converts what you discover into instant episodes, a daily recap podcast, and a weekly topic briefing.",
-  heroChips: ["Instant article podcasts", "Daily + weekly digest episodes", "Companion reading email"],
+    "ArticlePod converts what you discover into instant episodes, with weekly digest podcast and email summaries when you want a recap layer.",
+  heroChips: ["Instant article podcasts", "Weekly digest summaries", "Private RSS feed"],
   heroSecondary:
-    "As your library grows, unlock monthly and yearly trend recaps grounded in your own source articles.",
+    "Save from URLs, PDFs, or Chrome, then listen in the podcast app you already use.",
   securityBullets: [
     "Sign-in via Google, Facebook, or Apple — sessions stay server-side in secure cookies.",
     "Chrome extension connects with a one-time code and a scoped token that never sees your feed URL.",
-    "Your podcast feed is never exposed directly — episode audio uses signed, per-episode redirects."
+    "Your podcast feed uses a private token, and episode audio is authorized per episode."
   ] as const,
   ctaPrimary: "Start your knowledge feed",
   ctaSecondary: "Open app"

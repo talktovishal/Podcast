@@ -38,7 +38,7 @@ export default async function PricingPage({
           </p>
           <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple pricing for personal listening</h1>
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-            Start free. Upgrade to Pro when you want higher limits, manual summaries, and daily briefings.
+            Start free. Upgrade to Pro when you want higher limits, manual summaries, and weekly digest workflows.
           </p>
           {billingSearchParam === "canceled" ? (
             <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
@@ -76,7 +76,7 @@ export default async function PricingPage({
               <li>- 15 new private podcast episodes per 24 hours</li>
               <li>- 5 manual summaries per 7 days</li>
               <li>- Chrome extension capture</li>
-              <li>- Daily podcast + email briefing</li>
+              <li>- Weekly digest podcast + email options</li>
             </ul>
             <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
             <div className="mt-4">
@@ -115,7 +115,7 @@ export default async function PricingPage({
               <li>- 15 new private podcast episodes per 24 hours</li>
               <li>- 5 manual summaries per 7 days</li>
               <li>- Chrome extension capture</li>
-              <li>- Daily podcast + email briefing</li>
+              <li>- Weekly digest podcast + email options</li>
             </ul>
             <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
             <div className="mt-4">
