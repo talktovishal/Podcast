@@ -17,6 +17,8 @@ test("app dashboard uses direct navigation links and logout icon", () => {
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);
   assert.equal(source.includes("keep an eye on processing and playback below"), true);
+  assert.equal(source.includes('py-4 sm:py-6'), true);
+  assert.equal(source.includes('container-shell space-y-4 sm:space-y-5'), true);
 });
 
 test("workspace billing summary stays compact inside the header", () => {
@@ -166,6 +168,8 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("financial, personal, retirement"), true);
   assert.equal(source.includes("Primary action"), false);
   assert.equal(source.includes("Paste a URL or upload a PDF to turn it into a private podcast episode."), false);
+  assert.equal(source.includes("mt-2.5 space-y-2.5"), true);
+  assert.equal(source.includes("p-2.5"), true);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);

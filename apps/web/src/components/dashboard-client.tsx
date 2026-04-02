@@ -486,8 +486,8 @@ export function DashboardClient({
   }, [inProgressCount, readOnly, refreshItems, showItemsSection]);
 
   const optionalDetailsPanel = (
-    <section className="mt-3 rounded-xl border border-[rgba(31,42,31,0.1)] bg-[rgba(244,248,244,0.96)] p-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="mt-2.5 rounded-xl border border-[rgba(31,42,31,0.1)] bg-[rgba(244,248,244,0.96)] p-2.5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-[var(--ink)]">Optional details</p>
           <p className="text-xs text-[var(--muted)]">Title, importance, and tags are optional.</p>
@@ -504,7 +504,7 @@ export function DashboardClient({
       </div>
 
       {showOptionalDetails ? (
-        <div id="submission-optional-details" className="mt-3 grid gap-2.5">
+        <div id="submission-optional-details" className="mt-2.5 grid gap-2">
           <label className="block">
             <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Title</span>
             <input
@@ -515,7 +515,7 @@ export function DashboardClient({
             />
           </label>
 
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Importance</span>
               <select
@@ -1326,14 +1326,14 @@ export function DashboardClient({
       ) : null}
 
       {showSubmissionSection ? (
-        <section className="card p-4 sm:p-5">
+        <section className="card p-4">
           <h2 className="text-lg font-semibold">Add New Episode</h2>
-          <div className="mt-3 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3 sm:p-4">
+          <div className="mt-2.5 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3">
             <fieldset>
               <legend className="sr-only">Choose source</legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label
-                  className={`cursor-pointer rounded-xl border px-3 py-3 text-sm transition ${
+                  className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm transition ${
                     sourceMode === "url"
                       ? "border-[var(--accent)] bg-white text-[var(--ink)] shadow-sm"
                       : "border-[rgba(31,42,31,0.12)] bg-white/70 text-[var(--ink)]"
@@ -1349,10 +1349,10 @@ export function DashboardClient({
                     disabled={isBusy}
                   />
                   <span className="block font-semibold">Paste article URL</span>
-                  <span className="mt-1 block text-xs text-[var(--muted)]">Best for web articles and blog posts.</span>
+                  <span className="mt-0.5 block text-xs text-[var(--muted)]">Best for web articles and blog posts.</span>
                 </label>
                 <label
-                  className={`cursor-pointer rounded-xl border px-3 py-3 text-sm transition ${
+                  className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm transition ${
                     sourceMode === "pdf"
                       ? "border-[var(--accent)] bg-white text-[var(--ink)] shadow-sm"
                       : "border-[rgba(31,42,31,0.12)] bg-white/70 text-[var(--ink)]"
@@ -1368,18 +1368,18 @@ export function DashboardClient({
                     disabled={isBusy}
                   />
                   <span className="block font-semibold">Upload PDF</span>
-                  <span className="mt-1 block text-xs text-[var(--muted)]">Best for saved documents and reports.</span>
+                  <span className="mt-0.5 block text-xs text-[var(--muted)]">Best for saved documents and reports.</span>
                 </label>
               </div>
             </fieldset>
 
-            <div className="mt-3 space-y-3">
+            <div className="mt-2.5 space-y-2.5">
               {sourceMode === "url" ? (
-                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 sm:p-4 shadow-sm">
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 shadow-sm">
                   <label className="block">
-                    <span className="mb-1 block text-sm font-medium">Article URL</span>
+                    <span className="mb-0.5 block text-sm font-medium">Article URL</span>
                     <input
-                      className="w-full rounded-lg border px-3 py-2"
+                      className="w-full rounded-lg border px-3 py-1.5"
                       placeholder="https://example.com/article"
                       value={urlInput}
                       onChange={(event) => setUrlInput(event.target.value)}
@@ -1388,11 +1388,11 @@ export function DashboardClient({
                   {optionalDetailsPanel}
                 </article>
               ) : (
-                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 sm:p-4 shadow-sm">
-                  <label className="mb-1 block text-sm font-medium">PDF file</label>
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 shadow-sm">
+                  <label className="mb-0.5 block text-sm font-medium">PDF file</label>
                   <input
                     ref={pdfInputRef}
-                    className="block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)]"
+                    className="block w-full rounded-lg border px-3 py-1.5 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)]"
                     type="file"
                     accept="application/pdf"
                     onChange={(event) => {

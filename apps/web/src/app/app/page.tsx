@@ -50,11 +50,11 @@ export default async function AppDashboardPage({
   const feedTokenHash = feedAccess.tokenHash;
 
   return (
-    <main className="py-5 sm:py-8">
-      <div className="container-shell space-y-6">
-        <header className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <main className="py-4 sm:py-6">
+      <div className="container-shell space-y-4 sm:space-y-5">
+        <header className="card p-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
               <WorkspaceBillingSummary
                 activationHint={billingSearchParam === "success"}
                 billingConfigured={billingConfigured}
@@ -62,7 +62,7 @@ export default async function AppDashboardPage({
               />
               <AppShellNav current="workspace" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
               <p className="text-sm text-[var(--muted)]">Create new episodes quickly, then keep an eye on processing and playback below.</p>
             </div>
