@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -54,4 +55,15 @@ test("explicit schema path wins over profile defaults", () => {
     }),
     "/tmp/custom.prisma"
   );
+});
+
+test("postgres prisma schema keeps audio retention expiry fields used by parity and azure feeds", () => {
+  const sqliteSchema = readFileSync(resolve(process.cwd(), "prisma/schema.prisma"), "utf8");
+  const postgresSchema = readFileSync(resolve(process.cwd(), "prisma/schema.postgres.prisma"), "utf8");
+
+  for (const modelName of ["Episode", "DigestEpisode", "SummaryEpisode"]) {
+    assert.match(sqliteSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?expiresAt\\s+DateTime\\?`));
+    assert.match(postgresSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?expiresAt\\s+DateTime\\?`));
+    assert.match(postgresSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?@@index\\(\\[expiresAt\\]\\)`));
+  }
 });

@@ -206,11 +206,13 @@ model Episode {
   audioBytes   Int
   mimeType     String
   publishedAt  DateTime @default(now())
+  expiresAt    DateTime?
   createdAt    DateTime @default(now())
 
   item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([publishedAt])
+  @@index([expiresAt])
 }
 
 model Job {
@@ -453,12 +455,14 @@ model DigestEpisode {
   audioBytes Int
   mimeType   String
   publishedAt DateTime @default(now())
+  expiresAt  DateTime?
   createdAt  DateTime @default(now())
 
   digestRun DigestRun @relation(fields: [digestRunId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, publishedAt])
+  @@index([expiresAt])
 }
 
 model SummaryRun {
@@ -526,12 +530,14 @@ model SummaryEpisode {
   audioBytes  Int
   mimeType    String
   publishedAt DateTime @default(now())
+  expiresAt   DateTime?
   createdAt   DateTime @default(now())
 
   summaryRun SummaryRun @relation(fields: [summaryRunId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, publishedAt])
+  @@index([expiresAt])
 }
 
 model DigestSchedulerTick {
