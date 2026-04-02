@@ -83,12 +83,12 @@ export function CopyableValueBox({
       : "text-sm text-[var(--muted)]";
   const buttonClassName =
     tone === "accent"
-      ? "group relative mt-2 block w-full rounded-2xl border border-[rgba(31,122,90,0.2)] bg-white px-4 py-4 text-left shadow-sm transition hover:border-[rgba(31,122,90,0.3)] hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35"
+      ? "group relative mt-2 block w-full rounded-2xl border border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)] px-4 py-4 text-left shadow-[0_0_0_1px_rgba(31,122,90,0.06)] transition hover:border-[rgba(31,122,90,0.42)] hover:bg-[rgba(223,243,236,0.94)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(31,122,90,0.16)]"
       : "group relative mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:border-slate-300 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
   const badgeClassName = isCopied
     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
     : tone === "accent"
-      ? "border-[rgba(31,122,90,0.16)] bg-[rgba(223,243,236,0.7)] text-[var(--accent)] group-hover:border-[rgba(31,122,90,0.24)]"
+      ? "border-[rgba(31,122,90,0.18)] bg-white/92 text-[var(--accent)] group-hover:border-[rgba(31,122,90,0.28)]"
       : "border-slate-200 bg-white/95 text-slate-600 group-hover:border-slate-300 group-hover:text-slate-900";
 
   return (

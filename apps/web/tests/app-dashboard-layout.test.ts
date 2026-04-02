@@ -74,6 +74,15 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
   assert.equal(source.indexOf('label: "YouTube Music"') < source.indexOf('label: "Pocket Casts"'), true);
 });
 
+test("accent copy boxes keep a visible highlighted treatment", () => {
+  const source = readFileSync(new URL("../src/components/copyable-value-box.tsx", import.meta.url), "utf8");
+
+  assert.equal(source.includes("bg-[rgba(223,243,236,0.82)]"), true);
+  assert.equal(source.includes("border-[rgba(31,122,90,0.34)]"), true);
+  assert.equal(source.includes("focus-visible:ring-4 focus-visible:ring-[rgba(31,122,90,0.16)]"), true);
+  assert.equal(source.includes("bg-white/92 text-[var(--accent)]"), true);
+});
+
 test("settings page exists and renders settings-only dashboard mode", () => {
   const pagePath = new URL("../src/app/app/settings/page.tsx", import.meta.url);
   assert.equal(existsSync(pagePath), true);
@@ -174,10 +183,12 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3'), false);
   assert.equal(source.includes('bg-white/80 p-2.5'), true);
   assert.equal(source.includes('focus-within:border-[var(--accent)]'), true);
-  assert.equal(source.includes('focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.16)]'), true);
-  assert.equal(source.includes('border-[rgba(31,122,90,0.28)] bg-[var(--accent-soft)]/45'), true);
-  assert.equal(source.includes('text-[var(--accent)]">Article URL'), true);
-  assert.equal(source.includes('text-[var(--accent)]">PDF file'), true);
+  assert.equal(source.includes('focus-within:shadow-[0_0_0_4px_rgba(31,122,90,0.16)]'), true);
+  assert.equal(source.includes('border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)]'), true);
+  assert.equal(source.includes('text-sm font-semibold text-[var(--accent)]">Article URL'), true);
+  assert.equal(source.includes('text-sm font-semibold text-[var(--accent)]">PDF file'), true);
+  assert.equal(source.includes('border-[rgba(31,122,90,0.32)] bg-white/96'), true);
+  assert.equal(source.includes('focus:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]'), true);
   assert.equal(source.includes('placeholder:text-slate-400'), true);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
