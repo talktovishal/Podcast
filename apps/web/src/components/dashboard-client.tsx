@@ -1328,7 +1328,7 @@ export function DashboardClient({
       {showSubmissionSection ? (
         <section className="card p-4">
           <h2 className="text-lg font-semibold">Add New Episode</h2>
-          <div className="mt-2.5 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3">
+          <div className="mt-2.5 rounded-2xl bg-[var(--accent-soft)]/35 p-3">
             <fieldset>
               <legend className="sr-only">Choose source</legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

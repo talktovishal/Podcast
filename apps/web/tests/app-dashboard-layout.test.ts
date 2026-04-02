@@ -170,6 +170,8 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("Paste a URL or upload a PDF to turn it into a private podcast episode."), false);
   assert.equal(source.includes("mt-2.5 space-y-2.5"), true);
   assert.equal(source.includes("p-2.5"), true);
+  assert.equal(source.includes('rounded-2xl bg-[var(--accent-soft)]/35 p-3'), true);
+  assert.equal(source.includes('rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3'), false);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);
