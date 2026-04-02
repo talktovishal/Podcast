@@ -31,29 +31,29 @@ export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
 
 export const marketingCopy = {
   heroBadge: "Private Knowledge Feed",
-  heroHeadline: "Turn saved reading into private podcast episodes.",
+  heroHeadline: "The intellectual sanctuary for busy readers.",
   heroSubheading:
-    "Save URLs, PDFs, and Chrome captures into an ad-free private feed, then listen in your regular podcast app or catch up with weekly podcast and email digests.",
+    "Archive favorite articles and listen on the go with high-fidelity AI narration.",
   heroHighlights: [
     {
       title: "Curated archive",
-      description: "Keep the reading worth saving in a calm, focused library built around your own queue."
+      description: "Keep the pieces worth revisiting in one calm queue."
     },
     {
       title: "Private RSS feed",
-      description: "Listen in the standard podcast app you already use, without exposing your saved sources publicly."
+      description: "Use your regular podcast app without exposing saved sources."
     },
     {
       title: "Podcast + email digests",
-      description: "Catch up later with weekly recap options when you want the highlights gathered back together."
+      description: "Get a weekly recap when you want the highlights back together."
     }
   ] as const,
-  heroSecondary:
-    "Built for people who save more than they can revisit.",
+  securityIntro:
+    "Podcast access stays private across sign-in, pairing, and playback.",
   securityBullets: [
-    "Sign-in via Google, Facebook, or Apple — sessions stay server-side in secure cookies.",
-    "Chrome extension connects with a one-time code and a scoped token that never sees your feed URL.",
-    "Your podcast feed uses a private token, and episode audio is authorized per episode."
+    "Google, Facebook, or Apple sign-in stays in secure server-side sessions.",
+    "Chrome pairing uses a one-time code so your feed URL stays private.",
+    "Your feed and episode audio stay token-protected."
   ] as const,
   ctaPrimary: "Start your knowledge feed",
   ctaSecondary: "Open app"

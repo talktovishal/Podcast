@@ -184,8 +184,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
   - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
 - Selective homepage refresh is implemented on `/login`:
-  - the existing auth-first login layout remains in place while the marketing side now uses `Private Knowledge Feed` framing, stronger private-feed/digest copy, and concise highlight cards without a duplicate listening section.
-  - `/login` now includes a light public footer with the existing marketing routes and an optional `Contact` mailto link driven by `NEXT_PUBLIC_CONTACT_EMAIL`.
+  - the existing auth-first login layout remains in place while the marketing side now uses crisper busy-reader/private-feed copy with tighter highlight and security cards.
+  - `/login` no longer repeats a bottom marketing footer, so the logged-out homepage stays focused on the auth card and adjacent overview copy.
 
 ### Next Milestones
 - Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.

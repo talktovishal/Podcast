@@ -286,7 +286,7 @@ Google + Facebook + Apple setup guide:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 
 Only configured OAuth buttons are shown on `/login`; unconfigured providers stay hidden until their env vars are set.
-The `/login` page also acts as the public homepage surface for now: it keeps the auth card primary, uses private-feed marketing copy on the adjacent panel, and shows a light footer with existing public routes plus an optional `Contact` mailto link when `NEXT_PUBLIC_CONTACT_EMAIL` is set.
+The `/login` page also acts as the public homepage surface for now: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop.
 
 ## Known boundaries
 - No OCR for scanned/image-heavy PDFs.

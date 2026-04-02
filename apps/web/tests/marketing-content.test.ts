@@ -21,17 +21,24 @@ test("marketing nav items follow canonical order and routes", () => {
   }
 });
 
-test("marketing copy uses private knowledge feed framing", () => {
-  assert.equal(marketingCopy.heroBadge, "Private Knowledge Feed");
+test("marketing copy keeps concise busy-reader framing", () => {
+  assert.equal(marketingCopy.heroHeadline, "The intellectual sanctuary for busy readers.");
+  assert.equal(
+    marketingCopy.heroSubheading,
+    "Archive favorite articles and listen on the go with high-fidelity AI narration."
+  );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
     ["Curated archive", "Private RSS feed", "Podcast + email digests"]
   );
-  assert.equal(marketingCopy.heroSecondary, "Built for people who save more than they can revisit.");
+  assert.equal(
+    marketingCopy.securityIntro,
+    "Podcast access stays private across sign-in, pairing, and playback."
+  );
 });
 
 test("hero copy does not include banned phrases", () => {
-  const heroText = `${marketingCopy.heroHeadline} ${marketingCopy.heroSubheading} ${marketingCopy.heroSecondary}`;
+  const heroText = `${marketingCopy.heroHeadline} ${marketingCopy.heroSubheading}`;
   assert.equal(containsBannedMarketingPhrase(heroText), false);
   for (const phrase of marketingBannedPhrases) {
     assert.equal(heroText.toLowerCase().includes(phrase), false);
@@ -97,18 +104,20 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   const productSource = readFileSync(new URL("../src/app/product/page.tsx", import.meta.url), "utf8");
   const layoutSource = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
 
-  assert.equal(marketingSource.includes("Turn saved reading into private podcast episodes."), true);
-  assert.equal(marketingSource.includes("ad-free private feed"), true);
-  assert.equal(marketingSource.includes("weekly podcast and email digests"), true);
+  assert.equal(marketingSource.includes("The intellectual sanctuary for busy readers."), true);
+  assert.equal(marketingSource.includes("Archive favorite articles and listen on the go with high-fidelity AI narration."), true);
+  assert.equal(marketingSource.includes("Get a weekly recap when you want the highlights back together."), true);
   assert.equal(marketingSource.includes("monthly and yearly trend recaps"), false);
   assert.equal(marketingSource.includes("daily recap podcast"), false);
   assert.equal(marketingSource.includes("Curated archive"), true);
   assert.equal(marketingSource.includes("Listening now"), false);
 
-  assert.equal(loginSource.includes("MarketingFooter"), true);
+  assert.equal(loginSource.includes("MarketingFooter"), false);
   assert.equal(loginSource.includes("Join Now"), false);
+  assert.equal(loginSource.includes("Private Knowledge Feed"), false);
   assert.equal(loginSource.includes("Listening now"), false);
   assert.equal(loginSource.includes("A private feed built for real catch-up time."), false);
+  assert.equal(loginSource.includes("Built for people who save more than they can revisit."), false);
 
   assert.equal(faqSource.includes("What happens when I save an article?"), true);
   assert.equal(faqSource.includes("weekly podcast and email options"), true);

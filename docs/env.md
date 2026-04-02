@@ -73,7 +73,6 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `DEMO_EMAIL`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
-- `NEXT_PUBLIC_CONTACT_EMAIL` (optional public `mailto:` target for the `/login` footer `Contact` link)
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
 - `PRO_DAILY_PODCAST_LIMIT` (default `15`; paid Pro guardrail for new podcast episodes created in the last 24 hours)
 - `PRO_WEEKLY_SUMMARY_LIMIT` (default `5`; paid Pro guardrail for manual summaries created in the last 7 days)

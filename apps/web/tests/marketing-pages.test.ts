@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { renderToStaticMarkup } from "react-dom/server";
 import test from "node:test";
-import { createElement } from "react";
-import { MarketingFooter } from "../src/components/marketing-footer";
 import { marketingNavItems } from "../src/lib/marketing-content";
 
 test("public marketing pages exist for all nav routes", () => {
@@ -23,47 +20,14 @@ test("root homepage continues redirecting unauthenticated users to login", () =>
   assert.equal(source.includes('redirect("/login")'), true);
 });
 
-test("login homepage keeps auth card structure and avoids extra top auth buttons", () => {
+test("login homepage keeps auth card structure and trims duplicate marketing chrome", () => {
   const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes("Continue to your feed"), true);
   assert.equal(source.includes("Use email instead"), true);
   assert.equal(source.includes("Join Now"), false);
-  assert.equal(source.includes("MarketingFooter"), true);
+  assert.equal(source.includes("MarketingFooter"), false);
+  assert.equal(source.includes("Private Knowledge Feed"), false);
   assert.equal(source.includes("Listening now"), false);
   assert.equal(source.includes("A private feed built for real catch-up time."), false);
-});
-
-test("marketing footer omits contact when contact email is unset", () => {
-  const previous = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-  delete process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-
-  try {
-    const markup = renderToStaticMarkup(createElement(MarketingFooter));
-    assert.equal(markup.includes("Product"), true);
-    assert.equal(markup.includes("Pricing"), true);
-    assert.equal(markup.includes("Contact"), false);
-  } finally {
-    if (previous === undefined) {
-      delete process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-    } else {
-      process.env.NEXT_PUBLIC_CONTACT_EMAIL = previous;
-    }
-  }
-});
-
-test("marketing footer includes contact when contact email is configured", () => {
-  const previous = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL = "hello@articlepod.com";
-
-  try {
-    const markup = renderToStaticMarkup(createElement(MarketingFooter));
-    assert.equal(markup.includes("Contact"), true);
-    assert.equal(markup.includes('href="mailto:hello@articlepod.com"'), true);
-  } finally {
-    if (previous === undefined) {
-      delete process.env.NEXT_PUBLIC_CONTACT_EMAIL;
-    } else {
-      process.env.NEXT_PUBLIC_CONTACT_EMAIL = previous;
-    }
-  }
+  assert.equal(source.includes("Built for people who save more than they can revisit."), false);
 });

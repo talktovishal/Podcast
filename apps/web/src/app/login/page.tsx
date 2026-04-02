@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
 import { marketingCopy } from "@/lib/marketing-content";
@@ -159,11 +158,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen py-6 sm:py-10">
+    <main className="min-h-screen py-5 sm:py-8">
       <div className="container-shell">
         <MarketingHeader />
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-12">
+        <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
           <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               Continue with one tap
@@ -305,40 +304,32 @@ export default function LoginPage() {
             </div>
           </section>
 
-          <section className="space-y-6 lg:pt-4">
-            <p className="inline-block rounded-full border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)] px-4 py-1 text-xs font-semibold text-[var(--accent)] sm:text-sm">
-              {marketingCopy.heroBadge}
-            </p>
-
-            <h2 className="max-w-2xl text-4xl font-bold leading-[1.02] tracking-tight sm:text-5xl xl:text-6xl">
+          <section className="space-y-4 lg:pt-2">
+            <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
               {marketingCopy.heroHeadline}
             </h2>
 
-            <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
+            <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
               {marketingCopy.heroSubheading}
             </p>
 
-            <p className="max-w-2xl text-sm font-medium text-[var(--muted)] sm:text-base">
-              {marketingCopy.heroSecondary}
-            </p>
-
-            <div className="grid gap-3 lg:grid-cols-3">
+            <div className="grid gap-2.5 sm:grid-cols-3">
               {marketingCopy.heroHighlights.map((item) => (
                 <article
                   key={item.title}
-                  className="rounded-[24px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-4 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
+                  className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-3.5 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
                 >
                   <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+                  <p className="mt-1.5 text-sm leading-5 text-[var(--muted)]">{item.description}</p>
                 </article>
               ))}
             </div>
           </section>
         </div>
 
-        <section className="mt-8 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_45px_rgba(20,38,30,0.06)] backdrop-blur sm:p-6">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,220px)_1fr] lg:items-start">
-            <div className="space-y-2">
+        <section className="mt-5 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(255,255,255,0.82)] p-4 shadow-[0_18px_45px_rgba(20,38,30,0.06)] backdrop-blur sm:p-5">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,200px)_1fr] lg:items-start">
+            <div className="space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
                 Security
               </p>
@@ -346,16 +337,15 @@ export default function LoginPage() {
                 Private by default
               </h3>
               <p className="text-sm text-[var(--muted)]">
-                Sessions, extension pairing, and episode delivery all keep
-                podcast access scoped and private.
+                {marketingCopy.securityIntro}
               </p>
             </div>
 
-            <ul className="grid gap-3 md:grid-cols-3">
+            <ul className="grid gap-2.5 md:grid-cols-3">
               {marketingCopy.securityBullets.map((bullet) => (
                 <li
                   key={bullet}
-                  className="rounded-2xl border border-[rgba(31,122,90,0.12)] bg-white/85 px-4 py-3 text-sm leading-6 text-[var(--muted)]"
+                  className="rounded-2xl border border-[rgba(31,122,90,0.12)] bg-white/85 px-3.5 py-3 text-sm leading-5 text-[var(--muted)]"
                 >
                   <span className="mb-2 block h-2 w-2 rounded-full bg-[var(--accent)]" />
                   {bullet}
@@ -364,8 +354,6 @@ export default function LoginPage() {
             </ul>
           </div>
         </section>
-
-        <MarketingFooter />
       </div>
     </main>
   );
