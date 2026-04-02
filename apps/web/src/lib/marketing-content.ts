@@ -48,11 +48,6 @@ export const marketingCopy = {
       description: "Catch up later with weekly recap options when you want the highlights gathered back together."
     }
   ] as const,
-  heroVisualEyebrow: "Listening now",
-  heroVisualTitle: "A private feed built for real catch-up time.",
-  heroVisualBody:
-    "Open your queue in the podcast app you already use, then let weekly podcast and email digests bring the important threads back into focus.",
-  heroVisualPoints: ["Ad-free private feed", "Podcast apps you already use", "Weekly podcast + email recap"] as const,
   heroSecondary:
     "Built for people who save more than they can revisit.",
   securityBullets: [

@@ -29,7 +29,8 @@ test("login homepage keeps auth card structure and avoids extra top auth buttons
   assert.equal(source.includes("Use email instead"), true);
   assert.equal(source.includes("Join Now"), false);
   assert.equal(source.includes("MarketingFooter"), true);
-  assert.equal(source.includes("BRAND_PODCAST_COVER_PATH"), true);
+  assert.equal(source.includes("Listening now"), false);
+  assert.equal(source.includes("A private feed built for real catch-up time."), false);
 });
 
 test("marketing footer omits contact when contact email is unset", () => {

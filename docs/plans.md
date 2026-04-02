@@ -74,7 +74,7 @@
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
 - `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
-- `/login` now also serves as the polished public homepage surface, with private-knowledge-feed marketing copy, a brand-derived listening card, and a light footer that can optionally expose `Contact` through `NEXT_PUBLIC_CONTACT_EMAIL`.
+- `/login` now also serves as the polished public homepage surface, with private-knowledge-feed marketing copy, concise highlight cards, and a light footer that can optionally expose `Contact` through `NEXT_PUBLIC_CONTACT_EMAIL`.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback

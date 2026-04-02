@@ -1,9 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BRAND_PODCAST_COVER_PATH } from "@/lib/brand-assets";
 import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
@@ -335,62 +333,6 @@ export default function LoginPage() {
                 </article>
               ))}
             </div>
-
-            <article className="overflow-hidden rounded-[32px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(145deg,rgba(232,246,240,0.96),rgba(255,255,255,0.92))] p-5 shadow-[0_20px_45px_rgba(20,38,30,0.08)] sm:p-6">
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_250px] lg:items-center">
-                <div className="space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                    {marketingCopy.heroVisualEyebrow}
-                  </p>
-                  <h3 className="max-w-xl text-2xl font-semibold tracking-tight text-[var(--ink)] sm:text-[2rem]">
-                    {marketingCopy.heroVisualTitle}
-                  </h3>
-                  <p className="max-w-xl text-sm leading-7 text-[var(--muted)] sm:text-base">
-                    {marketingCopy.heroVisualBody}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {marketingCopy.heroVisualPoints.map((point) => (
-                      <div
-                        key={point}
-                        className="rounded-2xl border border-[rgba(31,122,90,0.12)] bg-white/82 px-4 py-3 text-sm font-medium text-[var(--ink)]"
-                      >
-                        {point}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="relative mx-auto w-full max-w-[240px]">
-                  <div className="absolute inset-0 rounded-[32px] bg-[radial-gradient(circle_at_center,rgba(31,122,90,0.18),transparent_68%)] blur-2xl" />
-                  <div className="relative rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_18px_35px_rgba(20,38,30,0.08)]">
-                    <div className="relative aspect-square overflow-hidden rounded-[22px]">
-                      <Image
-                        alt="ArticlePod listening preview"
-                        className="object-cover"
-                        fill
-                        priority
-                        sizes="240px"
-                        src={BRAND_PODCAST_COVER_PATH}
-                      />
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-[var(--accent)]">
-                        <span>Private feed</span>
-                        <span>Ready</span>
-                      </div>
-                      <p className="text-sm font-semibold text-[var(--ink)]">ArticlePod listening queue</p>
-                      <div className="h-2 overflow-hidden rounded-full bg-[var(--accent-soft)]">
-                        <div className="h-full w-2/3 rounded-full bg-[var(--accent)]" />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-[var(--muted)]">
-                        <span>Podcast app compatible</span>
-                        <span>Ad-free</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </article>
           </section>
         </div>
 

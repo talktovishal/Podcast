@@ -27,7 +27,7 @@ test("marketing copy uses private knowledge feed framing", () => {
     marketingCopy.heroHighlights.map((item) => item.title),
     ["Curated archive", "Private RSS feed", "Podcast + email digests"]
   );
-  assert.equal(marketingCopy.heroVisualPoints.includes("Ad-free private feed"), true);
+  assert.equal(marketingCopy.heroSecondary, "Built for people who save more than they can revisit.");
 });
 
 test("hero copy does not include banned phrases", () => {
@@ -103,10 +103,12 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(marketingSource.includes("monthly and yearly trend recaps"), false);
   assert.equal(marketingSource.includes("daily recap podcast"), false);
   assert.equal(marketingSource.includes("Curated archive"), true);
+  assert.equal(marketingSource.includes("Listening now"), false);
 
-  assert.equal(loginSource.includes("BRAND_PODCAST_COVER_PATH"), true);
   assert.equal(loginSource.includes("MarketingFooter"), true);
   assert.equal(loginSource.includes("Join Now"), false);
+  assert.equal(loginSource.includes("Listening now"), false);
+  assert.equal(loginSource.includes("A private feed built for real catch-up time."), false);
 
   assert.equal(faqSource.includes("What happens when I save an article?"), true);
   assert.equal(faqSource.includes("weekly podcast and email options"), true);
