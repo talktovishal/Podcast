@@ -8,20 +8,20 @@ export function ChromeExtensionGuidePanels({ showStatusHint = true }: ChromeExte
       <div className="card p-4 sm:p-5">
         <h2 className="text-lg font-semibold">Walkthroughs</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          Use the same extension flow whether you start here before logging in or open the signed-in setup page later. The only difference
-          is that connect codes stay hidden until your account is authenticated.
+          Use the same extension flow whether you start here before logging in or return later from the signed-in app. Logged-out visitors
+          only see the install steps; signed-in users get the ready-to-copy connect code on this page automatically.
         </p>
         <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
           <li>Install the extension from the Chrome Web Store.</li>
-          <li>Generate a one-time connect code on this page after you log in, then paste it into the extension within 24 hours.</li>
-          <li>If the code expires before you use it, generate a new one. Once paired, the extension stays connected until you revoke it.</li>
+          <li>Open this page while signed in and copy the ready connect code.</li>
+          <li>Paste it into the extension, then capture any open article page.</li>
         </ul>
       </div>
       <div className="card p-4 sm:p-5">
         <h2 className="text-lg font-semibold">Quick start</h2>
         <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
           <li>1. Install the extension from the Chrome Web Store.</li>
-          <li>2. Generate a one-time connect code on this page after login and paste it into the extension within 24 hours.</li>
+          <li>2. Paste the copied connect code into the extension.</li>
           <li>3. Capture any standard HTTP or HTTPS article page with one click.</li>
           {showStatusHint ? <li>4. If processing takes longer, refresh your Episodes page to see the latest item status.</li> : null}
         </ol>

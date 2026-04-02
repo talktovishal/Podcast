@@ -26,7 +26,7 @@ export default async function ChromeExtensionPage() {
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Chrome Extension</h1>
-              <p className="text-sm text-[var(--muted)]">Install the capture extension, pair it once, and keep the live extension controls at the top of the page.</p>
+              <p className="text-sm text-[var(--muted)]">Install it from the Chrome Web Store, copy the ready connect code, and pair the extension once.</p>
             </div>
           </div>
         </header>

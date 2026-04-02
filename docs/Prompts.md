@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-01)
+## Spec Status (as of 2026-04-02)
 
-### Implemented (as of 2026-04-01)
+### Implemented (as of 2026-04-02)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -145,6 +145,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
+  - signed-in `/app/chrome-extension` now prepares a fresh connect code on page load, and the Chrome Web Store CTA also attempts to copy the current code so pairing takes fewer clicks.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
