@@ -119,7 +119,7 @@
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
   - signed-in nav styling is now neutral-first, with `Feedback` kept as a softer secondary hint instead of a primary-strength highlight.
-  - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
+  - `/app` now uses a tighter shell, a centered task-focused episode form, a segmented source selector, a lighter `Add details` toggle, and a stronger `Create Episode` CTA.
   - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` and `/app/summary` now emphasize their live setup/composition controls over surrounding instructional copy.
 - Feedback suggestions track (`M85`) is implemented:
@@ -3182,6 +3182,7 @@ Milestone metadata contract:
   - Rebalance signed-in page hierarchy so highlight styling points to the primary task on each page instead of over-emphasizing navigation.
   - Keep `Feedback` discoverable in the signed-in nav while softening it to a secondary hint.
   - Make the `/app` submit surface, `/app/podcast-apps` feed-copy surface, `/app/chrome-extension` setup surface, and `/app/summary` composition surface read as the dominant above-the-fold action clusters.
+  - Tighten the `/app` workspace shell and flatten the create-episode flow so the form can be completed with less chrome and fewer competing boxes.
   - Update docs and dashboard e2e coverage so the new copy and hierarchy expectations stay in sync.
 - Key files/modules:
   - `apps/web/src/components/app-shell-nav.tsx`
@@ -3193,7 +3194,8 @@ Milestone metadata contract:
   - `apps/web/e2e/dashboard.spec.ts`
   - `docs/Prompts.md`
 - Acceptance criteria:
-  - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill.
+  - The strongest visual emphasis on `/app` is the active URL/PDF submission flow, not a nav pill or status box.
+  - `/app` uses `Create Episode` as the main CTA, `Add details` as the collapsed secondary-details label, and a lighter segmented URL/PDF selector.
   - `/app/podcast-apps` makes the feed URL copy action visually dominant, with app buttons clearly grouped as the next step.
   - `Feedback` remains easy to find without outranking page-level CTAs.
   - Chrome extension setup and summary creation pages emphasize their live controls over instructional copy.

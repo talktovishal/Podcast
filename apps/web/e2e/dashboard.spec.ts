@@ -6,7 +6,7 @@ test.describe("Dashboard & Item Submission", () => {
     await page.waitForURL(/\/app/);
 
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
-    const submitBtn = page.getByRole("button", { name: "Submit URL" });
+    const submitBtn = page.getByRole("button", { name: "Create Episode" });
     await expect(submitBtn).toBeVisible();
     await expect(submitBtn).toBeDisabled();
   });
@@ -19,7 +19,7 @@ test.describe("Dashboard & Item Submission", () => {
 
     await page.locator("label", { hasText: "Upload PDF" }).click();
     await expect(page.locator("input[type='file'][accept='application/pdf']")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Upload PDF" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create Episode" })).toBeVisible();
 
     await page.locator("label", { hasText: "Paste article URL" }).click();
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
@@ -30,7 +30,7 @@ test.describe("Dashboard & Item Submission", () => {
     await page.waitForURL(/\/app/);
 
     const urlInput = page.locator("input[placeholder*='example.com']");
-    const submitBtn = page.getByRole("button", { name: "Submit URL" });
+    const submitBtn = page.getByRole("button", { name: "Create Episode" });
 
     await expect(submitBtn).toBeDisabled();
 
@@ -47,13 +47,13 @@ test.describe("Dashboard & Item Submission", () => {
 
     const testUrl = "https://example.com/e2e-test-article";
     await page.locator("input[placeholder*='example.com']").fill(testUrl);
-    const revealOptionalDetails = page.getByRole("button", { name: "Show" });
+    const revealOptionalDetails = page.getByRole("button", { name: "Add details" });
     if (await revealOptionalDetails.isVisible()) {
       await revealOptionalDetails.click();
     }
-    await page.locator("input[placeholder*='auto-title']").fill("E2E Test Article");
+    await page.locator("input[placeholder*='Episode title']").fill("E2E Test Article");
 
-    await page.getByRole("button", { name: "Submit URL" }).click();
+    await page.getByRole("button", { name: "Create Episode" }).click();
 
     await expect(page.getByText("E2E Test Article")).toBeVisible({ timeout: 15_000 });
   });

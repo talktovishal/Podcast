@@ -16,6 +16,7 @@ test("app dashboard uses direct navigation links and logout icon", () => {
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);
+  assert.equal(source.includes("keep an eye on processing and playback below"), false);
 });
 
 test("workspace billing summary stays compact inside the header", () => {
@@ -149,13 +150,15 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("OPTIONAL_DETAILS_STORAGE_KEY"), true);
   assert.equal(source.includes("window.localStorage.setItem("), true);
   assert.equal(source.includes('showOptionalDetails ? "expanded" : "collapsed"'), true);
-  assert.equal(source.includes("Optional details"), true);
-  assert.equal(source.includes("Title, importance, and tags are optional."), true);
+  assert.equal(source.includes("Add details"), true);
+  assert.equal(source.includes("Title, tags, and importance"), true);
   assert.equal(source.includes('aria-controls="submission-optional-details"'), true);
-  assert.equal(source.includes('{showOptionalDetails ? "Hide" : "Show"}'), true);
+  assert.equal(source.includes('{showOptionalDetails ? "Hide details" : "Add details"}'), true);
   assert.equal(source.includes(">Optional<"), false);
-  assert.equal(source.includes("Importance:"), true);
-  assert.equal(source.includes("financial, personal, retirement"), true);
+  assert.equal(source.includes("Episode title"), true);
+  assert.equal(source.includes("Add tags..."), true);
+  assert.equal(source.includes("Create Episode"), true);
+  assert.equal(source.includes("Primary action"), false);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);

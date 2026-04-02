@@ -149,7 +149,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
   - signed-in navigation is now neutral-first, with `Feedback` kept only as a softer secondary hint instead of a primary-strength highlight.
-  - `/app` now groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately.
+  - `/app` now uses a tighter workspace shell, a centered task-focused episode form, a segmented URL/PDF selector, a lighter `Add details` toggle, and a stronger `Create Episode` CTA.
   - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
   - `/app/summary` now keeps the intro neutral while giving article selection and summary creation controls the stronger visual emphasis.
@@ -165,7 +165,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
-  - The web submit flow now keeps `Title`, `Importance`, and `Tags` inside a lighter `Optional details` panel that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
+  - The web submit flow now keeps `Episode title`, `Importance`, and `Tags` behind a lighter `Add details` toggle that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
   - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
   - `/app` Recent items now renders saved importance plus tag chips, while `/app/summary` article selection includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
@@ -349,12 +349,13 @@ D) Podcast RSS feed
 E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
-  - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
+  - compact signed-in header stays focused on navigation and billing, with the main episode form starting quickly below it
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
   - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
-  - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace
-  - mode labels should be task-first (`Paste article URL`, `Upload PDF`) rather than generic numbered options
+  - the active submit mode, active input field, optional details toggle, and `Create Episode` CTA should read as one fast, low-friction action flow
+  - mode labels should be task-first (`Paste article URL`, `Upload PDF`) and behave more like a segmented control than stacked option cards
+  - quota info should sit as supporting text near the CTA unless the user is blocked, in which case it can escalate into an alert
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
