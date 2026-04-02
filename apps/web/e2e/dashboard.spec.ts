@@ -17,11 +17,11 @@ test.describe("Dashboard & Item Submission", () => {
 
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
 
-    await page.locator("label", { hasText: "Option 2: PDF" }).click();
+    await page.locator("label", { hasText: "Upload PDF" }).click();
     await expect(page.locator("input[type='file'][accept='application/pdf']")).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload PDF" })).toBeVisible();
 
-    await page.locator("label", { hasText: "Option 1: URL" }).click();
+    await page.locator("label", { hasText: "Paste article URL" }).click();
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
   });
 
@@ -47,6 +47,10 @@ test.describe("Dashboard & Item Submission", () => {
 
     const testUrl = "https://example.com/e2e-test-article";
     await page.locator("input[placeholder*='example.com']").fill(testUrl);
+    const revealOptionalDetails = page.getByRole("button", { name: "Show" });
+    if (await revealOptionalDetails.isVisible()) {
+      await revealOptionalDetails.click();
+    }
     await page.locator("input[placeholder*='auto-title']").fill("E2E Test Article");
 
     await page.getByRole("button", { name: "Submit URL" }).click();
@@ -67,7 +71,7 @@ test.describe("Dashboard & Item Submission", () => {
 
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Feedback" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   });
 
   test("demo starter episode has playable audio and serves valid media", async ({ page, request }) => {
@@ -75,7 +79,7 @@ test.describe("Dashboard & Item Submission", () => {
     await page.waitForURL(/\/app/);
 
     // The seeded "Welcome to ArticlePod" item should have an audio element
-    const audio = page.locator("audio[preload='none']").first();
+    const audio = page.locator("audio[preload='metadata']").first();
     await expect(audio).toBeVisible({ timeout: 10_000 });
 
     // Verify the media src is a signed URL pointing to the media endpoint
@@ -105,7 +109,7 @@ test.describe("Dashboard & Item Submission", () => {
     expect(headRes.headers()["accept-ranges"]).toBe("bytes");
 
     // Verify the Download link is also present
-    const downloadLink = page.locator("a.text-sm.underline", { hasText: /download/i }).first();
+    const downloadLink = page.getByRole("link", { name: "Download" }).first();
     await expect(downloadLink).toBeVisible();
   });
 });

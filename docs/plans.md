@@ -117,6 +117,11 @@
   - private feed URL and extension connect code boxes now copy directly on tap/click with inline confirmation feedback for desktop and mobile users.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
+- Action hierarchy refresh (`M106`) is implemented:
+  - signed-in nav styling is now neutral-first, with `Feedback` kept as a softer secondary hint instead of a primary-strength highlight.
+  - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
+  - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
+  - `/app/chrome-extension` and `/app/summary` now emphasize their live setup/composition controls over surrounding instructional copy.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
@@ -340,6 +345,7 @@ Milestone metadata contract:
 | M103 | Done | 2026-04-05 | 2026-03-28 | local validation + severity-split local log retention pass (2026-03-28) |
 | M104 | Done | 2026-04-06 | 2026-03-28 | local validation + public episode share link implementation pass (2026-03-28) |
 | M105 | Done | 2026-04-07 | 2026-03-28 | local validation + audio retention expiry/backfill/purge pass (2026-03-28) |
+| M106 | Done | 2026-04-08 | 2026-04-01 | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -3164,6 +3170,43 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run typecheck`
   - `npx pnpm --filter @articlepod/web run audio:backfill-retention -- --dry-run`
+
+---
+
+### M106 - Site-Wide Action Hierarchy Refresh
+- status: Done
+- target_finish: 2026-04-08
+- completed_on: 2026-04-01
+- evidence: local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01)
+- Scope:
+  - Rebalance signed-in page hierarchy so highlight styling points to the primary task on each page instead of over-emphasizing navigation.
+  - Keep `Feedback` discoverable in the signed-in nav while softening it to a secondary hint.
+  - Make the `/app` submit surface, `/app/podcast-apps` feed-copy surface, `/app/chrome-extension` setup surface, and `/app/summary` composition surface read as the dominant above-the-fold action clusters.
+  - Update docs and dashboard e2e coverage so the new copy and hierarchy expectations stay in sync.
+- Key files/modules:
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/components/feed-url-actions.tsx`
+  - `apps/web/src/components/chrome-extension-setup-card.tsx`
+  - `apps/web/src/components/summary-studio-client.tsx`
+  - `apps/web/e2e/auth.setup.ts`
+  - `apps/web/e2e/dashboard.spec.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill.
+  - `/app/podcast-apps` makes the feed URL copy action visually dominant, with app buttons clearly grouped as the next step.
+  - `Feedback` remains easy to find without outranking page-level CTAs.
+  - Chrome extension setup and summary creation pages emphasize their live controls over instructional copy.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `npx pnpm --filter @articlepod/web run seed:demo`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts`
+  - `./scripts/verify_podcast_contract.sh "http://localhost:3000/rss/WQlDaJKFmKiAVuSOf5JWR_xhcW2vy0M7xlOQj63fscc.xml"`
 
 ---
 

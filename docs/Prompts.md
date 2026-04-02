@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-03-29)
+## Spec Status (as of 2026-04-01)
 
-### Implemented (as of 2026-03-29)
+### Implemented (as of 2026-04-01)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -147,6 +147,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - `Demo mode ready` banner is removed from the `/app` workspace.
   - markdown preview controls and markdown API access are now admin-only.
+- Action hierarchy refresh (`M106`) is implemented:
+  - signed-in navigation is now neutral-first, with `Feedback` kept only as a softer secondary hint instead of a primary-strength highlight.
+  - `/app` now groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately.
+  - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
+  - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
+  - `/app/summary` now keeps the intro neutral while giving article selection and summary creation controls the stronger visual emphasis.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated users can submit message-first feedback from `/app/feedback` with optional type/feature metadata.
   - contact preference defaults to opt-in and can be disabled per submission.
@@ -343,20 +349,20 @@ D) Podcast RSS feed
 E) Web UI (polished)
 - `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
 - `/app` episodes workspace:
-  - compact signed-in header focused on navigation, with a lightly highlighted `Feedback` shortcut
+  - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
   - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
-  - URL submit form + mode selector (summary/full optional)
-  - PDF upload form
+  - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace
+  - mode labels should be task-first (`Paste article URL`, `Upload PDF`) rather than generic numbered options
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
-  - private feed copy/open shortcuts and rotation lead the page
+  - private feed copy/open shortcuts and rotation lead the page, with the feed URL copy action as the strongest visual element above the fold
   - Apple Podcasts and YouTube Music shortcuts appear first, with app-first mobile handoff before browser fallback
-  - quick start and walkthrough guidance sit below the live feed tools
+  - quick start and walkthrough guidance sit below the live feed tools with clearly secondary treatment
 - `/app/chrome-extension`:
-  - Chrome extension install + connect/revoke controls lead the page
+  - Chrome extension install + connect/revoke controls lead the page and carry the strongest emphasis
   - quick start and walkthrough guidance sit below the live extension tools
 - `/app/settings`:
   - voice settings (preview + save default) first

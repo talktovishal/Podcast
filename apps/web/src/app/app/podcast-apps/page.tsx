@@ -65,8 +65,8 @@ export default async function PodcastAppsPage() {
           initialItems={[]}
         />
 
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-lg font-semibold">Quick start</h2>
+        <section className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+          <h2 className="text-base font-semibold">Quick start</h2>
           <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
             <li>1. Copy your private feed URL using the box above.</li>
             <li>
@@ -87,7 +87,7 @@ export default async function PodcastAppsPage() {
 
         <section className="space-y-3">
           <div>
-            <h2 className="text-lg font-semibold">App walkthroughs</h2>
+            <h2 className="text-base font-semibold">App walkthroughs</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               Expand an app below for step-by-step instructions. Tap the app
               button first so your feed URL is already in your clipboard.

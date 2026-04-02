@@ -19,8 +19,8 @@ const NAV_ITEMS: ReadonlyArray<{
 
 const baseItemClass =
   "shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
-const neutralItemClass = `${baseItemClass} text-[var(--ink)] hover:border-slate-300 hover:bg-slate-50`;
-const feedbackItemClass = `${baseItemClass} border-emerald-300 bg-emerald-50 text-emerald-900 hover:border-emerald-400 hover:bg-emerald-100`;
+const neutralItemClass = `${baseItemClass} border-[rgba(31,42,31,0.12)] bg-white text-[var(--ink)] hover:border-slate-300 hover:bg-slate-50`;
+const feedbackItemClass = `${baseItemClass} border-[rgba(31,122,90,0.12)] bg-[rgba(223,243,236,0.38)] text-[var(--ink)] hover:border-[rgba(31,122,90,0.22)] hover:bg-[rgba(223,243,236,0.56)]`;
 
 export function AppShellNav({ current }: { current: AppShellNavKey }) {
   return (

@@ -432,7 +432,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
               summary.
             </p>
           </div>
-          <div className="rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[var(--accent-soft)]/75 px-4 py-3 text-sm text-[var(--ink)]">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--ink)]">
             <div className="font-semibold">
               {selectedItemIds.length} article(s) selected
             </div>
@@ -449,7 +449,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.85fr)] lg:items-start">
-        <section className="card p-4 sm:p-5">
+        <section className="card border-[rgba(31,122,90,0.12)] bg-[rgba(223,243,236,0.18)] p-4 sm:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -478,57 +478,59 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
               </button>
             </div>
 
-            <label className="space-y-2">
-              <span className="text-sm font-medium">Search saved articles</span>
-              <input
-                className="w-full rounded-lg border px-3 py-2"
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by title, URL, or source"
-                value={search}
-              />
-            </label>
-
-            <div className="grid grid-cols-1 gap-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/70 p-3 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  Filter by importance
-                </span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={selectedImportanceFilter}
-                  onChange={(event) =>
-                    setSelectedImportanceFilter(
-                      event.target.value as "ALL" | ItemImportance,
-                    )
-                  }
-                >
-                  <option value="ALL">All importance levels</option>
-                  <option value="HIGH">High</option>
-                  <option value="MEDIUM">Medium</option>
-                  <option value="LOW">Low</option>
-                </select>
+            <div className="rounded-2xl border border-[rgba(31,122,90,0.14)] bg-white/85 p-3">
+              <label className="space-y-2">
+                <span className="text-sm font-medium">Search saved articles</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search by title, URL, or source"
+                  value={search}
+                />
               </label>
 
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  Filter by tag
-                </span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  value={selectedTagFilter}
-                  onChange={(event) => setSelectedTagFilter(event.target.value)}
-                >
-                  <option value="ALL">All tags</option>
-                  {availableTagFilters.map((tag) => (
-                    <option key={tag} value={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="mt-3 grid grid-cols-1 gap-3 rounded-xl border border-[rgba(31,42,31,0.12)] bg-[var(--surface)]/70 p-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium">
+                    Filter by importance
+                  </span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={selectedImportanceFilter}
+                    onChange={(event) =>
+                      setSelectedImportanceFilter(
+                        event.target.value as "ALL" | ItemImportance,
+                      )
+                    }
+                  >
+                    <option value="ALL">All importance levels</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium">
+                    Filter by tag
+                  </span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                    value={selectedTagFilter}
+                    onChange={(event) => setSelectedTagFilter(event.target.value)}
+                  >
+                    <option value="ALL">All tags</option>
+                    {availableTagFilters.map((tag) => (
+                      <option key={tag} value={tag}>
+                        {tag}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
 
-            <div className="space-y-2 rounded-2xl border p-2 sm:p-3 lg:max-h-[34rem] lg:overflow-y-auto">
+            <div className="space-y-2 rounded-2xl border bg-white p-2 sm:p-3 lg:max-h-[34rem] lg:overflow-y-auto">
               {items.length === 0 ? (
                 <p className="px-1 py-2 text-sm text-[var(--muted)]">
                   No ready saved articles are available yet.
@@ -566,7 +568,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
           </div>
         </section>
 
-        <section className="card p-4 sm:p-5 lg:sticky lg:top-6">
+        <section className="card border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/40 p-4 sm:p-5 lg:sticky lg:top-6">
           <div className="space-y-4">
             <div>
               <h2 className="font-semibold text-lg">Summary Options</h2>
@@ -608,7 +610,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
               </div>
             </div>
 
-            <div className="rounded-xl border bg-[rgba(247,251,250,0.92)] px-3 py-3 text-sm text-[var(--muted)]">
+            <div className="rounded-xl border border-[rgba(31,122,90,0.14)] bg-white/85 px-3 py-3 text-sm text-[var(--muted)]">
               Selected articles become one markdown roundup. You can review the
               output below before reusing it anywhere else.
             </div>

@@ -90,8 +90,8 @@ function ShortcutButton({
 }: ShortcutButtonProps) {
   const className =
     tone === "featured"
-      ? "inline-flex w-full items-center gap-2 rounded-xl border border-[rgba(31,122,90,0.2)] bg-[rgba(223,243,236,0.55)] px-3 py-2.5 text-sm font-medium text-[var(--ink)] transition hover:border-[rgba(31,122,90,0.3)] hover:bg-white"
-      : "inline-flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
+      ? "inline-flex w-full items-center gap-2 rounded-xl border border-[rgba(31,122,90,0.14)] bg-[rgba(223,243,236,0.28)] px-3 py-2.5 text-sm font-medium text-[var(--ink)] transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
+      : "inline-flex w-full items-center gap-2 rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-50/60 px-3 py-2.5 text-sm font-medium text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
 
   return (
     <button className={className} onClick={onClick} type="button">
@@ -302,56 +302,80 @@ export function FeedUrlActions({ feedUrl, unavailableMessage = null }: Props) {
   }
 
   return (
-    <div>
-      <div className="mt-2">
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/55 p-4 sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+          Step 1
+        </p>
         <CopyableValueBox
           copiedMessage="Feed URL copied."
           idleMessage="Tap or click the box to copy your private feed URL."
           label="Private feed URL"
+          tone="accent"
           value={feedUrl}
         />
-      </div>
-      <div className="mt-4 space-y-3">
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          Copy this first, then paste it into your podcast app&apos;s{" "}
+          <span className="font-medium text-[var(--ink)]">Add by URL</span>{" "}
+          flow.
+        </p>
+      </section>
+
+      <section className="rounded-2xl border border-[rgba(31,42,31,0.1)] bg-white p-4 sm:p-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-            Featured apps
+            Step 2
           </p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {featuredApps.map((app) => (
-              <ShortcutButton
-                key={app.label}
-                icon={app.icon}
-                label={app.label}
-                onClick={app.onClick}
-                tone="featured"
-              />
-            ))}
-          </div>
+          <h3 className="mt-1 text-sm font-semibold text-[var(--ink)]">
+            Open a podcast app
+          </h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            These shortcuts copy the feed URL first, then try to open the app.
+          </p>
         </div>
 
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
-            Other podcast apps
-          </p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {otherApps.map((app) => (
-              <ShortcutButton
-                key={app.label}
-                icon={app.icon}
-                label={app.label}
-                onClick={app.onClick}
-              />
-            ))}
+        <div className="mt-4 space-y-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Featured apps
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {featuredApps.map((app) => (
+                <ShortcutButton
+                  key={app.label}
+                  icon={app.icon}
+                  label={app.label}
+                  onClick={app.onClick}
+                  tone="featured"
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted)]">
+              Other podcast apps
+            </p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              {otherApps.map((app) => (
+                <ShortcutButton
+                  key={app.label}
+                  icon={app.icon}
+                  label={app.label}
+                  onClick={app.onClick}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-      <p className="mt-2 text-xs text-[var(--muted)]">
+      </section>
+      <p className="text-xs text-[var(--muted)]">
         Tapping a button copies your feed URL and tries to open the app first on
         mobile. Some apps jump straight to an &ldquo;Add by URL&rdquo; flow,
         while others open the app so you can paste the copied URL there.
       </p>
       {statusMessage ? (
-        <p aria-live="polite" className="mt-1 text-xs text-[var(--muted)]">
+        <p aria-live="polite" className="text-xs text-[var(--muted)]">
           {statusMessage}
         </p>
       ) : null}
