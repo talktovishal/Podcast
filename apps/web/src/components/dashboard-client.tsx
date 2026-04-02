@@ -316,6 +316,21 @@ export function DashboardClient({
   const submissionBlocked =
     showSubmissionQuota &&
     (paidQueueFull || (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
+  const submissionQuotaMessage = showSubmissionQuota
+    ? submissionQuota?.isPaid
+      ? paidQueueFull
+        ? "The current Pro window and overflow queue are full. Try again later."
+        : paidWillDefer
+          ? `The current Pro window is full, but new submissions still queue automatically. ${
+              submissionQuota?.queuedDeferredPodcasts ?? 0
+            } of ${submissionQuota?.maxDeferredPodcasts ?? 0} overflow spots are already reserved.`
+          : `Pro plan: ${submissionQuota?.remainingDailyPodcasts ?? 0} of ${
+              submissionQuota?.dailyPodcastLimit ?? 0
+            } episodes can start right away in the current 24-hour window.`
+      : `Free trial: ${submissionQuota?.remainingFreeSubmissions ?? 0} of ${
+          submissionQuota?.totalFreeSubmissionAllowance ?? 0
+        } submissions remaining.`
+    : null;
   const requestedSettingsSections = useMemo(() => new Set(settingsSections), [settingsSections]);
   const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
   const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
@@ -1352,57 +1367,8 @@ export function DashboardClient({
       {showSubmissionSection ? (
         <section className="card p-4 sm:p-5">
           <h2 className="text-lg font-semibold">Add New Episode</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Paste a URL or upload a PDF to turn it into a private podcast episode.</p>
-          {showSubmissionQuota ? (
-            <div
-              className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                submissionBlocked ? "border-[#f9c6c3] bg-[#fff1f0] text-[#8d231f]" : "border-[#cfe7df] bg-[#f1faf7] text-[#155240]"
-              }`}
-            >
-              {submissionQuota?.isPaid ? (
-                <>
-                  <p>
-                    Paid plan active. {submissionQuota?.remainingDailyPodcasts ?? 0} of {submissionQuota?.dailyPodcastLimit ?? 0} new podcast
-                    episodes can start right away in the current 24-hour window.
-                  </p>
-                  {paidWillDefer ? (
-                    <p className="mt-1">
-                      New submissions are still accepted and queued automatically. {submissionQuota?.queuedDeferredPodcasts ?? 0} of{" "}
-                      {submissionQuota?.maxDeferredPodcasts ?? 0} overflow spots are already reserved.
-                    </p>
-                  ) : null}
-                  {paidQueueFull ? (
-                    <p className="mt-1">
-                      The current Pro window is full and the overflow queue is at capacity. Try again later.
-                    </p>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <p>
-                    Free trial quota: {submissionQuota?.remainingFreeSubmissions ?? 0} of{" "}
-                    {submissionQuota?.totalFreeSubmissionAllowance ?? 0} submissions remaining.
-                  </p>
-                  {submissionBlocked ? (
-                    <p className="mt-1">
-                      Trial quota is exhausted. Upgrade on the <Link className="underline" href="/pricing">pricing page</Link> or ask an
-                      admin for extra tries.
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </div>
-          ) : null}
-
-          <div className="mt-4 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3 sm:p-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Primary action</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Choose one source, fill it in, and queue the episode from here.
-              </p>
-            </div>
-
-            <fieldset className="mt-3">
+          <div className="mt-3 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3 sm:p-4">
+            <fieldset>
               <legend className="sr-only">Choose source</legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label
@@ -1484,6 +1450,28 @@ export function DashboardClient({
               >
                 {sourceMode === "url" ? "Submit URL" : "Upload PDF"}
               </button>
+
+              {submissionQuotaMessage ? (
+                submissionBlocked || paidWillDefer ? (
+                  <div
+                    className={`rounded-lg border px-3 py-2 text-sm ${
+                      submissionBlocked
+                        ? "border-[#f9c6c3] bg-[#fff1f0] text-[#8d231f]"
+                        : "border-[#fce8b2] bg-[#fff6d9] text-[#6f5200]"
+                    }`}
+                  >
+                    <p>{submissionQuotaMessage}</p>
+                    {!submissionQuota?.isPaid && submissionBlocked ? (
+                      <p className="mt-1">
+                        Trial quota is exhausted. Upgrade on the <Link className="underline" href="/pricing">pricing page</Link> or ask an
+                        admin for extra tries.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--muted)]">{submissionQuotaMessage}</p>
+                )
+              ) : null}
             </div>
           </div>
         </section>

@@ -3194,7 +3194,7 @@ Milestone metadata contract:
   - `apps/web/e2e/dashboard.spec.ts`
   - `docs/Prompts.md`
 - Acceptance criteria:
-  - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill.
+  - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill, with duplicate explanatory copy removed and non-blocking quota/capacity status kept secondary below the submit control.
   - `/app/podcast-apps` makes the feed URL copy action visually dominant, with app buttons clearly grouped as the next step.
   - `Feedback` remains easy to find without outranking page-level CTAs.
   - Chrome extension setup and summary creation pages emphasize their live controls over instructional copy.

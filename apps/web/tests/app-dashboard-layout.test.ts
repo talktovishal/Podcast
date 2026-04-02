@@ -157,7 +157,8 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes(">Optional<"), false);
   assert.equal(source.includes("Importance:"), true);
   assert.equal(source.includes("financial, personal, retirement"), true);
-  assert.equal(source.includes("Primary action"), true);
+  assert.equal(source.includes("Primary action"), false);
+  assert.equal(source.includes("Paste a URL or upload a PDF to turn it into a private podcast episode."), false);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);

@@ -149,7 +149,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
   - signed-in navigation is now neutral-first, with `Feedback` kept only as a softer secondary hint instead of a primary-strength highlight.
-  - `/app` groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately.
+  - `/app` groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately, removes duplicate explanatory copy inside `Add New Episode`, and keeps non-blocking quota/capacity copy below the submit control with quieter treatment.
   - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
   - `/app/summary` now keeps the intro neutral while giving article selection and summary creation controls the stronger visual emphasis.
@@ -357,6 +357,7 @@ E) Web UI (polished)
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
   - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace
+  - non-blocking trial quota or capacity copy should sit below the primary submit control with clearly secondary treatment; only blocking states should escalate visually
   - mode labels should be task-first (`Paste article URL`, `Upload PDF`) rather than generic numbered options
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
