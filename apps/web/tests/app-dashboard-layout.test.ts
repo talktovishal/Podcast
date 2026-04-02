@@ -172,6 +172,10 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("p-2.5"), true);
   assert.equal(source.includes('rounded-2xl bg-[var(--accent-soft)]/35 p-3'), true);
   assert.equal(source.includes('rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3'), false);
+  assert.equal(source.includes('bg-white/80 p-2.5'), true);
+  assert.equal(source.includes('focus-within:border-[var(--accent)]'), true);
+  assert.equal(source.includes('focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]'), true);
+  assert.equal(source.includes('border-[rgba(31,122,90,0.22)] bg-[var(--accent-soft)]/25'), true);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);
