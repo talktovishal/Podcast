@@ -246,9 +246,14 @@ export function ChromeExtensionSetupCard({
               </p>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-[var(--muted)]">
-              {isBusy ? "Preparing your one-time connect code..." : "Generate a one-time connect code when you are ready to pair the extension."}
-            </p>
+            <div className="mt-4 rounded-2xl border border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)] p-4 shadow-[0_0_0_1px_rgba(31,122,90,0.06)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">One-time connect code</p>
+              <div className="mt-2 rounded-xl border border-[rgba(31,122,90,0.18)] bg-white/92 px-4 py-3">
+                <p className="text-sm text-[var(--ink)]">
+                  {isBusy ? "Preparing your one-time connect code..." : "Generate a one-time connect code when you are ready to pair the extension."}
+                </p>
+              </div>
+            </div>
           )
         ) : (
           <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-3">
