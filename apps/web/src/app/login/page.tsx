@@ -167,15 +167,11 @@ export default function LoginPage() {
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               Continue with one tap
             </p>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-[2rem]">
-              Continue to your feed
-            </h1>
-            <p className="mt-2 max-w-md text-sm text-[var(--muted)]">
-              First time with Google, Facebook, or Apple? We&apos;ll create your
-              account automatically.
+            <p className="max-w-xs text-sm text-[var(--muted)]">
+              First time? We&apos;ll create your account automatically.
             </p>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-4 space-y-4">
               <div>
                 <div className="grid grid-cols-1 gap-2">
                   {configuredProviders.map((provider) => (
@@ -304,7 +300,7 @@ export default function LoginPage() {
             </div>
           </section>
 
-          <section className="space-y-4 lg:pt-2">
+          <section className="space-y-5 lg:pt-2">
             <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
               {marketingCopy.heroHeadline}
             </h2>
@@ -317,10 +313,10 @@ export default function LoginPage() {
               {marketingCopy.heroHighlights.map((item) => (
                 <article
                   key={item.title}
-                  className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-3.5 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
+                  className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-4 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
                 >
                   <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
-                  <p className="mt-1.5 text-sm leading-5 text-[var(--muted)]">{item.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
                 </article>
               ))}
             </div>

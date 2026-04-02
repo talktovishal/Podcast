@@ -25,7 +25,7 @@ test("marketing copy keeps concise busy-reader framing", () => {
   assert.equal(marketingCopy.heroHeadline, "The intellectual sanctuary for busy readers.");
   assert.equal(
     marketingCopy.heroSubheading,
-    "Archive favorite articles and listen on the go with high-fidelity AI narration."
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests."
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
@@ -105,8 +105,9 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   const layoutSource = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
 
   assert.equal(marketingSource.includes("The intellectual sanctuary for busy readers."), true);
-  assert.equal(marketingSource.includes("Archive favorite articles and listen on the go with high-fidelity AI narration."), true);
-  assert.equal(marketingSource.includes("Get a weekly recap when you want the highlights back together."), true);
+  assert.equal(marketingSource.includes("Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration."), true);
+  assert.equal(marketingSource.includes("Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests."), true);
+  assert.equal(marketingSource.includes("Catch up later with weekly recap options when you want the highlights together."), true);
   assert.equal(marketingSource.includes("monthly and yearly trend recaps"), false);
   assert.equal(marketingSource.includes("daily recap podcast"), false);
   assert.equal(marketingSource.includes("Curated archive"), true);
@@ -114,6 +115,8 @@ test("public marketing copy focuses on instant episodes and weekly digest option
 
   assert.equal(loginSource.includes("MarketingFooter"), false);
   assert.equal(loginSource.includes("Join Now"), false);
+  assert.equal(loginSource.includes("Continue to your feed"), false);
+  assert.equal(loginSource.includes("First time? We&apos;ll create your account automatically."), true);
   assert.equal(loginSource.includes("Private Knowledge Feed"), false);
   assert.equal(loginSource.includes("Listening now"), false);
   assert.equal(loginSource.includes("A private feed built for real catch-up time."), false);

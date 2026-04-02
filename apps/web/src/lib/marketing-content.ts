@@ -33,19 +33,19 @@ export const marketingCopy = {
   heroBadge: "Private Knowledge Feed",
   heroHeadline: "The intellectual sanctuary for busy readers.",
   heroSubheading:
-    "Archive favorite articles and listen on the go with high-fidelity AI narration.",
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
   heroHighlights: [
     {
       title: "Curated archive",
-      description: "Keep the pieces worth revisiting in one calm queue."
+      description: "Keep the reading worth saving in one calm, focused queue."
     },
     {
       title: "Private RSS feed",
-      description: "Use your regular podcast app without exposing saved sources."
+      description: "Listen in the podcast app you already use without exposing saved sources."
     },
     {
       title: "Podcast + email digests",
-      description: "Get a weekly recap when you want the highlights back together."
+      description: "Catch up later with weekly recap options when you want the highlights together."
     }
   ] as const,
   securityIntro:

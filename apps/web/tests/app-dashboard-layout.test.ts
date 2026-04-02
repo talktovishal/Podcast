@@ -272,8 +272,8 @@ test("login redirects admins directly to admin dashboard", () => {
   const providerSource = readFileSync(new URL("../src/lib/oauth-providers.ts", import.meta.url), "utf8");
   const pricingSource = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"))'), true);
-  assert.equal(source.includes("Continue to your feed"), true);
-  assert.equal(source.includes("First time with Google, Facebook, or Apple?"), true);
+  assert.equal(source.includes("Continue to your feed"), false);
+  assert.equal(source.includes("First time? We&apos;ll create your account automatically."), true);
   assert.equal(source.includes("Use email instead"), true);
   assert.equal(source.includes("configuredProviders.map"), true);
   assert.equal(source.includes("const primaryAuthActionClass ="), true);
