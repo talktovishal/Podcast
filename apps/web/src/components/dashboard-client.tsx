@@ -1375,11 +1375,11 @@ export function DashboardClient({
 
             <div className="mt-2.5 space-y-2.5">
               {sourceMode === "url" ? (
-                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 shadow-sm transition focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]">
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.28)] bg-[var(--accent-soft)]/45 p-3 shadow-sm transition focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.16)]">
                   <label className="block">
-                    <span className="mb-0.5 block text-sm font-medium">Article URL</span>
+                    <span className="mb-0.5 block text-sm font-medium text-[var(--accent)]">Article URL</span>
                     <input
-                      className="w-full rounded-lg border border-[rgba(31,122,90,0.22)] bg-[var(--accent-soft)]/25 px-3 py-1.5 transition focus:border-[var(--accent)] focus:bg-white focus:outline-none"
+                      className="w-full rounded-lg border border-[rgba(31,122,90,0.28)] bg-white px-3 py-1.5 transition placeholder:text-slate-400 focus:border-[var(--accent)] focus:outline-none"
                       placeholder="https://example.com/article"
                       value={urlInput}
                       onChange={(event) => setUrlInput(event.target.value)}
@@ -1388,11 +1388,11 @@ export function DashboardClient({
                   {optionalDetailsPanel}
                 </article>
               ) : (
-                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 shadow-sm transition focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]">
-                  <label className="mb-0.5 block text-sm font-medium">PDF file</label>
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.28)] bg-[var(--accent-soft)]/45 p-3 shadow-sm transition focus-within:border-[var(--accent)] focus-within:shadow-[0_0_0_3px_rgba(31,122,90,0.16)]">
+                  <label className="mb-0.5 block text-sm font-medium text-[var(--accent)]">PDF file</label>
                   <input
                     ref={pdfInputRef}
-                    className="block w-full rounded-lg border border-[rgba(31,122,90,0.22)] bg-[var(--accent-soft)]/25 px-3 py-1.5 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)] focus:border-[var(--accent)] focus:bg-white focus:outline-none"
+                    className="block w-full rounded-lg border border-[rgba(31,122,90,0.28)] bg-white px-3 py-1.5 text-sm transition file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none"
                     type="file"
                     accept="application/pdf"
                     onChange={(event) => {
