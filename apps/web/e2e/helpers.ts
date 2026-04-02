@@ -58,7 +58,7 @@ export async function loginAsDemo(page: Page): Promise<void> {
  * Log out via the Logout button on the dashboard.
  */
 export async function logout(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("button", { name: "Log out" }).click();
   await page.waitForURL(/\/login/, { timeout: 10_000 });
 }
 

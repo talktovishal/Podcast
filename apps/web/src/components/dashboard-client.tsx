@@ -480,70 +480,59 @@ export function DashboardClient({
   }, [inProgressCount, readOnly, refreshItems, showItemsSection]);
 
   const optionalDetailsPanel = (
-    <section className="rounded-xl border border-[rgba(31,42,31,0.1)] bg-white px-4 py-3">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-3 text-left"
-        aria-controls="submission-optional-details"
-        aria-expanded={showOptionalDetails}
-        onClick={() => setShowOptionalDetails((current) => !current)}
-      >
-        <span className="flex items-center gap-2 text-sm font-medium text-[var(--ink)]">
-          <svg
-            aria-hidden="true"
-            className={`h-4 w-4 text-[var(--muted)] transition ${showOptionalDetails ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            viewBox="0 0 24 24"
-          >
-            <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          {showOptionalDetails ? "Hide details" : "Add details"}
-        </span>
-        <span className="hidden text-xs text-[var(--muted)] sm:inline">Title, tags, and importance</span>
-      </button>
+    <section className="mt-3 rounded-xl border border-[rgba(31,42,31,0.1)] bg-[rgba(244,248,244,0.96)] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-[var(--ink)]">Optional details</p>
+          <p className="text-xs text-[var(--muted)]">Title, importance, and tags are optional.</p>
+        </div>
+        <button
+          type="button"
+          className="rounded-full border border-[rgba(31,42,31,0.12)] bg-white px-3 py-1 text-xs font-medium text-[var(--muted)] transition hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
+          aria-controls="submission-optional-details"
+          aria-expanded={showOptionalDetails}
+          onClick={() => setShowOptionalDetails((current) => !current)}
+        >
+          {showOptionalDetails ? "Hide" : "Show"}
+        </button>
+      </div>
 
       {showOptionalDetails ? (
-        <div id="submission-optional-details" className="mt-3 grid gap-3 sm:grid-cols-3">
+        <div id="submission-optional-details" className="mt-3 grid gap-2.5">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-[var(--ink)]">
-              Episode title <span className="font-normal text-[var(--muted)]">(optional)</span>
-            </span>
+            <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Title</span>
             <input
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              placeholder="Episode title..."
+              className="w-full rounded-lg border px-3 py-1.5 text-sm"
+              placeholder="Leave blank to auto-title"
               value={titleInput}
               onChange={(event) => setTitleInput(event.target.value)}
             />
           </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-[var(--ink)]">
-              Tags <span className="font-normal text-[var(--muted)]">(optional)</span>
-            </span>
-            <input
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              placeholder="Add tags..."
-              value={tagsInput}
-              onChange={(event) => setTagsInput(event.target.value)}
-            />
-          </label>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Importance</span>
+              <select
+                className="w-full rounded-lg border px-3 py-1.5 text-sm"
+                value={importanceInput}
+                onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+            </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-[var(--ink)]">
-              Importance <span className="font-normal text-[var(--muted)]">(optional)</span>
-            </span>
-            <select
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              value={importanceInput}
-              onChange={(event) => setImportanceInput(event.target.value as ItemImportance)}
-            >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
-            </select>
-          </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)]">Tags</span>
+              <input
+                className="w-full rounded-lg border px-3 py-1.5 text-sm"
+                placeholder="financial, personal, retirement"
+                value={tagsInput}
+                onChange={(event) => setTagsInput(event.target.value)}
+              />
+            </label>
+          </div>
         </div>
       ) : null}
     </section>
@@ -575,9 +564,10 @@ export function DashboardClient({
       }
 
       setStatusMessage(
-        json.queue_mode === "deferred"
-          ? "Episode queued. It will start in the next available Pro window."
-          : "Episode queued. We'll start processing it right away."
+        json.accepted_message ||
+          (json.queue_mode === "deferred"
+            ? "Accepted. Processing is queued for the next available Pro window."
+            : "URL received. Processing has started and status will update automatically.")
       );
       setSubmissionQuota(json.submission_quota ?? null);
       setUrlInput("");
@@ -619,9 +609,10 @@ export function DashboardClient({
       }
 
       setStatusMessage(
-        json.queue_mode === "deferred"
-          ? "Episode queued. It will start in the next available Pro window."
-          : "Episode queued. We'll start processing it right away."
+        json.accepted_message ||
+          (json.queue_mode === "deferred"
+            ? "Accepted. Processing is queued for the next available Pro window."
+            : "PDF uploaded. Processing has started and status will update automatically.")
       );
       setSubmissionQuota(json.submission_quota ?? null);
       setPdfFile(null);
@@ -1359,23 +1350,66 @@ export function DashboardClient({
       ) : null}
 
       {showSubmissionSection ? (
-        <section className="card mx-auto max-w-3xl p-5 sm:p-6">
-          <div className="space-y-4">
-            <div className="space-y-2 text-center">
-              <h2 className="font-bold text-3xl text-[var(--ink)] sm:text-[2.2rem]">Add New Episode</h2>
-              <p className="text-sm text-[var(--muted)] sm:text-base">
-                Paste a URL or upload a PDF to turn it into a private podcast episode.
+        <section className="card p-4 sm:p-5">
+          <h2 className="text-lg font-semibold">Add New Episode</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Paste a URL or upload a PDF to turn it into a private podcast episode.</p>
+          {showSubmissionQuota ? (
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                submissionBlocked ? "border-[#f9c6c3] bg-[#fff1f0] text-[#8d231f]" : "border-[#cfe7df] bg-[#f1faf7] text-[#155240]"
+              }`}
+            >
+              {submissionQuota?.isPaid ? (
+                <>
+                  <p>
+                    Paid plan active. {submissionQuota?.remainingDailyPodcasts ?? 0} of {submissionQuota?.dailyPodcastLimit ?? 0} new podcast
+                    episodes can start right away in the current 24-hour window.
+                  </p>
+                  {paidWillDefer ? (
+                    <p className="mt-1">
+                      New submissions are still accepted and queued automatically. {submissionQuota?.queuedDeferredPodcasts ?? 0} of{" "}
+                      {submissionQuota?.maxDeferredPodcasts ?? 0} overflow spots are already reserved.
+                    </p>
+                  ) : null}
+                  {paidQueueFull ? (
+                    <p className="mt-1">
+                      The current Pro window is full and the overflow queue is at capacity. Try again later.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <p>
+                    Free trial quota: {submissionQuota?.remainingFreeSubmissions ?? 0} of{" "}
+                    {submissionQuota?.totalFreeSubmissionAllowance ?? 0} submissions remaining.
+                  </p>
+                  {submissionBlocked ? (
+                    <p className="mt-1">
+                      Trial quota is exhausted. Upgrade on the <Link className="underline" href="/pricing">pricing page</Link> or ask an
+                      admin for extra tries.
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3 sm:p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Primary action</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Choose one source, fill it in, and queue the episode from here.
               </p>
             </div>
 
-            <fieldset>
+            <fieldset className="mt-3">
               <legend className="sr-only">Choose source</legend>
-              <div className="mx-auto inline-flex w-full max-w-md rounded-xl border border-[rgba(31,42,31,0.12)] bg-slate-100 p-1">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <label
-                  className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-2.5 text-sm font-semibold transition ${
+                  className={`cursor-pointer rounded-xl border px-3 py-3 text-sm transition ${
                     sourceMode === "url"
-                      ? "bg-[var(--accent)] text-white shadow-sm"
-                      : "text-[var(--muted)] hover:text-[var(--ink)]"
+                      ? "border-[var(--accent)] bg-white text-[var(--ink)] shadow-sm"
+                      : "border-[rgba(31,42,31,0.12)] bg-white/70 text-[var(--ink)]"
                   }`}
                 >
                   <input
@@ -1387,27 +1421,14 @@ export function DashboardClient({
                     onChange={() => setSourceMode("url")}
                     disabled={isBusy}
                   />
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    {sourceMode === "url" ? (
-                      <path d="M5 12.5 9.5 17 19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                    ) : (
-                      <path d="M10 14 21 3M18 3h3v3M14 10H7a4 4 0 1 0 0 8h7a4 4 0 0 0 4-4v-1" strokeLinecap="round" strokeLinejoin="round" />
-                    )}
-                  </svg>
-                  <span>Paste article URL</span>
+                  <span className="block font-semibold">Paste article URL</span>
+                  <span className="mt-1 block text-xs text-[var(--muted)]">Best for web articles and blog posts.</span>
                 </label>
                 <label
-                  className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] px-3 py-2.5 text-sm font-semibold transition ${
+                  className={`cursor-pointer rounded-xl border px-3 py-3 text-sm transition ${
                     sourceMode === "pdf"
-                      ? "bg-[var(--accent)] text-white shadow-sm"
-                      : "text-[var(--muted)] hover:text-[var(--ink)]"
+                      ? "border-[var(--accent)] bg-white text-[var(--ink)] shadow-sm"
+                      : "border-[rgba(31,42,31,0.12)] bg-white/70 text-[var(--ink)]"
                   }`}
                 >
                   <input
@@ -1419,45 +1440,32 @@ export function DashboardClient({
                     onChange={() => setSourceMode("pdf")}
                     disabled={isBusy}
                   />
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    {sourceMode === "pdf" ? (
-                      <path d="M5 12.5 9.5 17 19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-                    ) : (
-                      <>
-                        <path d="M8 3.5h6L18.5 8v11A1.5 1.5 0 0 1 17 20.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5Z" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M13.5 3.5V8h4.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </>
-                    )}
-                  </svg>
-                  <span>Upload PDF</span>
+                  <span className="block font-semibold">Upload PDF</span>
+                  <span className="mt-1 block text-xs text-[var(--muted)]">Best for saved documents and reports.</span>
                 </label>
               </div>
             </fieldset>
 
-            <div className="space-y-3">
+            <div className="mt-3 space-y-3">
               {sourceMode === "url" ? (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[var(--ink)]">Article URL</span>
-                  <input
-                    className="w-full rounded-xl border border-[rgba(31,122,90,0.28)] px-4 py-3 text-sm shadow-sm focus:border-[var(--accent)] focus:outline-none focus:ring-4 focus:ring-[rgba(31,122,90,0.1)]"
-                    placeholder="https://example.com/article"
-                    value={urlInput}
-                    onChange={(event) => setUrlInput(event.target.value)}
-                  />
-                </label>
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 sm:p-4 shadow-sm">
+                  <label className="block">
+                    <span className="mb-1 block text-sm font-medium">Article URL</span>
+                    <input
+                      className="w-full rounded-lg border px-3 py-2"
+                      placeholder="https://example.com/article"
+                      value={urlInput}
+                      onChange={(event) => setUrlInput(event.target.value)}
+                    />
+                  </label>
+                  {optionalDetailsPanel}
+                </article>
               ) : (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-[var(--ink)]">PDF file</label>
+                <article className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white p-3 sm:p-4 shadow-sm">
+                  <label className="mb-1 block text-sm font-medium">PDF file</label>
                   <input
                     ref={pdfInputRef}
-                    className="block w-full rounded-xl border px-4 py-3 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)]"
+                    className="block w-full rounded-lg border px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[var(--accent)]"
                     type="file"
                     accept="application/pdf"
                     onChange={(event) => {
@@ -1465,56 +1473,17 @@ export function DashboardClient({
                     }}
                   />
                   {pdfFile ? <p className="mt-2 text-xs text-[var(--muted)]">Selected file: {pdfFile.name}</p> : null}
-                </div>
+                  {optionalDetailsPanel}
+                </article>
               )}
 
-              {optionalDetailsPanel}
-
-              {showSubmissionQuota && submissionBlocked ? (
-                <div className="rounded-lg border border-[#f9c6c3] bg-[#fff1f0] px-3 py-2 text-sm text-[#8d231f]">
-                  {submissionQuota?.isPaid ? (
-                    <p>
-                      The current Pro window is full and the overflow queue is at capacity. Try again later.
-                    </p>
-                  ) : (
-                    <p>
-                      Trial quota is exhausted. Upgrade on the <Link className="underline" href="/pricing">pricing page</Link> or ask an
-                      admin for extra tries.
-                    </p>
-                  )}
-                </div>
-              ) : null}
-
               <button
-                className="w-full rounded-lg bg-[var(--accent)] px-4 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+                className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60 sm:w-auto"
                 disabled={submissionBlocked || isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)}
                 onClick={submitActiveSource}
               >
-                {isBusy ? "Creating..." : "Create Episode"}
+                {sourceMode === "url" ? "Submit URL" : "Upload PDF"}
               </button>
-
-              {showSubmissionQuota && !submissionBlocked ? (
-                <p className="text-center text-sm text-[var(--muted)]">
-                  {submissionQuota?.isPaid ? (
-                    paidWillDefer ? (
-                      <>
-                        New episodes will queue automatically. {submissionQuota?.queuedDeferredPodcasts ?? 0} of{" "}
-                        {submissionQuota?.maxDeferredPodcasts ?? 0} overflow spots are already reserved.
-                      </>
-                    ) : (
-                      <>
-                        {submissionQuota?.remainingDailyPodcasts ?? 0} of {submissionQuota?.dailyPodcastLimit ?? 0} new podcast episodes can
-                        start right away in the current 24-hour window.
-                      </>
-                    )
-                  ) : (
-                    <>
-                      Free trial quota: {submissionQuota?.remainingFreeSubmissions ?? 0} of{" "}
-                      {submissionQuota?.totalFreeSubmissionAllowance ?? 0} submissions remaining.
-                    </>
-                  )}
-                </p>
-              ) : null}
             </div>
           </div>
         </section>

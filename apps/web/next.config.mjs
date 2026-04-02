@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
+const isDevelopment = process.env.NODE_ENV !== "production";
+
 const nextConfig = {
   transpilePackages: ["@articlepod/core"],
   async headers() {
+    const scriptSrc = ["'self'", "'unsafe-inline'"];
+    const connectSrc = ["'self'"];
+
+    if (isDevelopment) {
+      scriptSrc.push("'unsafe-eval'");
+      connectSrc.push("ws:", "wss:");
+    }
+
     return [
       {
         source: "/(.*)",
@@ -14,11 +24,11 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
+              `script-src ${scriptSrc.join(" ")}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob:",
               "font-src 'self'",
-              "connect-src 'self'",
+              `connect-src ${connectSrc.join(" ")}`,
               "media-src 'self' blob:",
               "object-src 'none'",
               "frame-ancestors 'none'"

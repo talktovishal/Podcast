@@ -51,14 +51,22 @@ export default async function AppDashboardPage({
 
   return (
     <main className="py-5 sm:py-8">
-      <div className="container-shell space-y-5">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <WorkspaceBillingSummary
-            activationHint={billingSearchParam === "success"}
-            billingConfigured={billingConfigured}
-            initialBilling={billing}
-          />
-          <AppShellNav current="workspace" />
+      <div className="container-shell space-y-6">
+        <header className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <WorkspaceBillingSummary
+                activationHint={billingSearchParam === "success"}
+                billingConfigured={billingConfigured}
+                initialBilling={billing}
+              />
+              <AppShellNav current="workspace" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+              <p className="text-sm text-[var(--muted)]">Create new episodes quickly, then keep an eye on processing and playback below.</p>
+            </div>
+          </div>
         </header>
 
         <DashboardClient

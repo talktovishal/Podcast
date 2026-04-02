@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 type LogoutButtonProps = {
   className?: string;
@@ -15,18 +15,23 @@ export function LogoutButton({
   title,
   variant = "default"
 }: LogoutButtonProps) {
-  const router = useRouter();
+  const [isBusy, setIsBusy] = useState(false);
 
   return (
     <button
       aria-label={ariaLabel}
       className={className}
+      disabled={isBusy}
       title={title}
       type="button"
       onClick={async () => {
-        await fetch("/api/auth/logout", { method: "POST" });
-        router.push("/login");
-        router.refresh();
+        setIsBusy(true);
+
+        try {
+          await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+        } finally {
+          window.location.assign("/login");
+        }
       }}
     >
       {variant === "icon" ? (
