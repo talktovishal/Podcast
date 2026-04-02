@@ -15,6 +15,7 @@ import { copyText } from "@/lib/copy-text";
 type Props = {
   feedUrl: string | null;
   unavailableMessage?: string | null;
+  autoFocusPrimaryAction?: boolean;
 };
 
 type Platform = "ios" | "android" | "desktop";
@@ -101,7 +102,11 @@ function ShortcutButton({
   );
 }
 
-export function FeedUrlActions({ feedUrl, unavailableMessage = null }: Props) {
+export function FeedUrlActions({
+  feedUrl,
+  unavailableMessage = null,
+  autoFocusPrimaryAction = false
+}: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const platform = useMemo(() => detectPlatform(), []);
   const sameTabFallback = platform !== "desktop";
@@ -308,6 +313,7 @@ export function FeedUrlActions({ feedUrl, unavailableMessage = null }: Props) {
           Step 1
         </p>
         <CopyableValueBox
+          autoFocus={autoFocusPrimaryAction}
           copiedMessage="Feed URL copied."
           idleMessage="Tap or click the box to copy your private feed URL."
           label="Private feed URL"

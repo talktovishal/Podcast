@@ -301,6 +301,7 @@ export function DashboardClient({
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
+  const urlInputRef = useRef<HTMLInputElement | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const shareActionFeedbackTimerRef = useRef<number | null>(null);
   const recentItemsToastTimerRef = useRef<number | null>(null);
@@ -384,6 +385,25 @@ export function DashboardClient({
       // Ignore storage access issues and keep the in-memory preference only.
     }
   }, [hasLoadedOptionalDetailsPreference, showOptionalDetails]);
+
+  useEffect(() => {
+    if (!showSubmissionSection) {
+      return;
+    }
+
+    const focusTarget = sourceMode === "url" ? urlInputRef.current : pdfInputRef.current;
+    if (!focusTarget) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      focusTarget.focus({ preventScroll: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [showSubmissionSection, sourceMode]);
 
   useEffect(() => {
     return () => {
@@ -976,7 +996,7 @@ export function DashboardClient({
             replace the subscription.
           </p>
           <div className="space-y-3">
-            <FeedUrlActions feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
+            <FeedUrlActions autoFocusPrimaryAction={isPodcastAppsView} feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
             <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
               {!readOnly ? (
                 <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
@@ -1381,6 +1401,7 @@ export function DashboardClient({
                     <input
                       className="w-full rounded-lg border border-[rgba(31,122,90,0.32)] bg-white/96 px-3 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition placeholder:text-slate-400 focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_rgba(31,122,90,0.12)] focus:outline-none"
                       placeholder="https://example.com/article"
+                      ref={urlInputRef}
                       value={urlInput}
                       onChange={(event) => setUrlInput(event.target.value)}
                     />

@@ -9,6 +9,7 @@ type Props = {
   copiedMessage: string;
   failedMessage?: string;
   idleMessage?: string;
+  autoFocus?: boolean;
   tone?: "default" | "accent";
   valueClassName?: string;
   className?: string;
@@ -29,11 +30,13 @@ export function CopyableValueBox({
   copiedMessage,
   failedMessage = "Could not copy automatically. Please copy manually.",
   idleMessage = `Tap or click the box to copy the ${label.toLowerCase()}.`,
+  autoFocus = false,
   tone = "default",
   valueClassName = "text-xs",
   className = ""
 }: Props) {
   const [feedback, setFeedback] = useState<FeedbackState>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const resetTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,20 @@ export function CopyableValueBox({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!autoFocus) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      buttonRef.current?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [autoFocus]);
 
   async function handleCopy() {
     if (!value.trim()) {
@@ -83,7 +100,7 @@ export function CopyableValueBox({
       : "text-sm text-[var(--muted)]";
   const buttonClassName =
     tone === "accent"
-      ? "group relative mt-2 block w-full rounded-2xl border border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)] px-4 py-4 text-left shadow-[0_0_0_1px_rgba(31,122,90,0.06)] transition hover:border-[rgba(31,122,90,0.42)] hover:bg-[rgba(223,243,236,0.94)] focus:outline-none focus-visible:ring-4 focus-visible:ring-[rgba(31,122,90,0.16)]"
+      ? "group relative mt-2 block w-full rounded-2xl border border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)] px-4 py-4 text-left shadow-[0_0_0_1px_rgba(31,122,90,0.06)] transition hover:border-[rgba(31,122,90,0.42)] hover:bg-[rgba(223,243,236,0.94)] focus:outline-none focus:ring-4 focus:ring-[rgba(31,122,90,0.16)]"
       : "group relative mt-2 block w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-left transition hover:border-slate-300 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
   const badgeClassName = isCopied
     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -97,6 +114,7 @@ export function CopyableValueBox({
       <button
         aria-label={`Copy ${label}`}
         className={buttonClassName}
+        ref={buttonRef}
         onClick={() => {
           void handleCopy();
         }}

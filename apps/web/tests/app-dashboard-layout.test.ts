@@ -72,6 +72,8 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
   assert.equal(source.includes("▶️ YouTube Music"), false);
   assert.equal(source.indexOf('label: "Apple Podcasts"') < source.indexOf('label: "YouTube Music"'), true);
   assert.equal(source.indexOf('label: "YouTube Music"') < source.indexOf('label: "Pocket Casts"'), true);
+  assert.equal(source.includes("autoFocusPrimaryAction = false"), true);
+  assert.equal(source.includes("autoFocus={autoFocusPrimaryAction}"), true);
 });
 
 test("accent copy boxes keep a visible highlighted treatment", () => {
@@ -79,7 +81,9 @@ test("accent copy boxes keep a visible highlighted treatment", () => {
 
   assert.equal(source.includes("bg-[rgba(223,243,236,0.82)]"), true);
   assert.equal(source.includes("border-[rgba(31,122,90,0.34)]"), true);
-  assert.equal(source.includes("focus-visible:ring-4 focus-visible:ring-[rgba(31,122,90,0.16)]"), true);
+  assert.equal(source.includes("autoFocus = false"), true);
+  assert.equal(source.includes("buttonRef.current?.focus({ preventScroll: true })"), true);
+  assert.equal(source.includes("focus:ring-4 focus:ring-[rgba(31,122,90,0.16)]"), true);
   assert.equal(source.includes("bg-white/92 text-[var(--accent)]"), true);
 });
 
@@ -132,6 +136,12 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(extensionCardSource.includes("One-time connect code"), true);
   assert.equal(extensionCardSource.includes("bg-[rgba(223,243,236,0.82)]"), true);
   assert.equal(extensionCardSource.includes("Preparing your one-time connect code..."), true);
+  assert.equal(extensionCardSource.includes("generateCodeButtonRef"), true);
+  assert.equal(extensionCardSource.includes("pendingConnectCodeRef"), true);
+  assert.equal(extensionCardSource.includes("pendingConnectCodeRef.current?.focus({ preventScroll: true })"), true);
+  assert.equal(extensionCardSource.includes("generateCodeButtonRef.current?.focus({ preventScroll: true })"), true);
+  assert.equal(extensionCardSource.includes("tabIndex={-1}"), true);
+  assert.equal(extensionCardSource.includes("autoFocus"), true);
   assert.equal(extensionCardSource.includes("Use it within 24 hours or generate a new one."), false);
   assert.equal(extensionCardSource.includes("After this 24-hour window"), false);
   assert.equal(extensionGuideSource.includes("within 24 hours"), false);
@@ -171,6 +181,10 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes("OPTIONAL_DETAILS_STORAGE_KEY"), true);
   assert.equal(source.includes("window.localStorage.setItem("), true);
   assert.equal(source.includes('showOptionalDetails ? "expanded" : "collapsed"'), true);
+  assert.equal(source.includes("const urlInputRef = useRef<HTMLInputElement | null>(null);"), true);
+  assert.equal(source.includes('const focusTarget = sourceMode === "url" ? urlInputRef.current : pdfInputRef.current;'), true);
+  assert.equal(source.includes("focusTarget.focus({ preventScroll: true });"), true);
+  assert.equal(source.includes("autoFocusPrimaryAction={isPodcastAppsView}"), true);
   assert.equal(source.includes("Optional details"), true);
   assert.equal(source.includes("Title, importance, and tags are optional."), true);
   assert.equal(source.includes('aria-controls="submission-optional-details"'), true);
@@ -193,6 +207,7 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   assert.equal(source.includes('border-[rgba(31,122,90,0.32)] bg-white/96'), true);
   assert.equal(source.includes('focus:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]'), true);
   assert.equal(source.includes('placeholder:text-slate-400'), true);
+  assert.equal(source.includes("ref={urlInputRef}"), true);
   assert.equal(source.includes("Optional title"), false);
   // Filters have been moved to the summaries page
   assert.equal(source.includes("Filter by importance"), false);
