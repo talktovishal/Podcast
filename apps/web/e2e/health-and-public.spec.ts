@@ -24,10 +24,11 @@ test.describe("Health & Public Pages", () => {
   test("login page renders with email and password fields", async ({ page }) => {
     await page.goto("/login");
     await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Continue to your feed")).toBeVisible();
     await expect(page.locator("input[type='email']")).toBeVisible();
     await expect(page.locator("input[type='password']")).toBeVisible();
-    await expect(page.locator("button.w-full", { hasText: "Login" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log in with email" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
   });
 
   test("/app redirects to /login when not authenticated", async ({ page }) => {

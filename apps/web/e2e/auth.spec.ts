@@ -27,7 +27,8 @@ test.describe("Authentication Flows", () => {
   test("login with demo credentials lands on /app", async ({ page }) => {
     await loginAsDemo(page);
     expect(page.url()).toContain("/app");
-    await expect(page.getByText("Signed in as")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    await expect(page.getByText("Recent items")).toBeVisible();
   });
 
   test("login with wrong password shows error", async ({ page }) => {

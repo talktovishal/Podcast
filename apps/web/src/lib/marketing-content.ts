@@ -30,13 +30,31 @@ export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
 ];
 
 export const marketingCopy = {
-  heroBadge: "Personalized Podcasts",
+  heroBadge: "Private Knowledge Feed",
   heroHeadline: "Turn saved reading into private podcast episodes.",
   heroSubheading:
-    "ArticlePod converts what you discover into instant episodes, with weekly digest podcast and email summaries when you want a recap layer.",
-  heroChips: ["Instant article podcasts", "Weekly digest summaries", "Private RSS feed"],
+    "Save URLs, PDFs, and Chrome captures into an ad-free private feed, then listen in your regular podcast app or catch up with weekly podcast and email digests.",
+  heroHighlights: [
+    {
+      title: "Curated archive",
+      description: "Keep the reading worth saving in a calm, focused library built around your own queue."
+    },
+    {
+      title: "Private RSS feed",
+      description: "Listen in the standard podcast app you already use, without exposing your saved sources publicly."
+    },
+    {
+      title: "Podcast + email digests",
+      description: "Catch up later with weekly recap options when you want the highlights gathered back together."
+    }
+  ] as const,
+  heroVisualEyebrow: "Listening now",
+  heroVisualTitle: "A private feed built for real catch-up time.",
+  heroVisualBody:
+    "Open your queue in the podcast app you already use, then let weekly podcast and email digests bring the important threads back into focus.",
+  heroVisualPoints: ["Ad-free private feed", "Podcast apps you already use", "Weekly podcast + email recap"] as const,
   heroSecondary:
-    "Save from URLs, PDFs, or Chrome, then listen in the podcast app you already use.",
+    "Built for people who save more than they can revisit.",
   securityBullets: [
     "Sign-in via Google, Facebook, or Apple — sessions stay server-side in secure cookies.",
     "Chrome extension connects with a one-time code and a scoped token that never sees your feed URL.",

@@ -182,6 +182,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/login` and `/pricing`.
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
   - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
+- Selective homepage refresh is implemented on `/login`:
+  - the existing auth-first login layout remains in place while the marketing side now uses `Private Knowledge Feed` framing, stronger private-feed/digest copy, and a brand-derived listening card.
+  - `/login` now includes a light public footer with the existing marketing routes and an optional `Contact` mailto link driven by `NEXT_PUBLIC_CONTACT_EMAIL`.
 
 ### Next Milestones
 - Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.
@@ -347,7 +350,7 @@ D) Podcast RSS feed
 - Enclosure points to a media URL that supports HEAD + Range
 
 E) Web UI (polished)
-- `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback
+- `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link

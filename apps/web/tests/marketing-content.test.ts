@@ -21,8 +21,13 @@ test("marketing nav items follow canonical order and routes", () => {
   }
 });
 
-test("marketing copy uses personalized podcasts framing", () => {
-  assert.equal(marketingCopy.heroBadge, "Personalized Podcasts");
+test("marketing copy uses private knowledge feed framing", () => {
+  assert.equal(marketingCopy.heroBadge, "Private Knowledge Feed");
+  assert.deepEqual(
+    marketingCopy.heroHighlights.map((item) => item.title),
+    ["Curated archive", "Private RSS feed", "Podcast + email digests"]
+  );
+  assert.equal(marketingCopy.heroVisualPoints.includes("Ad-free private feed"), true);
 });
 
 test("hero copy does not include banned phrases", () => {
@@ -69,6 +74,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
 test("public marketing pages do not leak internal economics or vendor implementation details", () => {
   const publicPageSources = [
     "../src/app/page.tsx",
+    "../src/app/login/page.tsx",
     "../src/app/product/page.tsx",
     "../src/app/pricing/page.tsx",
     "../src/app/resources/page.tsx",
@@ -85,15 +91,22 @@ test("public marketing pages do not leak internal economics or vendor implementa
 
 test("public marketing copy focuses on instant episodes and weekly digest options", () => {
   const marketingSource = readFileSync(new URL("../src/lib/marketing-content.ts", import.meta.url), "utf8");
+  const loginSource = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   const faqSource = readFileSync(new URL("../src/app/faq/page.tsx", import.meta.url), "utf8");
   const aboutSource = readFileSync(new URL("../src/app/about/page.tsx", import.meta.url), "utf8");
   const productSource = readFileSync(new URL("../src/app/product/page.tsx", import.meta.url), "utf8");
   const layoutSource = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
 
   assert.equal(marketingSource.includes("Turn saved reading into private podcast episodes."), true);
-  assert.equal(marketingSource.includes("weekly digest podcast and email summaries"), true);
+  assert.equal(marketingSource.includes("ad-free private feed"), true);
+  assert.equal(marketingSource.includes("weekly podcast and email digests"), true);
   assert.equal(marketingSource.includes("monthly and yearly trend recaps"), false);
   assert.equal(marketingSource.includes("daily recap podcast"), false);
+  assert.equal(marketingSource.includes("Curated archive"), true);
+
+  assert.equal(loginSource.includes("BRAND_PODCAST_COVER_PATH"), true);
+  assert.equal(loginSource.includes("MarketingFooter"), true);
+  assert.equal(loginSource.includes("Join Now"), false);
 
   assert.equal(faqSource.includes("What happens when I save an article?"), true);
   assert.equal(faqSource.includes("weekly podcast and email options"), true);
