@@ -71,7 +71,7 @@
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
 - `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
-- `/app/settings` now starts with voice settings, then digest settings, then billing, with demographic/profile history below and no duplicate podcast/extension link cards.
+- `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
 - `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - `/login` now also serves as the polished public homepage surface, with private-knowledge-feed marketing copy, a brand-derived listening card, and a light footer that can optionally expose `Contact` through `NEXT_PUBLIC_CONTACT_EMAIL`.
@@ -2248,7 +2248,7 @@ Milestone metadata contract:
 - Verification commands:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
-### M77 - Settings UX for Digest Controls + Run History
+### M77 - Settings UX for Digest Controls
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-27
@@ -2256,12 +2256,12 @@ Milestone metadata contract:
 - Scope:
   - Add digest feed copy/rotate controls in settings.
   - Add daily/weekly digest settings form (timezone, cadence toggles, schedule, length).
-  - Add recent digest run history panel in settings.
+  - Keep digest editing available without letting it dominate the settings page.
 - Key files/modules:
   - `apps/web/src/app/app/settings/page.tsx`
   - `apps/web/src/components/dashboard-client.tsx`
 - Acceptance criteria:
-  - Users can update digest settings and view digest run status from `/app/settings`.
+  - Users can update digest settings from `/app/settings` without a long always-open form.
   - `/app` workspace stays focused on source submission items.
 - Verification commands:
   - `npm run build`

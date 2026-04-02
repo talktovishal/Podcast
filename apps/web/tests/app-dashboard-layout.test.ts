@@ -80,12 +80,11 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(source.includes('current="settings"'), true);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('settingsSections={["voice", "digest"]}'), true);
-  assert.equal(source.includes('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.includes('settingsSections={["voice", "digest", "demographics"]}'), true);
+  assert.equal(source.includes("getRecentDigestRuns"), false);
   assert.equal(source.includes('href="/app/podcast-apps"'), false);
   assert.equal(source.includes('href="/app/chrome-extension"'), false);
-  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<BillingSettingsCard"), true);
-  assert.equal(source.indexOf("<BillingSettingsCard") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(source.indexOf("<BillingSettingsCard") < source.indexOf('settingsSections={["voice", "digest", "demographics"]}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
@@ -190,7 +189,7 @@ test("summary studio client exposes importance and tag filters", () => {
 test("dashboard client supports the dedicated podcast setup page and settings variants", () => {
   const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps"'), true);
-  assert.equal(source.includes('type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";'), true);
+  assert.equal(source.includes('type SettingsSection = "voice" | "digest" | "demographics";'), true);
   assert.equal(source.includes('settingsSections?: ReadonlyArray<SettingsSection>;'), true);
   assert.equal(source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'), true);
   assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
@@ -203,6 +202,9 @@ test("dashboard client supports the dedicated podcast setup page and settings va
   assert.equal(source.includes('requestedSettingsSections.has("voice")'), true);
   assert.equal(source.includes("const showDigestSettingsSection ="), true);
   assert.equal(source.includes('requestedSettingsSections.has("digest")'), true);
+  assert.equal(source.includes("CollapsibleSettingsCard"), true);
+  assert.equal(source.includes("<details"), true);
+  assert.equal(source.includes("Recent Digest Runs"), false);
 });
 
 test("extension popup treats installed tokens as non-expiring until revoked", () => {

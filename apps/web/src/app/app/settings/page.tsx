@@ -11,7 +11,6 @@ import {
   isBillingPlanCheckoutConfigured,
 } from "@/lib/billing";
 import {
-  getRecentDigestRuns,
   getUserDemographicSurvey,
   getUserTtsSettings,
 } from "@/lib/dashboard";
@@ -33,13 +32,11 @@ export default async function AppSettingsPage({
 
   const [
     digestSettings,
-    digestRuns,
     ttsSettings,
     ttsAvailability,
     demographicSurvey,
   ] = await Promise.all([
     ensureUserDigestSettings(user.id),
-    getRecentDigestRuns(user.id, 20),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
     getUserDemographicSurvey(user.id),
@@ -68,16 +65,23 @@ export default async function AppSettingsPage({
             <div>
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Manage your default voice, digest cadence, billing, and the rest
-                of your account preferences.
+                Manage billing first, keep your default voice up to date, and
+                open the optional account details only when you need them.
               </p>
             </div>
           </div>
         </header>
 
+        <BillingSettingsCard
+          activationHint={billingSearchParam === "success"}
+          annualCheckoutConfigured={annualCheckoutConfigured}
+          initialBilling={billing}
+          monthlyCheckoutConfigured={monthlyCheckoutConfigured}
+        />
+
         <DashboardClient
           viewMode="settings"
-          settingsSections={["voice", "digest"]}
+          settingsSections={["voice", "digest", "demographics"]}
           feedUrl={null}
           isAdmin={user.role === "ADMIN"}
           initialDigestSettings={{
@@ -100,38 +104,6 @@ export default async function AppSettingsPage({
               | 15
               | 30,
           }}
-          initialTtsSelection={normalizedSelection}
-          ttsCatalog={ttsCatalog}
-          ttsAvailability={ttsAvailability}
-          initialItems={[]}
-        />
-
-        <BillingSettingsCard
-          activationHint={billingSearchParam === "success"}
-          annualCheckoutConfigured={annualCheckoutConfigured}
-          initialBilling={billing}
-          monthlyCheckoutConfigured={monthlyCheckoutConfigured}
-        />
-
-        <DashboardClient
-          viewMode="settings"
-          settingsSections={["demographics", "digest-runs"]}
-          feedUrl={null}
-          isAdmin={user.role === "ADMIN"}
-          initialDigestRuns={digestRuns.map((run) => ({
-            id: run.id,
-            cadence: run.cadence,
-            periodKey: run.periodKey,
-            status: run.status,
-            sourceItemCount: run.sourceItemCount,
-            scheduledFor: run.scheduledFor.toISOString(),
-            windowStart: run.windowStart.toISOString(),
-            windowEnd: run.windowEnd.toISOString(),
-            emailEnabled: run.emailEnabled,
-            emailStatus: run.emailStatus,
-            podcastEnabled: run.podcastEnabled,
-            podcastStatus: run.podcastStatus,
-          }))}
           initialDemographicSurvey={demographicSurvey}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}

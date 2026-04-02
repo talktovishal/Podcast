@@ -104,7 +104,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - worker digest scheduler + run processor with markdown-source aggregation and idempotent period keys.
   - digest summary provider abstraction (stub + proxy-ready call shape) and stub email sender contract.
   - digest media route enforces `HEAD` + byte-range `206` semantics for podcast app compatibility.
-  - settings UI adds digest feed controls, cadence/length controls, and recent digest run history.
+  - settings UI keeps cadence/length controls available on demand, while recent digest run history lives with episodes instead of being duplicated in settings.
   - internal scheduler tick endpoint is bearer-secret protected for Azure/GCP cron triggers.
 - Branding surface consistency track (`M80`) is implemented:
   - deterministic brain icon generator now produces extension icons, web favicon/apple icon, and shared brand artwork.
@@ -370,10 +370,10 @@ E) Web UI (polished)
   - Chrome extension install + connect/revoke controls lead the page and carry the strongest emphasis
   - quick start and walkthrough guidance sit below the live extension tools
 - `/app/settings`:
-  - voice settings (preview + save default) first
-  - digest scheduling second
-  - billing controls after voice and digest
-  - demographic profile and recent digest history after billing
+  - billing controls first
+  - voice settings (preview + save default) next
+  - digest scheduling is collapsed by default and opened only when needed
+  - demographic profile is collapsed by default and kept secondary
   - self-serve delete is hidden from the UI for now
 - Strong empty states, toasts, clear failure messages, modern UI.
 

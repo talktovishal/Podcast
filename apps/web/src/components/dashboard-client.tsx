@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { copyText } from "@/lib/copy-text";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import { FeedUrlActions } from "@/components/feed-url-actions";
@@ -107,22 +107,7 @@ type DigestSettings = {
   weeklyLengthMinutes: 5 | 15 | 30;
 };
 
-type DigestRun = {
-  id: string;
-  cadence: string;
-  periodKey: string;
-  status: string;
-  sourceItemCount: number;
-  scheduledFor: string;
-  windowStart: string;
-  windowEnd: string;
-  emailEnabled: boolean;
-  emailStatus: string | null;
-  podcastEnabled: boolean;
-  podcastStatus: string | null;
-};
-
-type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";
+type SettingsSection = "voice" | "digest" | "demographics";
 
 const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
   { label: "Sunday", value: 0 },
@@ -135,7 +120,7 @@ const WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
 ];
 
 const LENGTH_OPTIONS: ReadonlyArray<5 | 15 | 30> = [5, 15, 30];
-const DEFAULT_SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = ["voice", "digest", "demographics", "digest-runs"];
+const DEFAULT_SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = ["voice", "digest", "demographics"];
 const ACTIVE_REFRESH_INTERVAL_MS = 3000;
 const IDLE_REFRESH_INTERVAL_MS = 20000;
 const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";
@@ -198,7 +183,6 @@ type Props = {
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
   initialDigestSettings?: DigestSettings;
-  initialDigestRuns?: DigestRun[];
   initialDemographicSurvey?: UserDemographicSurveyView;
   initialTtsSelection: {
     providerId: string;
@@ -241,6 +225,29 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
   return null;
 }
 
+function CollapsibleSettingsCard({
+  title,
+  description,
+  children
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <details className="card overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <h2 className="text-base font-semibold">{title}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">{description}</p>
+        </div>
+        <span className="shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium text-[var(--muted)]">Edit</span>
+      </summary>
+      <div className="border-t px-4 pb-4 pt-4 sm:px-5 sm:pb-5">{children}</div>
+    </details>
+  );
+}
+
 function importanceLabel(importance: string): string {
   switch (importance) {
     case "HIGH":
@@ -259,7 +266,6 @@ export function DashboardClient({
   isDemoAccount = false,
   initialSubmissionQuota = null,
   initialDigestSettings = DEFAULT_DIGEST_SETTINGS,
-  initialDigestRuns = [],
   initialDemographicSurvey = DEFAULT_DEMOGRAPHIC_SURVEY,
   initialTtsSelection,
   ttsCatalog,
@@ -290,7 +296,6 @@ export function DashboardClient({
   const [deleteBusyItemId, setDeleteBusyItemId] = useState<string | null>(null);
   const [ttsVoice, setTtsVoice] = useState(initialTtsSelection.voice);
   const [digestSettings, setDigestSettings] = useState<DigestSettings>(initialDigestSettings);
-  const [digestRuns, setDigestRuns] = useState<DigestRun[]>(initialDigestRuns);
   const [demographicSurvey, setDemographicSurvey] = useState<UserDemographicSurveyView>(initialDemographicSurvey);
   const [isDemographicBusy, setIsDemographicBusy] = useState(false);
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
@@ -335,7 +340,6 @@ export function DashboardClient({
   const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
   const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
   const showDemographicSection = showSettingsSection && requestedSettingsSections.has("demographics");
-  const showDigestRunsSection = showSettingsSection && requestedSettingsSections.has("digest-runs");
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -447,19 +451,6 @@ export function DashboardClient({
       setDemoDiagnostics(payload.extractionDiagnostics);
     }
   }, [isDemoAccount]);
-
-  const refreshDigestRuns = useCallback(async () => {
-    const response = await fetch("/api/digest/runs?limit=20", {
-      cache: "no-store"
-    });
-    if (!response.ok) {
-      return;
-    }
-    const payload = (await response.json()) as {
-      runs?: DigestRun[];
-    };
-    setDigestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-  }, []);
 
   useEffect(() => {
     if (readOnly || !showItemsSection) {
@@ -840,7 +831,6 @@ export function DashboardClient({
       }
       setDigestSettings(json.settings as DigestSettings);
       setStatusMessage("Digest settings saved.");
-      await refreshDigestRuns();
     } finally {
       setIsDigestBusy(false);
     }
@@ -1060,11 +1050,11 @@ export function DashboardClient({
       ) : null}
 
       {showDigestSettingsSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Digest Settings</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Configure daily and weekly summary email/podcast generation.</p>
-
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <CollapsibleSettingsCard
+          title="Digest Settings"
+          description="Open this only when you want to adjust daily or weekly summary delivery."
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium">Timezone (IANA)</span>
               <input
@@ -1234,17 +1224,15 @@ export function DashboardClient({
               Save digest settings
             </button>
           </div>
-        </section>
+        </CollapsibleSettingsCard>
       ) : null}
 
       {showDemographicSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Optional Demographic Profile</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            This is optional and used only for aggregate product insights. You can skip now, edit later, or delete responses anytime.
-          </p>
-
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <CollapsibleSettingsCard
+          title="Optional Demographic Profile"
+          description="This is optional and used only for aggregate product insights. You can skip it, edit it later, or delete it anytime."
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium">Age band</span>
               <select
@@ -1334,34 +1322,7 @@ export function DashboardClient({
               Delete responses
             </button>
           </div>
-        </section>
-      ) : null}
-
-      {showDigestRunsSection ? (
-        <section className="card p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Recent Digest Runs</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">Daily and weekly summary generation history.</p>
-
-          <div className="mt-3 space-y-2">
-            {digestRuns.length === 0 ? <p className="text-sm text-[var(--muted)]">No digest runs yet.</p> : null}
-            {digestRuns.map((run) => (
-              <article key={run.id} className="rounded-lg border p-3">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className={`badge ${run.status.toLowerCase()}`}>{run.status.toLowerCase()}</span>
-                  <span className="rounded bg-slate-100 px-2 py-0.5 uppercase">{run.cadence.toLowerCase()}</span>
-                  <span className="text-[var(--muted)]">period {run.periodKey}</span>
-                </div>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Window: {new Date(run.windowStart).toLocaleString()} - {new Date(run.windowEnd).toLocaleString()}
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted)]">
-                  Sources: {run.sourceItemCount} · Email: {run.emailEnabled ? run.emailStatus || "queued" : "off"} · Podcast:{" "}
-                  {run.podcastEnabled ? run.podcastStatus || "queued" : "off"}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
+        </CollapsibleSettingsCard>
       ) : null}
 
       {showSubmissionSection ? (
