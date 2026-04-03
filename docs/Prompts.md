@@ -182,12 +182,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - owners can create one stable, revocable public share link per ready item episode from `/app`.
   - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still create/copy existing links immediately with inline confirmation feedback, revoke confirms in place, and delete now uses a brief transient toast plus `Deleting...` button state so removal is visually obvious after the row disappears.
   - the existing workspace share flow remains separate and is relabeled as `Create workspace demo link`.
-  - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/login` and `/pricing`.
+  - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/` and `/pricing`.
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
   - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
 - Public marketing SEO hardening (`M107`) is implemented:
-  - `/` is now the canonical public homepage for signed-out visitors, with dedicated keyword-focused marketing content, stronger internal linking, and structured data for the main product surface.
-  - `/login` remains auth-first, keeps the tighter social-first login layout, and is marked `noindex` so the public homepage and auth page do not compete in search.
+  - `/` is now the canonical public homepage and primary auth landing page for signed-out visitors, preserving the polished social-first login + marketing experience while making the root URL indexable.
+  - `/login` is now a compatibility redirect back to `/`, so there is one maintained public auth/marketing surface instead of two competing versions.
   - public `/product`, `/pricing`, `/resources`, `/about`, and `/faq` pages now ship route-specific metadata, schema, and footer/internal-link support.
   - `robots.txt` and `sitemap.xml` now prioritize the marketing routes and keep private/auth/share surfaces out of search discovery.
 
@@ -356,7 +356,7 @@ D) Podcast RSS feed
 - Enclosure points to a media URL that supports HEAD + Range
 
 E) Web UI (polished)
-- `/login`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
+- `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link

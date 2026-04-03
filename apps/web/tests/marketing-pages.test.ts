@@ -11,19 +11,19 @@ test("public marketing pages exist for all nav routes", () => {
 });
 
 test("login nav has no placeholder links", () => {
-  const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('href="#"'), false);
 });
 
-test("root homepage renders a dedicated marketing page for signed-out visitors", () => {
+test("root homepage renders the shared auth landing page for signed-out visitors", () => {
   const source = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('redirect("/login")'), false);
-  assert.equal(source.includes("MarketingHomePage"), true);
+  assert.equal(source.includes("AuthLandingPage"), true);
   assert.equal(source.includes('path: "/"'), true);
 });
 
-test("login page keeps auth card structure and trims duplicate marketing chrome", () => {
-  const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+test("auth landing page keeps auth card structure and trims duplicate marketing chrome", () => {
+  const source = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes("Log in to your private podcast feed"), true);
   assert.equal(source.includes("Continue to your feed"), false);
   assert.equal(source.includes("First time? We&apos;ll create your account automatically."), true);
@@ -34,4 +34,9 @@ test("login page keeps auth card structure and trims duplicate marketing chrome"
   assert.equal(source.includes("Listening now"), false);
   assert.equal(source.includes("A private feed built for real catch-up time."), false);
   assert.equal(source.includes("Built for people who save more than they can revisit."), false);
+});
+
+test("login route is a compatibility redirect to root", () => {
+  const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes("redirect(query ? `/?${query}` : \"/\")"), true);
 });

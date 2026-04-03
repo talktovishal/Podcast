@@ -32,7 +32,7 @@ test.describe("Authentication Flows", () => {
   });
 
   test("login with wrong password shows error", async ({ page }) => {
-    await page.goto("/login");
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await page.locator("input[type='email']").fill(DEMO_EMAIL);
@@ -40,10 +40,10 @@ test.describe("Authentication Flows", () => {
     await page.locator("button.w-full", { hasText: "Log in with email" }).click();
 
     await expect(page.getByText(/invalid email or password/i)).toBeVisible({ timeout: 10_000 });
-    expect(page.url()).toContain("/login");
+    expect(new URL(page.url()).pathname).toBe("/");
   });
 
-  test("logout redirects to /login", async ({ browser }) => {
+  test("logout redirects to root auth landing page", async ({ browser }) => {
     // Use a fresh context with stored demo auth to avoid hitting login rate limit
     const context = await browser.newContext({
       storageState: "e2e/.auth/demo.json",
@@ -52,10 +52,10 @@ test.describe("Authentication Flows", () => {
     await page.goto("/app");
     await page.waitForURL(/\/app/, { timeout: 10_000 });
     await logout(page);
-    expect(page.url()).toContain("/login");
+    expect(new URL(page.url()).pathname).toBe("/");
 
     await page.goto("/app");
-    await page.waitForURL(/\/login/);
+    await page.waitForURL((url) => url.pathname === "/" && url.searchParams.get("next") === "/app");
     await context.close();
   });
 });

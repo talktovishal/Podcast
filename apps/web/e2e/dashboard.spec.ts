@@ -74,13 +74,15 @@ test.describe("Dashboard & Item Submission", () => {
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   });
 
-  test("logout returns the user to login", async ({ page }) => {
+  test("logout returns the user to the root auth landing page", async ({ page }) => {
     await page.goto("/app");
     await page.waitForURL(/\/app/);
 
     await page.getByRole("button", { name: "Log out" }).click();
-    await page.waitForURL(/\/login/, { timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Log in with email" })).toBeVisible();
+    await page.waitForURL((url) => url.pathname === "/", { timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Log in to your private podcast feed" })
+    ).toBeVisible();
   });
 
   test("demo starter episode has playable audio and serves valid media", async ({ page, request }) => {

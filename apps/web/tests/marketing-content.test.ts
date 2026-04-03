@@ -81,7 +81,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
 test("public marketing pages do not leak internal economics or vendor implementation details", () => {
   const publicPageSources = [
     "../src/app/page.tsx",
-    "../src/app/login/page.tsx",
+    "../src/components/auth-landing-page.tsx",
     "../src/app/product/page.tsx",
     "../src/app/pricing/page.tsx",
     "../src/app/resources/page.tsx",
@@ -98,7 +98,7 @@ test("public marketing pages do not leak internal economics or vendor implementa
 
 test("public marketing copy focuses on instant episodes and weekly digest options", () => {
   const marketingSource = readFileSync(new URL("../src/lib/marketing-content.ts", import.meta.url), "utf8");
-  const loginSource = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+  const loginSource = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   const faqSource = readFileSync(new URL("../src/app/faq/page.tsx", import.meta.url), "utf8");
   const aboutSource = readFileSync(new URL("../src/app/about/page.tsx", import.meta.url), "utf8");
   const productSource = readFileSync(new URL("../src/app/product/page.tsx", import.meta.url), "utf8");

@@ -22,7 +22,7 @@ export default async function AppDashboardPage({
 }) {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();

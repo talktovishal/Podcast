@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
-import { MarketingHomePage } from "@/components/marketing-home-page";
+import { AuthLandingPage } from "@/components/auth-landing-page";
+import { SeoJsonLd } from "@/components/seo-json-ld";
 import { getAuthUserFromCookies } from "@/lib/auth";
-import { buildPublicMetadata } from "@/lib/seo";
+import {
+  buildPublicMetadata,
+  buildSoftwareApplicationSchema,
+  buildWebsiteSchema
+} from "@/lib/seo";
+
+const homepageDescription =
+  "Turn saved articles, PDFs, and Chrome captures into a private podcast feed. Listen in Apple Podcasts, YouTube Music, or any RSS-compatible app.";
 
 export const metadata = buildPublicMetadata({
   title: "Private podcast feed for articles and PDFs",
-  description:
-    "Turn saved articles, PDFs, and Chrome captures into a private podcast feed. Listen in Apple Podcasts, YouTube Music, or any RSS-compatible app.",
+  description: homepageDescription,
   path: "/"
 });
 
@@ -16,5 +23,15 @@ export default async function HomePage() {
     redirect("/app");
   }
 
-  return <MarketingHomePage />;
+  return (
+    <>
+      <SeoJsonLd
+        data={[
+          buildWebsiteSchema(homepageDescription),
+          buildSoftwareApplicationSchema(homepageDescription)
+        ]}
+      />
+      <AuthLandingPage />
+    </>
+  );
 }

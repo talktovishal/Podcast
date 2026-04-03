@@ -29,12 +29,12 @@ test("isPublicPathForAuth protects authenticated workspace paths", () => {
   assert.equal(isPublicPathForAuth("/api/items/url"), false);
 });
 
-test("middleware redirects unauthenticated page requests to login", () => {
+test("middleware redirects unauthenticated page requests to the root auth landing page", () => {
   const response = middleware(new NextRequest("http://localhost/app"));
   assert.equal(response.status, 307);
   const location = response.headers.get("location") || "";
   const redirect = new URL(location, "http://localhost");
-  assert.equal(redirect.pathname, "/login");
+  assert.equal(redirect.pathname, "/");
   assert.equal(redirect.searchParams.get("next"), "/app");
 });
 

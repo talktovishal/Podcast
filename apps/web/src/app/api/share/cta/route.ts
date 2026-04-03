@@ -11,7 +11,7 @@ function normalizeSourceType(sourceType: string): AnalyticsSourceType | null {
 
 function destinationForTarget(target: string): string | null {
   if (target === "login") {
-    return `${env.appUrl}/login`;
+    return `${env.appUrl}/`;
   }
   if (target === "pricing") {
     return `${env.appUrl}/pricing`;

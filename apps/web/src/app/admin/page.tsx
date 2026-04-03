@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function AdminPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   if (user.role !== "ADMIN") {

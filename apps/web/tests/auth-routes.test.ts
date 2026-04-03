@@ -65,6 +65,12 @@ test("providers endpoint reports configuration flags", async () => {
   assert.equal(typeof payload.providers.apple.configured, "boolean");
 });
 
+test("buildLoginHref now targets the root auth landing page", () => {
+  assert.equal(buildLoginHref(), "/");
+  assert.equal(buildLoginHref({ next: "/pricing" }), "/?next=%2Fpricing");
+  assert.equal(buildLoginHref({ oauthError: "google_state", next: "/pricing" }), "/?oauth_error=google_state&next=%2Fpricing");
+});
+
 test("oauth start routes redirect based on provider configuration", async () => {
   const providerResponse = await providersGet();
   const providerPayload = (await providerResponse.json()) as {

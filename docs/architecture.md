@@ -206,7 +206,7 @@ Growth instrumentation:
   - `SHARE_PAGE_VIEWED`
   - `SHARE_PLAYBACK_STARTED`
   - `SHARE_CTA_CLICKED`
-- CTA clicks are logged through a small public redirect endpoint before sending users to `/login` or `/pricing`
+- CTA clicks are logged through a small public redirect endpoint before sending users to `/` or `/pricing`
 
 ## Extension ingestion path
 1. User is authenticated on web app.

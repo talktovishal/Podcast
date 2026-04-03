@@ -30,7 +30,7 @@ export function LogoutButton({
         try {
           await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
         } finally {
-          window.location.assign("/login");
+          window.location.assign("/");
         }
       }}
     >

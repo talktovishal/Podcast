@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default async function FeedbackPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   return (

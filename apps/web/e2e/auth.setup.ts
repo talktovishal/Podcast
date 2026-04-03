@@ -4,7 +4,7 @@ import { DEMO_EMAIL, DEMO_PASSWORD } from "./helpers";
 const AUTH_FILE = "e2e/.auth/demo.json";
 
 setup("authenticate as demo user", async ({ page }) => {
-  await page.goto("/login");
+  await page.goto("/");
   await page.waitForLoadState("networkidle");
 
   await page.locator("input[type='email']").fill(DEMO_EMAIL);

@@ -17,14 +17,14 @@ export const DEMO_EMAIL = process.env.DEMO_EMAIL || "demo@articlepod.local";
 export const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "local-dev-demo";
 
 /**
- * Sign up or log in a user via the login page UI.
+ * Sign up or log in a user via the root auth landing page UI.
  * Returns the page already on /app (dashboard).
  */
 export async function loginViaUI(
   page: Page,
   opts: { email: string; password: string; name?: string; mode: "login" | "signup" }
 ): Promise<void> {
-  await page.goto("/login");
+  await page.goto("/");
   await page.waitForLoadState("networkidle");
 
   if (opts.mode === "signup") {
@@ -59,7 +59,7 @@ export async function loginAsDemo(page: Page): Promise<void> {
  */
 export async function logout(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Log out" }).click();
-  await page.waitForURL(/\/login/, { timeout: 10_000 });
+  await page.waitForURL((url) => url.pathname === "/", { timeout: 10_000 });
 }
 
 /**

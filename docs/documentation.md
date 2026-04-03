@@ -287,8 +287,8 @@ Current (`M57`-`M64` implemented):
 Google + Facebook + Apple setup guide:
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 
-Only configured OAuth buttons are shown on `/login`; unconfigured providers stay hidden until their env vars are set.
-The `/login` page also acts as the public homepage surface for now: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop.
+Only configured OAuth buttons are shown on the root auth landing page (`/`); unconfigured providers stay hidden until their env vars are set.
+The root page now acts as the public homepage surface: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop. `/login` remains available only as a compatibility redirect back to `/`.
 
 ## Known boundaries
 - No OCR for scanned/image-heavy PDFs.

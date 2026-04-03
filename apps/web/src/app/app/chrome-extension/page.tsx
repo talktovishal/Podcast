@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default async function ChromeExtensionPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   return (

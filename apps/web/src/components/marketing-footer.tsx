@@ -4,8 +4,7 @@ import { marketingNavItems } from "@/lib/marketing-content";
 
 const footerLinks = [
   { label: "Home", href: "/" },
-  ...marketingNavItems,
-  { label: "Log in", href: "/login" }
+  ...marketingNavItems
 ] as const;
 
 export function MarketingFooter() {

@@ -74,10 +74,10 @@
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
-- `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
+- `/` now uses the social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Public marketing SEO hardening (`M107`) is implemented:
-  - `/` now serves as the canonical signed-out homepage with dedicated product marketing content and structured data.
-  - `/login` stays auth-first and `noindex`, so search traffic lands on the homepage instead of the login route.
+  - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.
+  - `/login` is now a compatibility redirect to `/`, so the product maintains one public auth/marketing experience instead of two competing variants.
   - public marketing pages now use route-specific metadata, schema, and footer/internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
@@ -3224,8 +3224,8 @@ Milestone metadata contract:
 - completed_on: 2026-04-02
 - evidence: local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)
 - Scope:
-  - Move the primary signed-out marketing experience to `/` so the site has a real canonical homepage instead of redirecting search traffic to `/login`.
-  - Keep `/login` focused on authentication and mark it `noindex` so public keyword targeting and auth UX do not compete.
+  - Move the tuned social-first auth + marketing surface to `/` so the site has one canonical public homepage instead of splitting the public experience across `/` and `/login`.
+  - Convert `/login` into a compatibility redirect back to `/` so search traffic and auth entry both land on the same maintained page.
   - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link/footer coverage across the public marketing pages.
 - Key files/modules:
   - `apps/web/src/app/page.tsx`
@@ -3240,10 +3240,10 @@ Milestone metadata contract:
   - `apps/web/src/lib/seo.ts`
   - `docs/Prompts.md`
 - Acceptance criteria:
-  - `/` renders a dedicated signed-out homepage with a crawlable H1, product copy, and internal links to the key marketing routes.
-  - `/login` remains auth-first and is excluded from search indexing.
+  - `/` renders the combined signed-out auth + marketing landing page with canonical metadata and a crawlable H1.
+  - `/login` redirects to `/` while preserving relevant query params such as auth return targets and OAuth errors.
   - Public marketing pages expose route-specific canonical metadata plus accurate structured data where applicable.
-  - `robots.txt` and `sitemap.xml` focus crawlers on the canonical public marketing routes and keep private/auth/share surfaces out of discovery.
+  - `robots.txt` and `sitemap.xml` focus crawlers on the canonical public marketing routes and keep private/share/authenticated surfaces out of discovery.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run typecheck`
@@ -3617,7 +3617,7 @@ Milestone metadata contract:
 - Key files/modules:
   - `apps/web/src/middleware.ts`
 - Acceptance criteria:
-  - `GET /app/settings` without session cookie returns redirect to `/login`.
+  - `GET /app/settings` without session cookie returns redirect to `/?next=%2Fapp%2Fsettings` (or equivalent root auth landing redirect).
   - `POST /api/items/url` without session returns 401.
   - `GET /api/health` without session returns 200 (public route).
   - All existing auth tests still pass.

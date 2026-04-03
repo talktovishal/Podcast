@@ -15,25 +15,36 @@ test.describe("Health & Public Pages", () => {
     expect(body.ok).toBe(true);
   });
 
-  test("root redirects to /login when unauthenticated", async ({ page }) => {
+  test("root renders the public auth landing page when unauthenticated", async ({ page }) => {
     await page.goto("/");
-    await page.waitForURL(/\/login/);
-    expect(page.url()).toContain("/login");
+    await page.waitForLoadState("networkidle");
+    await expect(
+      page.getByRole("heading", { name: "Log in to your private podcast feed" })
+    ).toBeVisible();
   });
 
-  test("login page renders with email and password fields", async ({ page }) => {
-    await page.goto("/login");
+  test("/login redirects back to the root auth landing page", async ({ page }) => {
+    await page.goto("/login?next=%2Fpricing");
+    await page.waitForURL((url) => url.pathname === "/" && url.searchParams.get("next") === "/pricing");
+    await expect(
+      page.getByRole("heading", { name: "Log in to your private podcast feed" })
+    ).toBeVisible();
+  });
+
+  test("root auth landing page renders with email and password fields", async ({ page }) => {
+    await page.goto("/");
     await page.waitForLoadState("networkidle");
-    await expect(page.getByText("Continue to your feed")).toBeVisible();
     await expect(page.locator("input[type='email']")).toBeVisible();
     await expect(page.locator("input[type='password']")).toBeVisible();
     await expect(page.getByRole("button", { name: "Log in with email" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create account" })).toBeVisible();
   });
 
-  test("/app redirects to /login when not authenticated", async ({ page }) => {
+  test("/app redirects to root auth landing page when not authenticated", async ({ page }) => {
     await page.goto("/app");
-    await page.waitForURL(/\/login/);
-    expect(page.url()).toContain("/login");
+    await page.waitForURL((url) => url.pathname === "/" && url.searchParams.get("next") === "/app");
+    await expect(
+      page.getByRole("heading", { name: "Log in to your private podcast feed" })
+    ).toBeVisible();
   });
 });

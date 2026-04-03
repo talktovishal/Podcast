@@ -41,7 +41,7 @@ export function buildLoginHref(options?: {
   }
 
   const query = search.toString();
-  return query ? `/login?${query}` : "/login";
+  return query ? `/?${query}` : "/";
 }
 
 export function buildOAuthStartHref(startPath: string, next?: string | null | undefined): string {

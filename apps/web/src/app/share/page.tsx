@@ -63,7 +63,7 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
           <p className="text-sm text-[var(--muted)]">Read-only demo</p>
           <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
           <p className="mt-1 text-sm text-[var(--muted)]">This shared view is read-only. You can listen, browse status, and validate podcast playback behavior.</p>
-          <Link href="/login" className="mt-3 inline-block text-sm underline">
+          <Link href="/" className="mt-3 inline-block text-sm underline">
             Sign in to your own workspace
           </Link>
         </header>

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function PodcastAppsPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const [feedAccess, ttsSettings, ttsAvailability] = await Promise.all([

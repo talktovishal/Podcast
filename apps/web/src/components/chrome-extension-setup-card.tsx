@@ -58,7 +58,7 @@ type ChromeExtensionSetupCardProps = {
 export function ChromeExtensionSetupCard({
   isAuthenticated,
   id,
-  loginHref = "/login",
+  loginHref = "/",
 }: ChromeExtensionSetupCardProps) {
   const [isBusy, setIsBusy] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);

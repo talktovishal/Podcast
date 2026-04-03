@@ -305,8 +305,8 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("pointer-events-none fixed bottom-4 right-4 z-50"), true);
 });
 
-test("login redirects admins directly to admin dashboard", () => {
-  const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+test("auth landing redirects admins directly to admin dashboard", () => {
+  const source = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   const providerSource = readFileSync(new URL("../src/lib/oauth-providers.ts", import.meta.url), "utf8");
   const pricingSource = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"))'), true);

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function SummaryStudioPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const [items, runs, summaryUsage] = await Promise.all([

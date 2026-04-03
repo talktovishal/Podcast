@@ -27,7 +27,7 @@ export default async function AppSettingsPage({
 }) {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
   const [

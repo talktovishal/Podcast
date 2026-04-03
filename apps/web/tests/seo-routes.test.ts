@@ -21,11 +21,11 @@ test("public metadata helper emits canonical pages with large-image social previ
   assert.equal(metadata.robots && typeof metadata.robots === "object" ? metadata.robots.index : undefined, true);
 });
 
-test("public metadata helper supports noindex auth-style pages", () => {
+test("public metadata helper supports noindex pages for private surfaces", () => {
   const metadata = buildPublicMetadata({
-    title: "Log in to ArticlePod",
-    description: "Log in to ArticlePod.",
-    path: "/login",
+    title: "Shared workspace",
+    description: "Read-only shared workspace.",
+    path: "/share",
     noIndex: true
   });
 
@@ -53,7 +53,7 @@ test("robots disallows auth and private surfaces while leaving marketing pages c
   const firstRule = Array.isArray(config.rules) ? config.rules[0] : config.rules;
 
   assert.deepEqual(firstRule?.allow, ["/", "/product", "/pricing", "/faq", "/about", "/resources"]);
-  assert.deepEqual(firstRule?.disallow, ["/login", "/app", "/admin", "/api/", "/rss/", "/share"]);
+  assert.deepEqual(firstRule?.disallow, ["/app", "/admin", "/api/", "/rss/", "/share"]);
   assert.equal(config.sitemap, "http://localhost:3000/sitemap.xml");
 });
 
@@ -69,15 +69,17 @@ test("sitemap includes the marketing homepage and excludes the login page", () =
 
 test("shared marketing routes keep private surfaces out of search", () => {
   const shareSource = readFileSync(new URL("../src/app/share/page.tsx", import.meta.url), "utf8");
-  const loginLayoutSource = readFileSync(new URL("../src/app/login/layout.tsx", import.meta.url), "utf8");
+  const loginAliasSource = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   const ctaSource = readFileSync(new URL("../src/components/marketing-cta.tsx", import.meta.url), "utf8");
   const footerSource = readFileSync(new URL("../src/components/marketing-footer.tsx", import.meta.url), "utf8");
-  const homeSource = readFileSync(new URL("../src/components/marketing-home-page.tsx", import.meta.url), "utf8");
+  const authLandingSource = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
 
   assert.equal(shareSource.includes("noIndex: true"), true);
-  assert.equal(loginLayoutSource.includes("noIndex: true"), true);
+  assert.equal(loginAliasSource.includes("redirect(query ? `/?${query}` : \"/\")"), true);
   assert.equal(ctaSource.includes('href="/app"'), false);
+  assert.equal(ctaSource.includes('href="/"'), true);
   assert.equal(ctaSource.includes('secondaryHref = "/product"'), true);
   assert.equal(footerSource.includes('href: "/"'), true);
-  assert.equal(homeSource.includes("Turn articles and PDFs into a private podcast feed."), true);
+  assert.equal(footerSource.includes('label: "Log in"'), false);
+  assert.equal(authLandingSource.includes("Log in to your private podcast feed"), true);
 });
