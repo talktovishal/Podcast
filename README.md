@@ -11,6 +11,11 @@ RSS-first personal podcast feed that converts URLs/PDFs/extension captures into 
 - `docs` - plans, architecture, deployment/runbooks
 
 ## Quick start
+Web-only quick testing:
+```bash
+./run-web.sh
+```
+
 Simple local profile:
 ```bash
 ./run.sh --profile simple
@@ -27,7 +32,7 @@ Azure profile env validation:
 ```
 
 ## Demo/admin accounts
-Seeded automatically by `run.sh`. Passwords are set via environment variables — do not hardcode them.
+Seeded automatically by `run.sh` and `run-web.sh`. Passwords are set via environment variables — do not hardcode them.
 
 Before running, add these to your `.env` file (copy from `.env.example`):
 ```

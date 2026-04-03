@@ -27,6 +27,7 @@ if (existsSync(rootEnvPath)) {
 }
 
 const runtimeProfile = process.env.RUNTIME_PROFILE ?? 'simple';
+const webOnly = process.argv.includes('--web-only');
 const databaseUrl = process.env.DATABASE_URL;
 if (runtimeProfile === 'simple' && databaseUrl?.startsWith('file:')) {
   const rawPath = databaseUrl.replace(/^file:/, '');
@@ -47,30 +48,33 @@ function runOrFail(command, args) {
 }
 
 runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
-runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
 runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
 runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
 
-const commandNames = ['web', 'worker'];
-const commandList = [
-  'npm run dev --workspace @articlepod/web',
-  'npm run dev --workspace @articlepod/worker'
-];
-const prefixColors = ['green', 'blue'];
+const commandNames = ['web'];
+const commandList = ['npm run dev --workspace @articlepod/web'];
+const prefixColors = ['green'];
 
-const pythonTtsEnabled = process.env.ENABLE_PYTHON_TTS_DEV !== '0';
-const uvicornPath = resolve(process.cwd(), 'services/python-tts/.venv/bin/uvicorn');
-if (pythonTtsEnabled && existsSync(uvicornPath)) {
-  const ttsPort = process.env.PYTHON_TTS_PORT ?? '8010';
-  commandNames.push('py-tts');
-  prefixColors.push('magenta');
-  commandList.push(`cd services/python-tts && ./.venv/bin/uvicorn app.main:app --reload --port ${ttsPort}`);
-  commandNames.push('prewarm');
-  prefixColors.push('yellow');
-  commandList.push('bash ./scripts/prewarm-kokoro-previews.sh');
-} else if (pythonTtsEnabled) {
-  // eslint-disable-next-line no-console
-  console.log('[dev] python-tts virtualenv not found at services/python-tts/.venv, skipping py-tts process');
+if (!webOnly) {
+  runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
+  commandNames.push('worker');
+  prefixColors.push('blue');
+  commandList.push('npm run dev --workspace @articlepod/worker');
+
+  const pythonTtsEnabled = process.env.ENABLE_PYTHON_TTS_DEV !== '0';
+  const uvicornPath = resolve(process.cwd(), 'services/python-tts/.venv/bin/uvicorn');
+  if (pythonTtsEnabled && existsSync(uvicornPath)) {
+    const ttsPort = process.env.PYTHON_TTS_PORT ?? '8010';
+    commandNames.push('py-tts');
+    prefixColors.push('magenta');
+    commandList.push(`cd services/python-tts && ./.venv/bin/uvicorn app.main:app --reload --port ${ttsPort}`);
+    commandNames.push('prewarm');
+    prefixColors.push('yellow');
+    commandList.push('bash ./scripts/prewarm-kokoro-previews.sh');
+  } else if (pythonTtsEnabled) {
+    // eslint-disable-next-line no-console
+    console.log('[dev] python-tts virtualenv not found at services/python-tts/.venv, skipping py-tts process');
+  }
 }
 
 const child = spawn('npx', [

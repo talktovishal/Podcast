@@ -4,9 +4,13 @@
 1. Install dependencies:
 - `npx pnpm install`
 2. Bootstrap DB + seed demo in simple profile:
+- `./run-web.sh`
+- or use the full local stack:
 - `./run.sh --profile simple`
 
 ## Runtime profiles
+- Quick web-only local mode:
+  - `./run-web.sh`
 - Simple local mode:
   - `./run.sh --profile simple`
 - Local parity mode (Docker Compose):

@@ -70,6 +70,18 @@ test("parity-up emits compose diagnostics when startup fails", () => {
   assert.match(source, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=200 web worker azurite postgres python-tts/);
 });
 
+test("web-only launcher bootstraps the simple env template and skips worker services", () => {
+  const root = resolve(process.cwd(), "../..");
+  const runWebSource = readFileSync(resolve(root, "run-web.sh"), "utf8");
+  const devSource = readFileSync(resolve(root, "scripts/dev.mjs"), "utf8");
+
+  assert.match(runWebSource, /Created \.env from \.env\.simple\.example/);
+  assert.match(runWebSource, /npm run check:env -- --profile simple/);
+  assert.match(runWebSource, /exec node scripts\/dev\.mjs --web-only/);
+  assert.match(devSource, /const webOnly = process\.argv\.includes\('--web-only'\);/);
+  assert.match(devSource, /if \(!webOnly\) \{\n\s+runOrFail\('npx', \['pnpm', '--filter', '@articlepod\/worker', 'run', 'prisma:generate'\]\);/m);
+});
+
 test("parity env fixtures and checks require runtime secrets", () => {
   const root = resolve(process.cwd(), "../..");
   const envSource = readFileSync(resolve(root, ".env.parity.example"), "utf8");

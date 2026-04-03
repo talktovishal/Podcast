@@ -237,3 +237,6 @@ Cost-optimized Azure guidance:
 - `./run.sh --profile simple`
 - `./run.sh --profile parity`
 - `./run.sh --profile azure`
+
+Quick web-only local testing:
+- `./run-web.sh`
