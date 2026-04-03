@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.1.6
+- Fixed the Chrome Web Store package so the popup includes all runtime modules required for connect and capture actions.
+- Added packaging validation for popup module dependencies to catch missing files before upload.
+
 ## v0.1.5
 - Added a small footer link in the popup so users can jump back to `articlepod.com` without guessing where to go next.
 - Simplified the popup footer link to a plain `articlepod.com` hyperlink and styled it more clearly as a clickable website link.

@@ -140,7 +140,7 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 | `dist/extension/webstore/` | Pre-filled listing text templates |
 | `dist/extension/README.txt` | Quick checklist |
 
-`extension:validate` checks all technical Chrome Web Store requirements (manifest fields, icon dimensions, CSP compliance, listing character limits) and exits non-zero if anything is wrong.
+`extension:validate` checks all technical Chrome Web Store requirements (manifest fields, icon dimensions, popup module dependencies, CSP compliance, listing character limits) and exits non-zero if anything is wrong.
 
 **Always confirm the output ends with `TECHNICALLY READY` before uploading.**
 

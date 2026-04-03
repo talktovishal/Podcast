@@ -18,6 +18,7 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 
 `extension:validate` checks:
 - All required source files are present
+- Popup runtime module imports exist in source and the packaged build
 - `manifest.json` fields are valid (manifest_version 3, name, version, description, icons)
 - All icon files exist at the correct pixel dimensions (16×16 through 128×128)
 - No inline `<script>` blocks or remote script references in `popup.html` (MV3 CSP)

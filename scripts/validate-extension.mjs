@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, "..");
 const EXT_DIR = path.join(ROOT, "apps", "extension");
 const DIST_DIR = path.join(ROOT, "dist", "extension");
 
-const REQUIRED_FILES = ["manifest.json", "popup.html", "runtime-config.js", "popup.js", "capture-page.mjs", "popup.css"];
+const REQUIRED_FILES = ["manifest.json", "popup.html", "runtime-config.js", "popup.js", "capture-page.mjs", "target-tab.mjs", "popup.css"];
 const REQUIRED_ICONS = [16, 32, 48, 128];
 
 // Chrome Web Store caps short description at 132 chars.
@@ -43,6 +43,11 @@ function warn(msg) {
 
 function pass(msg) {
   process.stdout.write(`  ✓ ${msg}\n`);
+}
+
+function extractRelativeImports(source) {
+  const matches = source.matchAll(/from\s+["'](\.\/[^"']+)["']/g);
+  return [...new Set(Array.from(matches, (match) => match[1] || ""))].sort();
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +195,20 @@ if (/\beval\s*\(/.test(popupJs)) {
   pass("popup.js: no eval()");
 }
 
+const popupRelativeImports = extractRelativeImports(popupJs);
+if (popupRelativeImports.length === 0) {
+  warn("popup.js does not declare any relative imports");
+} else {
+  for (const relativeImport of popupRelativeImports) {
+    const importPath = path.join(EXT_DIR, relativeImport.replace(/^\.\//, ""));
+    if (fs.existsSync(importPath)) {
+      pass(`popup.js import present: ${relativeImport}`);
+    } else {
+      fail(`popup.js imports missing file: ${relativeImport}`);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 5. Webstore listing metadata
 // ---------------------------------------------------------------------------
@@ -259,6 +278,21 @@ if (checkZip && manifestVersion) {
   if (fs.existsSync(zipPath)) {
     const stat = fs.statSync(zipPath);
     pass(`ZIP exists: dist/extension/articlepod-capture-v${manifestVersion}.zip (${(stat.size / 1024).toFixed(1)} KB)`);
+
+    const packageDir = path.join(DIST_DIR, "package");
+    if (fs.existsSync(packageDir)) {
+      pass("Packaged extension directory present");
+      for (const relativeImport of popupRelativeImports) {
+        const packagedImportPath = path.join(packageDir, relativeImport.replace(/^\.\//, ""));
+        if (fs.existsSync(packagedImportPath)) {
+          pass(`Packaged popup dependency present: ${relativeImport}`);
+        } else {
+          fail(`Packaged popup dependency missing: ${relativeImport}`);
+        }
+      }
+    } else {
+      warn("dist/extension/package not found — packaged dependency verification skipped");
+    }
 
     const sha256File = path.join(DIST_DIR, `articlepod-capture-v${manifestVersion}.sha256`);
     if (fs.existsSync(sha256File)) {
