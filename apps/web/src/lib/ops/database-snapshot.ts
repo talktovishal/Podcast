@@ -27,6 +27,21 @@ export const databaseSnapshotModelConfigs = [
     ]
   },
   {
+    modelName: "SandboxBillingAccount",
+    exportKey: "sandboxBillingAccounts",
+    delegate: "sandboxBillingAccount",
+    orderByField: "userId",
+    dateFields: [
+      "billingLastStripeEventCreatedAt",
+      "billingLastSubscriptionEventAt",
+      "billingLastInvoiceEventAt",
+      "billingCurrentPeriodEnd",
+      "billingUpdatedAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  {
     modelName: "Session",
     exportKey: "sessions",
     delegate: "session",

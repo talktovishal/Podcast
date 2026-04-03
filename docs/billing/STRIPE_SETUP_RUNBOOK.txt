@@ -1,5 +1,5 @@
 ArticlePod Stripe Setup Runbook
-Last updated: 2026-03-29
+Last updated: 2026-04-02
 
 Purpose
 - This is the step-by-step operator guide for enabling Stripe payments and billing for ArticlePod.
@@ -8,18 +8,26 @@ Purpose
 
 Current repo state
 - The app code already supports Stripe-hosted Checkout, Stripe Billing Portal, webhook-driven billing sync, and billing status UX.
+- The app now supports both a default live Stripe lane and a tester-only sandbox Stripe lane in the same production deploy.
 - The live site is https://articlepod.com
 - The production deploy workflow uses the GitHub Actions environment named "production".
 - The app expects these runtime env vars:
-  - STRIPE_SECRET_KEY
-  - STRIPE_WEBHOOK_SECRET
-  - STRIPE_PRICE_PRO_MONTHLY
-  - STRIPE_PRICE_PRO_ANNUAL
-  - STRIPE_BILLING_PORTAL_CONFIGURATION_ID (optional)
+  - BILLING_SANDBOX_ALLOWLIST_EMAILS
+  - STRIPE_LIVE_SECRET_KEY
+  - STRIPE_LIVE_WEBHOOK_SECRET
+  - STRIPE_LIVE_PRICE_PRO_MONTHLY
+  - STRIPE_LIVE_PRICE_PRO_ANNUAL
+  - STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID (optional)
+  - STRIPE_SANDBOX_SECRET_KEY
+  - STRIPE_SANDBOX_WEBHOOK_SECRET
+  - STRIPE_SANDBOX_PRICE_PRO_MONTHLY
+  - STRIPE_SANDBOX_PRICE_PRO_ANNUAL
+  - STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID (optional)
 
 Important repo-specific note
 - Before billing works in production, Stripe secrets must be stored in the GitHub "production" environment.
 - The deploy workflow now forwards those GitHub secrets into the VM runtime env file.
+- Older single-lane `STRIPE_*` secret names are still treated as live aliases during rollout, but new production setup should use the explicit `LIVE` and `SANDBOX` names below.
 
 Launch defaults for this MVP
 - One self-serve paid tier: Pro
@@ -96,8 +104,8 @@ Helpful docs
 
 What to record
 - Test price ID:
-  - STRIPE_PRICE_PRO_MONTHLY = price_...
-  - STRIPE_PRICE_PRO_ANNUAL = price_...
+  - STRIPE_SANDBOX_PRICE_PRO_MONTHLY = price_...
+  - STRIPE_SANDBOX_PRICE_PRO_ANNUAL = price_...
 
 Step 4. Configure Customer Portal
 1. Open Stripe Customer Portal settings in Dashboard.
@@ -120,7 +128,7 @@ Helpful docs
 
 What to record
 - Optional portal configuration ID:
-  - STRIPE_BILLING_PORTAL_CONFIGURATION_ID = bpc_...
+  - STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID = bpc_...
 
 Step 5. Configure branding and public business info
 1. In Stripe Dashboard branding/public settings, upload:
@@ -162,11 +170,13 @@ Helpful docs
 PHASE 2 - CREATE THE WEBHOOK ENDPOINT IN STRIPE
 ======================================================================
 
-Step 8. Create the production webhook endpoint in Stripe
+Step 8. Create the webhook endpoints in Stripe
 1. In Stripe Dashboard, go to Workbench / Webhooks.
-2. Create a webhook endpoint for:
+2. Create the live webhook endpoint for:
    - https://articlepod.com/api/billing/webhook
-3. Subscribe it to these event types:
+3. Create the sandbox webhook endpoint for:
+   - https://articlepod.com/api/billing/webhook/sandbox
+4. Subscribe both endpoints to these event types:
    - checkout.session.completed
    - customer.subscription.created
    - customer.subscription.updated
@@ -174,8 +184,8 @@ Step 8. Create the production webhook endpoint in Stripe
    - invoice.paid
    - invoice.payment_failed
    - invoice.payment_action_required
-4. Save the endpoint.
-5. Reveal and copy the signing secret.
+5. Save each endpoint.
+6. Reveal and copy each signing secret.
    - It will look like: whsec_...
 
 Helpful docs
@@ -185,12 +195,14 @@ Helpful docs
   https://docs.stripe.com/webhooks/signatures
 
 What to record
-- Production webhook signing secret:
-  - STRIPE_WEBHOOK_SECRET = whsec_...
+- Production live webhook signing secret:
+  - STRIPE_LIVE_WEBHOOK_SECRET = whsec_live_...
+- Production sandbox webhook signing secret:
+  - STRIPE_SANDBOX_WEBHOOK_SECRET = whsec_test_...
 
 Important note
 - Test mode and live mode have different webhook secrets.
-- If you later create a separate test webhook endpoint, its whsec value will be different.
+- Live and sandbox lanes always have different webhook secrets, and test mode vs. live mode values will differ again inside those lanes.
 
 ======================================================================
 PHASE 3 - GET THE STRIPE KEYS YOU NEED
@@ -198,21 +210,39 @@ PHASE 3 - GET THE STRIPE KEYS YOU NEED
 
 Step 9. Collect the required Stripe values
 For production, you need:
-1. Secret API key
-   - STRIPE_SECRET_KEY
+1. Live secret API key
+   - STRIPE_LIVE_SECRET_KEY
    - looks like: sk_live_...
-2. Webhook signing secret
-   - STRIPE_WEBHOOK_SECRET
+2. Live webhook signing secret
+   - STRIPE_LIVE_WEBHOOK_SECRET
    - looks like: whsec_...
-3. Pro monthly recurring price ID
-   - STRIPE_PRICE_PRO_MONTHLY
+3. Live Pro monthly recurring price ID
+   - STRIPE_LIVE_PRICE_PRO_MONTHLY
    - looks like: price_...
-4. Pro annual recurring price ID
-   - STRIPE_PRICE_PRO_ANNUAL
+4. Live Pro annual recurring price ID
+   - STRIPE_LIVE_PRICE_PRO_ANNUAL
    - looks like: price_...
-5. Optional portal configuration ID
-   - STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+5. Optional live portal configuration ID
+   - STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID
    - looks like: bpc_...
+6. Sandbox secret API key
+   - STRIPE_SANDBOX_SECRET_KEY
+   - looks like: sk_test_...
+7. Sandbox webhook signing secret
+   - STRIPE_SANDBOX_WEBHOOK_SECRET
+   - looks like: whsec_...
+8. Sandbox Pro monthly recurring price ID
+   - STRIPE_SANDBOX_PRICE_PRO_MONTHLY
+   - looks like: price_...
+9. Sandbox Pro annual recurring price ID
+   - STRIPE_SANDBOX_PRICE_PRO_ANNUAL
+   - looks like: price_...
+10. Optional sandbox portal configuration ID
+   - STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID
+   - looks like: bpc_...
+11. Optional tester allowlist
+   - BILLING_SANDBOX_ALLOWLIST_EMAILS
+   - comma-separated emails like: tester1@example.com,tester2@example.com
 
 Where to find them
 - Secret key:
@@ -253,25 +283,37 @@ Helpful docs
 
 Step 11. Create these GitHub environment secrets
 Create these secrets in the "production" environment:
-- APP_STRIPE_SECRET_KEY
-- APP_STRIPE_WEBHOOK_SECRET
-- APP_STRIPE_PRICE_PRO_MONTHLY
-- APP_STRIPE_PRICE_PRO_ANNUAL
-- APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+- APP_BILLING_SANDBOX_ALLOWLIST_EMAILS
+- APP_STRIPE_LIVE_SECRET_KEY
+- APP_STRIPE_LIVE_WEBHOOK_SECRET
+- APP_STRIPE_LIVE_PRICE_PRO_MONTHLY
+- APP_STRIPE_LIVE_PRICE_PRO_ANNUAL
+- APP_STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID
+- APP_STRIPE_SANDBOX_SECRET_KEY
+- APP_STRIPE_SANDBOX_WEBHOOK_SECRET
+- APP_STRIPE_SANDBOX_PRICE_PRO_MONTHLY
+- APP_STRIPE_SANDBOX_PRICE_PRO_ANNUAL
+- APP_STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID
 
 Recommended handling
-- Treat all five as secrets for simplicity, even though the price IDs are less sensitive.
+- Treat the allowlist and all Stripe values as environment secrets for simplicity, even though the price IDs are less sensitive.
 - Do not store Stripe secret keys in repository variables.
 - Do not put live Stripe secrets into local or staging environments.
 
 CLI option with GitHub CLI
 - If you have gh installed and authenticated:
 
-  gh secret set --env production APP_STRIPE_SECRET_KEY
-  gh secret set --env production APP_STRIPE_WEBHOOK_SECRET
-  gh secret set --env production APP_STRIPE_PRICE_PRO_MONTHLY
-  gh secret set --env production APP_STRIPE_PRICE_PRO_ANNUAL
-  gh secret set --env production APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+  gh secret set --env production APP_BILLING_SANDBOX_ALLOWLIST_EMAILS
+  gh secret set --env production APP_STRIPE_LIVE_SECRET_KEY
+  gh secret set --env production APP_STRIPE_LIVE_WEBHOOK_SECRET
+  gh secret set --env production APP_STRIPE_LIVE_PRICE_PRO_MONTHLY
+  gh secret set --env production APP_STRIPE_LIVE_PRICE_PRO_ANNUAL
+  gh secret set --env production APP_STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID
+  gh secret set --env production APP_STRIPE_SANDBOX_SECRET_KEY
+  gh secret set --env production APP_STRIPE_SANDBOX_WEBHOOK_SECRET
+  gh secret set --env production APP_STRIPE_SANDBOX_PRICE_PRO_MONTHLY
+  gh secret set --env production APP_STRIPE_SANDBOX_PRICE_PRO_ANNUAL
+  gh secret set --env production APP_STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID
 
 Helpful commands
 - List production environment secrets:
@@ -282,9 +324,9 @@ PHASE 5 - TEST MODE RECOMMENDED BEFORE LIVE CUTOVER
 ======================================================================
 
 Recommended safe order
-1. Create the same product/price/portal/webhook setup in Stripe test mode first.
-2. Use test secret key, test webhook secret, and test price IDs.
-3. Verify the flow locally.
+1. Create the sandbox product/price/portal/webhook setup in Stripe test mode first.
+2. Use sandbox secret key, sandbox webhook secret, and sandbox price IDs.
+3. Verify the flow locally and on production with an allowlisted tester account switched to `Sandbox billing`.
 4. Only after the test flow works, add the live values to GitHub production.
 
 Step 12. Local testing with Stripe test mode
@@ -337,12 +379,18 @@ Before you declare billing live, confirm:
 - Stripe account is fully verified
 - Bank account is connected
 - Live product plus live monthly and annual prices exist
+- Sandbox product plus sandbox monthly and annual prices exist if you want ongoing tester access on production
 - Customer Portal is configured
 - Webhook endpoint exists at https://articlepod.com/api/billing/webhook
+- Sandbox webhook endpoint exists at https://articlepod.com/api/billing/webhook/sandbox
 - Live webhook secret is stored in GitHub production
+- Sandbox webhook secret is stored in GitHub production
 - Live Stripe secret key is stored in GitHub production
+- Sandbox Stripe secret key is stored in GitHub production
 - Live monthly and annual price IDs are stored in GitHub production
-- Optional portal configuration ID is stored in GitHub production if you are pinning one
+- Sandbox monthly and annual price IDs are stored in GitHub production
+- Optional portal configuration IDs are stored in GitHub production if you are pinning them
+- Sandbox tester emails are stored in GitHub production if you want those users to see the Settings toggle
 - The site has been redeployed
 - Checkout opens successfully
 - Customer Portal opens successfully
@@ -356,21 +404,34 @@ QUICK COPY LIST
 ======================================================================
 
 Stripe values you must collect
-- STRIPE_SECRET_KEY = sk_live_...
-- STRIPE_WEBHOOK_SECRET = whsec_...
-- STRIPE_PRICE_PRO_MONTHLY = price_...
-- STRIPE_PRICE_PRO_ANNUAL = price_...
-- STRIPE_BILLING_PORTAL_CONFIGURATION_ID = bpc_... (optional)
+- STRIPE_LIVE_SECRET_KEY = sk_live_...
+- STRIPE_LIVE_WEBHOOK_SECRET = whsec_live_...
+- STRIPE_LIVE_PRICE_PRO_MONTHLY = price_live_monthly_...
+- STRIPE_LIVE_PRICE_PRO_ANNUAL = price_live_annual_...
+- STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID = bpc_live_... (optional)
+- STRIPE_SANDBOX_SECRET_KEY = sk_test_...
+- STRIPE_SANDBOX_WEBHOOK_SECRET = whsec_test_...
+- STRIPE_SANDBOX_PRICE_PRO_MONTHLY = price_test_monthly_...
+- STRIPE_SANDBOX_PRICE_PRO_ANNUAL = price_test_annual_...
+- STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID = bpc_test_... (optional)
+- BILLING_SANDBOX_ALLOWLIST_EMAILS = tester1@example.com,tester2@example.com
 
 GitHub production environment secret names
-- APP_STRIPE_SECRET_KEY
-- APP_STRIPE_WEBHOOK_SECRET
-- APP_STRIPE_PRICE_PRO_MONTHLY
-- APP_STRIPE_PRICE_PRO_ANNUAL
-- APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+- APP_BILLING_SANDBOX_ALLOWLIST_EMAILS
+- APP_STRIPE_LIVE_SECRET_KEY
+- APP_STRIPE_LIVE_WEBHOOK_SECRET
+- APP_STRIPE_LIVE_PRICE_PRO_MONTHLY
+- APP_STRIPE_LIVE_PRICE_PRO_ANNUAL
+- APP_STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID
+- APP_STRIPE_SANDBOX_SECRET_KEY
+- APP_STRIPE_SANDBOX_WEBHOOK_SECRET
+- APP_STRIPE_SANDBOX_PRICE_PRO_MONTHLY
+- APP_STRIPE_SANDBOX_PRICE_PRO_ANNUAL
+- APP_STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID
 
 Stripe webhook URL
 - https://articlepod.com/api/billing/webhook
+- https://articlepod.com/api/billing/webhook/sandbox
 
 Stripe webhook events to subscribe
 - checkout.session.completed

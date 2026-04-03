@@ -101,18 +101,34 @@ Behavior:
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
 ## Billing (optional)
-- `STRIPE_SECRET_KEY` (required to create Checkout and Customer Portal sessions)
-- `STRIPE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
-- `STRIPE_PRICE_PRO_MONTHLY` (Stripe recurring price id for the Pro plan)
-- `STRIPE_PRICE_PRO_ANNUAL` (Stripe recurring yearly price id for the Pro annual plan)
-- `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit portal configuration; default Stripe portal config is used when unset)
+- `BILLING_SANDBOX_ALLOWLIST_EMAILS` (comma-separated email allowlist for non-admin tester accounts that may switch to sandbox billing in Settings)
+- `STRIPE_LIVE_SECRET_KEY` (required for default live Checkout and Customer Portal sessions)
+- `STRIPE_LIVE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
+- `STRIPE_LIVE_PRICE_PRO_MONTHLY` (live recurring monthly price id for the Pro plan)
+- `STRIPE_LIVE_PRICE_PRO_ANNUAL` (live recurring yearly price id for the Pro annual plan)
+- `STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit live portal configuration; default Stripe portal config is used when unset)
+- `STRIPE_SANDBOX_SECRET_KEY` (required for tester-only sandbox Checkout and Customer Portal sessions)
+- `STRIPE_SANDBOX_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook/sandbox`)
+- `STRIPE_SANDBOX_PRICE_PRO_MONTHLY` (sandbox recurring monthly price id for the Pro plan)
+- `STRIPE_SANDBOX_PRICE_PRO_ANNUAL` (sandbox recurring yearly price id for the Pro annual plan)
+- `STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit sandbox portal configuration; default Stripe portal config is used when unset)
+- Compatibility aliases during rollout:
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_WEBHOOK_SECRET`
+  - `STRIPE_PRICE_PRO_MONTHLY`
+  - `STRIPE_PRICE_PRO_ANNUAL`
+  - `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`
+  - These older names are treated as live-lane aliases when the new `STRIPE_LIVE_*` names are absent. Prefer the lane-specific names for new deploys.
 
 Behavior:
-- Billing routes stay unavailable until the Stripe secret key and at least one Pro price id are set.
+- Live billing stays the default for every user.
+- Only admins and emails listed in `BILLING_SANDBOX_ALLOWLIST_EMAILS` can switch to sandbox billing from `/app/settings`.
+- Sandbox billing stores separate customer/subscription/payment state and never changes live access, quotas, or summary limits.
+- Billing routes for a lane stay unavailable until that lane's Stripe secret key and at least one Pro price id are set.
 - ArticlePod stores only Stripe customer/subscription metadata, local entitlement state, latest invoice/payment state, and webhook audit metadata; card details remain in Stripe-hosted flows.
-- Use separate Stripe secret keys, price ids, portal configuration ids, and webhook secrets for local, staging, and production.
-- Never mix live Stripe credentials into local or staging environments.
-- If you need to pause new self-serve checkout without breaking existing billing management, unset the specific price ids you want to stop offering and keep the Stripe secret and webhook secret configured so Portal and webhook sync continue to work for existing subscribers.
+- Use separate Stripe secret keys, price ids, portal configuration ids, and webhook secrets for each environment and for each lane.
+- Never mix live Stripe credentials into local, staging, or sandbox-only test flows.
+- If you need to pause new self-serve checkout without breaking existing billing management, unset the price ids for the affected lane and keep that lane's secret key + webhook secret configured so Portal and webhook sync continue to work for existing subscribers or testers.
 
 ## Worker controls
 - `PINNED_FETCH_IPV6_ENABLED` (`0` default for Azure, otherwise enabled unless overridden; disable IPv6 pinned-IP fetch attempts on single-stack hosts)

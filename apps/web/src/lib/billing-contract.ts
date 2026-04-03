@@ -3,6 +3,7 @@ export type BillingPlanAccessLevel = "STARTER" | "PRO";
 export type BillingStatus = "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
 export type BillingPaymentStatus = "NONE" | "PAID" | "FAILED" | "ACTION_REQUIRED";
 export type BillingEntitlementStatus = "INACTIVE" | "ACTIVE" | "GRACE_PERIOD";
+export type BillingLane = "LIVE" | "SANDBOX";
 
 export type BillingAccountSnapshot = {
   provider: "stripe" | null;
@@ -27,6 +28,19 @@ export type BillingAccountSnapshot = {
   billingIssueMessage: string | null;
   lastStripeEventId: string | null;
   lastStripeEventCreatedAt: string | null;
+};
+
+export type BillingModeState = {
+  canUseSandbox: boolean;
+  selectedLane: BillingLane;
+  effectiveLane: BillingLane;
+};
+
+export type BillingSettingsState = {
+  liveBilling: BillingAccountSnapshot;
+  selectedBilling: BillingAccountSnapshot;
+  sandboxBilling: BillingAccountSnapshot | null;
+  mode: BillingModeState;
 };
 
 export function billingPlanLabel(planCode: BillingPlanCode): string {

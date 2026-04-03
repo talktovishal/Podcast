@@ -7,7 +7,7 @@ import { DashboardClient } from "@/components/dashboard-client";
 import Link from "next/link";
 import { ensureUserDigestSettings, getAuthUserFromCookies } from "@/lib/auth";
 import {
-  getBillingAccountSnapshot,
+  getBillingSettingsState,
   isBillingPlanCheckoutConfigured,
 } from "@/lib/billing";
 import {
@@ -41,9 +41,9 @@ export default async function AppSettingsPage({
     getTtsProviderAvailability(),
     getUserDemographicSurvey(user.id),
   ]);
-  const billing = await getBillingAccountSnapshot(user.id);
-  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
-  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
+  const billingState = await getBillingSettingsState(user.id);
+  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY", billingState.mode.effectiveLane);
+  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL", billingState.mode.effectiveLane);
   const billingSearchParam = Array.isArray(searchParams?.billing)
     ? searchParams?.billing[0]
     : searchParams?.billing;
@@ -75,7 +75,7 @@ export default async function AppSettingsPage({
         <BillingSettingsCard
           activationHint={billingSearchParam === "success"}
           annualCheckoutConfigured={annualCheckoutConfigured}
-          initialBilling={billing}
+          initialState={billingState}
           monthlyCheckoutConfigured={monthlyCheckoutConfigured}
         />
 

@@ -39,7 +39,9 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`
   - `/pricing` includes explicit billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current paid period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
-  - `/app` and `/app/settings` show current plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management
+  - `/app` and `/app/settings` show current live plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management
+  - admins and allowlisted tester emails also get a `Billing mode` control in `/app/settings` so they can persist `Live billing` or `Sandbox billing` for end-to-end checkout testing
+  - sandbox billing uses separate customer/subscription state and separate webhook handling, but never changes live access, quotas, or summary limits
   - recurring billing state is synced from Stripe webhooks; card data is never stored in ArticlePod and Checkout redirects do not grant access on their own
   - admin quota controls expose read-only Stripe customer/subscription/invoice identifiers plus Stripe Dashboard links for support
 - Feedback suggestions:

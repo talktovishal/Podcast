@@ -67,6 +67,7 @@
 - The packaged extension intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require a separate per-site access grant before capture; runtime config still defaults server communication to `https://articlepod.com`.
 - `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter desktop nav that omits the current page shortcut and wraps cleanly on smaller screens.
 - `/app` now keeps billing as a minimal header control, with a single `Upgrade to Pro` action for free accounts and one clickable billing pill for paid accounts, while the fuller Stripe controls stay in `/app/settings`.
+- `/app/settings` now also supports a persisted `Live billing` / `Sandbox billing` tester toggle for admins and allowlisted emails, with sandbox Stripe state isolated from live entitlements and quotas.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
 - `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.
@@ -4032,12 +4033,17 @@ Milestone metadata contract:
 - Scope:
   - Add a final release milestone covering staging validation, support docs, rollback or safe-disable notes, and production launch evidence.
   - Include both the manual founder launch checklist and engineering launch checklist, with a clear blocker if the Stripe tax decision is unresolved.
+  - Keep live Stripe as the default production path while allowing admins and explicit tester emails to exercise a separate sandbox Stripe lane from Settings.
 - Key files/modules:
+  - `apps/web/src/lib/billing.ts`
+  - `apps/web/src/app/api/billing/mode/route.ts`
+  - `apps/web/src/app/api/billing/webhook/sandbox/route.ts`
   - `docs/release-checklist.md`
   - `docs/billing/README.md`
   - `docs/operations.md`
 - Acceptance criteria:
-  - Staging proves checkout, portal, webhook sync, access-control changes, observability, and production-secret isolation before live credentials are introduced.
+  - Staging proves live checkout, sandbox checkout, portal flows, webhook sync, access-control changes, observability, and production-secret isolation before live credentials are introduced.
+  - Sandbox purchases never grant live paid access, never change quotas, and never overwrite canonical live billing state.
   - Launch notes include support ownership and rollback or safe-disable guidance for billing incidents.
 - Verification commands:
   - `npm run typecheck`

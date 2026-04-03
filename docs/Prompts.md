@@ -98,6 +98,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
   - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and “save nearly 30%” annual positioning
   - login now preserves pricing/billing return intent so “sign in to upgrade” comes back to the hosted checkout path instead of dropping users into the generic workspace
+  - production can now carry both live Stripe and sandbox Stripe in the same deploy: live billing stays default, while admins and allowlisted tester emails can switch billing mode in `/app/settings` and exercise sandbox checkout, portal, and webhooks without changing live entitlements or quotas
 - Digest automation track (`M72`-`M79`) is implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone-aware schedules.
   - separate private digest feed token + digest RSS route (`/rss/digest/<token>.xml`).
@@ -199,9 +200,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - webhook handling now covers checkout completion, subscription lifecycle events, `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`, with duplicate and stale-event protection
   - `/app/settings` and `/admin` now surface billing activation, payment recovery, renewal, cancellation, and support visibility paths that match the Stripe-first MVP architecture
   - founder-owned Stripe setup, environment-secret requirements, Stripe CLI/Test Clock QA, and launch checklists are now documented in the billing and operations docs
+  - the production deploy can now carry both live and sandbox Stripe credentials at once, with a persisted Settings toggle for admins and allowlisted tester accounts
 - Billing release gate (`B09`) remains open until staging and launch evidence exists:
   - founder must finish Stripe Dashboard setup, retry/email settings, branding, and the Stripe Tax decision
-  - staging must prove checkout, portal, webhook sync, payment-failure handling, observability, and environment isolation before live keys are introduced
+  - staging must prove live checkout, sandbox checkout, portal flows, webhook sync, payment-failure handling, observability, and environment isolation before live keys are introduced broadly
   - `Team`, coupons, trials, seats, usage billing, and non-card methods remain later phases
 - Cost optimization implementation is now in repo and deployed:
   - worker overflow policy + budget guardrail scripts

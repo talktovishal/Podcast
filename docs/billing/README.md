@@ -2,8 +2,9 @@
 
 Use this note when you come back to Stripe billing work later.
 
-Status as of 2026-03-29:
+Status as of 2026-04-02:
 - Stripe-hosted Checkout, Customer Portal, invoice-aware webhook sync, billing status, and support visibility are implemented for `Pro monthly` and `Pro annual`.
+- Production can now carry both live Stripe and sandbox Stripe at the same time. Live billing remains the default path, while admins and allowlisted tester emails can switch to sandbox billing from `/app/settings`.
 - ArticlePod stores Stripe billing metadata, entitlement state, latest invoice/payment state, and webhook audit watermarks. Card details stay in Stripe-hosted flows.
 - Self-serve billing stays scoped to `Starter` free + `Pro` only for MVP, with monthly and annual cadences.
 - `Team`, coupons, trials, seats, usage billing, and non-card methods remain out of scope for the current launch track.
@@ -12,30 +13,38 @@ Status as of 2026-03-29:
 
 Stable API surface:
 - `POST /api/billing/checkout`
+- `POST /api/billing/mode`
 - `POST /api/billing/portal`
 - `GET /api/billing/status`
 - `POST /api/billing/webhook`
+- `POST /api/billing/webhook/sandbox`
 
 Key code paths:
 - `apps/web/src/lib/billing.ts`
 - `apps/web/src/app/api/billing/checkout/route.ts`
+- `apps/web/src/app/api/billing/mode/route.ts`
 - `apps/web/src/app/api/billing/portal/route.ts`
 - `apps/web/src/app/api/billing/status/route.ts`
 - `apps/web/src/app/api/billing/webhook/route.ts`
+- `apps/web/src/app/api/billing/webhook/sandbox/route.ts`
 
 Persisted billing state:
-- Prisma user fields now cover `billingProvider`, `billingCustomerId`, `billingSubscriptionId`, `billingPriceId`, `billingPlanCode`, `billingStatus`, `billingEntitlementStatus`, `billingLastPaymentStatus`, `billingLastInvoiceId`, `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`, `billingLastStripeEventId`, event watermarks, `billingUpdatedAt`, `complimentaryPro`, and `isPaid`
-- `BillingWebhookEvent` is the Stripe event idempotency + audit table and now stores event ids, event type, event creation time, object id, subscription id, invoice id, apply status, and failure notes
+- Prisma user fields now cover `billingProvider`, `billingCustomerId`, `billingSubscriptionId`, `billingPriceId`, `billingPlanCode`, `billingStatus`, `billingEntitlementStatus`, `billingLastPaymentStatus`, `billingLastInvoiceId`, `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`, `billingLastStripeEventId`, event watermarks, `billingUpdatedAt`, `billingLanePreference`, `complimentaryPro`, and `isPaid`
+- `SandboxBillingAccount` stores the separate sandbox Stripe customer/subscription/payment state used by allowlisted tester flows so sandbox purchases never overwrite live billing
+- `BillingWebhookEvent` is the Stripe event idempotency + audit table and now stores event ids, event type, event creation time, object id, subscription id, invoice id, apply status, failure notes, and distinct provider namespaces (`stripe_live`, `stripe_sandbox`)
 - Matching Azure Table metadata support exists for the same effective billing fields, with compatibility defaults for older rows that do not yet have the additive billing columns
 
 UI already wired:
 - `/pricing` starts hosted checkout for `Pro monthly` or `Pro annual`
 - `/app/settings` shows billing status, renewal date, cancel-at-period-end state, pending activation, payment-issue banners, and launches Stripe Customer Portal
+- eligible admins and allowlisted tester emails can switch between `Live billing` and `Sandbox billing` in `/app/settings`
+- `/pricing` and `/app/settings` respect the selected billing lane for eligible testers
+- `/app` workspace continues to show live access and live quota state even when sandbox billing mode is active
 - `/pricing` and settings only submit approved internal plan keys; raw Stripe price ids never come from the browser
 - Admins can grant `complimentaryPro` instead of mutating Stripe-managed state
 - `/admin` shows read-only Stripe customer/subscription/invoice identifiers plus Stripe Dashboard deep links for support workflows
 
-Webhook events currently handled:
+Webhook events currently handled on both live and sandbox endpoints:
 - `checkout.session.completed`
 - `customer.subscription.created`
 - `customer.subscription.updated`
@@ -47,8 +56,9 @@ Webhook events currently handled:
 Webhook behavior:
 - access is granted or extended only after webhook-confirmed billing events
 - `checkout.session.completed` writes a pending billing record but does not unlock Pro access on its own
-- duplicate Stripe event ids are ignored
+- duplicate Stripe event ids are ignored per lane
 - older subscription or invoice events are ignored once a newer domain watermark has already been applied
+- sandbox webhook events update only sandbox billing state and never change live entitlements, quotas, or `isPaid`
 
 ## Forward migration and compatibility plan
 
@@ -118,18 +128,27 @@ Recommended Stripe dashboard follow-up:
 Set these wherever the web app runs:
 
 ```bash
-STRIPE_SECRET_KEY=sk_live_or_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_PRO_MONTHLY=price_...
-STRIPE_PRICE_PRO_ANNUAL=price_...
-STRIPE_BILLING_PORTAL_CONFIGURATION_ID=bpc_...   # optional
+BILLING_SANDBOX_ALLOWLIST_EMAILS=tester1@example.com,tester2@example.com
+STRIPE_LIVE_SECRET_KEY=sk_live_...
+STRIPE_LIVE_WEBHOOK_SECRET=whsec_live_...
+STRIPE_LIVE_PRICE_PRO_MONTHLY=price_live_monthly_...
+STRIPE_LIVE_PRICE_PRO_ANNUAL=price_live_annual_...
+STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID=bpc_live_...   # optional
+STRIPE_SANDBOX_SECRET_KEY=sk_test_...
+STRIPE_SANDBOX_WEBHOOK_SECRET=whsec_test_...
+STRIPE_SANDBOX_PRICE_PRO_MONTHLY=price_test_monthly_...
+STRIPE_SANDBOX_PRICE_PRO_ANNUAL=price_test_annual_...
+STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID=bpc_test_...   # optional
 ```
 
 Environment isolation rules:
+- live billing stays the default experience for all users
+- only admins and emails in `BILLING_SANDBOX_ALLOWLIST_EMAILS` can persist sandbox billing mode in Settings
 - use Stripe test-mode secret keys, price ids, portal config ids, and webhook secrets in local and staging environments
 - use separate live-mode values only in production
 - never mix live Stripe secrets into local or staging environments
-- if `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` is pinned, remember that Stripe test and live modes use different ids
+- if either lane pins `*_BILLING_PORTAL_CONFIGURATION_ID`, remember that Stripe test and live modes use different ids
+- older single-lane `STRIPE_*` names are still treated as live aliases during rollout, but new deploys should fill the explicit `STRIPE_LIVE_*` and `STRIPE_SANDBOX_*` names
 
 See also:
 - `docs/env.md`
@@ -141,32 +160,39 @@ Required local or staging scenarios:
 
 1. Purchase and activation
    - new user buys `Pro monthly` or `Pro annual`
-   - app redirects to Stripe Checkout and back to `/app/settings?billing=success`
+   - live checkout returns to `/app?billing=success`
+   - sandbox checkout returns to `/app/settings?billing=success`
    - settings shows pending activation until webhook confirmation
    - `invoice.paid` (or equivalent test lifecycle confirmation) grants access and updates renewal date
-2. Initial payment failure
+2. Billing mode selection
+   - admins and allowlisted tester emails can switch between `Live billing` and `Sandbox billing`
+   - non-eligible users never see the billing-mode control
+3. Initial payment failure
    - the first subscription invoice fails
    - account stays `INCOMPLETE` with no Pro access
    - settings shows a payment issue and billing portal recovery path
-3. Renewal success
+4. Renewal success
    - recurring invoice is paid
    - access extends through the next `currentPeriodEnd`
-4. Renewal failure
+5. Renewal failure
    - recurring invoice payment fails or requires action
    - account shows `GRACE_PERIOD` or action-required state instead of silently removing access immediately
    - user can recover through the billing portal
-5. Cancellation at period end
+6. Cancellation at period end
    - portal sets `cancel_at_period_end`
    - app shows the end date while keeping access until the current period completes
-6. Portal self-service
+7. Portal self-service
    - update card
    - inspect invoice history
    - return to the app cleanly
-7. Webhook resilience
+8. Sandbox isolation
+   - sandbox checkout updates `SandboxBillingAccount` only
+   - workspace access and quota UI remain driven by live billing only
+9. Webhook resilience
    - duplicate event delivery does not create duplicate state changes
    - older subscription or invoice events are ignored after newer ones
    - invalid webhook signatures are rejected
-8. Test Clock lifecycle
+10. Test Clock lifecycle
    - use Stripe Test Clocks to simulate renewal, cancellation-at-period-end, and retry windows instead of waiting for real monthly cycles
 
 ## Local test flow
@@ -178,20 +204,27 @@ Required local or staging scenarios:
 stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
 ```
 
+For sandbox-mode testing, use:
+
+```bash
+stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook/sandbox
+```
+
 3. Sign in as a test user.
-4. Open `/pricing` and start Pro monthly or Pro annual checkout.
-5. Complete checkout with a Stripe test card.
-6. Confirm `/app/settings` first shows pending activation, then updates to the expected plan, renewal date, and status after webhook confirmation.
-7. Launch Customer Portal from settings and test:
+4. If you are testing sandbox mode, make sure the user is an admin or on the sandbox allowlist, then switch `Billing mode` to `Sandbox billing` in `/app/settings`.
+5. Open `/pricing` and start Pro monthly or Pro annual checkout.
+6. Complete checkout with a Stripe test card.
+7. Confirm `/app/settings` first shows pending activation, then updates to the expected plan, renewal date, and status after webhook confirmation.
+8. Launch Customer Portal from settings and test:
 - cancel at period end
 - update payment method
 - reactivate if enabled in your portal config
-8. Trigger failure paths with Stripe test cards:
+9. Trigger failure paths with Stripe test cards:
 - initial card decline
 - renewal failure
 - authentication required
-9. Use Stripe Test Clocks for renewal, retry, and end-of-period cancelation scenarios.
-10. Record anything still missing against `B09` in `docs/plans.md`.
+10. Use Stripe Test Clocks for renewal, retry, and end-of-period cancelation scenarios.
+11. Record anything still missing against `B09` in `docs/plans.md`.
 
 Useful check:
 

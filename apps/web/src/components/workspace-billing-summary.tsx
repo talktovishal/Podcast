@@ -9,6 +9,7 @@ type Props = {
   initialBilling: BillingAccountSnapshot;
   billingConfigured: boolean;
   activationHint?: boolean;
+  sandboxModeActive?: boolean;
 };
 
 function toneClasses(input: BillingAccountSnapshot) {
@@ -80,7 +81,8 @@ function billingSubcopy(billing: BillingAccountSnapshot): string {
 export function WorkspaceBillingSummary({
   initialBilling,
   billingConfigured,
-  activationHint = false
+  activationHint = false,
+  sandboxModeActive = false
 }: Props) {
   const { billing, pollMessage } = useBillingStatus(initialBilling, activationHint);
   const showPortalAction = Boolean(
@@ -117,6 +119,9 @@ export function WorkspaceBillingSummary({
       </div>
 
       {message ? <p className={`rounded-lg border px-3 py-2 text-sm ${tone.message}`}>{message}</p> : null}
+      {sandboxModeActive ? (
+        <p className="text-xs text-[var(--muted)]">Sandbox billing mode is active in Settings. Live access is shown here.</p>
+      ) : null}
     </div>
   );
 }

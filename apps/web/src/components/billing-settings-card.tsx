@@ -1,30 +1,34 @@
 "use client";
 
-import {
-  BillingActionButton
-} from "@/components/billing-action-button";
+import { useState } from "react";
+import { BillingActionButton } from "@/components/billing-action-button";
 import { useBillingStatus } from "@/components/use-billing-status";
 import {
   billingPaymentStatusLabel,
   billingPlanLabel,
   billingStatusLabel,
-  type BillingAccountSnapshot
+  type BillingLane,
+  type BillingSettingsState
 } from "@/lib/billing-contract";
 
 type Props = {
-  initialBilling: BillingAccountSnapshot;
+  initialState: BillingSettingsState;
   monthlyCheckoutConfigured: boolean;
   annualCheckoutConfigured: boolean;
   activationHint?: boolean;
 };
 
 export function BillingSettingsCard({
-  initialBilling,
+  initialState,
   monthlyCheckoutConfigured,
   annualCheckoutConfigured,
   activationHint = false
 }: Props) {
-  const { billing, pollMessage } = useBillingStatus(initialBilling, activationHint);
+  const { billing, pollMessage } = useBillingStatus(initialState.selectedBilling, activationHint, "selected");
+  const [modeBusy, setModeBusy] = useState(false);
+  const [modeMessage, setModeMessage] = useState<string | null>(null);
+  const liveBilling = initialState.liveBilling;
+  const sandboxActive = initialState.mode.effectiveLane === "SANDBOX";
   const showPortalAction = Boolean(
     billing.customerId && (billing.hasPaidAccess || billing.hasBillingIssue || billing.planCode !== "STARTER" || billing.isPendingActivation)
   );
@@ -38,17 +42,90 @@ export function BillingSettingsCard({
         ? "border-[#c9e4dc] bg-[#edf8f5] text-[#0f6a54]"
         : "border-slate-200 bg-slate-50 text-slate-700";
 
+  async function updateLane(lane: BillingLane) {
+    if (modeBusy) {
+      return;
+    }
+
+    setModeBusy(true);
+    setModeMessage(null);
+    try {
+      const response = await fetch("/api/billing/mode", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ lane })
+      });
+      const payload = (await response.json()) as { ok?: boolean; error_message?: string };
+      if (!response.ok || !payload.ok) {
+        setModeMessage(payload.error_message || "Could not update billing mode.");
+        return;
+      }
+      window.location.reload();
+    } catch {
+      setModeMessage("Could not update billing mode.");
+    } finally {
+      setModeBusy(false);
+    }
+  }
+
   return (
     <section className="card p-4 sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
           <div>
             <h2 className="text-lg font-semibold">Billing</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Current access: {billing.accessReason === "complimentary" ? "Complimentary Pro" : billingPlanLabel(billing.planCode)} ·{" "}
-              {billingStatusLabel(billing.status)}
+              {sandboxActive
+                ? `Sandbox billing: ${billingPlanLabel(billing.planCode)} · ${billingStatusLabel(billing.status)}`
+                : `Current access: ${
+                    billing.accessReason === "complimentary" ? "Complimentary Pro" : billingPlanLabel(billing.planCode)
+                  } · ${billingStatusLabel(billing.status)}`}
             </p>
           </div>
+
+          {initialState.mode.canUseSandbox ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-[var(--ink)]">Billing mode</span>
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      initialState.mode.effectiveLane === "LIVE" ? "bg-white text-[var(--ink)] shadow-sm" : "text-[var(--muted)]"
+                    }`}
+                    disabled={modeBusy}
+                    onClick={() => updateLane("LIVE")}
+                    type="button"
+                  >
+                    Live billing
+                  </button>
+                  <button
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                      sandboxActive ? "bg-white text-[var(--ink)] shadow-sm" : "text-[var(--muted)]"
+                    }`}
+                    disabled={modeBusy}
+                    onClick={() => updateLane("SANDBOX")}
+                    type="button"
+                  >
+                    Sandbox billing
+                  </button>
+                </div>
+              </div>
+              {sandboxActive ? (
+                <p className="rounded-lg border border-[#d9d0a7] bg-[#fff9e8] px-3 py-2 text-sm text-[#6f5400]">
+                  Sandbox billing active for testing. Live access and quotas still follow your live subscription.
+                </p>
+              ) : null}
+              {modeMessage ? <p className="text-sm text-[var(--danger)]">{modeMessage}</p> : null}
+            </div>
+          ) : null}
+
+          {sandboxActive ? (
+            <p className="text-sm text-[var(--muted)]">
+              Live access remains {billingPlanLabel(liveBilling.planCode)} · {billingStatusLabel(liveBilling.status)}.
+            </p>
+          ) : null}
 
           {periodEndLabel ? (
             <p className="text-sm text-[var(--muted)]">

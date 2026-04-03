@@ -36,6 +36,7 @@ export const azureTablePrimaryBackfillConfigs = [
         passwordHash: row.passwordHash ?? null,
         name: row.name ?? null,
         role: row.role,
+        billingLanePreference: row.billingLanePreference,
         complimentaryPro: row.complimentaryPro,
         billingProvider: row.billingProvider ?? null,
         billingCustomerId: row.billingCustomerId ?? null,
@@ -66,6 +67,37 @@ export const azureTablePrimaryBackfillConfigs = [
         lastSeenCountryCode: row.lastSeenCountryCode ?? null,
         lastSeenRegionCode: row.lastSeenRegionCode ?? null,
         lastSeenCity: row.lastSeenCity ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "SandboxBillingAccount",
+    delegate: "sandboxBillingAccount",
+    orderByField: "userId",
+    tableKey: "sandboxBillingAccounts",
+    buildEntity(row) {
+      return {
+        partitionKey: "sandboxBilling",
+        rowKey: row.userId,
+        userId: row.userId,
+        billingProvider: row.billingProvider ?? null,
+        billingCustomerId: row.billingCustomerId ?? null,
+        billingSubscriptionId: row.billingSubscriptionId ?? null,
+        billingPriceId: row.billingPriceId ?? null,
+        billingPlanCode: row.billingPlanCode,
+        billingStatus: row.billingStatus,
+        billingEntitlementStatus: row.billingEntitlementStatus,
+        billingLastPaymentStatus: row.billingLastPaymentStatus,
+        billingLastInvoiceId: row.billingLastInvoiceId ?? null,
+        billingCurrentPeriodEnd: isoOrNull(row.billingCurrentPeriodEnd),
+        billingCancelAtPeriodEnd: row.billingCancelAtPeriodEnd,
+        billingLastStripeEventId: row.billingLastStripeEventId ?? null,
+        billingLastStripeEventCreatedAt: isoOrNull(row.billingLastStripeEventCreatedAt),
+        billingLastSubscriptionEventAt: isoOrNull(row.billingLastSubscriptionEventAt),
+        billingLastInvoiceEventAt: isoOrNull(row.billingLastInvoiceEventAt),
+        billingUpdatedAt: isoOrNull(row.billingUpdatedAt),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString()
       };

@@ -7,11 +7,10 @@ import { fileURLToPath } from "node:url";
 import {
   createStripeBillingPortalSession,
   createStripeCheckoutSession,
-  getBillingAccountSnapshot
+  getBillingSettingsState
 } from "../src/lib/billing";
 import { env } from "../src/lib/env";
 import { prisma } from "../src/lib/prisma";
-import { updatePrimaryUser } from "../src/lib/metadata-primary-auth";
 
 let dbReady = false;
 
@@ -37,8 +36,8 @@ function ensureDbBootstrap(): void {
 
 const sandboxEnabled = Boolean(
   process.env.ARTICLEPOD_STRIPE_SANDBOX_TEST === "1" &&
-    env.stripeSecretKey?.startsWith("sk_test_") &&
-    env.stripePriceProMonthly &&
+    env.stripeSandboxSecretKey?.startsWith("sk_test_") &&
+    env.stripeSandboxPriceProMonthly &&
     env.appUrl
 );
 
@@ -46,14 +45,14 @@ const sandboxSkipReason =
   "Set ARTICLEPOD_STRIPE_SANDBOX_TEST=1 with Stripe sandbox env vars to run live Stripe integration coverage.";
 
 function sandboxStripe(): Stripe {
-  if (!sandboxEnabled || !env.stripeSecretKey) {
+  if (!sandboxEnabled || !env.stripeSandboxSecretKey) {
     throw new Error(sandboxSkipReason);
   }
-  return new Stripe(env.stripeSecretKey);
+  return new Stripe(env.stripeSandboxSecretKey);
 }
 
 test(
-  "sandbox billing integration creates checkout and portal sessions with live Stripe test data",
+  "sandbox billing integration creates checkout and portal sessions without touching live billing state",
   { skip: sandboxEnabled ? false : sandboxSkipReason },
   async () => {
     ensureDbBootstrap();
@@ -62,7 +61,8 @@ test(
     const user = await prisma.user.create({
       data: {
         email: `sandbox-checkout-${uniq}@articlepod.local`,
-        role: "USER",
+        role: "ADMIN",
+        billingLanePreference: "SANDBOX",
         complimentaryPro: false,
         isPaid: false,
         ttsProvider: "kokoro",
@@ -80,6 +80,14 @@ test(
       assert.match(checkout.customerId, /^cus_/);
       assert.equal(checkout.url.includes("checkout.stripe.com") || checkout.url.includes("checkout.stripe.com/c/"), true);
 
+      const liveUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      assert.equal(liveUser.billingCustomerId, null);
+
+      const sandboxAccount = await prisma.sandboxBillingAccount.findUniqueOrThrow({
+        where: { userId: user.id }
+      });
+      assert.equal(sandboxAccount.billingCustomerId, checkout.customerId);
+
       const portal = await createStripeBillingPortalSession(user.id);
       assert.match(portal.sessionId, /^bps_/);
       assert.match(portal.customerId, /^cus_/);
@@ -88,13 +96,14 @@ test(
 
       await stripe.customers.del(checkout.customerId);
     } finally {
+      await prisma.sandboxBillingAccount.deleteMany({ where: { userId: user.id } });
       await prisma.user.delete({ where: { id: user.id } });
     }
   }
 );
 
 test(
-  "sandbox billing integration reconciles a stale local cache from Stripe subscription state",
+  "sandbox billing integration reconciles stale sandbox billing state without changing live access",
   { skip: sandboxEnabled ? false : sandboxSkipReason },
   async () => {
     ensureDbBootstrap();
@@ -123,7 +132,7 @@ test(
       customer: customer.id,
       items: [
         {
-          price: env.stripePriceProMonthly!
+          price: env.stripeSandboxPriceProMonthly!
         }
       ],
       default_payment_method: paymentMethod.id,
@@ -133,13 +142,8 @@ test(
     const user = await prisma.user.create({
       data: {
         email: `sandbox-local-${uniq}@articlepod.local`,
-        role: "USER",
-        billingProvider: "stripe",
-        billingCustomerId: customer.id,
-        billingPlanCode: "STARTER",
-        billingStatus: "NONE",
-        billingEntitlementStatus: "INACTIVE",
-        billingLastPaymentStatus: "NONE",
+        role: "ADMIN",
+        billingLanePreference: "SANDBOX",
         complimentaryPro: false,
         isPaid: false,
         ttsProvider: "kokoro",
@@ -148,25 +152,31 @@ test(
     });
 
     try {
-      await updatePrimaryUser(user.id, {
-        billingProvider: "stripe",
-        billingCustomerId: customer.id,
-        billingPlanCode: "STARTER",
-        billingStatus: "NONE",
-        billingEntitlementStatus: "INACTIVE",
-        billingLastPaymentStatus: "NONE",
-        isPaid: false
+      await prisma.sandboxBillingAccount.create({
+        data: {
+          userId: user.id,
+          billingProvider: "stripe_sandbox",
+          billingCustomerId: customer.id,
+          billingPlanCode: "STARTER",
+          billingStatus: "NONE",
+          billingEntitlementStatus: "INACTIVE",
+          billingLastPaymentStatus: "NONE"
+        }
       });
 
-      const snapshot = await getBillingAccountSnapshot(user.id);
-      assert.equal(snapshot.customerId, customer.id);
-      assert.equal(snapshot.subscriptionId, subscription.id);
-      assert.equal(snapshot.planCode, "PRO_MONTHLY");
-      assert.equal(snapshot.status, "ACTIVE");
-      assert.equal(snapshot.hasPaidAccess, true);
+      const state = await getBillingSettingsState(user.id);
+      assert.equal(state.mode.effectiveLane, "SANDBOX");
+      assert.equal(state.liveBilling.customerId, null);
+      assert.equal(state.liveBilling.hasPaidAccess, false);
+      assert.equal(state.selectedBilling.customerId, customer.id);
+      assert.equal(state.selectedBilling.subscriptionId, subscription.id);
+      assert.equal(state.selectedBilling.planCode, "PRO_MONTHLY");
+      assert.equal(state.selectedBilling.status, "ACTIVE");
+      assert.equal(state.selectedBilling.hasPaidAccess, true);
     } finally {
       await stripe.subscriptions.cancel(subscription.id);
       await stripe.customers.del(customer.id);
+      await prisma.sandboxBillingAccount.deleteMany({ where: { userId: user.id } });
       await prisma.user.delete({ where: { id: user.id } });
     }
   }

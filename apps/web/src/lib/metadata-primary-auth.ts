@@ -10,7 +10,30 @@ export type PrimaryAuthUserRecord = {
   passwordHash: string | null;
   name: string | null;
   role: string;
+  billingLanePreference?: string;
   createdAt: Date;
+};
+
+export type PrimarySandboxBillingAccountRecord = {
+  userId: string;
+  billingProvider: string | null;
+  billingCustomerId: string | null;
+  billingSubscriptionId: string | null;
+  billingPriceId: string | null;
+  billingPlanCode: string;
+  billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
+  billingCurrentPeriodEnd: Date | null;
+  billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
+  billingUpdatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type PrimaryAuthSessionWithUser = {
@@ -68,6 +91,7 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
         passwordHash: true,
         name: true,
         role: true,
+        billingLanePreference: true,
         createdAt: true
       }
     });
@@ -84,6 +108,7 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
     passwordHash: user.passwordHash,
     name: user.name,
     role: user.role,
+    billingLanePreference: user.billingLanePreference,
     createdAt: user.createdAt
   };
 }
@@ -108,6 +133,7 @@ export async function listPrimaryUsers(limit = 100) {
         email: true,
         name: true,
         role: true,
+        billingLanePreference: true,
         complimentaryPro: true,
         billingProvider: true,
         billingCustomerId: true,
@@ -165,12 +191,13 @@ export async function createPrimaryUser(input: {
 
 export async function updatePrimaryUser(
   userId: string,
-  input: Partial<{
-    email: string;
-    passwordHash: string | null;
-    name: string | null;
-    role: string;
-    complimentaryPro: boolean;
+    input: Partial<{
+      email: string;
+      passwordHash: string | null;
+      name: string | null;
+      role: string;
+      billingLanePreference: string;
+      complimentaryPro: boolean;
     billingProvider: string | null;
     billingCustomerId: string | null;
     billingSubscriptionId: string | null;
@@ -225,6 +252,101 @@ export async function findPrimaryBillingWebhookEvent(provider: string, providerE
   }
 
   return requirePrimaryStore().findBillingWebhookEvent(provider, providerEventId);
+}
+
+export async function findPrimarySandboxBillingAccountByUserId(userId: string): Promise<PrimarySandboxBillingAccountRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.sandboxBillingAccount.findUnique({
+      where: { userId }
+    });
+  }
+
+  return requirePrimaryStore().findSandboxBillingAccountByUserId(userId);
+}
+
+export async function findPrimarySandboxBillingAccountByBillingCustomerId(
+  customerId: string
+): Promise<PrimarySandboxBillingAccountRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.sandboxBillingAccount.findUnique({
+      where: { billingCustomerId: customerId }
+    });
+  }
+
+  return requirePrimaryStore().findSandboxBillingAccountByBillingCustomerId(customerId);
+}
+
+export async function upsertPrimarySandboxBillingAccount(
+  input: {
+    userId: string;
+    billingProvider?: string | null;
+    billingCustomerId?: string | null;
+    billingSubscriptionId?: string | null;
+    billingPriceId?: string | null;
+    billingPlanCode?: string;
+    billingStatus?: string;
+    billingEntitlementStatus?: string;
+    billingLastPaymentStatus?: string;
+    billingLastInvoiceId?: string | null;
+    billingCurrentPeriodEnd?: Date | null;
+    billingCancelAtPeriodEnd?: boolean;
+    billingLastStripeEventId?: string | null;
+    billingLastStripeEventCreatedAt?: Date | null;
+    billingLastSubscriptionEventAt?: Date | null;
+    billingLastInvoiceEventAt?: Date | null;
+    billingUpdatedAt?: Date | null;
+    createdAt?: Date;
+  }
+) {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.sandboxBillingAccount.upsert({
+      where: { userId: input.userId },
+      create: {
+        userId: input.userId,
+        billingProvider: input.billingProvider ?? null,
+        billingCustomerId: input.billingCustomerId ?? null,
+        billingSubscriptionId: input.billingSubscriptionId ?? null,
+        billingPriceId: input.billingPriceId ?? null,
+        billingPlanCode: input.billingPlanCode ?? "STARTER",
+        billingStatus: input.billingStatus ?? "NONE",
+        billingEntitlementStatus: input.billingEntitlementStatus ?? "INACTIVE",
+        billingLastPaymentStatus: input.billingLastPaymentStatus ?? "NONE",
+        billingLastInvoiceId: input.billingLastInvoiceId ?? null,
+        billingCurrentPeriodEnd: input.billingCurrentPeriodEnd ?? null,
+        billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? false,
+        billingLastStripeEventId: input.billingLastStripeEventId ?? null,
+        billingLastStripeEventCreatedAt: input.billingLastStripeEventCreatedAt ?? null,
+        billingLastSubscriptionEventAt: input.billingLastSubscriptionEventAt ?? null,
+        billingLastInvoiceEventAt: input.billingLastInvoiceEventAt ?? null,
+        billingUpdatedAt: input.billingUpdatedAt ?? null,
+        ...(input.createdAt ? { createdAt: input.createdAt } : {})
+      },
+      update: {
+        ...(input.billingProvider !== undefined ? { billingProvider: input.billingProvider } : {}),
+        ...(input.billingCustomerId !== undefined ? { billingCustomerId: input.billingCustomerId } : {}),
+        ...(input.billingSubscriptionId !== undefined ? { billingSubscriptionId: input.billingSubscriptionId } : {}),
+        ...(input.billingPriceId !== undefined ? { billingPriceId: input.billingPriceId } : {}),
+        ...(input.billingPlanCode !== undefined ? { billingPlanCode: input.billingPlanCode } : {}),
+        ...(input.billingStatus !== undefined ? { billingStatus: input.billingStatus } : {}),
+        ...(input.billingEntitlementStatus !== undefined ? { billingEntitlementStatus: input.billingEntitlementStatus } : {}),
+        ...(input.billingLastPaymentStatus !== undefined ? { billingLastPaymentStatus: input.billingLastPaymentStatus } : {}),
+        ...(input.billingLastInvoiceId !== undefined ? { billingLastInvoiceId: input.billingLastInvoiceId } : {}),
+        ...(input.billingCurrentPeriodEnd !== undefined ? { billingCurrentPeriodEnd: input.billingCurrentPeriodEnd } : {}),
+        ...(input.billingCancelAtPeriodEnd !== undefined ? { billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd } : {}),
+        ...(input.billingLastStripeEventId !== undefined ? { billingLastStripeEventId: input.billingLastStripeEventId } : {}),
+        ...(input.billingLastStripeEventCreatedAt !== undefined
+          ? { billingLastStripeEventCreatedAt: input.billingLastStripeEventCreatedAt }
+          : {}),
+        ...(input.billingLastSubscriptionEventAt !== undefined
+          ? { billingLastSubscriptionEventAt: input.billingLastSubscriptionEventAt }
+          : {}),
+        ...(input.billingLastInvoiceEventAt !== undefined ? { billingLastInvoiceEventAt: input.billingLastInvoiceEventAt } : {}),
+        ...(input.billingUpdatedAt !== undefined ? { billingUpdatedAt: input.billingUpdatedAt } : {})
+      }
+    });
+  }
+
+  return requirePrimaryStore().upsertSandboxBillingAccount(input);
 }
 
 export async function createPrimaryBillingWebhookEvent(input: {

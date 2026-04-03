@@ -6,7 +6,7 @@ import { buildLoginHref } from "@/lib/auth-redirect";
 import {
   billingPlanLabel,
   billingStatusLabel,
-  getBillingAccountSnapshot,
+  getBillingSettingsState,
   isBillingPlanCheckoutConfigured
 } from "@/lib/billing";
 import { getAuthUserFromCookies } from "@/lib/auth";
@@ -24,9 +24,10 @@ export default async function PricingPage({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const user = await getAuthUserFromCookies();
-  const billing = user ? await getBillingAccountSnapshot(user.id) : null;
-  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
-  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
+  const billingState = user ? await getBillingSettingsState(user.id) : null;
+  const billing = billingState?.selectedBilling ?? null;
+  const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY", billingState?.mode.effectiveLane ?? "LIVE");
+  const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL", billingState?.mode.effectiveLane ?? "LIVE");
   const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
 
   return (
@@ -41,6 +42,11 @@ export default async function PricingPage({
           <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
             Start free. Upgrade to Pro when you want higher limits, manual summaries, and weekly digest workflows.
           </p>
+          {billingState?.mode.effectiveLane === "SANDBOX" ? (
+            <p className="max-w-2xl rounded-lg border border-[#d9d0a7] bg-[#fff9e8] px-4 py-3 text-sm text-[#6f5400]">
+              Sandbox billing active for testing. Live access and quotas still follow your live subscription.
+            </p>
+          ) : null}
           {billingSearchParam === "canceled" ? (
             <p className="max-w-2xl rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-[var(--muted)]">
               Checkout was canceled before completion. Your current access level has not changed.
@@ -61,7 +67,9 @@ export default async function PricingPage({
             <div className="mt-4 text-sm text-[var(--muted)]">
               {billing ? (
                 <p>
-                  Current access: {billingPlanLabel(billing.planCode)} · {billingStatusLabel(billing.status)}
+                  {billingState?.mode.effectiveLane === "SANDBOX" ? "Live access" : "Current access"}:{" "}
+                  {billingPlanLabel((billingState?.mode.effectiveLane === "SANDBOX" ? billingState.liveBilling : billing).planCode)} ·{" "}
+                  {billingStatusLabel((billingState?.mode.effectiveLane === "SANDBOX" ? billingState.liveBilling : billing).status)}
                 </p>
               ) : (
                 <p>Sign in to start with the free plan instantly.</p>

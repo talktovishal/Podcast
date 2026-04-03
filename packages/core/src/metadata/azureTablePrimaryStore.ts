@@ -12,6 +12,7 @@ type AzureTablePrimaryStoreOptions = {
 type TableKey =
   | "users"
   | "sessions"
+  | "sandboxBillingAccounts"
   | "billingWebhookEvents"
   | "feedTokens"
   | "digestFeedTokens"
@@ -41,6 +42,7 @@ export type AzureTablePrimaryUser = {
   passwordHash: string | null;
   name: string | null;
   role: string;
+  billingLanePreference: string;
   complimentaryPro: boolean;
   billingProvider: string | null;
   billingCustomerId: string | null;
@@ -71,6 +73,28 @@ export type AzureTablePrimaryUser = {
   lastSeenCountryCode: string | null;
   lastSeenRegionCode: string | null;
   lastSeenCity: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimarySandboxBillingAccount = {
+  userId: string;
+  billingProvider: string | null;
+  billingCustomerId: string | null;
+  billingSubscriptionId: string | null;
+  billingPriceId: string | null;
+  billingPlanCode: string;
+  billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
+  billingCurrentPeriodEnd: Date | null;
+  billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
+  billingUpdatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -631,6 +655,7 @@ export class AzureTablePrimaryStore {
     this.clients = {
       users: createClient(buildTableName(input.tablePrefix, "users")),
       sessions: createClient(buildTableName(input.tablePrefix, "sessions")),
+      sandboxBillingAccounts: createClient(buildTableName(input.tablePrefix, "sandboxbilling")),
       billingWebhookEvents: createClient(buildTableName(input.tablePrefix, "billingevents")),
       feedTokens: createClient(buildTableName(input.tablePrefix, "feedtokens")),
       digestFeedTokens: createClient(buildTableName(input.tablePrefix, "digestfeedtokens")),
@@ -783,6 +808,7 @@ export class AzureTablePrimaryStore {
       passwordHash: parseString(entity.passwordHash),
       name: parseString(entity.name),
       role: parseRequiredString(entity.role, "role"),
+      billingLanePreference: parseString(entity.billingLanePreference) || "LIVE",
       complimentaryPro: parseBoolean(entity.complimentaryPro, false),
       billingProvider: parseString(entity.billingProvider),
       billingCustomerId: parseString(entity.billingCustomerId),
@@ -813,6 +839,30 @@ export class AzureTablePrimaryStore {
       lastSeenCountryCode: parseString(entity.lastSeenCountryCode),
       lastSeenRegionCode: parseString(entity.lastSeenRegionCode),
       lastSeenCity: parseString(entity.lastSeenCity),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toSandboxBillingAccount(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySandboxBillingAccount {
+    return {
+      userId: String(entity.rowKey),
+      billingProvider: parseString(entity.billingProvider),
+      billingCustomerId: parseString(entity.billingCustomerId),
+      billingSubscriptionId: parseString(entity.billingSubscriptionId),
+      billingPriceId: parseString(entity.billingPriceId),
+      billingPlanCode: parseString(entity.billingPlanCode) || "STARTER",
+      billingStatus: parseString(entity.billingStatus) || "NONE",
+      billingEntitlementStatus: parseString(entity.billingEntitlementStatus) || "INACTIVE",
+      billingLastPaymentStatus: parseString(entity.billingLastPaymentStatus) || "NONE",
+      billingLastInvoiceId: parseString(entity.billingLastInvoiceId),
+      billingCurrentPeriodEnd: parseDate(entity.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd: parseBoolean(entity.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId: parseString(entity.billingLastStripeEventId),
+      billingLastStripeEventCreatedAt: parseDate(entity.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: parseDate(entity.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: parseDate(entity.billingLastInvoiceEventAt),
+      billingUpdatedAt: parseDate(entity.billingUpdatedAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
     };
@@ -1195,6 +1245,19 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toUser(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
+  async findSandboxBillingAccountByUserId(userId: string): Promise<AzureTablePrimarySandboxBillingAccount | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", userId);
+    return entity ? this.toSandboxBillingAccount(entity) : null;
+  }
+
+  async findSandboxBillingAccountByBillingCustomerId(customerId: string): Promise<AzureTablePrimarySandboxBillingAccount | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "sandboxBillingAccounts",
+      joinFilters(filterEquals("PartitionKey", "sandboxBilling"), filterEquals("billingCustomerId", customerId))
+    );
+    return entity ? this.toSandboxBillingAccount(entity) : null;
+  }
+
   async countUsers(): Promise<number> {
     const rows = await this.listEntities<Record<string, unknown>>("users", filterEquals("PartitionKey", "user"));
     return rows.length;
@@ -1253,6 +1316,7 @@ export class AzureTablePrimaryStore {
     passwordHash?: string | null;
     name?: string | null;
     role: string;
+    billingLanePreference?: string;
     complimentaryPro?: boolean;
     billingProvider?: string | null;
     billingCustomerId?: string | null;
@@ -1285,6 +1349,7 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash ?? null,
       name: input.name ?? null,
       role: input.role,
+      billingLanePreference: input.billingLanePreference ?? "LIVE",
       complimentaryPro: input.complimentaryPro ?? false,
       billingProvider: input.billingProvider ?? null,
       billingCustomerId: input.billingCustomerId ?? null,
@@ -1321,6 +1386,7 @@ export class AzureTablePrimaryStore {
       passwordHash: string | null;
       name: string | null;
       role: string;
+      billingLanePreference: string;
       complimentaryPro: boolean;
       billingProvider: string | null;
       billingCustomerId: string | null;
@@ -1367,6 +1433,7 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash === undefined ? current.passwordHash : input.passwordHash,
       name: input.name === undefined ? current.name : input.name,
       role: input.role ?? current.role,
+      billingLanePreference: input.billingLanePreference ?? current.billingLanePreference,
       complimentaryPro: input.complimentaryPro ?? current.complimentaryPro,
       billingProvider: input.billingProvider === undefined ? current.billingProvider : input.billingProvider,
       billingCustomerId: input.billingCustomerId === undefined ? current.billingCustomerId : input.billingCustomerId,
@@ -1416,6 +1483,73 @@ export class AzureTablePrimaryStore {
       return this.findUserById(userId);
     }
     return this.toUser(next as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async upsertSandboxBillingAccount(
+    input: {
+      userId: string;
+      billingProvider?: string | null;
+      billingCustomerId?: string | null;
+      billingSubscriptionId?: string | null;
+      billingPriceId?: string | null;
+      billingPlanCode?: string;
+      billingStatus?: string;
+      billingEntitlementStatus?: string;
+      billingLastPaymentStatus?: string;
+      billingLastInvoiceId?: string | null;
+      billingCurrentPeriodEnd?: Date | null;
+      billingCancelAtPeriodEnd?: boolean;
+      billingLastStripeEventId?: string | null;
+      billingLastStripeEventCreatedAt?: Date | null;
+      billingLastSubscriptionEventAt?: Date | null;
+      billingLastInvoiceEventAt?: Date | null;
+      billingUpdatedAt?: Date | null;
+      createdAt?: Date;
+    }
+  ): Promise<AzureTablePrimarySandboxBillingAccount> {
+    const current = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", input.userId);
+    const createdAt = current ? parseRequiredDate(current.createdAt, "createdAt") : input.createdAt ?? new Date();
+    const updatedAt = new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...(current ?? {}),
+      partitionKey: "sandboxBilling",
+      rowKey: input.userId,
+      userId: input.userId,
+      billingProvider: input.billingProvider === undefined ? current?.billingProvider ?? null : input.billingProvider,
+      billingCustomerId: input.billingCustomerId === undefined ? current?.billingCustomerId ?? null : input.billingCustomerId,
+      billingSubscriptionId:
+        input.billingSubscriptionId === undefined ? current?.billingSubscriptionId ?? null : input.billingSubscriptionId,
+      billingPriceId: input.billingPriceId === undefined ? current?.billingPriceId ?? null : input.billingPriceId,
+      billingPlanCode: input.billingPlanCode ?? (parseString(current?.billingPlanCode) || "STARTER"),
+      billingStatus: input.billingStatus ?? (parseString(current?.billingStatus) || "NONE"),
+      billingEntitlementStatus: input.billingEntitlementStatus ?? (parseString(current?.billingEntitlementStatus) || "INACTIVE"),
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? (parseString(current?.billingLastPaymentStatus) || "NONE"),
+      billingLastInvoiceId: input.billingLastInvoiceId === undefined ? current?.billingLastInvoiceId ?? null : input.billingLastInvoiceId,
+      billingCurrentPeriodEnd:
+        input.billingCurrentPeriodEnd === undefined
+          ? current?.billingCurrentPeriodEnd ?? null
+          : isoOrNull(input.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd:
+        input.billingCancelAtPeriodEnd ?? parseBoolean(current?.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId:
+        input.billingLastStripeEventId === undefined ? current?.billingLastStripeEventId ?? null : input.billingLastStripeEventId,
+      billingLastStripeEventCreatedAt:
+        input.billingLastStripeEventCreatedAt === undefined
+          ? current?.billingLastStripeEventCreatedAt ?? null
+          : isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt:
+        input.billingLastSubscriptionEventAt === undefined
+          ? current?.billingLastSubscriptionEventAt ?? null
+          : isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt:
+        input.billingLastInvoiceEventAt === undefined ? current?.billingLastInvoiceEventAt ?? null : isoOrNull(input.billingLastInvoiceEventAt),
+      billingUpdatedAt: input.billingUpdatedAt === undefined ? current?.billingUpdatedAt ?? null : isoOrNull(input.billingUpdatedAt),
+      createdAt: createdAt.toISOString(),
+      updatedAt: updatedAt.toISOString()
+    };
+
+    await this.upsertEntity("sandboxBillingAccounts", entity);
+    return this.toSandboxBillingAccount(entity as TableEntityResult<Record<string, unknown>>);
   }
 
   async deleteUser(userId: string): Promise<void> {

@@ -5,7 +5,7 @@ import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
 import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
-import { getBillingAccountSnapshot, isBillingPlanCheckoutConfigured } from "@/lib/billing";
+import { getBillingSettingsState, isBillingPlanCheckoutConfigured } from "@/lib/billing";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getSubmissionQuotaSnapshot } from "@/lib/submission-quota";
@@ -26,19 +26,20 @@ export default async function AppDashboardPage({
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
-  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, billing] = await Promise.all([
+  const [feedAccess, items, ttsSettings, ttsAvailability, demoDiagnostics, billingState] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
     isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
-    getBillingAccountSnapshot(user.id)
+    getBillingSettingsState(user.id)
   ]);
   const submissionQuota = await getSubmissionQuotaSnapshot(user.id);
   const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
   const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
   const billingConfigured = monthlyCheckoutConfigured || annualCheckoutConfigured;
   const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
+  const billing = billingState.liveBilling;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice
@@ -59,6 +60,7 @@ export default async function AppDashboardPage({
                 activationHint={billingSearchParam === "success"}
                 billingConfigured={billingConfigured}
                 initialBilling={billing}
+                sandboxModeActive={billingState.mode.effectiveLane === "SANDBOX"}
               />
               <AppShellNav current="workspace" />
             </div>

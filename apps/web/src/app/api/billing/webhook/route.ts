@@ -10,11 +10,12 @@ export async function POST(request: NextRequest) {
   try {
     const signature = request.headers.get("stripe-signature");
     const rawBody = await request.text();
-    const event = verifyStripeWebhookEvent(rawBody, signature);
-    const result = await applyStripeWebhookEvent(event);
+    const event = verifyStripeWebhookEvent(rawBody, signature, "LIVE");
+    const result = await applyStripeWebhookEvent(event, "LIVE");
     const logPayload = {
       request_id: requestId,
       route: "/api/billing/webhook",
+      billingLane: "LIVE",
       stripeEventId: result.eventId,
       stripeEventType: result.eventType,
       stripeObjectId: result.objectId,

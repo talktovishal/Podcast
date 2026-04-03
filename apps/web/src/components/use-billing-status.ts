@@ -1,18 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { BillingAccountSnapshot } from "@/lib/billing-contract";
+import type { BillingAccountSnapshot, BillingModeState } from "@/lib/billing-contract";
 
 type BillingStatusResponse = {
   ok: boolean;
   billing?: BillingAccountSnapshot;
+  mode?: BillingModeState;
+  liveBilling?: BillingAccountSnapshot;
+  sandboxBilling?: BillingAccountSnapshot | null;
   error_message?: string;
 };
 
 const ACTIVATION_POLL_MS = 3000;
 const ACTIVATION_POLL_LIMIT = 20;
 
-export function useBillingStatus(initialBilling: BillingAccountSnapshot, activationHint = false) {
+export function useBillingStatus(
+  initialBilling: BillingAccountSnapshot,
+  activationHint = false,
+  view: "live" | "selected" = "live"
+) {
   const [billing, setBilling] = useState(initialBilling);
   const [pollMessage, setPollMessage] = useState<string | null>(
     activationHint && !initialBilling.hasPaidAccess
@@ -42,7 +49,7 @@ export function useBillingStatus(initialBilling: BillingAccountSnapshot, activat
     async function pollBillingStatus() {
       attempts += 1;
       try {
-        const response = await fetch("/api/billing/status", {
+        const response = await fetch(`/api/billing/status${view === "selected" ? "?view=selected" : ""}`, {
           cache: "no-store"
         });
         const payload = (await response.json()) as BillingStatusResponse;
@@ -87,7 +94,7 @@ export function useBillingStatus(initialBilling: BillingAccountSnapshot, activat
       active = false;
       window.clearInterval(timer);
     };
-  }, [shouldPollActivation]);
+  }, [shouldPollActivation, view]);
 
   return {
     billing,

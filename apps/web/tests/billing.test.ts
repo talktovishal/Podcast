@@ -8,8 +8,10 @@ import {
   applyStripeWebhookEvent,
   buildBillingSnapshot,
   buildStripeDashboardLinks,
+  getBillingSettingsState,
   selectStripeSubscriptionForSync
 } from "../src/lib/billing";
+import { setBillingLanePreference } from "../src/lib/billing";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -36,9 +38,6 @@ function ensureDbBootstrap(): void {
 
 test("buildBillingSnapshot prefers complimentary access when present", () => {
   const snapshot = buildBillingSnapshot({
-    id: "user_1",
-    email: "user@example.com",
-    name: null,
     complimentaryPro: true,
     billingProvider: null,
     billingCustomerId: null,
@@ -69,9 +68,6 @@ test("buildBillingSnapshot prefers complimentary access when present", () => {
 
 test("buildBillingSnapshot preserves active annual Pro subscriptions", () => {
   const snapshot = buildBillingSnapshot({
-    id: "user_annual",
-    email: "annual@example.com",
-    name: null,
     complimentaryPro: false,
     billingProvider: "stripe",
     billingCustomerId: "cus_annual",
@@ -250,7 +246,7 @@ test("applyStripeWebhookEvent updates billing state once per Stripe event id", a
 
     const events = await prisma.billingWebhookEvent.findMany({
       where: {
-        provider: "stripe",
+        provider: "stripe_live",
         providerEventId: `evt_${uniq}`
       }
     });
@@ -531,7 +527,7 @@ test("stale subscription webhook events are ignored after a newer one is applied
     const staleEventRow = await prisma.billingWebhookEvent.findUnique({
       where: {
         provider_providerEventId: {
-          provider: "stripe",
+          provider: "stripe_live",
           providerEventId: `evt_stale_old_${uniq}`
         }
       }
@@ -542,6 +538,145 @@ test("stale subscription webhook events are ignored after a newer one is applied
       where: {
         OR: [{ userId: user.id }, { customerId: `cus_stale_${uniq}` }]
       }
+    });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("non-eligible users fall back to live billing even if sandbox preference is persisted", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: `lane-fallback-${uniq}@articlepod.local`,
+      role: "USER",
+      billingLanePreference: "SANDBOX",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const state = await getBillingSettingsState(user.id);
+    assert.equal(state.mode.canUseSandbox, false);
+    assert.equal(state.mode.selectedLane, "SANDBOX");
+    assert.equal(state.mode.effectiveLane, "LIVE");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("admins can persist sandbox billing mode preference", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: `lane-admin-${uniq}@articlepod.local`,
+      role: "ADMIN",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const mode = await setBillingLanePreference(user.id, "SANDBOX");
+    assert.equal(mode.canUseSandbox, true);
+    assert.equal(mode.selectedLane, "SANDBOX");
+    assert.equal(mode.effectiveLane, "SANDBOX");
+
+    const updatedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(updatedUser.billingLanePreference, "SANDBOX");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("sandbox subscription webhook updates sandbox billing without changing live access", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const periodEnd = Math.floor(Date.now() / 1000) + 86_400;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `sandbox-webhook-${uniq}@articlepod.local`,
+      role: "USER",
+      billingPlanCode: "STARTER",
+      billingStatus: "NONE",
+      billingEntitlementStatus: "INACTIVE",
+      billingLastPaymentStatus: "NONE",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const event = {
+      id: `evt_sandbox_${uniq}`,
+      created: Math.floor(Date.now() / 1000),
+      type: "customer.subscription.updated",
+      data: {
+        object: {
+          id: `sub_sandbox_${uniq}`,
+          status: "active",
+          customer: `cus_sandbox_${uniq}`,
+          cancel_at_period_end: false,
+          metadata: {
+            articlepod_user_id: user.id,
+            articlepod_plan_code: "PRO_MONTHLY",
+            articlepod_billing_lane: "SANDBOX"
+          },
+          items: {
+            data: [
+              {
+                current_period_end: periodEnd,
+                price: {
+                  id: `price_sandbox_${uniq}`
+                }
+              }
+            ]
+          }
+        }
+      }
+    } as unknown as Stripe.Event;
+
+    await applyStripeWebhookEvent(event, "SANDBOX");
+
+    const liveUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(liveUser.billingPlanCode, "STARTER");
+    assert.equal(liveUser.billingStatus, "NONE");
+    assert.equal(liveUser.isPaid, false);
+
+    const sandboxAccount = await prisma.sandboxBillingAccount.findUniqueOrThrow({
+      where: { userId: user.id }
+    });
+    assert.equal(sandboxAccount.billingCustomerId, `cus_sandbox_${uniq}`);
+    assert.equal(sandboxAccount.billingSubscriptionId, `sub_sandbox_${uniq}`);
+    assert.equal(sandboxAccount.billingPlanCode, "PRO_MONTHLY");
+    assert.equal(sandboxAccount.billingStatus, "ACTIVE");
+
+    const webhookEvent = await prisma.billingWebhookEvent.findUniqueOrThrow({
+      where: {
+        provider_providerEventId: {
+          provider: "stripe_sandbox",
+          providerEventId: `evt_sandbox_${uniq}`
+        }
+      }
+    });
+    assert.equal(webhookEvent.status, "PROCESSED");
+  } finally {
+    await prisma.billingWebhookEvent.deleteMany({
+      where: {
+        OR: [{ userId: user.id }, { customerId: `cus_sandbox_${uniq}` }]
+      }
+    });
+    await prisma.sandboxBillingAccount.deleteMany({
+      where: { userId: user.id }
     });
     await prisma.user.delete({ where: { id: user.id } });
   }
