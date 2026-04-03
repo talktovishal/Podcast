@@ -75,7 +75,10 @@
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
 - `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
-- `/login` now also serves as the polished public homepage surface, with tighter busy-reader marketing copy, concise highlight/security cards, and no duplicate bottom footer.
+- Public marketing SEO hardening (`M107`) is implemented:
+  - `/` now serves as the canonical signed-out homepage with dedicated product marketing content and structured data.
+  - `/login` stays auth-first and `noindex`, so search traffic lands on the homepage instead of the login route.
+  - public marketing pages now use route-specific metadata, schema, and footer/internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -197,6 +200,7 @@
 | Severity-split local log retention for activity vs errors | M103 |
 | Public episode share links + branded landing page + growth instrumentation | M104 |
 | 60-day generated audio retention lifecycle + feed/media expiry gating | M105 |
+| Public marketing SEO hardening (homepage, metadata, schema, crawl rules) | M107 |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness | C08 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
@@ -349,6 +353,7 @@ Milestone metadata contract:
 | M104 | Done | 2026-04-06 | 2026-03-28 | local validation + public episode share link implementation pass (2026-03-28) |
 | M105 | Done | 2026-04-07 | 2026-03-28 | local validation + audio retention expiry/backfill/purge pass (2026-03-28) |
 | M106 | Done | 2026-04-08 | 2026-04-01 | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
+| M107 | Done | 2026-04-09 | 2026-04-02 | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -3210,6 +3215,42 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run seed:demo`
   - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts`
   - `./scripts/verify_podcast_contract.sh "http://localhost:3000/rss/WQlDaJKFmKiAVuSOf5JWR_xhcW2vy0M7xlOQj63fscc.xml"`
+
+---
+
+### M107 - Public Marketing SEO Hardening
+- status: Done
+- target_finish: 2026-04-09
+- completed_on: 2026-04-02
+- evidence: local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)
+- Scope:
+  - Move the primary signed-out marketing experience to `/` so the site has a real canonical homepage instead of redirecting search traffic to `/login`.
+  - Keep `/login` focused on authentication and mark it `noindex` so public keyword targeting and auth UX do not compete.
+  - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link/footer coverage across the public marketing pages.
+- Key files/modules:
+  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/app/login/layout.tsx`
+  - `apps/web/src/app/product/page.tsx`
+  - `apps/web/src/app/pricing/page.tsx`
+  - `apps/web/src/app/resources/page.tsx`
+  - `apps/web/src/app/about/page.tsx`
+  - `apps/web/src/app/faq/page.tsx`
+  - `apps/web/src/app/robots.ts`
+  - `apps/web/src/app/sitemap.ts`
+  - `apps/web/src/lib/seo.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/` renders a dedicated signed-out homepage with a crawlable H1, product copy, and internal links to the key marketing routes.
+  - `/login` remains auth-first and is excluded from search indexing.
+  - Public marketing pages expose route-specific canonical metadata plus accurate structured data where applicable.
+  - `robots.txt` and `sitemap.xml` focus crawlers on the canonical public marketing routes and keep private/auth/share surfaces out of discovery.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `npm run license:check`
+  - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 
 ---
 

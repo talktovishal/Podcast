@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
@@ -5,7 +6,15 @@ import { getUserByShareToken } from "@/lib/auth";
 import { getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { findPrimaryActiveFeedTokenByUserId } from "@/lib/metadata-primary-auth";
+import { buildPublicMetadata } from "@/lib/seo";
 import { getTtsProviderAvailability } from "@/lib/tts";
+
+export const metadata: Metadata = buildPublicMetadata({
+  title: "Shared workspace",
+  description: "Read-only shared workspace view for ArticlePod.",
+  path: "/share",
+  noIndex: true
+});
 
 export default async function SharePage({ searchParams }: { searchParams: { token?: string } }) {
   const shareToken = searchParams.token;

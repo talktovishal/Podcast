@@ -1,11 +1,12 @@
-import type { Metadata } from "next";
+import { buildPublicMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Log in",
+export const metadata = buildPublicMetadata({
+  title: "Log in to ArticlePod",
   description:
-    "Log in to ArticlePod or create your account. Turn saved articles and PDFs into a private podcast feed you can listen to anywhere.",
-  alternates: { canonical: "/login" }
-};
+    "Log in to ArticlePod or create your account to save articles, generate private podcast episodes, and manage your private RSS feed.",
+  path: "/login",
+  noIndex: true
+});
 
 export default function LoginLayout({ children }: { readonly children: React.ReactNode }) {
   return children;

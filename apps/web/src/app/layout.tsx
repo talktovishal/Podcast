@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     images: [{ url: BRAND_PODCAST_COVER_PATH, alt: `${BRAND_NAME} cover art` }]
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: BRAND_NAME,
     description: siteDescription,
     images: [BRAND_PODCAST_COVER_PATH]

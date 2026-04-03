@@ -164,7 +164,17 @@ export default function LoginPage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
           <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-[2.15rem]">
+                Log in to your private podcast feed
+              </h1>
+              <p className="max-w-md text-sm leading-6 text-[var(--muted)]">
+                Continue with social sign-in or email to save articles, upload PDFs, and hear the finished episodes in your regular
+                podcast app.
+              </p>
+            </div>
+
+            <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               Continue with one tap
             </p>
             <p className="max-w-xs text-sm text-[var(--muted)]">

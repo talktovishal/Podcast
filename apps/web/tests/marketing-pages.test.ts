@@ -15,13 +15,16 @@ test("login nav has no placeholder links", () => {
   assert.equal(source.includes('href="#"'), false);
 });
 
-test("root homepage continues redirecting unauthenticated users to login", () => {
+test("root homepage renders a dedicated marketing page for signed-out visitors", () => {
   const source = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('redirect("/login")'), true);
+  assert.equal(source.includes('redirect("/login")'), false);
+  assert.equal(source.includes("MarketingHomePage"), true);
+  assert.equal(source.includes('path: "/"'), true);
 });
 
-test("login homepage keeps auth card structure and trims duplicate marketing chrome", () => {
+test("login page keeps auth card structure and trims duplicate marketing chrome", () => {
   const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
+  assert.equal(source.includes("Log in to your private podcast feed"), true);
   assert.equal(source.includes("Continue to your feed"), false);
   assert.equal(source.includes("First time? We&apos;ll create your account automatically."), true);
   assert.equal(source.includes("Use email instead"), true);

@@ -1,24 +1,27 @@
 import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
+import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
+import { SeoJsonLd } from "@/components/seo-json-ld";
+import {
+  buildBreadcrumbSchema,
+  buildFaqPageSchema,
+  buildPublicMetadata
+} from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "FAQ",
-  description:
-    "Answers to common questions about ArticlePod — private podcast episodes, weekly digest options, Chrome capture, and podcast app support.",
-  alternates: { canonical: "/faq" },
-  openGraph: {
-    title: "FAQ | ArticlePod",
-    description:
-      "Answers about ArticlePod — turn saved articles, PDFs, and browser captures into private podcast episodes, with weekly digest options and standard podcast app support.",
-    url: "/faq"
-  },
-  twitter: {
-    title: "FAQ | ArticlePod",
-    description:
-      "Answers about ArticlePod — turn saved articles, PDFs, and browser captures into private podcast episodes, with weekly digest options and standard podcast app support."
-  }
-};
+const faqDescription =
+  "Answers to common questions about ArticlePod, including private podcast episodes, weekly digest options, Chrome capture, PDFs, and podcast app support.";
+
+export const metadata: Metadata = buildPublicMetadata({
+  title: "ArticlePod FAQ",
+  description: faqDescription,
+  path: "/faq",
+  keywords: [
+    "articlepod faq",
+    "private podcast feed faq",
+    "listen to articles faq"
+  ]
+});
 
 const faqItems: ReadonlyArray<{ q: string; a: string }> = [
   {
@@ -69,31 +72,49 @@ const faqItems: ReadonlyArray<{ q: string; a: string }> = [
 
 export default function FaqPage() {
   return (
-    <main className="min-h-screen py-6 sm:py-10">
-      <div className="container-shell">
-        <MarketingHeader activeHref="/faq" />
-        <section className="space-y-4">
-          <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
-            FAQ
-          </p>
-          <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Answers to common questions</h1>
-          <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
-            ArticlePod is centered on private per-article podcast episodes first, with weekly digest options available when you want a
-            recap layer.
-          </p>
-        </section>
+    <>
+      <SeoJsonLd
+        data={[
+          buildFaqPageSchema(
+            faqItems.map((item) => ({
+              question: item.q,
+              answer: item.a
+            }))
+          ),
+          buildBreadcrumbSchema([
+            { name: "Home", path: "/" },
+            { name: "FAQ", path: "/faq" }
+          ])
+        ]}
+      />
 
-        <section className="mt-8 space-y-3">
-          {faqItems.map((item) => (
-            <details key={item.q} className="card p-4">
-              <summary className="cursor-pointer text-sm font-semibold sm:text-base">{item.q}</summary>
-              <p className="mt-2 text-sm text-[var(--muted)]">{item.a}</p>
-            </details>
-          ))}
-        </section>
+      <main className="min-h-screen py-6 sm:py-10">
+        <div className="container-shell">
+          <MarketingHeader activeHref="/faq" />
+          <section className="space-y-4">
+            <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
+              FAQ
+            </p>
+            <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Answers to common questions</h1>
+            <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
+              ArticlePod is centered on private per-article podcast episodes first, with weekly digest options available when you want a
+              recap layer.
+            </p>
+          </section>
 
-        <MarketingCta />
-      </div>
-    </main>
+          <section className="mt-8 space-y-3">
+            {faqItems.map((item) => (
+              <details key={item.q} className="card p-4">
+                <summary className="cursor-pointer text-sm font-semibold sm:text-base">{item.q}</summary>
+                <p className="mt-2 text-sm text-[var(--muted)]">{item.a}</p>
+              </details>
+            ))}
+          </section>
+
+          <MarketingCta secondaryHref="/resources" secondaryLabel="Set up the extension" />
+          <MarketingFooter />
+        </div>
+      </main>
+    </>
   );
 }

@@ -185,9 +185,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/login` and `/pricing`.
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
   - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
-- Selective homepage refresh is implemented on `/login`:
-  - the existing auth-first login layout remains in place while the marketing side now uses crisper busy-reader/private-feed copy with tighter highlight and security cards.
-  - `/login` no longer repeats a bottom marketing footer, so the logged-out homepage stays focused on the auth card and adjacent overview copy.
+- Public marketing SEO hardening (`M107`) is implemented:
+  - `/` is now the canonical public homepage for signed-out visitors, with dedicated keyword-focused marketing content, stronger internal linking, and structured data for the main product surface.
+  - `/login` remains auth-first, keeps the tighter social-first login layout, and is marked `noindex` so the public homepage and auth page do not compete in search.
+  - public `/product`, `/pricing`, `/resources`, `/about`, and `/faq` pages now ship route-specific metadata, schema, and footer/internal-link support.
+  - `robots.txt` and `sitemap.xml` now prioritize the marketing routes and keep private/auth/share surfaces out of search discovery.
 
 ### Next Milestones
 - Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.

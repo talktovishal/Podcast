@@ -9,7 +9,7 @@ type BrandLogoProps = {
   showWordmark?: boolean;
 };
 
-export function BrandLogo({ href = "/login", className = "", showWordmark = true }: BrandLogoProps) {
+export function BrandLogo({ href = "/", className = "", showWordmark = true }: BrandLogoProps) {
   return (
     <Link href={href} className={`inline-flex items-center gap-3 ${className}`}>
       <Image src={BRAND_ICON_512_PATH} alt={`${BRAND_NAME} logo`} width={40} height={40} priority />
