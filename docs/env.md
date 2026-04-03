@@ -101,7 +101,7 @@ Behavior:
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
 ## Billing (optional)
-- `BILLING_SANDBOX_ALLOWLIST_EMAILS` (comma-separated email allowlist for non-admin tester accounts that may switch to sandbox billing in Settings)
+- `BILLING_SANDBOX_ALLOWLIST_EMAILS` (comma-separated extra email allowlist for non-admin tester accounts that may switch to sandbox billing in Settings; this extends the checked-in internal tester defaults rather than replacing them)
 - `STRIPE_LIVE_SECRET_KEY` (required for default live Checkout and Customer Portal sessions)
 - `STRIPE_LIVE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
 - `STRIPE_LIVE_PRICE_PRO_MONTHLY` (live recurring monthly price id for the Pro plan)

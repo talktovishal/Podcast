@@ -595,6 +595,31 @@ test("admins can persist sandbox billing mode preference", async () => {
   }
 });
 
+test("checked-in tester allowlist can use sandbox billing without extra env config", async () => {
+  ensureDbBootstrap();
+  const uniq = Date.now().toString(36);
+  const user = await prisma.user.create({
+    data: {
+      email: " TalkToVishal@gmail.com ",
+      role: "USER",
+      billingLanePreference: "SANDBOX",
+      complimentaryPro: false,
+      isPaid: false,
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const state = await getBillingSettingsState(user.id);
+    assert.equal(state.mode.canUseSandbox, true);
+    assert.equal(state.mode.selectedLane, "SANDBOX");
+    assert.equal(state.mode.effectiveLane, "SANDBOX");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("sandbox subscription webhook updates sandbox billing without changing live access", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);

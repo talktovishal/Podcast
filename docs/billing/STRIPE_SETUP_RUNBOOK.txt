@@ -28,6 +28,7 @@ Important repo-specific note
 - Before billing works in production, Stripe secrets must be stored in the GitHub "production" environment.
 - The deploy workflow now forwards those GitHub secrets into the VM runtime env file.
 - Older single-lane `STRIPE_*` secret names are still treated as live aliases during rollout, but new production setup should use the explicit `LIVE` and `SANDBOX` names below.
+- The repo also includes a checked-in internal sandbox tester allowlist for the core founder/demo/admin accounts. `BILLING_SANDBOX_ALLOWLIST_EMAILS` is for adding more tester emails on top of that default.
 
 Launch defaults for this MVP
 - One self-serve paid tier: Pro

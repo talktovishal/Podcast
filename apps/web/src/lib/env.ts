@@ -49,6 +49,14 @@ function parseCsv(raw: string | undefined): string[] {
     .filter((value) => value.length > 0);
 }
 
+const defaultBillingSandboxAllowlistEmails = [
+  "talktovishal@gmail.com",
+  "smitabusar@gmail.com",
+  "smitavishalbusiness@gmail.com",
+  DEFAULT_ADMIN_EMAIL,
+  DEFAULT_DEMO_EMAIL
+].map((value) => value.toLowerCase());
+
 function normalizeDatabaseUrl(raw: string): string {
   if (!raw.startsWith("file:")) {
     return raw;
@@ -175,7 +183,9 @@ export const env = {
   feedbackMirrorRepo: process.env.GITHUB_FEEDBACK_REPO?.trim(),
   feedbackMirrorToken: process.env.GITHUB_FEEDBACK_TOKEN?.trim(),
   feedbackMirrorLabels: parseCsv(process.env.GITHUB_FEEDBACK_LABELS),
-  billingSandboxAllowlistEmails: parseCsv(process.env.BILLING_SANDBOX_ALLOWLIST_EMAILS).map((value) => value.toLowerCase()),
+  billingSandboxAllowlistEmails: Array.from(
+    new Set([...defaultBillingSandboxAllowlistEmails, ...parseCsv(process.env.BILLING_SANDBOX_ALLOWLIST_EMAILS).map((value) => value.toLowerCase())])
+  ),
   stripeLiveSecretKey: process.env.STRIPE_LIVE_SECRET_KEY?.trim() ?? process.env.STRIPE_SECRET_KEY?.trim(),
   stripeLiveWebhookSecret: process.env.STRIPE_LIVE_WEBHOOK_SECRET?.trim() ?? process.env.STRIPE_WEBHOOK_SECRET?.trim(),
   stripeLivePriceProMonthly: process.env.STRIPE_LIVE_PRICE_PRO_MONTHLY?.trim() ?? process.env.STRIPE_PRICE_PRO_MONTHLY?.trim(),

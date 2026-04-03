@@ -38,6 +38,7 @@ UI already wired:
 - `/pricing` starts hosted checkout for `Pro monthly` or `Pro annual`
 - `/app/settings` shows billing status, renewal date, cancel-at-period-end state, pending activation, payment-issue banners, and launches Stripe Customer Portal
 - eligible admins and allowlisted tester emails can switch between `Live billing` and `Sandbox billing` in `/app/settings`
+- the repo also carries a checked-in internal tester allowlist for the core founder/demo/admin accounts so sandbox access survives normal rollouts even before extra env-based testers are added
 - `/pricing` and `/app/settings` respect the selected billing lane for eligible testers
 - `/app` workspace continues to show live access and live quota state even when sandbox billing mode is active
 - `/pricing` and settings only submit approved internal plan keys; raw Stripe price ids never come from the browser
