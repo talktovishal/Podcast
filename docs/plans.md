@@ -78,7 +78,10 @@
 - Public marketing SEO hardening (`M107`) is implemented:
   - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.
   - `/login` is now a compatibility redirect to `/`, so the product maintains one public auth/marketing experience instead of two competing variants.
-  - public marketing pages now use route-specific metadata, schema, and footer/internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
+  - public marketing pages now use route-specific metadata, schema, and shared header/CTA internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
+- Public marketing chrome cleanup (`M108`) is implemented:
+  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now stop after the focused CTA instead of repeating the main nav and product summary in a footer.
+  - the signed-out homepage keeps the existing no-footer treatment, so all public marketing pages now follow one consistent chrome pattern.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -201,6 +204,7 @@
 | Public episode share links + branded landing page + growth instrumentation | M104 |
 | 60-day generated audio retention lifecycle + feed/media expiry gating | M105 |
 | Public marketing SEO hardening (homepage, metadata, schema, crawl rules) | M107 |
+| Public marketing chrome cleanup (remove duplicate footer nav) | M108 |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness | C08 |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
 | Free-trial ingest gating + admin quota overrides | M71 |
@@ -354,6 +358,7 @@ Milestone metadata contract:
 | M105 | Done | 2026-04-07 | 2026-03-28 | local validation + audio retention expiry/backfill/purge pass (2026-03-28) |
 | M106 | Done | 2026-04-08 | 2026-04-01 | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
 | M107 | Done | 2026-04-09 | 2026-04-02 | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02) |
+| M108 | Done | 2026-04-10 | 2026-04-03 | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03) |
 | S01 | Planned | 2026-03-07 | — | — |
 | S02 | Planned | 2026-03-07 | — | — |
 | S03 | Planned | 2026-03-07 | — | — |
@@ -3226,7 +3231,7 @@ Milestone metadata contract:
 - Scope:
   - Move the tuned social-first auth + marketing surface to `/` so the site has one canonical public homepage instead of splitting the public experience across `/` and `/login`.
   - Convert `/login` into a compatibility redirect back to `/` so search traffic and auth entry both land on the same maintained page.
-  - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link/footer coverage across the public marketing pages.
+  - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link coverage across the public marketing pages.
 - Key files/modules:
   - `apps/web/src/app/page.tsx`
   - `apps/web/src/app/login/layout.tsx`
@@ -3251,6 +3256,37 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
   - `npm run license:check`
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
+
+---
+
+### M108 - Public Marketing Chrome Cleanup
+- status: Done
+- target_finish: 2026-04-10
+- completed_on: 2026-04-03
+- evidence: local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)
+- Scope:
+  - Remove the repeated bottom footer chrome from `/product`, `/pricing`, `/resources`, `/faq`, and `/about` so the pages rely on the shared header plus CTA only.
+  - Keep the signed-out homepage, signed-in workspace, admin, and share surfaces unchanged because they already use non-duplicative navigation patterns.
+  - Update tests and docs so the public-site contract now expects one primary marketing nav and no footer navigation on the secondary public pages.
+- Key files/modules:
+  - `apps/web/src/app/product/page.tsx`
+  - `apps/web/src/app/pricing/page.tsx`
+  - `apps/web/src/app/resources/page.tsx`
+  - `apps/web/src/app/faq/page.tsx`
+  - `apps/web/src/app/about/page.tsx`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/seo-routes.test.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render the shared header navigation once and do not render a footer navigation landmark.
+  - Each secondary public marketing page still ends with the focused CTA block, including the primary `Start your knowledge feed` action.
+  - `/` continues to render the signed-out auth/marketing homepage without a duplicate footer.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
 
 ---
 

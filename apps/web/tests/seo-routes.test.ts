@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import robots from "../src/app/robots";
 import sitemap from "../src/app/sitemap";
@@ -71,15 +71,19 @@ test("shared marketing routes keep private surfaces out of search", () => {
   const shareSource = readFileSync(new URL("../src/app/share/page.tsx", import.meta.url), "utf8");
   const loginAliasSource = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   const ctaSource = readFileSync(new URL("../src/components/marketing-cta.tsx", import.meta.url), "utf8");
-  const footerSource = readFileSync(new URL("../src/components/marketing-footer.tsx", import.meta.url), "utf8");
   const authLandingSource = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
+  const secondaryMarketingRoutes = ["/product", "/pricing", "/resources", "/faq", "/about"];
 
   assert.equal(shareSource.includes("noIndex: true"), true);
   assert.equal(loginAliasSource.includes("redirect(query ? `/?${query}` : \"/\")"), true);
   assert.equal(ctaSource.includes('href="/app"'), false);
   assert.equal(ctaSource.includes('href="/"'), true);
   assert.equal(ctaSource.includes('secondaryHref = "/product"'), true);
-  assert.equal(footerSource.includes('href: "/"'), true);
-  assert.equal(footerSource.includes('label: "Log in"'), false);
   assert.equal(authLandingSource.includes("Log in to your private podcast feed"), true);
+  assert.equal(existsSync(new URL("../src/components/marketing-footer.tsx", import.meta.url)), false);
+
+  for (const route of secondaryMarketingRoutes) {
+    const source = readFileSync(new URL(`../src/app${route}/page.tsx`, import.meta.url), "utf8");
+    assert.equal(source.includes("MarketingFooter"), false, `${route} should not render duplicate footer navigation`);
+  }
 });

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
-import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import {
@@ -112,7 +111,6 @@ export default function FaqPage() {
           </section>
 
           <MarketingCta secondaryHref="/resources" secondaryLabel="Set up the extension" />
-          <MarketingFooter />
         </div>
       </main>
     </>

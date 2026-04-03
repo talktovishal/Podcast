@@ -290,6 +290,8 @@ Google + Facebook + Apple setup guide:
 Only configured OAuth buttons are shown on the root auth landing page (`/`); unconfigured providers stay hidden until their env vars are set.
 The root page now acts as the public homepage surface: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop. `/login` remains available only as a compatibility redirect back to `/`.
 
+The secondary public marketing pages (`/product`, `/pricing`, `/resources`, `/faq`, `/about`) now follow the same chrome principle: keep the shared top navigation plus the bottom CTA, but do not repeat the site links or ArticlePod summary again in a footer.
+
 ## Known boundaries
 - No OCR for scanned/image-heavy PDFs.
 - No voice cloning.

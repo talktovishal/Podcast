@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-02)
+## Spec Status (as of 2026-04-03)
 
-### Implemented (as of 2026-04-02)
+### Implemented (as of 2026-04-03)
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -188,8 +188,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public marketing SEO hardening (`M107`) is implemented:
   - `/` is now the canonical public homepage and primary auth landing page for signed-out visitors, preserving the polished social-first login + marketing experience while making the root URL indexable.
   - `/login` is now a compatibility redirect back to `/`, so there is one maintained public auth/marketing surface instead of two competing versions.
-  - public `/product`, `/pricing`, `/resources`, `/about`, and `/faq` pages now ship route-specific metadata, schema, and footer/internal-link support.
+  - public `/product`, `/pricing`, `/resources`, `/about`, and `/faq` pages now ship route-specific metadata, schema, and shared header/CTA internal-link support without repeating the site nav in a bottom footer.
   - `robots.txt` and `sitemap.xml` now prioritize the marketing routes and keep private/auth/share surfaces out of search discovery.
+- Public marketing chrome cleanup (`M108`) is implemented:
+  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now stop after the focused CTA instead of repeating the top-level site nav and ArticlePod summary in a footer.
 
 ### Next Milestones
 - Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { MarketingCta } from "@/components/marketing-cta";
-import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import {
@@ -82,7 +81,6 @@ export default function AboutPage() {
           </section>
 
           <MarketingCta secondaryHref="/product" secondaryLabel="See how it works" />
-          <MarketingFooter />
         </div>
       </main>
     </>

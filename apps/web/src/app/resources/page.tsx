@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { ChromeExtensionGuidePanels } from "@/components/chrome-extension-guide-panels";
 import { ChromeExtensionSetupCard } from "@/components/chrome-extension-setup-card";
 import { MarketingCta } from "@/components/marketing-cta";
-import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import { getAuthUserFromCookies } from "@/lib/auth";
@@ -110,7 +109,6 @@ export default async function ResourcesPage() {
           <ChromeExtensionGuidePanels />
 
           <MarketingCta secondaryHref="/faq" secondaryLabel="Read the FAQ" />
-          <MarketingFooter />
         </div>
       </main>
     </>

@@ -10,6 +10,15 @@ test("public marketing pages exist for all nav routes", () => {
   }
 });
 
+test("secondary marketing pages keep the shared header and CTA without a duplicate footer", () => {
+  for (const item of marketingNavItems) {
+    const source = readFileSync(new URL(`../src/app${item.href}/page.tsx`, import.meta.url), "utf8");
+    assert.equal(source.includes("MarketingHeader"), true, `missing shared header on ${item.href}`);
+    assert.equal(source.includes("MarketingCta"), true, `missing CTA on ${item.href}`);
+    assert.equal(source.includes("MarketingFooter"), false, `duplicate footer chrome still present on ${item.href}`);
+  }
+});
+
 test("login nav has no placeholder links", () => {
   const source = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   assert.equal(source.includes('href="#"'), false);

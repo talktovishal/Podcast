@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BillingActionButton } from "@/components/billing-action-button";
 import { MarketingCta } from "@/components/marketing-cta";
-import { MarketingFooter } from "@/components/marketing-footer";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import { getAuthUserFromCookies } from "@/lib/auth";
@@ -233,7 +232,6 @@ export default async function PricingPage({
           </section>
 
           <MarketingCta secondaryHref="/product" secondaryLabel="Explore product" />
-          <MarketingFooter />
         </div>
       </main>
     </>
