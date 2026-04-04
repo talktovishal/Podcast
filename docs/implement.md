@@ -4,19 +4,35 @@
 1. Install dependencies:
 - `npx pnpm install`
 2. Bootstrap DB + seed demo in simple profile:
-- `./run-web.sh`
+- `./run.sh --web`
 - or use the full local stack:
 - `./run.sh --profile simple`
 
 ## Runtime profiles
 - Quick web-only local mode:
-  - `./run-web.sh`
+  - `./run.sh --web`
+  - fastest repeat loop: `./run.sh --web --fast`
 - Simple local mode:
   - `./run.sh --profile simple`
+  - fastest repeat loop: `./run.sh --fast`
 - Local parity mode (Docker Compose):
   - `./run.sh --profile parity`
 - Azure profile env validation only:
   - `./run.sh --profile azure`
+
+## Launcher shortcuts
+- Single launcher:
+  - `./run.sh`
+- Web only:
+  - `./run.sh --web`
+- Skip recurring bootstrap work (Prisma/db/demo seed and env validation):
+  - `./run.sh --fast`
+- Skip bootstrap but keep env validation:
+  - `./run.sh --skip-bootstrap`
+- Reset local dev caches before starting:
+  - `./run.sh --clean --web --fast`
+
+`run-web.sh` remains available as a thin compatibility wrapper for `./run.sh --web`.
 
 ## Spec status workflow
 Whenever runtime code changes land:

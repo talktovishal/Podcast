@@ -241,4 +241,10 @@ Cost-optimized Azure guidance:
 - `./run.sh --profile azure`
 
 Quick web-only local testing:
-- `./run-web.sh`
+- `./run.sh --web`
+- fastest repeat loop: `./run.sh --web --fast`
+
+Fast repeat local testing after the initial bootstrap:
+- `./run.sh --fast`
+- `./run.sh --skip-bootstrap`
+- `./run.sh --clean --web --fast` to clear stale Next.js caches before restarting

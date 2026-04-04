@@ -70,16 +70,38 @@ test("parity-up emits compose diagnostics when startup fails", () => {
   assert.match(source, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=200 web worker azurite postgres python-tts/);
 });
 
-test("web-only launcher bootstraps the simple env template and skips worker services", () => {
+test("run.sh exposes fast single-script local launcher options", () => {
+  const root = resolve(process.cwd(), "../..");
+  const runSource = readFileSync(resolve(root, "run.sh"), "utf8");
+  const devSource = readFileSync(resolve(root, "scripts/dev.mjs"), "utf8");
+  const packageSource = readFileSync(resolve(root, "package.json"), "utf8");
+  const workerPackageSource = readFileSync(resolve(root, "apps/worker/package.json"), "utf8");
+
+  assert.match(runSource, /Usage: \.\/run\.sh \[--web\] \[--fast\] \[--skip-bootstrap\] \[--clean\]/);
+  assert.match(runSource, /--web\s+Start only the web app for the fastest UI loop\./);
+  assert.match(runSource, /--fast\s+Skip env validation and app bootstrap, then start watchers immediately\./);
+  assert.match(runSource, /--clean\s+Clear local dev caches before starting/);
+  assert.match(runSource, /DEV_ARGS\+=\("--web-only"\)/);
+  assert.match(runSource, /DEV_ARGS\+=\("--skip-bootstrap"\)/);
+  assert.match(runSource, /exec node scripts\/dev\.mjs "\$\{DEV_ARGS\[@\]\}"/);
+
+  assert.match(devSource, /const fastMode = process\.argv\.includes\('--fast'\);/);
+  assert.match(devSource, /const skipBootstrap = fastMode \|\| process\.argv\.includes\('--skip-bootstrap'\);/);
+  assert.match(devSource, /\[dev\] skipping prisma\/db\/demo bootstrap/);
+  assert.match(devSource, /commandList\.push\(skipBootstrap \? 'npm run dev:fast --workspace @articlepod\/worker' : 'npm run dev --workspace @articlepod\/worker'\);/);
+  assert.match(packageSource, /"dev:web": "node scripts\/dev\.mjs --web-only"/);
+  assert.match(packageSource, /"dev:fast": "node scripts\/dev\.mjs --fast"/);
+  assert.match(packageSource, /"dev:web:fast": "node scripts\/dev\.mjs --web-only --fast"/);
+  assert.match(workerPackageSource, /"dev:fast": "tsx watch src\/index\.ts"/);
+});
+
+test("run-web launcher delegates to run.sh web mode for backwards compatibility", () => {
   const root = resolve(process.cwd(), "../..");
   const runWebSource = readFileSync(resolve(root, "run-web.sh"), "utf8");
   const devSource = readFileSync(resolve(root, "scripts/dev.mjs"), "utf8");
 
-  assert.match(runWebSource, /Created \.env from \.env\.simple\.example/);
-  assert.match(runWebSource, /npm run check:env -- --profile simple/);
-  assert.match(runWebSource, /exec node scripts\/dev\.mjs --web-only/);
+  assert.match(runWebSource, /exec \.\/run\.sh --web "\$@"/);
   assert.match(devSource, /const webOnly = process\.argv\.includes\('--web-only'\);/);
-  assert.match(devSource, /if \(!webOnly\) \{\n\s+runOrFail\('npx', \['pnpm', '--filter', '@articlepod\/worker', 'run', 'prisma:generate'\]\);/m);
 });
 
 test("parity env fixtures and checks require runtime secrets", () => {

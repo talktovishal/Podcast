@@ -10,6 +10,9 @@
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:web": "node scripts/dev.mjs --web-only",
+    "dev:fast": "node scripts/dev.mjs --fast",
+    "dev:web:fast": "node scripts/dev.mjs --web-only --fast",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

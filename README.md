@@ -11,9 +11,9 @@ RSS-first personal podcast feed that converts URLs/PDFs/extension captures into 
 - `docs` - plans, architecture, deployment/runbooks
 
 ## Quick start
-Web-only quick testing:
+Fastest web-only UI loop:
 ```bash
-./run-web.sh
+./run.sh --web --fast
 ```
 
 Simple local profile:
@@ -31,8 +31,18 @@ Azure profile env validation:
 ./run.sh --profile azure
 ```
 
+Common local options:
+
+```bash
+./run.sh --web              # web only
+./run.sh --fast             # skip env/bootstrap and start watchers immediately
+./run.sh --clean --web --fast  # clear Next caches, then start the fast web loop
+```
+
+`run-web.sh` now remains as a thin compatibility wrapper around `./run.sh --web`.
+
 ## Demo/admin accounts
-Seeded automatically by `run.sh` and `run-web.sh`. Passwords are set via environment variables — do not hardcode them.
+Seeded automatically by `run.sh` during non-fast startup. Passwords are set via environment variables — do not hardcode them.
 
 Before running, add these to your `.env` file (copy from `.env.example`):
 ```

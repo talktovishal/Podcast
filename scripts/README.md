@@ -2,7 +2,9 @@
 
 ## Daily Commands
 - Local app start: `/Users/vishalchowdhary/Documents/Podcast/run.sh`
-- Web-only local app start: `/Users/vishalchowdhary/Documents/Podcast/run-web.sh`
+- Web-only local app start: `/Users/vishalchowdhary/Documents/Podcast/run.sh --web`
+- Fast web-only local app start: `/Users/vishalchowdhary/Documents/Podcast/run.sh --web --fast`
+- Cache-reset fast web loop: `/Users/vishalchowdhary/Documents/Podcast/run.sh --clean --web --fast`
 - Contract gate: `/Users/vishalchowdhary/Documents/Podcast/scripts/verify_podcast_contract.sh`
 - Parity smoke: `/Users/vishalchowdhary/Documents/Podcast/scripts/parity-smoke.sh`
 - Live-site harness:

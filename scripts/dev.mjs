@@ -28,6 +28,8 @@ if (existsSync(rootEnvPath)) {
 
 const runtimeProfile = process.env.RUNTIME_PROFILE ?? 'simple';
 const webOnly = process.argv.includes('--web-only');
+const fastMode = process.argv.includes('--fast');
+const skipBootstrap = fastMode || process.argv.includes('--skip-bootstrap');
 const databaseUrl = process.env.DATABASE_URL;
 if (runtimeProfile === 'simple' && databaseUrl?.startsWith('file:')) {
   const rawPath = databaseUrl.replace(/^file:/, '');
@@ -47,19 +49,26 @@ function runOrFail(command, args) {
   }
 }
 
-runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
-runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
-runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
+if (skipBootstrap) {
+  // eslint-disable-next-line no-console
+  console.log('[dev] skipping prisma/db/demo bootstrap');
+} else {
+  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
+  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
+  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
+}
 
 const commandNames = ['web'];
 const commandList = ['npm run dev --workspace @articlepod/web'];
 const prefixColors = ['green'];
 
 if (!webOnly) {
-  runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
   commandNames.push('worker');
   prefixColors.push('blue');
-  commandList.push('npm run dev --workspace @articlepod/worker');
+  if (!skipBootstrap) {
+    runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
+  }
+  commandList.push(skipBootstrap ? 'npm run dev:fast --workspace @articlepod/worker' : 'npm run dev --workspace @articlepod/worker');
 
   const pythonTtsEnabled = process.env.ENABLE_PYTHON_TTS_DEV !== '0';
   const uvicornPath = resolve(process.cwd(), 'services/python-tts/.venv/bin/uvicorn');
@@ -68,9 +77,11 @@ if (!webOnly) {
     commandNames.push('py-tts');
     prefixColors.push('magenta');
     commandList.push(`cd services/python-tts && ./.venv/bin/uvicorn app.main:app --reload --port ${ttsPort}`);
-    commandNames.push('prewarm');
-    prefixColors.push('yellow');
-    commandList.push('bash ./scripts/prewarm-kokoro-previews.sh');
+    if (!skipBootstrap) {
+      commandNames.push('prewarm');
+      prefixColors.push('yellow');
+      commandList.push('bash ./scripts/prewarm-kokoro-previews.sh');
+    }
   } else if (pythonTtsEnabled) {
     // eslint-disable-next-line no-console
     console.log('[dev] python-tts virtualenv not found at services/python-tts/.venv, skipping py-tts process');

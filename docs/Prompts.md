@@ -33,6 +33,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - release tooling now verifies packaged popup module dependencies before upload, and the live-site smoke harness can target the packaged artifact from `dist/extension/package` for release-candidate testing.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
+  - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
   - object storage abstraction (`local`, `azure_blob`) wired into uploads/audio/media
   - SQLite export/import migration scripts for PostgreSQL transition

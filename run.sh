@@ -6,9 +6,20 @@ cd "$ROOT_DIR"
 
 print_usage() {
   cat <<'EOF'
-Usage: ./run.sh [--setup-only] [--force-install] [--profile simple|parity|azure]
+Usage: ./run.sh [--web] [--fast] [--skip-bootstrap] [--clean] [--setup-only] [--force-install] [--profile simple|parity|azure]
 
-Starts the full local ArticlePod stack (web + worker) with one command.
+Starts the local ArticlePod stack from one command.
+
+Modes:
+  default         Start the web app + worker.
+  --web           Start only the web app for the fastest UI loop.
+
+Speed helpers:
+  --fast          Skip env validation and app bootstrap, then start watchers immediately.
+                  Best for repeated local UI/dev work after an initial setup run.
+  --skip-bootstrap
+                  Skip Prisma/db/demo bootstrap, but still run env validation.
+  --clean         Clear local dev caches before starting (.next, .turbo, tsbuildinfo).
 
 Options:
   --setup-only    Run setup checks, then exit without starting dev servers.
@@ -24,9 +35,40 @@ EOF
 SETUP_ONLY=0
 FORCE_INSTALL="${FORCE_INSTALL:-0}"
 PROFILE="${RUNTIME_PROFILE:-simple}"
+WEB_ONLY=0
+SKIP_BOOTSTRAP=0
+SKIP_ENV_CHECK=0
+CLEAN=0
+
+clean_dev_caches() {
+  echo "Clearing local dev caches..."
+  rm -rf \
+    apps/web/.next \
+    .turbo
+  rm -f \
+    apps/web/tsconfig.tsbuildinfo \
+    apps/worker/tsconfig.tsbuildinfo
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --web|--web-only)
+      WEB_ONLY=1
+      shift
+      ;;
+    --fast)
+      SKIP_BOOTSTRAP=1
+      SKIP_ENV_CHECK=1
+      shift
+      ;;
+    --skip-bootstrap)
+      SKIP_BOOTSTRAP=1
+      shift
+      ;;
+    --clean)
+      CLEAN=1
+      shift
+      ;;
     --setup-only)
       SETUP_ONLY=1
       shift
@@ -53,6 +95,11 @@ done
 
 if [[ "$PROFILE" != "simple" && "$PROFILE" != "parity" && "$PROFILE" != "azure" ]]; then
   echo "Unsupported profile '$PROFILE'. Expected one of: simple, parity, azure."
+  exit 2
+fi
+
+if [[ "$PROFILE" == "parity" && "$WEB_ONLY" == "1" ]]; then
+  echo "Error: --web is only supported with the simple profile."
   exit 2
 fi
 
@@ -88,8 +135,16 @@ else
   echo "Using existing node_modules (set FORCE_INSTALL=1 or --force-install to reinstall)."
 fi
 
-echo "Running environment check..."
-npm run check:env -- --profile "$PROFILE"
+if [[ "$CLEAN" == "1" ]]; then
+  clean_dev_caches
+fi
+
+if [[ "$SKIP_ENV_CHECK" == "1" ]]; then
+  echo "Skipping environment check in fast mode."
+else
+  echo "Running environment check..."
+  npm run check:env -- --profile "$PROFILE"
+fi
 
 if [[ "$PROFILE" == "parity" ]]; then
   if [[ "$SETUP_ONLY" == "1" ]]; then
@@ -107,7 +162,9 @@ if [[ "$PROFILE" == "azure" ]]; then
   exit 0
 fi
 
-if [[ "${ENABLE_PYTHON_TTS_DEV:-1}" != "0" ]]; then
+if [[ "$SKIP_BOOTSTRAP" == "1" ]]; then
+  echo "Skipping local bootstrap steps."
+elif [[ "${ENABLE_PYTHON_TTS_DEV:-1}" != "0" && "$WEB_ONLY" != "1" ]]; then
   echo "Bootstrapping python-tts dependencies (Kokoro + Melo)..."
   ./scripts/bootstrap-python-tts.sh
 fi
@@ -117,5 +174,21 @@ if [[ "$SETUP_ONLY" == "1" ]]; then
   exit 0
 fi
 
-echo "Starting local stack (web + worker). Press Ctrl+C to stop."
-exec npm run dev
+DEV_ARGS=()
+if [[ "$WEB_ONLY" == "1" ]]; then
+  DEV_ARGS+=("--web-only")
+fi
+if [[ "$SKIP_BOOTSTRAP" == "1" ]]; then
+  DEV_ARGS+=("--skip-bootstrap")
+fi
+if [[ "$SKIP_ENV_CHECK" == "1" ]]; then
+  DEV_ARGS+=("--fast")
+fi
+
+if [[ "$WEB_ONLY" == "1" ]]; then
+  echo "Starting local web app only. Press Ctrl+C to stop."
+else
+  echo "Starting local stack (web + worker). Press Ctrl+C to stop."
+fi
+
+exec node scripts/dev.mjs "${DEV_ARGS[@]}"

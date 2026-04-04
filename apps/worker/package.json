@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run prisma:generate && tsx watch src/index.ts",
+    "dev:fast": "tsx watch src/index.ts",
     "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
     "start": "npm run prisma:generate && tsx src/index.ts",
     "lint": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
