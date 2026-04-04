@@ -74,8 +74,10 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
-- `PRO_DAILY_PODCAST_LIMIT` (default `15`; paid Pro guardrail for new podcast episodes created in the last 24 hours)
-- `PRO_WEEKLY_SUMMARY_LIMIT` (default `5`; paid Pro guardrail for manual summaries created in the last 7 days)
+- `PRO_MONTHLY_DAILY_PODCAST_LIMIT` (default `12`; `Pro monthly` guardrail for new podcast episodes created in the last 24 hours)
+- `PRO_MONTHLY_WEEKLY_SUMMARY_LIMIT` (default `5`; `Pro monthly` guardrail for manual summaries created in the last 7 days)
+- `PRO_ANNUAL_DAILY_PODCAST_LIMIT` (default `15`; `Pro annual` guardrail for new podcast episodes created in the last 24 hours)
+- `PRO_ANNUAL_WEEKLY_SUMMARY_LIMIT` (default `10`; `Pro annual` guardrail for manual summaries created in the last 7 days)
 - `EXTENSION_CONNECT_CODE_TTL_MINUTES` (default `1440`; one-time connect code lifetime)
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`

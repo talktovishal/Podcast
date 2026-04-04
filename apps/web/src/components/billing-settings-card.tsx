@@ -16,13 +16,20 @@ type Props = {
   monthlyCheckoutConfigured: boolean;
   annualCheckoutConfigured: boolean;
   activationHint?: boolean;
+  annualPitch: {
+    dailyPodcastLimit: number;
+    weeklySummaryLimit: number;
+    extraDailyPodcasts: number;
+    extraWeeklySummaries: number;
+  };
 };
 
 export function BillingSettingsCard({
   initialState,
   monthlyCheckoutConfigured,
   annualCheckoutConfigured,
-  activationHint = false
+  activationHint = false,
+  annualPitch
 }: Props) {
   const { billing, pollMessage } = useBillingStatus(initialState.selectedBilling, activationHint, "selected");
   const [modeBusy, setModeBusy] = useState(false);
@@ -165,21 +172,34 @@ export function BillingSettingsCard({
             />
           ) : monthlyCheckoutConfigured || annualCheckoutConfigured ? (
             <div className="space-y-2 sm:min-w-[220px]">
-              {monthlyCheckoutConfigured ? (
-                <BillingActionButton
-                  action="checkout"
-                  planCode="PRO_MONTHLY"
-                  className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  label="Choose Pro Monthly"
-                />
+              {annualCheckoutConfigured ? (
+                <p className="rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
+                  Pro Annual is the best value: save nearly 30%, get {annualPitch.dailyPodcastLimit} new private podcast episodes
+                  per 24 hours, and {annualPitch.weeklySummaryLimit} manual summaries every 7 days.
+                </p>
               ) : null}
               {annualCheckoutConfigured ? (
                 <BillingActionButton
                   action="checkout"
                   planCode="PRO_ANNUAL"
-                  className="w-full rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                  className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   label="Choose Pro Annual"
                 />
+              ) : null}
+              {monthlyCheckoutConfigured ? (
+                <BillingActionButton
+                  action="checkout"
+                  planCode="PRO_MONTHLY"
+                  className="w-full rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-60"
+                  label="Choose Pro Monthly"
+                />
+              ) : null}
+              {annualCheckoutConfigured && monthlyCheckoutConfigured ? (
+                <p className="text-xs text-[var(--muted)]">
+                  Annual adds {annualPitch.extraDailyPodcasts} extra daily episode slot
+                  {annualPitch.extraDailyPodcasts === 1 ? "" : "s"} and {annualPitch.extraWeeklySummaries} more manual
+                  summaries than monthly.
+                </p>
               ) : null}
             </div>
           ) : (

@@ -10,6 +10,10 @@ type Props = {
   billingConfigured: boolean;
   activationHint?: boolean;
   sandboxModeActive?: boolean;
+  annualPitch: {
+    dailyPodcastLimit: number;
+    weeklySummaryLimit: number;
+  };
 };
 
 function toneClasses(input: BillingAccountSnapshot) {
@@ -82,7 +86,8 @@ export function WorkspaceBillingSummary({
   initialBilling,
   billingConfigured,
   activationHint = false,
-  sandboxModeActive = false
+  sandboxModeActive = false,
+  annualPitch
 }: Props) {
   const { billing, pollMessage } = useBillingStatus(initialBilling, activationHint);
   const showPortalAction = Boolean(
@@ -119,6 +124,12 @@ export function WorkspaceBillingSummary({
       </div>
 
       {message ? <p className={`rounded-lg border px-3 py-2 text-sm ${tone.message}`}>{message}</p> : null}
+      {!showPortalAction && billingConfigured && billing.planCode === "STARTER" && !billing.accessReason ? (
+        <p className="text-xs text-[var(--muted)]">
+          Pro Annual is the best value: save nearly 30%, unlock {annualPitch.dailyPodcastLimit} episodes per 24 hours, and
+          get {annualPitch.weeklySummaryLimit} manual summaries every 7 days.
+        </p>
+      ) : null}
       {sandboxModeActive ? (
         <p className="text-xs text-[var(--muted)]">Sandbox billing mode is active in Settings. Live access is shown here.</p>
       ) : null}

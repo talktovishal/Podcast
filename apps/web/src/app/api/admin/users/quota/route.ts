@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       users: filteredUsers.slice(0, 100).map((user) => {
         const quota = buildSubmissionQuotaSnapshot({
           isPaid: user.isPaid,
+          billingPlanCode: user.billingPlanCode,
           submissionCount: user.submissionCount,
           extraSubmissionCredits: user.extraSubmissionCredits
         });
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
 
     const quota = buildSubmissionQuotaSnapshot({
       isPaid: user.isPaid,
+      billingPlanCode: user.billingPlanCode,
       submissionCount: user.submissionCount,
       extraSubmissionCredits: user.extraSubmissionCredits
     });

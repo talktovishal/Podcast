@@ -1,8 +1,8 @@
 import { AppError, errorCodes } from "@articlepod/core";
 import { refreshBillingStateFromStripe } from "./billing";
-import { env } from "./env";
 import { findPrimaryUserById } from "./metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
+import { maxPaidWeeklySummaryLimit, paidPlanConfigForAccess } from "./paid-plan-config";
 import { prisma } from "./prisma";
 
 const SUMMARY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -29,7 +29,7 @@ async function countSummariesUsedLast7Days(userId: string): Promise<number> {
   const createdAt = summaryWindowStart();
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
-    const runs = await webPrimaryStore.listSummaryRunsByUser(userId, Math.max(env.proWeeklySummaryLimit + 1, 20));
+    const runs = await webPrimaryStore.listSummaryRunsByUser(userId, Math.max(maxPaidWeeklySummaryLimit() + 1, 20));
     return runs.filter((run) => run.createdAt >= createdAt).length;
   }
 
@@ -68,7 +68,11 @@ export async function getSummaryUsageSnapshot(userId: string): Promise<SummaryUs
     };
   }
 
-  const summaryLimitPer7Days = nonNegativeInt(env.proWeeklySummaryLimit);
+  const paidPlan = paidPlanConfigForAccess({
+    isPaid: user.isPaid,
+    billingPlanCode: user.billingPlanCode
+  });
+  const summaryLimitPer7Days = nonNegativeInt(paidPlan?.weeklySummaryLimit ?? 0);
   const summariesUsedLast7Days = await countSummariesUsedLast7Days(userId);
 
   return {

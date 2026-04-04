@@ -232,7 +232,7 @@ test("admin quota API is admin-only and returns quota rows", async () => {
   }
 });
 
-test("paid users defer overflow submissions after 15 immediate starts", async () => {
+test("paid monthly users defer overflow submissions after 12 immediate starts", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-paid`;
 
@@ -253,7 +253,7 @@ test("paid users defer overflow submissions after 15 immediate starts", async ()
   try {
     const userSession = await createSession(user.id);
 
-    for (let index = 0; index < 15; index += 1) {
+    for (let index = 0; index < 12; index += 1) {
       const response = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-${index}`));
       assert.equal(response.status, 200);
     }
@@ -276,7 +276,7 @@ test("paid users defer overflow submissions after 15 immediate starts", async ()
     assert.equal(payload.accepted_message.includes("queued for the next available Pro window"), true);
     assert.equal(payload.submission_quota.remainingDailyPodcasts, 0);
     assert.equal(payload.submission_quota.queuedDeferredPodcasts, 1);
-    assert.equal(payload.submission_quota.maxDeferredPodcasts, 30);
+    assert.equal(payload.submission_quota.maxDeferredPodcasts, 24);
 
     const [item, job] = await Promise.all([
       prisma.item.findUnique({ where: { id: payload.item_id } }),
@@ -294,7 +294,54 @@ test("paid users defer overflow submissions after 15 immediate starts", async ()
   }
 });
 
-test("paid users are blocked once the deferred overflow queue reaches 30 items", async () => {
+test("paid annual users keep the higher 15-start daily limit and 30-slot overflow queue", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-paid-annual`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `quota-paid-annual-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_ANNUAL",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const userSession = await createSession(user.id);
+
+    for (let index = 0; index < 15; index += 1) {
+      const response = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-${index}`));
+      assert.equal(response.status, 200);
+    }
+
+    const deferred = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-deferred`));
+    assert.equal(deferred.status, 200);
+    const payload = (await deferred.json()) as {
+      ok: boolean;
+      queue_mode: string;
+      submission_quota: {
+        remainingDailyPodcasts: number | null;
+        queuedDeferredPodcasts: number;
+        maxDeferredPodcasts: number | null;
+      };
+    };
+    assert.equal(payload.ok, true);
+    assert.equal(payload.queue_mode, "deferred");
+    assert.equal(payload.submission_quota.remainingDailyPodcasts, 0);
+    assert.equal(payload.submission_quota.queuedDeferredPodcasts, 1);
+    assert.equal(payload.submission_quota.maxDeferredPodcasts, 30);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("paid monthly users are blocked once the deferred overflow queue reaches 24 items", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-paid-backlog`;
 
@@ -315,7 +362,7 @@ test("paid users are blocked once the deferred overflow queue reaches 30 items",
   try {
     const userSession = await createSession(user.id);
 
-    for (let index = 0; index < 45; index += 1) {
+    for (let index = 0; index < 36; index += 1) {
       const submission = await enqueueItem({
         userId: user.id,
         title: `Quota ${uniq}-${index}`,

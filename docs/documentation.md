@@ -31,12 +31,15 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - non-paid users get `FREE_TRIAL_SUBMISSION_LIMIT` free submissions (default `2`)
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin can grant extra submission credits or add complimentary Pro access from `/admin`
-  - paid Pro access is guarded to 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
+  - paid access is plan-specific by default:
+    - `Pro monthly`: 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days
+    - `Pro annual`: 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
   - after paid users fill the current 24-hour episode-start window, new submissions are still accepted and queued for the next available Pro window
   - paid submissions only hard-fail once the deferred overflow queue reaches its cap (default: `30`)
 - Billing:
   - `/pricing` supports self-serve upgrade to `Pro monthly` or `Pro annual` through Stripe-hosted Checkout when billing env vars are configured
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`
+  - the annual plan is intentionally positioned as the strongest offer: it saves nearly 30% and carries the higher 15-episode / 10-summary capacity
   - `/pricing` includes explicit billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current paid period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
   - `/app` and `/app/settings` show current live plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management

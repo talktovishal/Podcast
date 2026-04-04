@@ -5,6 +5,7 @@ import {
   BRAND_PODCAST_COVER_PATH,
   absoluteBrandAssetUrl
 } from "@/lib/brand-assets";
+import { paidPlanConfig } from "@/lib/paid-plan-config";
 
 export const SEO_SITE_URL = process.env.APP_URL ?? "http://localhost:3000";
 export const SEO_MARKETING_LAST_MODIFIED = new Date("2026-04-02T00:00:00.000Z");
@@ -135,6 +136,9 @@ export function buildWebsiteSchema(description: string): Record<string, unknown>
 }
 
 export function buildSoftwareApplicationSchema(description: string): Record<string, unknown> {
+  const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
+  const annualPlan = paidPlanConfig("PRO_ANNUAL");
+
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -165,7 +169,7 @@ export function buildSoftwareApplicationSchema(description: string): Record<stri
         price: "15",
         priceCurrency: "USD",
         url: absoluteSeoUrl("/pricing"),
-        description: "Upgrade monthly for higher limits, summaries, and digest workflows."
+        description: `Upgrade monthly for ${monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours, ${monthlyPlan.weeklySummaryLimit} manual summaries every 7 days, and digest workflows.`
       },
       {
         "@type": "Offer",
@@ -173,7 +177,7 @@ export function buildSoftwareApplicationSchema(description: string): Record<stri
         price: "130",
         priceCurrency: "USD",
         url: absoluteSeoUrl("/pricing"),
-        description: "Upgrade annually and save nearly 30 percent compared with monthly billing."
+        description: `Upgrade annually and save nearly 30 percent while getting ${annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours and ${annualPlan.weeklySummaryLimit} manual summaries every 7 days.`
       }
     ]
   };

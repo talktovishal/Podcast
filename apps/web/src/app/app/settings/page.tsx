@@ -10,6 +10,7 @@ import {
   getBillingSettingsState,
   isBillingPlanCheckoutConfigured,
 } from "@/lib/billing";
+import { paidPlanCapacityDelta, paidPlanConfig } from "@/lib/paid-plan-config";
 import {
   getUserDemographicSurvey,
   getUserTtsSettings,
@@ -42,6 +43,8 @@ export default async function AppSettingsPage({
     getUserDemographicSurvey(user.id),
   ]);
   const billingState = await getBillingSettingsState(user.id);
+  const annualPlan = paidPlanConfig("PRO_ANNUAL");
+  const annualAdvantage = paidPlanCapacityDelta();
   const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY", billingState.mode.effectiveLane);
   const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL", billingState.mode.effectiveLane);
   const billingSearchParam = Array.isArray(searchParams?.billing)
@@ -75,6 +78,12 @@ export default async function AppSettingsPage({
         <BillingSettingsCard
           activationHint={billingSearchParam === "success"}
           annualCheckoutConfigured={annualCheckoutConfigured}
+          annualPitch={{
+            dailyPodcastLimit: annualPlan.dailyPodcastLimit,
+            weeklySummaryLimit: annualPlan.weeklySummaryLimit,
+            extraDailyPodcasts: annualAdvantage.extraDailyPodcasts,
+            extraWeeklySummaries: annualAdvantage.extraWeeklySummaries
+          }}
           initialState={billingState}
           monthlyCheckoutConfigured={monthlyCheckoutConfigured}
         />

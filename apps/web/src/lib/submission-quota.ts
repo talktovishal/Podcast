@@ -4,6 +4,7 @@ import { refreshBillingStateFromStripe } from "./billing";
 import { env } from "./env";
 import { findPrimaryUserById, updatePrimaryUser } from "./metadata-primary-auth";
 import { webPrimaryStore } from "./metadata-primary-store";
+import { maxPaidDailyPodcastLimit, paidPlanConfigForAccess } from "./paid-plan-config";
 import { prisma } from "./prisma";
 
 type QuotaDbClient = Prisma.TransactionClient | typeof prisma;
@@ -15,6 +16,7 @@ export const PAID_SUBMISSION_DEFERRED_CODE = "PRO_DAILY_LIMIT_DEFERRED";
 const quotaUserSelect = {
   id: true,
   isPaid: true,
+  billingPlanCode: true,
   submissionCount: true,
   extraSubmissionCredits: true
 } satisfies Prisma.UserSelect;
@@ -86,13 +88,18 @@ function limitMessage(snapshot: SubmissionQuotaSnapshot): string {
 
 export function buildSubmissionQuotaSnapshot(input: {
   isPaid: boolean;
+  billingPlanCode?: string | null;
   submissionCount: number;
   extraSubmissionCredits: number;
   podcastsUsedLast24Hours?: number;
   queuedDeferredPodcasts?: number;
 }): SubmissionQuotaSnapshot {
   const freeTrialSubmissionLimit = nonNegativeInt(env.freeTrialSubmissionLimit);
-  const dailyPodcastLimit = input.isPaid ? nonNegativeInt(env.proDailyPodcastLimit) : null;
+  const paidPlan = paidPlanConfigForAccess({
+    isPaid: input.isPaid,
+    billingPlanCode: input.billingPlanCode
+  });
+  const dailyPodcastLimit = paidPlan ? nonNegativeInt(paidPlan.dailyPodcastLimit) : null;
   const extraSubmissionCredits = nonNegativeInt(input.extraSubmissionCredits);
   const totalFreeSubmissionAllowance = freeTrialSubmissionLimit + extraSubmissionCredits;
   const submissionCount = nonNegativeInt(input.submissionCount);
@@ -154,8 +161,9 @@ function buildPaidSubmissionScheduleState(entries: SubmissionScheduleEntry[], no
 
 async function getPaidSubmissionScheduleState(userId: string, now: Date, tx?: QuotaDbClient): Promise<PaidSubmissionScheduleState> {
   if (env.metadataPrimaryBackend === "azure_table") {
-    const jobs = (await webPrimaryStore?.listJobsByUser(userId, Math.max(env.proDailyPodcastLimit * 6, 120))) ?? [];
-    const items = (await webPrimaryStore?.listItemsByUser(userId, Math.max(env.proDailyPodcastLimit * 6, 120))) ?? [];
+    const lookbackLimit = Math.max(maxPaidDailyPodcastLimit() * 6, 120);
+    const jobs = (await webPrimaryStore?.listJobsByUser(userId, lookbackLimit)) ?? [];
+    const items = (await webPrimaryStore?.listItemsByUser(userId, lookbackLimit)) ?? [];
     const itemCreatedAtById = new Map(items.map((item) => [item.id, item.createdAt]));
     const entries = jobs
       .map((job) => {

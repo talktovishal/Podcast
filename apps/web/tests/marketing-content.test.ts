@@ -8,6 +8,7 @@ import {
   marketingNavItems,
   publicMarketingSensitivePhrases
 } from "../src/lib/marketing-content";
+import { paidPlanCapacityDelta, paidPlanConfig } from "../src/lib/paid-plan-config";
 
 test("marketing nav items follow canonical order and routes", () => {
   assert.deepEqual(
@@ -64,18 +65,22 @@ test("auth landing page places the security trust band before the feature highli
 
 test("pricing page exposes Starter plus monthly and annual Pro choices with clear billing policy", () => {
   const source = readFileSync(new URL("../src/app/pricing/page.tsx", import.meta.url), "utf8");
+  const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
+  const annualPlan = paidPlanConfig("PRO_ANNUAL");
+  const annualAdvantage = paidPlanCapacityDelta();
 
   assert.equal(source.includes("Simple pricing for personal listening"), true);
   assert.equal(source.includes("$15/mo"), true);
   assert.equal(source.includes("$130/yr"), true);
   assert.equal(source.includes("Save nearly 30%"), true);
+  assert.equal(source.includes("better rate plus more room to publish and summarize"), true);
+  assert.equal(source.includes("Why Pro Annual wins"), true);
   assert.equal(source.includes("Billed upfront monthly or yearly."), true);
   assert.equal(source.includes("Renews automatically until canceled."), true);
   assert.equal(source.includes("Cancel anytime. Access stays on through the current paid period."), true);
   assert.equal(source.includes("Annual plans stay active through the paid term, then stop renewing."), true);
-  assert.equal(source.includes("15 new private podcast episodes per 24 hours"), true);
-  assert.equal(source.includes("5 manual summaries per 7 days"), true);
-  assert.equal(source.includes("higher limits, manual summaries, and weekly digest workflows"), true);
+  assert.equal(source.includes("new private podcast episodes per 24 hours"), true);
+  assert.equal(source.includes("manual summaries per 7 days"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
   assert.equal(source.includes("Daily podcast + email briefing"), false);
   assert.equal(source.includes("scale into Pro or Team"), false);
@@ -85,6 +90,12 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
   assert.equal(source.includes("Capacity, cost, and margins"), false);
   assert.equal(source.includes("cost model details"), false);
   assert.equal(source.includes("better margin on regular use"), false);
+  assert.equal(monthlyPlan.dailyPodcastLimit, 12);
+  assert.equal(monthlyPlan.weeklySummaryLimit, 5);
+  assert.equal(annualPlan.dailyPodcastLimit, 15);
+  assert.equal(annualPlan.weeklySummaryLimit, 10);
+  assert.equal(annualAdvantage.extraDailyPodcasts, 3);
+  assert.equal(annualAdvantage.extraWeeklySummaries, 5);
 });
 
 test("public marketing pages do not leak internal economics or vendor implementation details", () => {

@@ -17,9 +17,14 @@ import {
   buildPublicMetadata,
   buildSoftwareApplicationSchema
 } from "@/lib/seo";
+import { paidPlanCapacityDelta, paidPlanConfig } from "@/lib/paid-plan-config";
+
+const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
+const annualPlan = paidPlanConfig("PRO_ANNUAL");
+const annualAdvantage = paidPlanCapacityDelta();
 
 const pricingDescription =
-  "Simple pricing for personal article podcasts. Start free or upgrade to Pro for $15 monthly or $130 annually with summaries, weekly digests, and higher limits.";
+  `Simple pricing for personal article podcasts. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} private podcast episodes per day, or go annual for ${annualPlan.dailyPodcastLimit} per day, ${annualPlan.weeklySummaryLimit} manual summaries every 7 days, and nearly 30% savings.`;
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "Pricing",
@@ -72,7 +77,8 @@ export default async function PricingPage({
             </p>
             <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Simple pricing for personal listening</h1>
             <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-              Start free. Upgrade to Pro when you want higher limits, manual summaries, and weekly digest workflows.
+              Start free. Upgrade to Pro when you want manual summaries and weekly digest workflows. Annual gives you the
+              better rate plus more room to publish and summarize.
             </p>
             {billingState?.mode.effectiveLane === "SANDBOX" ? (
               <p className="max-w-2xl rounded-lg border border-[#d9d0a7] bg-[#fff9e8] px-4 py-3 text-sm text-[#6f5400]">
@@ -111,11 +117,11 @@ export default async function PricingPage({
 
             <article className="card border-[#9ad0c0] p-5">
               <h2 className="text-lg font-semibold">Pro Monthly</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">For regular use.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">For steady weekly use.</p>
               <p className="mt-3 text-2xl font-bold">$15/mo</p>
               <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-                <li>- 15 new private podcast episodes per 24 hours</li>
-                <li>- 5 manual summaries per 7 days</li>
+                <li>- {monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
+                <li>- {monthlyPlan.weeklySummaryLimit} manual summaries per 7 days</li>
                 <li>- Chrome extension capture</li>
                 <li>- Weekly digest podcast + email options</li>
               </ul>
@@ -158,12 +164,17 @@ export default async function PricingPage({
             <article className="card border-[#9ad0c0] bg-[#f8fcfb] p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Best value</p>
               <h2 className="mt-1 text-lg font-semibold">Pro Annual</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">For committed use.</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">For committed, high-frequency use.</p>
               <p className="mt-3 text-2xl font-bold">$130/yr</p>
               <p className="mt-1 text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
+              <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
+                Plus {annualAdvantage.extraDailyPodcasts} extra daily episode slot
+                {annualAdvantage.extraDailyPodcasts === 1 ? "" : "s"} and {annualAdvantage.extraWeeklySummaries} more manual
+                summaries than monthly.
+              </p>
               <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-                <li>- 15 new private podcast episodes per 24 hours</li>
-                <li>- 5 manual summaries per 7 days</li>
+                <li>- {annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
+                <li>- {annualPlan.weeklySummaryLimit} manual summaries per 7 days</li>
                 <li>- Chrome extension capture</li>
                 <li>- Weekly digest podcast + email options</li>
               </ul>
@@ -204,6 +215,15 @@ export default async function PricingPage({
             </article>
           </section>
 
+          <section className="mt-8 rounded-2xl border border-[#cfe7df] bg-[#edf8f5] p-5">
+            <h2 className="text-lg font-semibold">Why Pro Annual wins</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#155240]">
+              Annual is designed for people who expect ArticlePod to be part of their regular routine. You save nearly 30%,
+              keep the higher {annualPlan.dailyPodcastLimit}-episode daily capacity, and get {annualPlan.weeklySummaryLimit}
+              manual summaries every 7 days instead of {monthlyPlan.weeklySummaryLimit}.
+            </p>
+          </section>
+
           <section className="mt-8 grid gap-4 lg:grid-cols-2">
             <article className="card p-5">
               <h2 className="text-lg font-semibold">Who Starter is for</h2>
@@ -213,10 +233,11 @@ export default async function PricingPage({
               </p>
             </article>
             <article className="card p-5">
-              <h2 className="text-lg font-semibold">Who Pro is for</h2>
+              <h2 className="text-lg font-semibold">Why annual stands out</h2>
               <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-                Pro is for regular use when the private RSS feed becomes part of your weekly routine and you want manual summaries, weekly
-                digest workflows, and more episode capacity without friction.
+                Monthly is the lighter paid entry. Pro Annual is the stronger fit when the private RSS feed becomes part of your
+                weekly routine and you want the best rate, the full {annualPlan.dailyPodcastLimit}-episode daily allowance, and
+                {annualPlan.weeklySummaryLimit} manual summaries every 7 days.
               </p>
             </article>
           </section>
