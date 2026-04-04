@@ -174,7 +174,11 @@ test("resources page stays focused on Chrome capture and podcast app listening",
     source.includes("/resources/articlepod-extension-flow.gif"),
     true,
   );
-  assert.equal(source.includes("see the popup flow"), true);
+  assert.equal(
+    source.includes("the best version of articlepod feels almost invisible."),
+    true,
+  );
+  assert.equal(source.includes("quick start"), false);
   assert.equal(source.includes("connect code"), false);
   assert.equal(source.includes("token"), false);
   assert.equal(source.includes("xml"), false);
