@@ -19,6 +19,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 ## Accounts
 Set passwords via environment variables before seeding (see `.env.example`):
 - Demo account: `demo@articlepod.local` — password from `DEMO_PASSWORD` env var
+- Chrome Web Store reviewer account: `chrome-reviewer@articlepod.com` by default — seeded only when `WEBSTORE_REVIEWER_PASSWORD` is set, and provisioned with complimentary Pro access so review captures do not hit normal quota limits
 - Admin account: `admin@articlepod.local` — password from `ADMIN_PASSWORD` env var
 - Admin login redirects directly to `/admin` for faster dashboard access.
 - Admin accounts cannot be deleted through `/api/account/delete` (protected server-side and hidden in dashboard UI).
@@ -63,6 +64,7 @@ Connect flow:
 2. Paste code in extension popup and connect; runtime config still points to `https://articlepod.com`, while the packaged manifest keeps broad HTTP/HTTPS host access so users can capture arbitrary pages without a second Chrome site-access prompt.
 3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page, including lightweight Cloudflare `Verifying...` challenge shells; the popup itself stays mostly focused on DOM capture and cleanup.
+5. Chrome Web Store reviewers should use the dedicated reviewer login, then open `/app/chrome-extension`; the page auto-prepares a fresh one-time connect code on load. The installed extension token remains long-lived after pairing, but the connect code itself intentionally stays one-time and time-limited.
 
 ## Workspace layout
 - `/app` is a focused creation workspace:

@@ -128,6 +128,7 @@
   - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - private feed URL and extension connect code boxes now copy directly on tap/click with inline confirmation feedback for desktop and mobile users.
   - signed-in `/app/chrome-extension` now prepares a connect code on load, and the Chrome Web Store CTA also attempts to copy the current code before opening the listing.
+  - production deploy can optionally seed a dedicated Chrome Web Store reviewer account with complimentary Pro access, while reviewer pairing still relies on the normal one-time connect code generated after login.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
@@ -3128,8 +3129,8 @@ Milestone metadata contract:
 - evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04)
 - Scope:
   - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
-  - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
   - Strip standalone leaked image-asset URL fragments before cleaned source markdown is persisted or narrated.
+  - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
   - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
   - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
   - Keep bulk comparison local/latest-code only and stop before DB writes, queueing, and audio generation.
@@ -3146,8 +3147,8 @@ Milestone metadata contract:
   - `docs/documentation.md`
 - Acceptance criteria:
   - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
-  - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
   - Stored markdown cleanup no longer leaves standalone raw image-asset URL lines that would be spoken by TTS or preserved in `source.md`.
+  - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
   - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
   - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
   - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.

@@ -319,6 +319,10 @@ The `Deploy to Azure` workflow now assumes the same live topology as the VM:
   - `APP_AZURE_OPENAI_API_KEY`
   - `APP_AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
   - `APP_AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
+- Optional Chrome Web Store reviewer secrets:
+  - `APP_WEBSTORE_REVIEWER_EMAIL`
+  - `APP_WEBSTORE_REVIEWER_PASSWORD`
+  - when both are present, the production deploy seeds/updates that reviewer account during the normal demo bootstrap and grants complimentary Pro access for review coverage
 
 ## GitHub Actions deploy guardrails
 `Deploy to Azure` now auto-runs on every push to `main` and enforces post-deploy smoke checks. Configure this secret in GitHub repository settings:

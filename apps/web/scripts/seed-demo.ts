@@ -3,8 +3,9 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider, createSecretToken } from "@articlepod/core";
+import { BRAND_NAME, BRAND_SLUG, KokoroTtsProvider } from "@articlepod/core";
 import { ensureUserFeedTokenAccess, hashPassword } from "../src/lib/auth";
+import { setComplimentaryProAccess } from "../src/lib/billing";
 import { getBundledDemoAudioBuffer, resolveDemoAudioStrategy } from "../src/lib/demo-seed";
 import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
@@ -15,6 +16,8 @@ import { getArtifactStorage, normalizeStorageKey } from "../src/lib/storage";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
 
 const DEMO_EMAIL = env.demoEmail;
+const WEBSTORE_REVIEWER_EMAIL = env.webstoreReviewerEmail;
+const WEBSTORE_REVIEWER_PASSWORD = env.webstoreReviewerPassword?.trim() || null;
 
 if (!env.demoPassword) {
   console.error(
@@ -26,6 +29,13 @@ if (!env.demoPassword) {
 const DEMO_PASSWORD = env.demoPassword;
 const DEMO_TEXT =
   `Welcome to ${BRAND_NAME}. This starter episode proves the feed works before any API keys are configured.`;
+
+type SeededUserInput = {
+  email: string;
+  password: string;
+  name: string;
+  complimentaryPro?: boolean;
+};
 
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolveRun, rejectRun) => {
@@ -98,19 +108,71 @@ async function ensureStarterAudioObject(relativePath: string): Promise<number> {
   return stored.bytes;
 }
 
-function logDemoSeedSummary(feedTokenPlain: string | null) {
+async function ensureSeedUser(input: SeededUserInput) {
+  const passwordHash = await hashPassword(input.password);
+  const usesAzureTablePrimary = webUsesAzureTablePrimary() && webPrimaryStore;
+  let user = usesAzureTablePrimary
+    ? await findPrimaryUserByEmail(input.email)
+    : await prisma.user.findUnique({ where: { email: input.email } });
+
+  if (!user) {
+    user = usesAzureTablePrimary
+      ? await createPrimaryUser({
+          email: input.email,
+          name: input.name,
+          passwordHash,
+          role: "USER"
+        })
+      : await prisma.user.create({
+          data: {
+            email: input.email,
+            name: input.name,
+            passwordHash,
+            role: "USER"
+          }
+        });
+  } else if (usesAzureTablePrimary) {
+    user = await updatePrimaryUser(user.id, {
+      name: input.name,
+      passwordHash
+    });
+  } else {
+    user = await prisma.user.update({
+      where: { email: input.email },
+      data: {
+        name: input.name,
+        passwordHash
+      }
+    });
+  }
+
+  if (!user) {
+    throw new Error(`Failed to create or update seeded user ${input.email}.`);
+  }
+
+  if (input.complimentaryPro !== undefined) {
+    await setComplimentaryProAccess(user.id, input.complimentaryPro);
+  }
+
+  await ensureUserFeedTokenAccess(user.id);
+  return user;
+}
+
+function logSeedSummary(options: { reviewerSeeded: boolean }) {
   // eslint-disable-next-line no-console
   console.log("Demo seed complete");
   // eslint-disable-next-line no-console
-  console.log(`Demo user: ${DEMO_EMAIL}`);
+  console.log(`Demo user: ${DEMO_EMAIL} (password sourced from DEMO_PASSWORD env var)`);
   // eslint-disable-next-line no-console
-  console.log(`Demo password: ${DEMO_PASSWORD}`);
-  if (feedTokenPlain) {
+  console.log("Demo feed access ensured without logging the private feed URL.");
+  if (options.reviewerSeeded) {
     // eslint-disable-next-line no-console
-    console.log(`Feed URL: ${env.appUrl}/rss/${feedTokenPlain}.xml`);
+    console.log(
+      `Chrome Web Store reviewer: ${WEBSTORE_REVIEWER_EMAIL} (password sourced from WEBSTORE_REVIEWER_PASSWORD env var)`
+    );
   } else {
     // eslint-disable-next-line no-console
-    console.log("Feed URL: existing active token preserved (private URL not displayable from seed path)");
+    console.log("Chrome Web Store reviewer: not configured (set WEBSTORE_REVIEWER_PASSWORD to seed one).");
   }
 }
 
@@ -118,52 +180,21 @@ async function main() {
   await ensureDataDirs();
   await ensureAdminUser();
 
-  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
-  const usesAzureTablePrimary = webUsesAzureTablePrimary() && webPrimaryStore;
-  let user = usesAzureTablePrimary
-    ? await findPrimaryUserByEmail(DEMO_EMAIL)
-    : await prisma.user.findUnique({ where: { email: DEMO_EMAIL } });
-  if (!user) {
-    user = usesAzureTablePrimary
-      ? await createPrimaryUser({
-          email: DEMO_EMAIL,
-          name: "Demo Listener",
-          passwordHash: demoPasswordHash,
-          role: "USER"
-        })
-      : await prisma.user.create({
-          data: {
-            email: DEMO_EMAIL,
-            name: "Demo Listener",
-            passwordHash: demoPasswordHash,
-            role: "USER"
-          }
-        });
-  } else if (usesAzureTablePrimary) {
-    await updatePrimaryUser(user.id, { passwordHash: demoPasswordHash });
-  } else {
-    await prisma.user.update({ where: { email: DEMO_EMAIL }, data: { passwordHash: demoPasswordHash } });
+  const user = await ensureSeedUser({
+    email: DEMO_EMAIL,
+    password: DEMO_PASSWORD,
+    name: "Demo Listener"
+  });
+
+  if (WEBSTORE_REVIEWER_PASSWORD) {
+    await ensureSeedUser({
+      email: WEBSTORE_REVIEWER_EMAIL,
+      password: WEBSTORE_REVIEWER_PASSWORD,
+      name: "Chrome Web Store Reviewer",
+      complimentaryPro: true
+    });
   }
-
-  const feedTokenPlain = usesAzureTablePrimary
-    ? (await ensureUserFeedTokenAccess(user.id)).tokenValue ?? null
-    : await (async () => {
-        const activeFeed = await prisma.feedToken.findFirst({ where: { userId: user.id, active: true } });
-        if (activeFeed?.tokenValue) {
-          return activeFeed.tokenValue;
-        }
-
-        const token = createSecretToken();
-        await prisma.feedToken.create({
-          data: {
-            userId: user.id,
-            tokenValue: token.plain,
-            tokenHash: token.hash,
-            active: true
-          }
-        });
-        return token.plain;
-      })();
+  const usesAzureTablePrimary = webUsesAzureTablePrimary() && webPrimaryStore;
 
   const relativePath = normalizeStorageKey(join("items", "demo-starter", "episode.mp3"));
   const bytes = await ensureStarterAudioObject(relativePath);
@@ -204,7 +235,7 @@ async function main() {
         mimeType: "audio/mpeg",
         publishedAt: new Date()
       });
-      logDemoSeedSummary(feedTokenPlain);
+      logSeedSummary({ reviewerSeeded: Boolean(WEBSTORE_REVIEWER_PASSWORD) });
       return;
     }
 
@@ -229,7 +260,7 @@ async function main() {
         publishedAt: episode?.publishedAt ?? new Date()
       });
     }
-    logDemoSeedSummary(feedTokenPlain);
+    logSeedSummary({ reviewerSeeded: Boolean(WEBSTORE_REVIEWER_PASSWORD) });
     return;
   }
 
@@ -287,7 +318,7 @@ async function main() {
         }
       });
     }
-    logDemoSeedSummary(feedTokenPlain);
+    logSeedSummary({ reviewerSeeded: Boolean(WEBSTORE_REVIEWER_PASSWORD) });
     return;
   }
 
@@ -302,7 +333,7 @@ async function main() {
     });
   }
 
-  logDemoSeedSummary(feedTokenPlain);
+  logSeedSummary({ reviewerSeeded: Boolean(WEBSTORE_REVIEWER_PASSWORD) });
 }
 
 main()

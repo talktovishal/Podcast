@@ -31,6 +31,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
   - public `/resources` now reuses the same Chrome extension setup cards as `/app/chrome-extension`; logged-out visitors can see the walkthrough but cannot reveal or copy the one-time connect code.
   - release tooling now verifies packaged popup module dependencies before upload, and the live-site smoke harness can target the packaged artifact from `dist/extension/package` for release-candidate testing.
+  - production deploys can now seed a dedicated Chrome Web Store reviewer account from env secrets, but reviewer pairing still uses the normal one-time 24-hour connect code generated after login instead of a permanent shared code.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
@@ -65,8 +66,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
   - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
   - Canonical markdown cleanup and narration normalization now also strip residual raw HTML tags, decode common HTML entities, and flatten legacy table markup / markdown table separator remnants before TTS.
-  - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
   - Cleanup also drops standalone leaked image-asset URL lines and wrapper fragments so CDN paths do not persist into markdown or narration.
+  - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
   - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.

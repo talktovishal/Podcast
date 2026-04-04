@@ -32,6 +32,18 @@ test("seed demo fast path no longer shells out to ffmpeg", () => {
   assert.doesNotMatch(source, /run\("ffmpeg"/);
 });
 
+test("seed script can provision a dedicated Chrome Web Store reviewer without logging secrets", () => {
+  const seedScriptPath = resolve(process.cwd(), "scripts/seed-demo.ts");
+  const source = readFileSync(seedScriptPath, "utf8");
+
+  assert.match(source, /WEBSTORE_REVIEWER_EMAIL = env\.webstoreReviewerEmail/);
+  assert.match(source, /WEBSTORE_REVIEWER_PASSWORD = env\.webstoreReviewerPassword\?\./);
+  assert.match(source, /setComplimentaryProAccess\(user\.id, input\.complimentaryPro\)/);
+  assert.match(source, /Chrome Web Store reviewer: .*WEBSTORE_REVIEWER_PASSWORD env var/);
+  assert.doesNotMatch(source, /Demo password:/);
+  assert.doesNotMatch(source, /Feed URL:/);
+});
+
 test("parity compose gives the web healthcheck a startup grace period", () => {
   const composePath = resolve(process.cwd(), "../..", "docker-compose.parity.yml");
   const source = readFileSync(composePath, "utf8");
@@ -109,10 +121,23 @@ test("parity env fixtures and checks require runtime secrets", () => {
   const envSource = readFileSync(resolve(root, ".env.parity.example"), "utf8");
   const checkEnvSource = readFileSync(resolve(root, "scripts/check-env.mjs"), "utf8");
 
+  assert.match(envSource, /^WEBSTORE_REVIEWER_EMAIL="chrome-reviewer@articlepod\.com"$/m);
+  assert.match(envSource, /^WEBSTORE_REVIEWER_PASSWORD="local-dev-reviewer"$/m);
   assert.match(envSource, /^DIGEST_SCHEDULER_SECRET="[^"]+"/m);
   assert.match(envSource, /^MEDIA_SIGNING_KEY="[^"]+"/m);
   assert.match(
     checkEnvSource,
     /if \(profile === "parity"\) \{\n    return \{\n      required: \[\n(?:\s+"[^"]+",\n)+\s+"DIGEST_SCHEDULER_SECRET",\n\s+"MEDIA_SIGNING_KEY",/m
   );
+});
+
+test("azure deploy forwards optional reviewer secrets into the VM env render", () => {
+  const root = resolve(process.cwd(), "../..");
+  const workflowSource = readFileSync(resolve(root, ".github/workflows/deploy-azure.yml"), "utf8");
+  const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
+
+  assert.match(workflowSource, /WEBSTORE_REVIEWER_EMAIL: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_EMAIL \}\}/);
+  assert.match(workflowSource, /WEBSTORE_REVIEWER_PASSWORD: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_PASSWORD \}\}/);
+  assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_EMAIL=\$\{WEBSTORE_REVIEWER_EMAIL:-chrome-reviewer@articlepod\.com\}$/m);
+  assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_PASSWORD=\$\{WEBSTORE_REVIEWER_PASSWORD:-\}$/m);
 });

@@ -3,6 +3,7 @@ import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from 
 
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
+const DEFAULT_WEBSTORE_REVIEWER_EMAIL = "chrome-reviewer@articlepod.com";
 type MetadataMirrorBackend = "none" | "azure_table";
 type MetadataPrimaryBackend = "prisma" | "azure_table";
 type AnalyticsStorageMode = "full" | "off";
@@ -214,6 +215,8 @@ export const env = {
   pythonTtsTimeoutMs: Number(process.env.PYTHON_TTS_TIMEOUT_MS ?? 120000),
   demoEmail: process.env.DEMO_EMAIL ?? DEFAULT_DEMO_EMAIL,
   demoPassword: process.env.DEMO_PASSWORD,
+  webstoreReviewerEmail: process.env.WEBSTORE_REVIEWER_EMAIL?.trim() || DEFAULT_WEBSTORE_REVIEWER_EMAIL,
+  webstoreReviewerPassword: process.env.WEBSTORE_REVIEWER_PASSWORD,
   adminEmail: process.env.ADMIN_EMAIL ?? DEFAULT_ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD
 };

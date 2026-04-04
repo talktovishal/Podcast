@@ -51,6 +51,9 @@ The smoke command targets the app's stable local fixture page at `/extension-smo
   When the store form asks for justification, enter: _"ArticlePod Capture is a user-invoked tool
   that must read the current HTTP/HTTPS page to capture it into the user's private podcast queue.
   The packaged popup still sends captures only to ArticlePod."_
+- **Reviewer credentials**: use the dedicated production reviewer login seeded from
+  `APP_WEBSTORE_REVIEWER_EMAIL` and `APP_WEBSTORE_REVIEWER_PASSWORD`. Do not paste a raw connect code into the
+  reviewer notes because connect codes are intentionally one-time and 24-hour scoped.
 
 ---
 
@@ -92,6 +95,12 @@ Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smok
 
 11. Install from the private listing while logged in with an allowed account.
 
+12. Reviewer login flow:
+   - Sign in to `https://articlepod.com/login` with the dedicated reviewer account.
+   - Open `https://articlepod.com/app/chrome-extension`.
+   - Copy the auto-prepared one-time connect code from that page and paste it into the popup.
+   - After pairing once, the installed extension token remains valid until it is explicitly revoked.
+
 ---
 
 ## Local fallback (no store)
@@ -111,3 +120,4 @@ You can always run it locally without publishing:
 - If you change permissions in `manifest.json`, Chrome Web Store may require additional review details.
 - The packaged store manifest intentionally keeps broad `http://*/*` and `https://*/*` host access so Chrome does not force per-site access grants before capture.
 - For unpacked local debugging against a different ArticlePod origin, update `apps/extension/runtime-config.js` before loading the extension.
+- Reviewers should always log in and mint a fresh connect code from `/app/chrome-extension`; we intentionally do not maintain a permanent reusable pairing code.

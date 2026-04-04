@@ -71,6 +71,8 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 
 ## Shared auth/admin
 - `DEMO_EMAIL`
+- `WEBSTORE_REVIEWER_EMAIL` (default `chrome-reviewer@articlepod.com`; seeded only when `WEBSTORE_REVIEWER_PASSWORD` is also set)
+- `WEBSTORE_REVIEWER_PASSWORD` (optional; when set, production deploy seeds a dedicated Chrome Web Store reviewer account with complimentary Pro access)
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
