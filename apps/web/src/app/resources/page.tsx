@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ComponentType } from "react";
 import type { Metadata } from "next";
@@ -330,6 +331,31 @@ export default async function ResourcesPage() {
                 >
                   {user ? "Finish setup inside the app" : "Create your account"}
                 </Link>
+              </div>
+              <div className="mt-6 rounded-2xl border border-[rgba(31,122,90,0.15)] bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[var(--ink)]">
+                    See the popup flow
+                  </p>
+                  <p className="text-xs uppercase tracking-[0.14em] text-[#4d7b72]">
+                    Real extension UI
+                  </p>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                  <Image
+                    alt="Animated walkthrough of the ArticlePod Chrome extension connect and capture flow."
+                    className="h-auto w-full"
+                    height={1027}
+                    priority={false}
+                    src="/resources/articlepod-extension-flow.gif"
+                    unoptimized
+                    width={800}
+                  />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                  The extension only needs a quick one-time connection before
+                  you can capture the page you are already reading.
+                </p>
               </div>
             </aside>
           </section>

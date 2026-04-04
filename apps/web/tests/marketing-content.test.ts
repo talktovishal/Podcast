@@ -170,6 +170,11 @@ test("resources page stays focused on Chrome capture and podcast app listening",
   assert.equal(source.includes("/app/podcast-apps"), true);
   assert.equal(source.includes("apple podcasts"), true);
   assert.equal(source.includes("pocket casts"), true);
+  assert.equal(
+    source.includes("/resources/articlepod-extension-flow.gif"),
+    true,
+  );
+  assert.equal(source.includes("see the popup flow"), true);
   assert.equal(source.includes("connect code"), false);
   assert.equal(source.includes("token"), false);
   assert.equal(source.includes("xml"), false);
