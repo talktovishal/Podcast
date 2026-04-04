@@ -65,6 +65,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
   - Canonical markdown cleanup and narration normalization now also strip residual raw HTML tags, decode common HTML entities, and flatten legacy table markup / markdown table separator remnants before TTS.
   - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
+  - Cleanup also drops standalone leaked image-asset URL lines and wrapper fragments so CDN paths do not persist into markdown or narration.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
   - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.

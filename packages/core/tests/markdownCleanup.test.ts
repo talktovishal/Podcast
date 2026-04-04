@@ -127,6 +127,28 @@ Tommy Thompson, 73, discovered millions of dollars' worth of sunken treasure fro
   assert.ok(!cleaned.includes("https://"));
 });
 
+test("cleanExtractedMarkdown removes standalone raw image asset url fragments from source markdown", () => {
+  const cleaned = cleanExtractedMarkdown(`
+March 20, 2026
+
+/https://tf-cmsv2-smithsonianmag-media.s3.amazonaws.com/accounts/headshot/Ramsha_Zubairi-edit.png)
+
+:focal(512x336:513x337)/https://tf-cmsv2-smithsonianmag-media.s3.amazonaws.com/filer_public/25/cb/25cb708a-97b2-463b-b3f6-c208632d7dbc/gettyimages-645604187.jpg)
+
+Ramsha Zubairi is a historian of science who studies observatories and archives.
+
+The article opens by explaining how eclipse data changed the way researchers compared sky surveys across decades.
+`);
+
+  assert.ok(cleaned.startsWith("Ramsha Zubairi is a historian of science"));
+  assert.ok(cleaned.includes("The article opens by explaining how eclipse data changed"));
+  assert.ok(!cleaned.includes("March 20, 2026"));
+  assert.ok(!cleaned.includes("smithsonianmag-media"));
+  assert.ok(!cleaned.includes(".png"));
+  assert.ok(!cleaned.includes(".jpg"));
+  assert.ok(!cleaned.includes(":focal("));
+});
+
 test("cleanExtractedMarkdown removes Fast Company promo and legal footer paragraphs", () => {
   const cleaned = cleanExtractedMarkdown(`
 Last fall, Chives took over Reddit.
@@ -287,6 +309,24 @@ I added a \\[scratchpad\\] file for the agent to use as working memory. This wor
   assert.ok(narration.includes("I added a [scratchpad] file for the agent to use as working memory."));
   assert.ok(!narration.includes("https://"));
   assert.ok(!narration.includes("↩"));
+});
+
+test("markdownToNarrationText does not narrate standalone image asset urls", () => {
+  const narration = markdownToNarrationText(`
+The profile image line below leaked out of a stored markdown artifact.
+
+/https://cdn.example.com/authors/portrait.webp)
+
+:focal(512x336:513x337)/https://cdn.example.com/photos/hero.jpg)
+
+The body text should remain available for narration without speaking the asset path.
+`);
+
+  assert.ok(narration.includes("The body text should remain available for narration"));
+  assert.ok(!narration.includes("cdn.example.com"));
+  assert.ok(!narration.includes("portrait.webp"));
+  assert.ok(!narration.includes("hero.jpg"));
+  assert.ok(!narration.includes(":focal("));
 });
 
 test("markdownToNarrationText strips raw HTML tags and markdown table separator remnants", () => {

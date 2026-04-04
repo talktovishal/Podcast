@@ -1,5 +1,6 @@
 const IMAGE_LINK_PATTERN = /\[\s*!\[[\s\S]*?\]\([^)]+\)\s*\]\([^)]+\)/g;
 const IMAGE_PATTERN = /!\[[\s\S]*?\]\([^)]+\)/g;
+const IMAGE_ASSET_URL_PATTERN = /(?:https?:\/\/|www\.)[^\s)]+?\.(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:\?[^\s)]*)?/i;
 const EMPTY_LINK_PATTERN = /\[\s*\]\([^)]+\)/g;
 const LINK_PATTERN = /\[([^\]]+)\]\([^)]+\)/g;
 const DANGLING_LINK_LINE_PATTERN = /^\s*\]\([^)]+\)\s*$/gm;
@@ -199,19 +200,42 @@ function normalizeUnicodeArtifacts(input: string): string {
     .replace(/\uFEFF/g, "");
 }
 
+function stripStandaloneImageAssetLines(input: string): string {
+  return input
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || !IMAGE_ASSET_URL_PATTERN.test(trimmed)) {
+        return line;
+      }
+
+      const residual = trimmed
+        .replace(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi"), " ")
+        .replace(/:focal\([^)]*\)/gi, " ")
+        .replace(/[()[\]\/:.,_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return residual ? line : "";
+    })
+    .join("\n");
+}
+
 function normalizeTransport(markdown: string): string {
-  return normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeUnicodeArtifacts(markdown)))
-    .replace(/\r\n/g, "\n")
-    .replace(IMAGE_LINK_PATTERN, "\n")
-    .replace(IMAGE_PATTERN, "\n")
-    .replace(EMPTY_LINK_PATTERN, " ")
-    .replace(LINK_PATTERN, (_match, label: string) => (label.trim() ? label : " "))
-    .replace(DANGLING_LINK_LINE_PATTERN, "")
-    .replace(EMPTY_LINK_LINE_PATTERN, "")
-    .replace(LONE_BRACKET_LINE_PATTERN, "")
-    .replace(ESCAPED_MARKDOWN_PATTERN, "$1")
-    .replace(FOOTNOTE_BACKREF_PATTERN, " ")
-    .replace(FOOTNOTE_REF_PATTERN, " ")
+  return stripStandaloneImageAssetLines(
+    normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeUnicodeArtifacts(markdown)))
+      .replace(/\r\n/g, "\n")
+      .replace(IMAGE_LINK_PATTERN, "\n")
+      .replace(IMAGE_PATTERN, "\n")
+      .replace(EMPTY_LINK_PATTERN, " ")
+      .replace(LINK_PATTERN, (_match, label: string) => (label.trim() ? label : " "))
+      .replace(DANGLING_LINK_LINE_PATTERN, "")
+      .replace(EMPTY_LINK_LINE_PATTERN, "")
+      .replace(LONE_BRACKET_LINE_PATTERN, "")
+      .replace(ESCAPED_MARKDOWN_PATTERN, "$1")
+      .replace(FOOTNOTE_BACKREF_PATTERN, " ")
+      .replace(FOOTNOTE_REF_PATTERN, " ")
+  )
     .replace(/[ \t]+\n/g, "\n")
     .replace(MULTIPLE_NEWLINES_PATTERN, "\n\n")
     .trim();

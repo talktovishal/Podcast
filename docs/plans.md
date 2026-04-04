@@ -41,7 +41,7 @@
   - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
-  - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, short trailing tag lists, residual raw HTML tags, and legacy HTML/markdown table remnants, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+  - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, short trailing tag lists, standalone image-asset URL fragments, residual raw HTML tags, and legacy HTML/markdown table remnants, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
@@ -3124,10 +3124,11 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-04-02
 - completed_on: 2026-03-25
-- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25)
+- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04)
 - Scope:
   - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
   - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
+  - Strip standalone leaked image-asset URL fragments before cleaned source markdown is persisted or narrated.
   - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
   - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
   - Keep bulk comparison local/latest-code only and stop before DB writes, queueing, and audio generation.
@@ -3145,6 +3146,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
   - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
+  - Stored markdown cleanup no longer leaves standalone raw image-asset URL lines that would be spoken by TTS or preserved in `source.md`.
   - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
   - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
   - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.
