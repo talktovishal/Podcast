@@ -5,6 +5,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ## Spec Status (as of 2026-04-03)
 
 ### Implemented (as of 2026-04-03)
+
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
@@ -89,7 +90,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Submission monetization baseline is implemented:
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
-  - paid Pro access now carries guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days by default
+  - paid access now uses plan-specific guardrails by default: `Pro monthly` includes 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
   - once paid users fill the 24-hour episode-start window, new submissions are still accepted into a capped deferred queue and start automatically in the next available Pro window
   - paid over-limit submissions only return `USAGE_LIMIT_EXCEEDED` after the deferred backlog reaches its cap (default: 30 queued items)
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
@@ -97,7 +98,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
   - access is granted or extended only from webhook-confirmed billing events; `/app` and `/app/settings` now show pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
-  - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and “save nearly 30%” annual positioning
+  - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and annual positioning that emphasizes both “save nearly 30%” and the higher 15-episode / 10-summary capacity
   - login now preserves pricing/billing return intent so “sign in to upgrade” comes back to the hosted checkout path instead of dropping users into the generic workspace
   - production can now carry both live Stripe and sandbox Stripe in the same deploy: live billing stays default, while admins and allowlisted tester emails can switch billing mode in `/app/settings` and exercise sandbox checkout, portal, and webhooks without changing live entitlements or quotas
   - the repo carries a checked-in internal sandbox tester allowlist for the core founder/demo/admin accounts, while `BILLING_SANDBOX_ALLOWLIST_EMAILS` can extend that list per environment
@@ -170,7 +171,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
   - The web submit flow now keeps `Title`, `Importance`, and `Tags` inside a lighter `Optional details` panel that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
-  - The extension popup keeps metadata inside a compact bordered optional block, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
+  - The extension popup keeps metadata inside a compact bordered optional block that starts collapsed, remembers the user's last expanded/collapsed choice in that Chrome profile, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
   - `/app` Recent items now renders saved importance plus tag chips, while `/app/summary` article selection includes lightweight client-side filters for importance and tag.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
   - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, title-first article cards, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
@@ -195,6 +196,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now stop after the focused CTA instead of repeating the top-level site nav and ArticlePod summary in a footer.
 
 ### Next Milestones
+
 - Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
@@ -244,6 +246,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional
+
 - Long-form split episodes (Phase 1.5).
 - Bookmarklet variant after extension.
 - Additional provider expansion beyond current Kokoro-first UX.
@@ -265,6 +268,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ### Hard requirements (follow strictly)
 
 **Local run experience**
+
 - One command to start the full stack (document exact commands).
 - Must run on **macOS**.
 - Must run **fully locally by default**:
@@ -275,12 +279,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - I should have a private account that I can setup in a manner that I point someone to a url and they should be able to run as a read only mode so that it's easily demoable to anyone.
 
 **Remote run experience (Azure-ready)**
+
 - Provide a simple path to deploy to Azure later:
   - containerize web + worker
   - document the Azure resource map and env vars
   - do not hardcode any local-only assumptions (except where explicitly labeled dev-only).
 
 **Tech constraints**
+
 - Language: **TypeScript**
 - Frontend: **React + Tailwind**
 - Backend: Node.js (TypeScript) + Python
@@ -288,11 +294,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Do **not** introduce AGPL, SSPL, or “Non-Commercial” dependencies/models for production paths.
 
 **Podcast compatibility constraints**
+
 - RSS and audio hosting must support podcast clients:
   - audio endpoints must support **HTTP HEAD** and **byte-range requests**
   - each RSS item must have unique `<enclosure url=… length=… type=…>` and stable GUID
 
 **Process constraints**
+
 - Every milestone must include explicit verification steps:
   - tests, lint, typecheck, and deterministic snapshots where applicable.
 
@@ -319,14 +327,16 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ## 1) Product spec (build this)
 
 ### Product statement
+
 ArticlePod turns **URLs and PDFs** into **audio episodes** and publishes them to a **private podcast RSS feed** that users can subscribe to in their favorite podcast app.
 
 > Note: Google Podcasts has been discontinued; we target Apple Podcasts and other RSS-capable podcast apps. YouTube Music custom-feed behavior is best-effort and validated using MP3 enclosures.  
-> For local-only demo, we validate RSS and playback via browser + curl; for Apple Podcasts integration you must run the server on a reachable host (Azure deployment or local tunnel).  
+> For local-only demo, we validate RSS and playback via browser + curl; for Apple Podcasts integration you must run the server on a reachable host (Azure deployment or local tunnel).
 
 ### MVP scope (must-have)
 
 A) Account + private feed
+
 - Sign up + login
 - Each user has a private feed URL:
   - `/rss/<feed_token>.xml`
@@ -335,12 +345,14 @@ A) Account + private feed
 - Pro upgrades use Stripe-hosted Checkout; ongoing billing changes/cancelation use Stripe Customer Portal.
 
 B) Ingest content
+
 - Submit URL (HTML article)
 - Upload PDF (text-based PDFs only; no OCR in MVP)
 - Each submission becomes an “Item” with status:
   - queued → processing → ready / failed
 
 C) Convert to audio (worker)
+
 - Worker extracts readable text:
   - URL: SSRF-validated fetch (pinned IP candidates first, hostname fallback when needed) plus Readability extraction with abogen-derived cleanup.
   - PDF: deterministic text extraction (pdfjs path) with markdown output for downstream reuse.
@@ -354,11 +366,13 @@ C) Convert to audio (worker)
   - optionally split very long items into multiple parts (Phase 1.5)
 
 D) Podcast RSS feed
+
 - RSS endpoint renders user feed deterministically
 - Each episode appears as a feed `<item>` with stable GUID and unique enclosure
 - Enclosure points to a media URL that supports HEAD + Range
 
 E) Web UI (polished)
+
 - `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
@@ -386,6 +400,7 @@ E) Web UI (polished)
 - Strong empty states, toasts, clear failure messages, modern UI.
 
 F) Admin Module
+
 - Secure admin login with a predefined administrator account.
 - Admin login can route directly to `/admin` for dashboard-first access.
 - Role-gated, tabbed admin analytics dashboard with:
@@ -407,12 +422,14 @@ F) Admin Module
 - Enables monitoring, debugging, and investor-facing storytelling with clear usage metrics.
 
 G) Export
+
 - `pnpm export` writes:
   - RSS XML to `exports/rss.xml`
   - media files to `exports/media/`
   - a JSON manifest listing episodes and file paths
 
 H) Quality and engineering
+
 - Strong types + schema validation for API inputs (Zod)
 - Deterministic serialization:
   - RSS generation produces stable ordering and stable XML formatting
@@ -423,6 +440,7 @@ H) Quality and engineering
 - License gate in CI: block AGPL / SSPL / NC.
 
 I) Extraction artifacts (near-term track)
+
 - Current (`M57`-`M64` implemented):
   - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
   - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
@@ -433,11 +451,13 @@ I) Extraction artifacts (near-term track)
   - apply retention lifecycle to generated audio episodes (target 60 days) with backfill + purge tooling for existing rows.
 
 ### Explicit non-goals (MVP)
+
 - Native mobile app
 - Word-by-word highlighting in third-party podcast apps
 - Voice cloning
 
 ### Next Milestones (Post-MVP Phase 2)
+
 - Add net-new milestones only (do not reopen completed milestones).
 - Candidate future themes:
   - cost optimization rollout (`C01`-`C07`) with strict burn-rate guardrails
@@ -446,6 +466,7 @@ I) Extraction artifacts (near-term track)
   - bookmarklet ingestion mode after extension baseline
 
 Policy for authenticated/paywalled pages:
+
 - Extension capture is allowed only for content already rendered to the logged-in user in the browser.
 - No credential forwarding, session forwarding, or backend login replay.
 - No headless bypass, paywall bypass, or DRM bypass automation.
@@ -455,6 +476,7 @@ Policy for authenticated/paywalled pages:
 ## 2) Architecture constraints and layout (keep the repo maintainable)
 
 ### Monorepo layout
+
 - `apps/web/` — Next.js (React + Tailwind) UI + API routes (RSS endpoint lives here)
 - `apps/worker/` — Node.js worker that processes queued items
 - `packages/core/` — shared types, schemas, RSS builder, extraction utilities, TTS provider interfaces (local and remote)
@@ -465,20 +487,25 @@ Policy for authenticated/paywalled pages:
 - `scripts/` — helper scripts (export, seed demo, license report)
 
 ### Key architectural rule
+
 **The web app must never do heavy conversion work in request handlers.**  
 All extraction/TTS runs in the worker. The web app only:
+
 - creates items/jobs
 - renders status
 - renders RSS XML
 - serves local media files (dev mode)
 
 ### Derived-from-upstream rule (to leverage existing work safely)
-We will leverage `https://github.com/denizsafak/abogen`,  `https://github.com/iamspruce/postcast` (MIT) as a **reference** for:
+
+We will leverage `https://github.com/denizsafak/abogen`, `https://github.com/iamspruce/postcast` (MIT) as a **reference** for:
+
 - Readability extraction plumbing
 - RSS generation patterns
 - pipeline structuring patterns
 
 **Do not fork it** and do not edit it in-place:
+
 - include it under `vendor/postcast/` (submodule or pinned copy)
 - copy only the minimal code patterns we need into our own packages with attribution in `docs/THIRD_PARTY.md`.
 
@@ -487,7 +514,9 @@ We will leverage `https://github.com/denizsafak/abogen`,  `https://github.com/ia
 ## 3) Process requirements (follow strictly)
 
 ### 3.1 PLANNING FIRST
+
 Before writing any code:
+
 - Create `plans.md` with **at least 12 milestones**.
 - For each milestone include:
   - scope
@@ -515,22 +544,27 @@ Before writing any code:
 Do NOT start coding until `plans.md` exists and is coherent.
 
 ### 3.2 SCAFFOLD SECOND
+
 Initialize repo, scripts, lint/typecheck/test harness.
 One command `pnpm dev` must start the system.
 
 ### 3.3 IMPLEMENT THIRD
+
 Implement one milestone at a time.
 After each milestone:
+
 - run verification commands
 - fix issues
 - commit with a clear message
 
 ### 3.4 UX polish throughout
+
 - clean design
 - empty states, toasts, quick “copy feed” UX
 - demo banner when running with demo data
 
 ### 3.5 If you hit complexity choices
+
 Prefer correctness and maintainability over extra features.
 Document tradeoffs in `plans.md`.
 
@@ -539,6 +573,7 @@ Document tradeoffs in `plans.md`.
 ## 4) Engineering details (prescriptive)
 
 ### 4.1 DB and storage (local-first)
+
 - Local DB: SQLite via Prisma (file in `apps/web/.data/db.sqlite`)
 - Local media storage (dev): `apps/web/.data/media/`
 - In Azure mode:
@@ -548,6 +583,7 @@ Document tradeoffs in `plans.md`.
   - media stored in Azure Blob Storage
 
 ### 4.2 Job engine (deterministic + idempotent)
+
 - Item statuses:
   - `queued`, `processing`, `ready`, `failed`
 - Worker must be idempotent:
@@ -557,6 +593,7 @@ Document tradeoffs in `plans.md`.
   - append-only events in DB for debugging + deterministic snapshots
 
 ### 4.3 TTS provider interface
+
 In `packages/core` define:
 
 - `TtsProvider.synthesizeToFile({ text, voice, format, outPath })`
@@ -566,23 +603,27 @@ In `packages/core` define:
   - Scaffolding in place to host and run tts models.
 
 Chunking:
+
 - chunk text by paragraphs/sentences to avoid max limits
 - persist chunk hashes for caching
 
 ### 4.4 Media serving requirements (dev mode)
+
 If serving media from the web server:
+
 - Must implement:
   - `HEAD` returning correct `Content-Length`
   - `Range` returning `206 Partial Content` and correct `Content-Range`
 
 ### 4.5 RSS generation requirements
+
 - Deterministic ordering (published_at desc, then stable tiebreaker)
 - Stable GUID per episode
 - Unique enclosure URL per episode
 - Include `length` (bytes) and `type` (audio/mpeg or audio/mp4)
 
 Start now.
-First, create `plans.md` with the complete plan, risk register, demo script, and architecture overview. Do NOT start coding until `plans.md` exists and is coherent. 
+First, create `plans.md` with the complete plan, risk register, demo script, and architecture overview. Do NOT start coding until `plans.md` exists and is coherent.
 
 ## Security Hardening Requirements (added 2026-02-28)
 
@@ -591,6 +632,7 @@ Each item must be implemented before the corresponding milestone is marked Done.
 No item may be marked Done without passing the verification commands listed in its milestone.
 
 ### Authentication (S01, S03, S04, S18)
+
 - Apple Sign-In `id_token` MUST be verified against Apple's JWKS endpoint before trusting any claims. (S01)
 - `POST /api/auth/login` MUST enforce per-IP and per-email rate limits before any DB or bcrypt work. (S03)
 - A dummy bcrypt compare MUST run when the email is not found to normalize response timing. (S03)
@@ -598,57 +640,70 @@ No item may be marked Done without passing the verification commands listed in i
 - Session cookies MUST set `Secure: true` when `runtimeProfile !== "simple"` (not based on `NODE_ENV`). (S18)
 
 ### Token Storage (S02)
+
 - `FeedToken`, `DigestFeedToken`, `ShareToken`, and `ExtensionToken` MUST NOT store `tokenValue` (plaintext) in the database.
 - Only `tokenHash` may be persisted. Plaintext token is returned once at creation time only.
 - A DB migration MUST invalidate all existing plaintext-stored tokens and trigger re-issuance.
 - Compatibility note: this migration is not complete today. Newly created and rotated item/digest feed tokens still persist `tokenValue` so `/app/settings` can re-display the same private RSS URL. Legacy hash-only feed rows must remain active until the user explicitly rotates them; do not silently rotate subscribers onto a new feed URL. Do not treat S02 as done until that replacement UX and migration path exist.
 
 ### SSRF and URL Fetching (S08)
+
 - After DNS resolution in `validateFetchableUrl`, the resolved IP MUST be passed through to the actual fetch call.
 - The fetch MUST use the resolved IP directly (with `Host` header set) to prevent DNS rebinding.
 
 ### Media Token Exposure (S16)
+
 - Enclosure URLs in RSS feeds MUST NOT contain the long-lived `feed_token` as a query parameter.
 - Media access MUST use short-lived HMAC-signed URLs generated at RSS serve time.
 - A `MEDIA_SIGNING_KEY` environment variable (min 32 bytes) MUST be required for `parity` and `azure` profiles.
 
 ### Python TTS Sidecar (S07)
+
 - `POST /v1/synthesize` MUST require an `X-Sidecar-Secret` header matching the `TTS_SIDECAR_SECRET` env var.
 - The Dockerfile MUST include a `USER app` directive (no root process).
 - uvicorn MUST bind to `127.0.0.1` in production profiles.
 
 ### Rate Limiting (S11)
+
 - `enforceRateLimit` MUST be backed by a persistent shared store (Postgres `RateLimitBucket` table) for `parity` and `azure` profiles.
 - In-memory fallback is acceptable for `simple` profile only.
 
 ### HTTP Headers (S09)
+
 - All responses MUST include: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a baseline `Content-Security-Policy`.
 
 ### Global Auth Middleware (S10)
+
 - A `middleware.ts` MUST exist that enforces session authentication for all `/app` and `/api/` routes.
 - A `PUBLIC_ROUTES` list MUST explicitly enumerate every unauthenticated-accessible path.
 
 ### Upload Validation (S13)
+
 - PDF uploads MUST check the first 5 bytes for the `%PDF-` magic signature before writing to storage.
 - Files failing this check MUST return `INVALID_FILE_TYPE` error code.
 
 ### Digest Scheduler Secret (S06)
+
 - `DIGEST_SCHEDULER_SECRET` MUST be asserted to be non-empty and ≥ 32 characters at server startup for `parity` and `azure` profiles.
 - App MUST fail to start if this assertion fails.
 
 ### Worker Process Health (S12)
+
 - The worker process MUST expose a `GET /health` HTTP endpoint on a configurable port (default 3001).
 - The endpoint MUST return last-poll timestamp and count of stuck jobs.
 
 ### Cross-User Audio Privacy (S05)
+
 - ChunkCache key MUST include `userId` so no user's audio artifacts are stored in another user's item path.
 
 ### Enumeration and Role Hardening (S14, S17)
+
 - Signup conflict responses MUST NOT confirm whether an email is registered.
 - `normalizeRole()` MUST throw on unrecognized role strings rather than silently downgrading.
 - PostgreSQL schema MUST enforce `role IN ('USER', 'ADMIN')` at the DB level.
 
 ### Stale Job Reclaim (S15)
+
 - Stale-job `updateMany` MUST include `status: "PROCESSING"` filter to prevent reverting completed jobs.
 
 ## Verification Prompts
@@ -656,30 +711,36 @@ No item may be marked Done without passing the verification commands listed in i
 Before marking any milestone complete, run and record the results for:
 
 1. Workspace quality gates
+
 - `npm run typecheck`
 - `npm run lint`
 - `npm run test`
 - `npm run build`
 
 2. Export and license gates
+
 - `npm run export`
 - `npm run license:check`
 
 3. Live-site regression gate
+
 - `npm run live-sites:test -- --env local`
 - If GitHub CLI auth is available and VM probes are in scope, run the default dual-mode command:
   - `npm run live-sites:test`
 
 4. Extraction-quality gate
+
 - `npm run extraction-quality:audit`
 - `npm run extraction-quality:test -- --limit 20`
 
 5. Podcast compatibility gate
+
 - Start web server (`npm run start --workspace @articlepod/web -- --hostname 127.0.0.1 --port 3000`)
 - Run:
   - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
 
 6. Feed auth stability gate
+
 - Confirm feed URL is unchanged after:
   - loading `/app`
   - loading `/app/settings`
@@ -689,6 +750,7 @@ Before marking any milestone complete, run and record the results for:
 - Confirm only explicit rotate/revoke flows issue a new externally visible podcast auth token.
 
 6. Demo flow gate
+
 - Confirm seeded demo user can login and see starter item.
 - Confirm starter item plays in browser and seek works.
 - Confirm tabbed admin dashboard loads and shows investor + reliability + users metrics.

@@ -8,7 +8,9 @@ body {
   min-width: 340px;
   background: #ffffff;
   color: #0f172a;
-  transition: background 160ms ease, color 160ms ease;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
 }
 
 body.state-connected {
@@ -77,7 +79,9 @@ button.primary {
 button.primary[data-capture-state="queued"] {
   background: #15803d;
   border-color: #15803d;
-  box-shadow: 0 0 0 1px rgba(21, 128, 61, 0.1), 0 8px 20px rgba(21, 128, 61, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(21, 128, 61, 0.1),
+    0 8px 20px rgba(21, 128, 61, 0.18);
 }
 
 button.primary[data-capture-state="queued"]:disabled {
@@ -201,8 +205,38 @@ body.state-connected .capture-options {
 .optional-card-header {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: stretch;
   gap: 10px;
+}
+
+.optional-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.optional-toggle:focus-visible {
+  outline: 2px solid #2f68e6;
+  outline-offset: 4px;
+}
+
+.optional-toggle-copy {
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.optional-toggle-action {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
 }
 
 .optional-badge {

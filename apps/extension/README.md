@@ -18,11 +18,11 @@ A Manifest V3 Chrome extension that captures the current browser tab, safely rev
 
 ## Prerequisites
 
-| Requirement | Notes |
-|---|---|
-| Node.js ≥ 18 + npm | For the packaging and validation scripts |
-| Python 3 | For icon generation (`generate-extension-icons.py`) |
-| Chrome browser | Developer mode for local unpacked loading |
+| Requirement               | Notes                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Node.js ≥ 18 + npm        | For the packaging and validation scripts                                                             |
+| Python 3                  | For icon generation (`generate-extension-icons.py`)                                                  |
+| Chrome browser            | Developer mode for local unpacked loading                                                            |
 | ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` |
 
 ---
@@ -71,6 +71,7 @@ Server targets are configured in:
 `apps/extension/runtime-config.js`
 
 Default behavior:
+
 - `serverUrl` points to `https://articlepod.com`
 - the packaged manifest keeps broad `http://*/*` + `https://*/*` host access so users can capture arbitrary pages without Chrome asking for one-time per-site access
 - if you want to test against a different local/dev ArticlePod origin, temporarily change `serverUrl` before loading unpacked
@@ -97,19 +98,20 @@ This flow works the same whether you are using the local development server or y
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
    The popup keeps `Importance` and `Tags` inside a bordered optional box with a visible **Optional** badge so it is clear you can skip them.
+   That optional block starts hidden by default and remembers whether you last left it expanded in the current Chrome profile.
    A small footer hyperlink labeled `articlepod.com` also opens the site directly so users always have an obvious way back to the web app.
    Optional metadata in the popup:
    - choose an **Importance** level (`Low`, `Medium`, `High`)
    - add comma-separated **Tags** such as `financial, personal, retirement`
-   The extension does a bounded smart-capture pass first:
+     The extension does a bounded smart-capture pass first:
    - it can reveal likely article continuations with safe `Load more` / `Read more` style clicks
    - it can do a few bounded scroll passes for lazy-loaded content
    - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
    - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
    - it leaves article-vs-block/interstitial classification to the server extraction path instead of trying to fully judge that in the popup
-   When capture succeeds, the popup button stays in a green queued state and becomes non-clickable for that same page so users do not double-submit.
-   The button returns to normal after you switch tabs or navigate to a different page.
-   The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
+     When capture succeeds, the popup button stays in a green queued state and becomes non-clickable for that same page so users do not double-submit.
+     The button returns to normal after you switch tabs or navigate to a different page.
+     The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
 
 ### Capture size guardrail
 
@@ -133,14 +135,15 @@ corepack pnpm extension:package
 
 `extension:package` produces:
 
-| File | Purpose |
-|---|---|
-| `dist/extension/articlepod-capture-v<version>.zip` | Upload this to Chrome Web Store |
-| `dist/extension/articlepod-capture-v<version>.sha256` | Integrity checksum |
-| `dist/extension/webstore/` | Pre-filled listing text templates |
-| `dist/extension/README.txt` | Quick checklist |
+| File                                                  | Purpose                           |
+| ----------------------------------------------------- | --------------------------------- |
+| `dist/extension/articlepod-capture-v<version>.zip`    | Upload this to Chrome Web Store   |
+| `dist/extension/articlepod-capture-v<version>.sha256` | Integrity checksum                |
+| `dist/extension/webstore/`                            | Pre-filled listing text templates |
+| `dist/extension/README.txt`                           | Quick checklist                   |
 
 `extension:package` now runs extension-specific release gates before it leaves behind a ZIP:
+
 - core extension capture tests
 - web auth/exchange integration tests that cover connect-code and snapshot submission
 - live-site extension harness tests, including packaged-artifact dependency checks
@@ -165,6 +168,7 @@ Do not rely on `apps/extension` alone when you are about to upload or publish.
    ```
 
    This runs the packaged smoke flow against the app's stable local fixture page at `/extension-smoke.html`, so the release gate does not depend on a third-party site staying unchanged.
+   The packaged smoke now also proves the popup metadata block starts collapsed, can be expanded, and stays expanded after reopening the popup in the same Chrome profile.
 
 2. If you want a manual local install before Web Store upload, open `chrome://extensions`, enable **Developer mode**, and load unpacked from:
 
@@ -196,6 +200,7 @@ Use `apps/extension` for development. Use `dist/extension/package` or the actual
 The Chrome Web Store requires a publicly reachable privacy policy URL.
 
 Recommended approach:
+
 - **GitHub Gist**: create a public gist, paste the contents of
   `apps/extension/webstore/privacy-policy.md`, and use the raw URL (click **Raw** on the Gist
   page to get a permanent `https://gist.githubusercontent.com/…/raw/…` URL).
@@ -207,6 +212,7 @@ Copy the public URL — you will paste it in the listing form.
 The store requires at least **one screenshot** at exactly **1280×800 or 640×400** pixels.
 
 Suggested screenshots to take:
+
 1. The popup in its unconfigured state (white, connect-code visible).
 2. The popup in configured state (blue) after a successful capture.
 
@@ -230,12 +236,12 @@ Suggested screenshots to take:
 
 4. Fill in the listing fields using the pre-filled templates from `dist/extension/webstore/`:
 
-   | Store field | Template file | Note |
-   |---|---|---|
-   | Short description | `listing-short-description.txt` | Paste as-is |
-   | Detailed description | `listing-description.md` | Plain text only — remove the `#` headers and `**bold**` markers before pasting; the store does not render Markdown |
-   | Privacy policy URL | hosted URL from the prep step above | |
-   | Release notes | `release-notes.md` | Remove `#` headers before pasting |
+   | Store field          | Template file                       | Note                                                                                                               |
+   | -------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+   | Short description    | `listing-short-description.txt`     | Paste as-is                                                                                                        |
+   | Detailed description | `listing-description.md`            | Plain text only — remove the `#` headers and `**bold**` markers before pasting; the store does not render Markdown |
+   | Privacy policy URL   | hosted URL from the prep step above |                                                                                                                    |
+   | Release notes        | `release-notes.md`                  | Remove `#` headers before pasting                                                                                  |
 
 5. Upload your screenshots.
 
@@ -257,6 +263,7 @@ Suggested screenshots to take:
 ### Making the extension public (optional)
 
 To allow anyone to install the extension from the store:
+
 - Change **Visibility** to `Public` in the listing settings.
 - Re-submit for review.
 
@@ -283,11 +290,11 @@ To allow anyone to install the extension from the store:
 
 The extension communicates with these ArticlePod API endpoints:
 
-| Method | Path | Purpose |
-|---|---|---|
+| Method | Path                               | Purpose                                                                     |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------- |
 | `POST` | `/api/auth/extension/connect-code` | Generate a one-time connect code (24-hour default, called from the web app) |
-| `POST` | `/api/auth/extension/exchange` | Exchange connect code for an extension token that stays valid until revoked |
-| `POST` | `/api/items/html-snapshot` | Submit a captured page HTML snapshot |
+| `POST` | `/api/auth/extension/exchange`     | Exchange connect code for an extension token that stays valid until revoked |
+| `POST` | `/api/items/html-snapshot`         | Submit a captured page HTML snapshot                                        |
 
 Authentication uses a scoped **extension token** (Bearer) obtained during the connect flow.
 Tokens can be rotated or revoked from the web app at any time.

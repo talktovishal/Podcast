@@ -9,30 +9,54 @@
   <body>
     <main class="shell">
       <h1>ArticlePod Capture</h1>
-      <p class="muted">Connect once, then capture the current tab into your podcast queue.</p>
+      <p class="muted">
+        Connect once, then capture the current tab into your podcast queue.
+      </p>
 
       <p id="connection-state" class="state-pill">Not configured</p>
 
       <section id="connect-section" class="connect-section">
         <label>
           <span>One-time connect code</span>
-          <input id="connect-code" type="text" placeholder="Paste code from /app" />
+          <input
+            id="connect-code"
+            type="text"
+            placeholder="Paste code from /app"
+          />
         </label>
         <button id="connect-btn" type="button">Connect</button>
       </section>
 
       <div class="row actions">
-        <button id="disconnect-btn" type="button" class="secondary">Disconnect</button>
-        <button id="capture-btn" type="button" class="primary">Capture Current Page</button>
+        <button id="disconnect-btn" type="button" class="secondary">
+          Disconnect
+        </button>
+        <button id="capture-btn" type="button" class="primary">
+          Capture Current Page
+        </button>
       </div>
 
       <section id="capture-options" class="capture-options">
         <div class="optional-card">
           <div class="optional-card-header">
-            <span class="optional-badge">Optional</span>
+            <button
+              id="capture-options-toggle"
+              class="optional-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="capture-options-fields"
+            >
+              <span class="optional-badge">Optional</span>
+              <span class="optional-toggle-copy">Details</span>
+              <span
+                id="capture-options-toggle-action"
+                class="optional-toggle-action"
+                >Show</span
+              >
+            </button>
           </div>
 
-          <div class="optional-fields">
+          <div id="capture-options-fields" class="optional-fields" hidden>
             <label>
               <span>Importance</span>
               <select id="capture-importance">
@@ -43,7 +67,11 @@
             </label>
             <label>
               <span>Tags</span>
-              <input id="capture-tags" type="text" placeholder="financial, personal, retirement" />
+              <input
+                id="capture-tags"
+                type="text"
+                placeholder="financial, personal, retirement"
+              />
             </label>
           </div>
         </div>
@@ -52,7 +80,12 @@
       <p id="token-state" class="muted"></p>
       <p id="status" class="status"></p>
       <div class="footer-link-row">
-        <a class="footer-link" href="https://articlepod.com/" target="_blank" rel="noopener noreferrer">
+        <a
+          class="footer-link"
+          href="https://articlepod.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           articlepod.com
         </a>
       </div>

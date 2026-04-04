@@ -81,7 +81,9 @@ For smoke coverage, the harness creates a temporary unpacked extension copy and 
 For release-candidate testing, pass `--extension-build package` so the smoke step copies from `dist/extension/package` instead of `apps/extension`.
 This is the mode used by `corepack pnpm extension:smoke:package`.
 The dedicated packaged-smoke script targets the app's local `/extension-smoke.html` fixture rather than a third-party corpus URL.
+That packaged smoke also verifies the popup metadata panel starts collapsed, can be expanded, and stays expanded after the popup is reopened in the same Chromium profile.
 
 Release rule:
+
 - use `apps/extension` while you are developing
 - use `dist/extension/package` or the actual Chrome Web Store listing when you are deciding whether a release is safe

@@ -1,15 +1,19 @@
-import { capturePageSnapshot, HTML_SNAPSHOT_MAX_BYTES } from "./capture-page.mjs";
+import {
+  capturePageSnapshot,
+  HTML_SNAPSHOT_MAX_BYTES,
+} from "./capture-page.mjs";
 import { resolvePopupTargetTab } from "./target-tab.mjs";
 
 const STORAGE_KEYS = {
   activeServerUrl: "articlepod_active_server_url",
+  captureOptionsExpanded: "articlepod_capture_options_expanded",
   extensionToken: "articlepod_extension_token",
-  tokenExpiresAt: "articlepod_extension_token_expires_at"
+  tokenExpiresAt: "articlepod_extension_token_expires_at",
 };
 const LEGACY_STORAGE_KEYS = {
   serverUrl: "listenlater_server_url",
   extensionToken: "listenlater_extension_token",
-  tokenExpiresAt: "listenlater_extension_token_expires_at"
+  tokenExpiresAt: "listenlater_extension_token_expires_at",
 };
 
 const els = {
@@ -19,10 +23,15 @@ const els = {
   connectBtn: document.getElementById("connect-btn"),
   disconnectBtn: document.getElementById("disconnect-btn"),
   captureBtn: document.getElementById("capture-btn"),
+  captureOptionsToggle: document.getElementById("capture-options-toggle"),
+  captureOptionsToggleAction: document.getElementById(
+    "capture-options-toggle-action",
+  ),
+  captureOptionsFields: document.getElementById("capture-options-fields"),
   captureImportance: document.getElementById("capture-importance"),
   captureTags: document.getElementById("capture-tags"),
   status: document.getElementById("status"),
-  tokenState: document.getElementById("token-state")
+  tokenState: document.getElementById("token-state"),
 };
 
 const CAPTURE_IDLE_LABEL = "Capture Current Page";
@@ -31,6 +40,7 @@ const CAPTURE_QUEUED_LABEL = "Queued in ArticlePod";
 const CAPTURE_TARGET_REFRESH_MS = 750;
 
 let captureBusy = false;
+let captureOptionsExpanded = false;
 let connectedState = false;
 let currentCaptureTargetKey = "";
 let queuedCaptureTargetKey = "";
@@ -77,7 +87,7 @@ function getRuntimeConfig() {
   const globalConfig = window.ARTICLEPOD_EXTENSION_CONFIG;
   if (!globalConfig || typeof globalConfig !== "object") {
     return {
-      serverUrl: "https://articlepod.com"
+      serverUrl: "https://articlepod.com",
     };
   }
   return globalConfig;
@@ -85,15 +95,19 @@ function getRuntimeConfig() {
 
 function getConfiguredServerUrl() {
   const config = getRuntimeConfig();
-  return normalizeServerUrl(config.serverUrl || config.localServerUrl || "https://articlepod.com");
+  return normalizeServerUrl(
+    config.serverUrl || config.localServerUrl || "https://articlepod.com",
+  );
 }
 
 function getConfiguredServerUrls(activeServerUrl = "") {
   const configuredUrl = getConfiguredServerUrl();
   const normalizedActiveServerUrl = normalizeServerUrl(activeServerUrl);
   return uniqueStrings([
-    normalizedActiveServerUrl === configuredUrl ? normalizedActiveServerUrl : "",
-    configuredUrl
+    normalizedActiveServerUrl === configuredUrl
+      ? normalizedActiveServerUrl
+      : "",
+    configuredUrl,
   ]);
 }
 
@@ -152,9 +166,33 @@ function isStateConnected(state) {
 }
 
 function syncInteractivity() {
-  const queuedForCurrentTarget = Boolean(queuedCaptureTargetKey) && queuedCaptureTargetKey === currentCaptureTargetKey;
-  els.captureBtn.disabled = captureBusy || !connectedState || queuedForCurrentTarget;
+  const queuedForCurrentTarget =
+    Boolean(queuedCaptureTargetKey) &&
+    queuedCaptureTargetKey === currentCaptureTargetKey;
+  els.captureBtn.disabled =
+    captureBusy || !connectedState || queuedForCurrentTarget;
+  if (els.captureOptionsToggle) {
+    els.captureOptionsToggle.disabled = !connectedState;
+  }
   els.disconnectBtn.disabled = !connectedState;
+}
+
+function renderCaptureOptions() {
+  if (
+    !els.captureOptionsToggle ||
+    !els.captureOptionsFields ||
+    !els.captureOptionsToggleAction
+  ) {
+    return;
+  }
+
+  const expanded = connectedState && captureOptionsExpanded;
+  els.captureOptionsToggle.setAttribute(
+    "aria-expanded",
+    expanded ? "true" : "false",
+  );
+  els.captureOptionsFields.hidden = !expanded;
+  els.captureOptionsToggleAction.textContent = expanded ? "Hide" : "Show";
 }
 
 function setCaptureButtonLabel(state) {
@@ -180,7 +218,11 @@ async function refreshCaptureTarget() {
     currentCaptureTargetKey = "";
   }
 
-  if (queuedCaptureTargetKey && currentCaptureTargetKey && queuedCaptureTargetKey !== currentCaptureTargetKey) {
+  if (
+    queuedCaptureTargetKey &&
+    currentCaptureTargetKey &&
+    queuedCaptureTargetKey !== currentCaptureTargetKey
+  ) {
     queuedCaptureTargetKey = "";
     setCaptureButtonLabel("idle");
   }
@@ -201,6 +243,7 @@ function startCaptureTargetPolling() {
 function renderState(state) {
   const connected = isStateConnected(state);
   connectedState = connected;
+  captureOptionsExpanded = Boolean(state.captureOptionsExpanded);
   document.body.classList.toggle("state-connected", connected);
 
   els.connectionState.textContent = connected ? "Configured" : "Not configured";
@@ -210,9 +253,11 @@ function renderState(state) {
     const connectionTarget = state.activeServerUrl || "configured server";
     els.tokenState.textContent = `Connected to ${connectionTarget}. This token does not expire automatically.`;
   } else {
-    els.tokenState.textContent = "Not connected yet. Paste a one-time code to connect.";
+    els.tokenState.textContent =
+      "Not connected yet. Paste a one-time code to connect.";
   }
 
+  renderCaptureOptions();
   syncInteractivity();
 }
 
@@ -227,23 +272,40 @@ async function readJson(response) {
 async function getStoredState() {
   const result = await chrome.storage.local.get([
     STORAGE_KEYS.activeServerUrl,
+    STORAGE_KEYS.captureOptionsExpanded,
     STORAGE_KEYS.extensionToken,
     STORAGE_KEYS.tokenExpiresAt,
     LEGACY_STORAGE_KEYS.serverUrl,
     LEGACY_STORAGE_KEYS.extensionToken,
-    LEGACY_STORAGE_KEYS.tokenExpiresAt
+    LEGACY_STORAGE_KEYS.tokenExpiresAt,
   ]);
   const configuredServerUrl = getConfiguredServerUrl();
-  const storedServerUrl = normalizeServerUrl(result[STORAGE_KEYS.activeServerUrl] || result[LEGACY_STORAGE_KEYS.serverUrl] || "");
-  const storedExtensionToken = result[STORAGE_KEYS.extensionToken] || result[LEGACY_STORAGE_KEYS.extensionToken] || "";
-  const tokenExpiresAt = result[STORAGE_KEYS.tokenExpiresAt] || result[LEGACY_STORAGE_KEYS.tokenExpiresAt] || "";
-  const serverMatchesConfigured = Boolean(storedServerUrl) && storedServerUrl === configuredServerUrl;
+  const storedServerUrl = normalizeServerUrl(
+    result[STORAGE_KEYS.activeServerUrl] ||
+      result[LEGACY_STORAGE_KEYS.serverUrl] ||
+      "",
+  );
+  const captureOptionsExpanded =
+    result[STORAGE_KEYS.captureOptionsExpanded] === true;
+  const storedExtensionToken =
+    result[STORAGE_KEYS.extensionToken] ||
+    result[LEGACY_STORAGE_KEYS.extensionToken] ||
+    "";
+  const tokenExpiresAt =
+    result[STORAGE_KEYS.tokenExpiresAt] ||
+    result[LEGACY_STORAGE_KEYS.tokenExpiresAt] ||
+    "";
+  const serverMatchesConfigured =
+    Boolean(storedServerUrl) && storedServerUrl === configuredServerUrl;
   const activeServerUrl = configuredServerUrl;
   const extensionToken = serverMatchesConfigured ? storedExtensionToken : "";
   const usedLegacyKeys =
-    (!result[STORAGE_KEYS.activeServerUrl] && Boolean(result[LEGACY_STORAGE_KEYS.serverUrl])) ||
-    (!result[STORAGE_KEYS.extensionToken] && Boolean(result[LEGACY_STORAGE_KEYS.extensionToken])) ||
-    (!result[STORAGE_KEYS.tokenExpiresAt] && Boolean(result[LEGACY_STORAGE_KEYS.tokenExpiresAt]));
+    (!result[STORAGE_KEYS.activeServerUrl] &&
+      Boolean(result[LEGACY_STORAGE_KEYS.serverUrl])) ||
+    (!result[STORAGE_KEYS.extensionToken] &&
+      Boolean(result[LEGACY_STORAGE_KEYS.extensionToken])) ||
+    (!result[STORAGE_KEYS.tokenExpiresAt] &&
+      Boolean(result[LEGACY_STORAGE_KEYS.tokenExpiresAt]));
   const needsRefresh =
     usedLegacyKeys ||
     activeServerUrl !== storedServerUrl ||
@@ -252,8 +314,9 @@ async function getStoredState() {
 
   return {
     activeServerUrl,
+    captureOptionsExpanded,
     extensionToken,
-    needsRefresh
+    needsRefresh,
   };
 }
 
@@ -266,11 +329,11 @@ async function loadState() {
 
   if (state.needsRefresh) {
     await chrome.storage.local.set({
-      [STORAGE_KEYS.activeServerUrl]: state.activeServerUrl
+      [STORAGE_KEYS.activeServerUrl]: state.activeServerUrl,
     });
     if (state.extensionToken) {
       await chrome.storage.local.set({
-        [STORAGE_KEYS.extensionToken]: state.extensionToken
+        [STORAGE_KEYS.extensionToken]: state.extensionToken,
       });
     }
   }
@@ -280,7 +343,7 @@ async function loadState() {
     STORAGE_KEYS.tokenExpiresAt,
     LEGACY_STORAGE_KEYS.serverUrl,
     LEGACY_STORAGE_KEYS.extensionToken,
-    LEGACY_STORAGE_KEYS.tokenExpiresAt
+    LEGACY_STORAGE_KEYS.tokenExpiresAt,
   ]);
 
   renderState(state);
@@ -296,6 +359,19 @@ async function loadState() {
   return state;
 }
 
+async function toggleCaptureOptions() {
+  if (!connectedState) {
+    return;
+  }
+
+  captureOptionsExpanded = !captureOptionsExpanded;
+  renderCaptureOptions();
+
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.captureOptionsExpanded]: captureOptionsExpanded,
+  });
+}
+
 async function connectExtension() {
   const connectCode = els.connectCode.value.trim();
 
@@ -307,7 +383,10 @@ async function connectExtension() {
   const storedState = await getStoredState();
   const serverUrls = getConfiguredServerUrls(storedState.activeServerUrl);
   if (serverUrls.length === 0) {
-    setStatus("Extension server URL is not configured. Update runtime-config.js.", "error");
+    setStatus(
+      "Extension server URL is not configured. Update runtime-config.js.",
+      "error",
+    );
     return;
   }
 
@@ -318,39 +397,53 @@ async function connectExtension() {
     const failedTargets = [];
     for (const serverUrl of serverUrls) {
       try {
-        const response = await fetch(`${serverUrl}/api/auth/extension/exchange`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json"
+        const response = await fetch(
+          `${serverUrl}/api/auth/extension/exchange`,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              connectCode,
+              label: "chrome-extension",
+            }),
           },
-          body: JSON.stringify({
-            connectCode,
-            label: "chrome-extension"
-          })
-        });
+        );
         const payload = await readJson(response);
         if (response.ok) {
           await setStoredState({
             [STORAGE_KEYS.activeServerUrl]: serverUrl,
-            [STORAGE_KEYS.extensionToken]: payload.extension_token
+            [STORAGE_KEYS.extensionToken]: payload.extension_token,
           });
           els.connectCode.value = "";
-          setStatus("Extension connected successfully. It will stay connected until you revoke or disconnect it.", "success");
+          setStatus(
+            "Extension connected successfully. It will stay connected until you revoke or disconnect it.",
+            "success",
+          );
           await loadState();
           return;
         }
-        failedTargets.push(payload.error_message || `${serverUrl} returned ${response.status}`);
+        failedTargets.push(
+          payload.error_message || `${serverUrl} returned ${response.status}`,
+        );
       } catch (error) {
-        failedTargets.push(`${serverUrl} unreachable (${error instanceof Error ? error.message : String(error)})`);
+        failedTargets.push(
+          `${serverUrl} unreachable (${error instanceof Error ? error.message : String(error)})`,
+        );
       }
     }
 
     setStatus(
-      failedTargets[0] || "Failed to connect extension. Verify the connect code and configured server URL.",
-      "error"
+      failedTargets[0] ||
+        "Failed to connect extension. Verify the connect code and configured server URL.",
+      "error",
     );
   } catch (error) {
-    setStatus(`Connect failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+    setStatus(
+      `Connect failed: ${error instanceof Error ? error.message : String(error)}`,
+      "error",
+    );
   } finally {
     els.connectBtn.disabled = false;
   }
@@ -358,8 +451,14 @@ async function connectExtension() {
 
 async function disconnectExtension() {
   queuedCaptureTargetKey = "";
-  await chrome.storage.local.remove([STORAGE_KEYS.extensionToken, STORAGE_KEYS.tokenExpiresAt]);
-  setStatus("Disconnected. Generate a new connect code to reconnect.", "success");
+  await chrome.storage.local.remove([
+    STORAGE_KEYS.extensionToken,
+    STORAGE_KEYS.tokenExpiresAt,
+  ]);
+  setStatus(
+    "Disconnected. Generate a new connect code to reconnect.",
+    "success",
+  );
   await loadState();
   els.connectCode.focus();
 }
@@ -367,10 +466,16 @@ async function disconnectExtension() {
 async function captureCurrentPage() {
   const state = await getStoredState();
   const extensionToken = state.extensionToken;
-  const serverUrl = state.activeServerUrl || getConfiguredServerUrls(state.activeServerUrl)[0] || "";
+  const serverUrl =
+    state.activeServerUrl ||
+    getConfiguredServerUrls(state.activeServerUrl)[0] ||
+    "";
 
   if (!serverUrl) {
-    setStatus("Extension server URL is not configured. Update runtime-config.js.", "error");
+    setStatus(
+      "Extension server URL is not configured. Update runtime-config.js.",
+      "error",
+    );
     return;
   }
 
@@ -402,12 +507,15 @@ async function captureCurrentPage() {
     const results = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
       func: capturePageSnapshot,
-      args: [{ byteLimit: HTML_SNAPSHOT_MAX_BYTES }]
+      args: [{ byteLimit: HTML_SNAPSHOT_MAX_BYTES }],
     });
 
     const snapshot = results?.[0]?.result;
     if (!snapshot?.ok) {
-      setStatus(snapshot?.errorMessage || "Unable to capture page HTML from this tab.", "error");
+      setStatus(
+        snapshot?.errorMessage || "Unable to capture page HTML from this tab.",
+        "error",
+      );
       return;
     }
 
@@ -418,23 +526,29 @@ async function captureCurrentPage() {
 
     const captureSummary = [];
     if (snapshot.stats?.revealClicks) {
-      captureSummary.push(`${snapshot.stats.revealClicks} reveal${snapshot.stats.revealClicks === 1 ? "" : "s"}`);
+      captureSummary.push(
+        `${snapshot.stats.revealClicks} reveal${snapshot.stats.revealClicks === 1 ? "" : "s"}`,
+      );
     }
     if (snapshot.stats?.scrollPasses) {
-      captureSummary.push(`${snapshot.stats.scrollPasses} scroll pass${snapshot.stats.scrollPasses === 1 ? "" : "es"}`);
+      captureSummary.push(
+        `${snapshot.stats.scrollPasses} scroll pass${snapshot.stats.scrollPasses === 1 ? "" : "es"}`,
+      );
     }
     if (snapshot.stats?.conservativeHost) {
       captureSummary.push("conservative host mode");
     }
     setStatus(
-      captureSummary.length > 0 ? `Capture prepared (${captureSummary.join(", ")}). Uploading...` : "Capture prepared. Uploading..."
+      captureSummary.length > 0
+        ? `Capture prepared (${captureSummary.join(", ")}). Uploading...`
+        : "Capture prepared. Uploading...",
     );
 
     const response = await fetch(`${serverUrl}/api/items/html-snapshot`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${extensionToken}`,
-        "content-type": "application/json"
+        "content-type": "application/json",
       },
       body: JSON.stringify({
         url: snapshot.url,
@@ -442,31 +556,44 @@ async function captureCurrentPage() {
         html: snapshot.html,
         capturedAt: new Date().toISOString(),
         importance: els.captureImportance?.value || "LOW",
-        tags: els.captureTags?.value || ""
-      })
+        tags: els.captureTags?.value || "",
+      }),
     });
 
     const payload = await readJson(response);
     if (!response.ok) {
-      setStatus(payload.error_message || "Snapshot submission failed.", "error");
+      setStatus(
+        payload.error_message || "Snapshot submission failed.",
+        "error",
+      );
       if (response.status === 401 || response.status === 403) {
-        await chrome.storage.local.remove([STORAGE_KEYS.extensionToken, STORAGE_KEYS.tokenExpiresAt]);
+        await chrome.storage.local.remove([
+          STORAGE_KEYS.extensionToken,
+          STORAGE_KEYS.tokenExpiresAt,
+        ]);
         await loadState();
       }
       return;
     }
 
     setStatus("");
-    queuedCaptureTargetKey = currentCaptureTargetKey || buildCaptureTargetKey(activeTab);
+    queuedCaptureTargetKey =
+      currentCaptureTargetKey || buildCaptureTargetKey(activeTab);
     setCaptureButtonLabel("queued");
     syncInteractivity();
     await setCaptureQueuedBadge();
   } catch (error) {
-    setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+    setStatus(
+      `Capture failed: ${error instanceof Error ? error.message : String(error)}`,
+      "error",
+    );
   } finally {
     captureBusy = false;
     syncInteractivity();
-    if (!els.captureBtn.textContent || els.captureBtn.textContent === CAPTURE_STARTING_LABEL) {
+    if (
+      !els.captureBtn.textContent ||
+      els.captureBtn.textContent === CAPTURE_STARTING_LABEL
+    ) {
       setCaptureButtonLabel("idle");
     }
   }
@@ -477,6 +604,9 @@ els.connectBtn.addEventListener("click", () => {
 });
 els.disconnectBtn.addEventListener("click", () => {
   void disconnectExtension();
+});
+els.captureOptionsToggle?.addEventListener("click", () => {
+  void toggleCaptureOptions();
 });
 els.captureBtn.addEventListener("click", () => {
   void captureCurrentPage();

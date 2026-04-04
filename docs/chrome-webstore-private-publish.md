@@ -3,6 +3,7 @@
 This guide is optimized to minimize manual work.
 
 ## What is automated
+
 The release path is now split into deterministic package gates and a packaged-build smoke check:
 
 ```bash
@@ -11,12 +12,14 @@ corepack pnpm extension:smoke:package  # smoke-test the packaged artifact agains
 ```
 
 `extension:package` produces:
+
 - `dist/extension/articlepod-capture-v<version>.zip` (upload this to Web Store)
 - `dist/extension/articlepod-capture-v<version>.sha256` (integrity checksum)
 - `dist/extension/webstore/*` (listing text templates)
 - `dist/extension/README.txt` (quick checklist)
 
 `extension:validate` checks:
+
 - All required source files are present
 - Popup runtime module imports exist in source and the packaged build
 - `manifest.json` fields are valid (manifest_version 3, name, version, description, icons)
@@ -27,13 +30,16 @@ corepack pnpm extension:smoke:package  # smoke-test the packaged artifact agains
 - Built ZIP and SHA-256 checksum file exist
 
 `extension:smoke:package` loads the packaged artifact from `dist/extension/package`, rewrites only `runtime-config.js` for the local harness target, and verifies the popup can:
+
 - exchange a fresh connect code
 - enter the connected state
+- keep optional metadata collapsed by default, then remember the expanded state after the popup is reopened
 - submit one real capture successfully
 
 The smoke command targets the app's stable local fixture page at `/extension-smoke.html`, so the release gate does not depend on a third-party site behaving the same way on release day.
 
 ## What remains manual (required by Google)
+
 - Initial Chrome Web Store developer registration and payment ($5 one-time fee).
 - Creating/updating the Web Store listing.
 - Choosing visibility (`Private`) and tester access.
@@ -56,7 +62,7 @@ The smoke command targets the app's stable local fixture page at `/extension-smo
 corepack pnpm extension:release:check
 ```
 
-   Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smoke run passes before proceeding.
+Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smoke run passes before proceeding.
 
 2. Capture at least one screenshot of the popup (1280×800 or 640×400).
 
@@ -89,7 +95,9 @@ corepack pnpm extension:release:check
 ---
 
 ## Local fallback (no store)
+
 You can always run it locally without publishing:
+
 1. Open `chrome://extensions`
 2. Enable Developer mode
 3. Load unpacked from `dist/extension/package` for release-candidate testing
@@ -98,6 +106,7 @@ You can always run it locally without publishing:
 ---
 
 ## Notes
+
 - If you update extension code, rerun `corepack pnpm extension:release:check` before uploading.
 - If you change permissions in `manifest.json`, Chrome Web Store may require additional review details.
 - The packaged store manifest intentionally keeps broad `http://*/*` and `https://*/*` host access so Chrome does not force per-site access grants before capture.

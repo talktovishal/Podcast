@@ -1,12 +1,14 @@
 # ArticlePod Detailed Build Plan
 
 ## Planning Gate
+
 - This file is planning-only. No implementation starts until explicit user approval.
 - Source-of-truth product requirements: `docs/Prompts.md`.
 - Execution guardrails and compatibility invariants: `AGENTS.md`.
 - If any requirement appears conflicting, log it in "Spec Consistency Notes" and apply the smallest correction before coding.
 
 ## Spec Consistency Notes (Current)
+
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
@@ -33,7 +35,7 @@
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
-  - The extension popup now includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
+  - The extension popup now keeps its optional metadata block collapsed by default, remembers the last expanded/collapsed choice per Chrome profile, and includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
   - `/app` Recent items now renders capture metadata, while `/app/summary` article selection supports lightweight client-side filtering by importance and tag.
 - Extraction-quality audit track (`M101`) is implemented:
   - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
@@ -95,9 +97,9 @@
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
-  - paid Pro access now carries default usage guardrails of 15 new podcast episodes per 24 hours and 5 manual summaries per 7 days
+  - paid access now carries plan-specific default guardrails: `Pro monthly` includes 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
   - paid over-limit episode submissions now spill into a capped deferred queue instead of hard-failing immediately
-  - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy
+  - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy and an annual-first value narrative
 - Digest automation controls (`M72`-`M79`) are implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
   - separate private digest RSS token/route and digest media range/HEAD delivery path.
@@ -162,278 +164,280 @@
 
 ## Requirement Coverage Snapshot
 
-| Requirement | Planned Milestone(s) |
-|---|---|
-| One-command local startup (`pnpm dev`) | M01, M04 |
-| Local-first operation (no paid services) | M04, M12, M13 |
-| Google + Facebook + Apple auth integration | M06, M93 |
-| OAuth hardening completion (env-gated production-ready) | M23 |
-| Shareable read-only demo access | M07, M17 |
-| Async pipeline only (no heavy request work) | M09 |
-| Idempotent/restartable jobs + caching | M09, M11, M12, M13 |
-| Deterministic serialization (RSS, logs, manifests) | M09, M15, M18 |
-| RSS correctness (GUID, enclosure uniqueness, ordering) | M15 |
-| Media `HEAD` + `Range` compatibility | M14, M21 |
-| URL + PDF ingest (no OCR for scanned PDFs) | M08, M10 |
-| Admin module (users, jobs, diagnostics) | M06, M16 |
-| Export command (`pnpm export`) | M18 |
-| Azure-ready path (containers + env/resource map) | M19 |
-| License policy gate (deny AGPL/SSPL/NC) | M20 |
-| Demo starter item preloaded by default | M17 |
-| Attribution for copied patterns (`abogen`, `postcast`) | M03 |
-| Chrome extension raw HTML snapshot ingest | M24, M25, M26, M27, M28 |
-| OAuth + extension regression automation in CI | M20, M29 |
-| Extension onboarding and reconnect UX | M30 |
-| Extraction quality guardrails for noisy/authenticated pages | M31 |
-| Operational observability and release certification | M21, M32, M33 |
-| Unified observability, error triage, and Azure monitoring parity | M47, M48, M49, M50, M51, M52, M53, M54, M55, M56 |
-| Data lifecycle hardening for diagnostics and extension tokens | M34 |
-| Durable managed persistence independent of VM lifecycle | M35, M38, M39, M45 |
-| Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
-| Azure reproducible provisioning with IaC (`Bicep` + `azd`) | M43, M44 |
-| Backup/restore drill certification and evidence | M45, M46 |
-| Markdown-first extraction artifact persistence | M57, M58, M59, M60, M61, M62, M63, M64 |
-| Dual artifact policy (raw + markdown initially) | M57, M61 |
-| 90-day raw artifact retention lifecycle | M57, M61, M64 |
-| Markdown-derived TTS input contract | M62 |
-| Rule-based cleanup of extracted markdown before TTS/backfill | M98 |
-| Reusable live-site regression harness and prod-probe runner | M99 |
-| Capture importance + tags metadata with Recent items filters | M100 |
-| Extraction-quality audit + bulk HTML regression harness | M101 |
-| Azure VM disk guardrails + recurring maintenance automation | M102 |
-| Severity-split local log retention for activity vs errors | M103 |
-| Public episode share links + branded landing page + growth instrumentation | M104 |
-| 60-day generated audio retention lifecycle + feed/media expiry gating | M105 |
-| Public marketing SEO hardening (homepage, metadata, schema, crawl rules) | M107 |
-| Public marketing chrome cleanup (remove duplicate footer nav) | M108 |
-| Queue-backed item dispatch with single-worker default and future multi-node worker readiness | C08 |
-| Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
-| Free-trial ingest gating + admin quota overrides | M71 |
-| Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
-| Unified branding icons + podcast artwork consistency | M80 |
-| Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
-| Missing media auto-repair + RSS delete consistency hardening | M82 |
-| Global geo snapshots + optional demographic profile capture | M83 |
-| Smart feed shortcuts + admin-only markdown controls | M84 |
-| Message-first feedback inbox + admin triage + private GitHub mirror | M85 |
-| Manual Summary Studio + Azure OpenAI nano/mini summary generation | M86, M87, M88, M89, M90, M91 |
-| 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration) | C01, C02, C03, C04, C05, C06, C07 |
-| Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
-| PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
-| Budget and burn-rate operational guardrails | C07 |
-| Stripe-hosted Pro billing launch hardening, founder setup, lifecycle QA, and staging readiness | B01, B02, B03, B04, B05, B06, B07, B08, B09 |
-| Apple Sign-In JWT cryptographic verification | S01 |
-| Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
-| Brute-force rate limiting on login + timing oracle fix | S03 |
-| Move admin bootstrap out of request path | S04 |
-| ChunkCache cross-user audio privacy and reliability | S05 |
-| digestSchedulerSecret startup assertion | S06 |
-| Python TTS sidecar authentication + non-root Docker | S07 |
-| SSRF DNS rebinding TOCTOU fix | S08 |
-| HTTP security headers (CSP, X-Frame, X-Content-Type, Referrer) | S09 |
-| Global auth middleware (centralized enforcement for all routes) | S10 |
-| Shared-state rate limiter (multi-instance correctness) | S11 |
-| Worker process health probe | S12 |
-| PDF magic-byte validation before storage write | S13 |
-| Username enumeration normalization (login/signup response parity) | S14 |
-| Stale-job reclaim atomic fix | S15 |
-| Feed token signed-URL pattern (tokens out of enclosure URLs) | S16 |
-| DB role field hardened to enum constraint | S17 |
-| Session cookie `secure` flag tied to runtime profile, not NODE_ENV | S18 |
+| Requirement                                                                                    | Planned Milestone(s)                             |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| One-command local startup (`pnpm dev`)                                                         | M01, M04                                         |
+| Local-first operation (no paid services)                                                       | M04, M12, M13                                    |
+| Google + Facebook + Apple auth integration                                                     | M06, M93                                         |
+| OAuth hardening completion (env-gated production-ready)                                        | M23                                              |
+| Shareable read-only demo access                                                                | M07, M17                                         |
+| Async pipeline only (no heavy request work)                                                    | M09                                              |
+| Idempotent/restartable jobs + caching                                                          | M09, M11, M12, M13                               |
+| Deterministic serialization (RSS, logs, manifests)                                             | M09, M15, M18                                    |
+| RSS correctness (GUID, enclosure uniqueness, ordering)                                         | M15                                              |
+| Media `HEAD` + `Range` compatibility                                                           | M14, M21                                         |
+| URL + PDF ingest (no OCR for scanned PDFs)                                                     | M08, M10                                         |
+| Admin module (users, jobs, diagnostics)                                                        | M06, M16                                         |
+| Export command (`pnpm export`)                                                                 | M18                                              |
+| Azure-ready path (containers + env/resource map)                                               | M19                                              |
+| License policy gate (deny AGPL/SSPL/NC)                                                        | M20                                              |
+| Demo starter item preloaded by default                                                         | M17                                              |
+| Attribution for copied patterns (`abogen`, `postcast`)                                         | M03                                              |
+| Chrome extension raw HTML snapshot ingest                                                      | M24, M25, M26, M27, M28                          |
+| OAuth + extension regression automation in CI                                                  | M20, M29                                         |
+| Extension onboarding and reconnect UX                                                          | M30                                              |
+| Extraction quality guardrails for noisy/authenticated pages                                    | M31                                              |
+| Operational observability and release certification                                            | M21, M32, M33                                    |
+| Unified observability, error triage, and Azure monitoring parity                               | M47, M48, M49, M50, M51, M52, M53, M54, M55, M56 |
+| Data lifecycle hardening for diagnostics and extension tokens                                  | M34                                              |
+| Durable managed persistence independent of VM lifecycle                                        | M35, M38, M39, M45                               |
+| Local parity environment (Docker Compose parity profile)                                       | M35, M36, M37, M46                               |
+| Azure reproducible provisioning with IaC (`Bicep` + `azd`)                                     | M43, M44                                         |
+| Backup/restore drill certification and evidence                                                | M45, M46                                         |
+| Markdown-first extraction artifact persistence                                                 | M57, M58, M59, M60, M61, M62, M63, M64           |
+| Dual artifact policy (raw + markdown initially)                                                | M57, M61                                         |
+| 90-day raw artifact retention lifecycle                                                        | M57, M61, M64                                    |
+| Markdown-derived TTS input contract                                                            | M62                                              |
+| Rule-based cleanup of extracted markdown before TTS/backfill                                   | M98                                              |
+| Reusable live-site regression harness and prod-probe runner                                    | M99                                              |
+| Capture importance + tags metadata with Recent items filters                                   | M100                                             |
+| Extraction-quality audit + bulk HTML regression harness                                        | M101                                             |
+| Azure VM disk guardrails + recurring maintenance automation                                    | M102                                             |
+| Severity-split local log retention for activity vs errors                                      | M103                                             |
+| Public episode share links + branded landing page + growth instrumentation                     | M104                                             |
+| 60-day generated audio retention lifecycle + feed/media expiry gating                          | M105                                             |
+| Public marketing SEO hardening (homepage, metadata, schema, crawl rules)                       | M107                                             |
+| Public marketing chrome cleanup (remove duplicate footer nav)                                  | M108                                             |
+| Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
+| Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
+| Free-trial ingest gating + admin quota overrides                                               | M71                                              |
+| Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email)           | M72, M73, M74, M75, M76, M77, M78, M79           |
+| Unified branding icons + podcast artwork consistency                                           | M80                                              |
+| Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries)       | M81                                              |
+| Missing media auto-repair + RSS delete consistency hardening                                   | M82                                              |
+| Global geo snapshots + optional demographic profile capture                                    | M83                                              |
+| Smart feed shortcuts + admin-only markdown controls                                            | M84                                              |
+| Message-first feedback inbox + admin triage + private GitHub mirror                            | M85                                              |
+| Manual Summary Studio + Azure OpenAI nano/mini summary generation                              | M86, M87, M88, M89, M90, M91                     |
+| 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration)         | C01, C02, C03, C04, C05, C06, C07                |
+| Queue-pressure-triggered overflow TTS lane with hysteresis and role gating                     | C02                                              |
+| PostgreSQL to serverless metadata/queue abstraction and cutover                                | C03, C04, C05, C06                               |
+| Budget and burn-rate operational guardrails                                                    | C07                                              |
+| Stripe-hosted Pro billing launch hardening, founder setup, lifecycle QA, and staging readiness | B01, B02, B03, B04, B05, B06, B07, B08, B09      |
+| Apple Sign-In JWT cryptographic verification                                                   | S01                                              |
+| Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken)  | S02                                              |
+| Brute-force rate limiting on login + timing oracle fix                                         | S03                                              |
+| Move admin bootstrap out of request path                                                       | S04                                              |
+| ChunkCache cross-user audio privacy and reliability                                            | S05                                              |
+| digestSchedulerSecret startup assertion                                                        | S06                                              |
+| Python TTS sidecar authentication + non-root Docker                                            | S07                                              |
+| SSRF DNS rebinding TOCTOU fix                                                                  | S08                                              |
+| HTTP security headers (CSP, X-Frame, X-Content-Type, Referrer)                                 | S09                                              |
+| Global auth middleware (centralized enforcement for all routes)                                | S10                                              |
+| Shared-state rate limiter (multi-instance correctness)                                         | S11                                              |
+| Worker process health probe                                                                    | S12                                              |
+| PDF magic-byte validation before storage write                                                 | S13                                              |
+| Username enumeration normalization (login/signup response parity)                              | S14                                              |
+| Stale-job reclaim atomic fix                                                                   | S15                                              |
+| Feed token signed-URL pattern (tokens out of enclosure URLs)                                   | S16                                              |
+| DB role field hardened to enum constraint                                                      | S17                                              |
+| Session cookie `secure` flag tied to runtime profile, not NODE_ENV                             | S18                                              |
 
 ## Milestone Status Snapshot
 
 Milestone metadata contract:
+
 - `Status`: `Done | In Progress | Planned`
 - `Target Finish`: required for every milestone
 - `Completed On`: required for `Done` milestones
 - `Evidence`: required for `Done` milestones (best-effort commit/date reference)
 
-| Milestone | Status | Target Finish | Completed On | Evidence |
-|---|---|---|---|---|
-| M00 | Done | 2026-02-07 | 2026-02-07 | cd05000 (2026-02-07) |
-| M01 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M02 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M03 | Done | 2026-02-07 | 2026-02-07 | d6addf9 (2026-02-07) |
-| M04 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M05 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M06 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M07 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M08 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M09 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M10 | Done | 2026-02-07 | 2026-02-07 | 2b7b28b (2026-02-07) |
-| M11 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M12 | Done | 2026-02-07 | 2026-02-07 | c18dcfd (2026-02-07) |
-| M13 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M14 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
-| M15 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
-| M16 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M17 | Done | 2026-02-07 | 2026-02-07 | 8923f21 (2026-02-07) |
-| M18 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M19 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M20 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M21 | Done | 2026-02-28 | 2026-02-14 | podcast contract gate pass + release checklist protocol |
-| M22 | Done | 2026-03-14 | 2026-02-14 | optional phase closed for MVP (single-episode design locked) |
-| M23 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M24 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M25 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M26 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M27 | Done | 2026-02-08 | 2026-02-08 | 86f1b7a (2026-02-08) |
-| M28 | Done | 2026-02-28 | 2026-02-14 | extension policy/docs + token revocation + snapshot auth tests |
-| M29 | Done | 2026-03-07 | 2026-02-14 | oauth/extension/html-snapshot integration suites + CI gates |
-| M30 | Done | 2026-03-14 | 2026-02-14 | in-app extension onboarding + reconnect/revoke UX |
-| M31 | Done | 2026-03-21 | 2026-02-14 | extraction quality fixture coverage + low-signal failure mapping |
-| M32 | Done | 2026-03-28 | 2026-02-14 | admin backlog/latency/top-failure visibility + runbook |
-| M33 | Done | 2026-04-04 | 2026-02-14 | release checklist + contract evidence workflow |
-| M34 | Done | 2026-04-11 | 2026-02-14 | diagnostics/token lifecycle hardening + purge automation |
-| M35 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M36 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M37 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M38 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M39 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M40 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M41 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M42 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M43 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M44 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M45 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M46 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M47 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M48 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M49 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M50 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M51 | Done | 2026-04-18 | 2026-02-14 | trace-context propagation baseline across web/worker/python-tts |
-| M52 | Done | 2026-04-25 | 2026-02-14 | service/business KPI baseline in admin metrics + logs |
-| M53 | Done | 2026-05-02 | 2026-02-14 | Azure Log Analytics query pack + env/runbook wiring |
-| M54 | Done | 2026-05-09 | 2026-02-14 | dashboard/alert starter contract in docs + operations runbook |
-| M55 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M56 | Done | 2026-05-16 | 2026-02-14 | observability verify command + CI gate |
-| M57 | Done | 2026-02-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M58 | Done | 2026-02-24 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M59 | Done | 2026-02-28 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M60 | Done | 2026-03-03 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M61 | Done | 2026-03-07 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M65 | Done | 2026-02-25 | 2026-02-25 | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25) |
-| M66 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M67 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M68 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M69 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M70 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M71 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M72 | Done | 2026-03-02 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M73 | Done | 2026-03-03 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M74 | Done | 2026-03-04 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M75 | Done | 2026-03-05 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M76 | Done | 2026-03-06 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M77 | Done | 2026-03-07 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M78 | Done | 2026-03-08 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M84 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M85 | Done | 2026-03-01 | 2026-03-01 | local validation + implementation pass (2026-03-01) |
-| M86 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M87 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M88 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M89 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M90 | Done | 2026-03-21 | 2026-03-21 | local validation + Azure provisioning pass (2026-03-21) |
-| M91 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M92 | Done | 2026-03-22 | 2026-03-22 | local validation + implementation pass (2026-03-22) |
-| M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
-| M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
-| M95 | Done | 2026-03-24 | 2026-03-24 | local validation + production stuck-job watchdog pass (2026-03-24) |
-| M96 | Done | 2026-03-25 | 2026-03-25 | local validation + production redirect canonicalization hardening pass (2026-03-25) |
-| M97 | Done | 2026-03-26 | 2026-03-24 | local validation + smart extension capture pass (2026-03-24) |
-| M98 | Done | 2026-03-27 | 2026-03-24 | local validation + markdown cleanup/backfill rollout pass (2026-03-24) |
-| M99 | Done | 2026-03-28 | 2026-03-24 | local validation + reusable live-site regression harness pass (2026-03-24) |
-| M100 | Done | 2026-03-31 | 2026-03-25 | local validation + importance/tags capture metadata pass (2026-03-25) |
-| M101 | Done | 2026-04-02 | 2026-03-25 | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25) |
-| M102 | Done | 2026-04-04 | 2026-03-28 | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28) |
-| M103 | Done | 2026-04-05 | 2026-03-28 | local validation + severity-split local log retention pass (2026-03-28) |
-| M104 | Done | 2026-04-06 | 2026-03-28 | local validation + public episode share link implementation pass (2026-03-28) |
-| M105 | Done | 2026-04-07 | 2026-03-28 | local validation + audio retention expiry/backfill/purge pass (2026-03-28) |
-| M106 | Done | 2026-04-08 | 2026-04-01 | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
-| M107 | Done | 2026-04-09 | 2026-04-02 | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02) |
-| M108 | Done | 2026-04-10 | 2026-04-03 | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03) |
-| S01 | Planned | 2026-03-07 | — | — |
-| S02 | Planned | 2026-03-07 | — | — |
-| S03 | Planned | 2026-03-07 | — | — |
-| S04 | Planned | 2026-03-07 | — | — |
-| S05 | Planned | 2026-03-14 | — | — |
-| S06 | Planned | 2026-03-07 | — | — |
-| S07 | Planned | 2026-03-07 | — | — |
-| S08 | Planned | 2026-03-14 | — | — |
-| S09 | Planned | 2026-03-07 | — | — |
-| S10 | Planned | 2026-03-14 | — | — |
-| S11 | Planned | 2026-03-21 | — | — |
-| S12 | Planned | 2026-03-14 | — | — |
-| S13 | Planned | 2026-03-07 | — | — |
-| S14 | Planned | 2026-03-07 | — | — |
-| S15 | Planned | 2026-03-14 | — | — |
-| S16 | Planned | 2026-03-28 | — | — |
-| S17 | Planned | 2026-03-28 | — | — |
-| S18 | Planned | 2026-03-07 | — | — |
-| C01 | Done | 2026-03-10 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C02 | Done | 2026-03-14 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C03 | Done | 2026-03-21 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C04 | Done | 2026-03-28 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
-| C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C08 | Done | 2026-04-25 | 2026-03-29 | queue-backed item dispatch + durable leases + single-worker-ready rollout validation (2026-03-29) |
-| B01 | Done | 2026-04-18 | 2026-03-28 | local docs sync + billing milestone expansion pass (2026-03-28) |
-| B02 | Done | 2026-04-25 | 2026-03-28 | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28) |
-| B03 | Done | 2026-05-02 | 2026-03-28 | server-side plan catalog + checkout hardening + targeted validation (2026-03-28) |
-| B04 | Done | 2026-05-09 | 2026-03-28 | invoice-aware webhook entitlement engine + targeted validation (2026-03-28) |
-| B05 | Done | 2026-05-16 | 2026-03-28 | billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28) |
-| B06 | Done | 2026-05-23 | 2026-03-28 | admin billing visibility + webhook observability runbook pass (2026-03-28) |
-| B07 | Done | 2026-05-30 | 2026-03-28 | founder Stripe setup + secret-promotion docs pass (2026-03-28) |
-| B08 | Done | 2026-06-06 | 2026-03-28 | lifecycle QA checklist + webhook resilience tests pass (2026-03-28) |
-| B09 | In Progress | 2026-06-13 | — | staging certification, founder launch tasks, and live launch evidence still pending |
+| Milestone | Status      | Target Finish | Completed On | Evidence                                                                                                |
+| --------- | ----------- | ------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| M00       | Done        | 2026-02-07    | 2026-02-07   | cd05000 (2026-02-07)                                                                                    |
+| M01       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M02       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M03       | Done        | 2026-02-07    | 2026-02-07   | d6addf9 (2026-02-07)                                                                                    |
+| M04       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M05       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M06       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M07       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M08       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M09       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M10       | Done        | 2026-02-07    | 2026-02-07   | 2b7b28b (2026-02-07)                                                                                    |
+| M11       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M12       | Done        | 2026-02-07    | 2026-02-07   | c18dcfd (2026-02-07)                                                                                    |
+| M13       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M14       | Done        | 2026-02-07    | 2026-02-07   | 9244702 (2026-02-07)                                                                                    |
+| M15       | Done        | 2026-02-07    | 2026-02-07   | 9244702 (2026-02-07)                                                                                    |
+| M16       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M17       | Done        | 2026-02-07    | 2026-02-07   | 8923f21 (2026-02-07)                                                                                    |
+| M18       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M19       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M20       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M21       | Done        | 2026-02-28    | 2026-02-14   | podcast contract gate pass + release checklist protocol                                                 |
+| M22       | Done        | 2026-03-14    | 2026-02-14   | optional phase closed for MVP (single-episode design locked)                                            |
+| M23       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M24       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M25       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M26       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M27       | Done        | 2026-02-08    | 2026-02-08   | 86f1b7a (2026-02-08)                                                                                    |
+| M28       | Done        | 2026-02-28    | 2026-02-14   | extension policy/docs + token revocation + snapshot auth tests                                          |
+| M29       | Done        | 2026-03-07    | 2026-02-14   | oauth/extension/html-snapshot integration suites + CI gates                                             |
+| M30       | Done        | 2026-03-14    | 2026-02-14   | in-app extension onboarding + reconnect/revoke UX                                                       |
+| M31       | Done        | 2026-03-21    | 2026-02-14   | extraction quality fixture coverage + low-signal failure mapping                                        |
+| M32       | Done        | 2026-03-28    | 2026-02-14   | admin backlog/latency/top-failure visibility + runbook                                                  |
+| M33       | Done        | 2026-04-04    | 2026-02-14   | release checklist + contract evidence workflow                                                          |
+| M34       | Done        | 2026-04-11    | 2026-02-14   | diagnostics/token lifecycle hardening + purge automation                                                |
+| M35       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M36       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M37       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M38       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M39       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M40       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M41       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M42       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M43       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M44       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M45       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M46       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M47       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M48       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M49       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M50       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M51       | Done        | 2026-04-18    | 2026-02-14   | trace-context propagation baseline across web/worker/python-tts                                         |
+| M52       | Done        | 2026-04-25    | 2026-02-14   | service/business KPI baseline in admin metrics + logs                                                   |
+| M53       | Done        | 2026-05-02    | 2026-02-14   | Azure Log Analytics query pack + env/runbook wiring                                                     |
+| M54       | Done        | 2026-05-09    | 2026-02-14   | dashboard/alert starter contract in docs + operations runbook                                           |
+| M55       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M56       | Done        | 2026-05-16    | 2026-02-14   | observability verify command + CI gate                                                                  |
+| M57       | Done        | 2026-02-21    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M58       | Done        | 2026-02-24    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M59       | Done        | 2026-02-28    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M60       | Done        | 2026-03-03    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M61       | Done        | 2026-03-07    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M62       | Done        | 2026-03-10    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M63       | Done        | 2026-03-14    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M64       | Done        | 2026-03-21    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M65       | Done        | 2026-02-25    | 2026-02-25   | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25)                                                   |
+| M66       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M67       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M68       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M69       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M70       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M71       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M72       | Done        | 2026-03-02    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M73       | Done        | 2026-03-03    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M74       | Done        | 2026-03-04    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M75       | Done        | 2026-03-05    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M76       | Done        | 2026-03-06    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M77       | Done        | 2026-03-07    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M78       | Done        | 2026-03-08    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M79       | Done        | 2026-03-09    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M80       | Done        | 2026-03-10    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M81       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M82       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M83       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M84       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M85       | Done        | 2026-03-01    | 2026-03-01   | local validation + implementation pass (2026-03-01)                                                     |
+| M86       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M87       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M88       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M89       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M90       | Done        | 2026-03-21    | 2026-03-21   | local validation + Azure provisioning pass (2026-03-21)                                                 |
+| M91       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M92       | Done        | 2026-03-22    | 2026-03-22   | local validation + implementation pass (2026-03-22)                                                     |
+| M93       | Done        | 2026-03-23    | 2026-03-23   | local validation + social-first auth + Facebook OAuth pass (2026-03-23)                                 |
+| M94       | Done        | 2026-03-24    | 2026-03-24   | local validation + production Azure worker/TTS hotfix pass (2026-03-24)                                 |
+| M95       | Done        | 2026-03-24    | 2026-03-24   | local validation + production stuck-job watchdog pass (2026-03-24)                                      |
+| M96       | Done        | 2026-03-25    | 2026-03-25   | local validation + production redirect canonicalization hardening pass (2026-03-25)                     |
+| M97       | Done        | 2026-03-26    | 2026-03-24   | local validation + smart extension capture pass (2026-03-24)                                            |
+| M98       | Done        | 2026-03-27    | 2026-03-24   | local validation + markdown cleanup/backfill rollout pass (2026-03-24)                                  |
+| M99       | Done        | 2026-03-28    | 2026-03-24   | local validation + reusable live-site regression harness pass (2026-03-24)                              |
+| M100      | Done        | 2026-03-31    | 2026-03-25   | local validation + importance/tags capture metadata pass (2026-03-25)                                   |
+| M101      | Done        | 2026-04-02    | 2026-03-25   | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25)                   |
+| M102      | Done        | 2026-04-04    | 2026-03-28   | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28)                         |
+| M103      | Done        | 2026-04-05    | 2026-03-28   | local validation + severity-split local log retention pass (2026-03-28)                                 |
+| M104      | Done        | 2026-04-06    | 2026-03-28   | local validation + public episode share link implementation pass (2026-03-28)                           |
+| M105      | Done        | 2026-04-07    | 2026-03-28   | local validation + audio retention expiry/backfill/purge pass (2026-03-28)                              |
+| M106      | Done        | 2026-04-08    | 2026-04-01   | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
+| M107      | Done        | 2026-04-09    | 2026-04-02   | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)                        |
+| M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
+| S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S04       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S05       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S06       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S07       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S08       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S09       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S10       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S11       | Planned     | 2026-03-21    | —            | —                                                                                                       |
+| S12       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S13       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S14       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S15       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S16       | Planned     | 2026-03-28    | —            | —                                                                                                       |
+| S17       | Planned     | 2026-03-28    | —            | —                                                                                                       |
+| S18       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| C01       | Done        | 2026-03-10    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C02       | Done        | 2026-03-14    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C03       | Done        | 2026-03-21    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C04       | Done        | 2026-03-28    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C05       | Done        | 2026-04-04    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C06       | Done        | 2026-04-11    | 2026-03-17   | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass      |
+| C07       | Done        | 2026-04-18    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C08       | Done        | 2026-04-25    | 2026-03-29   | queue-backed item dispatch + durable leases + single-worker-ready rollout validation (2026-03-29)       |
+| B01       | Done        | 2026-04-18    | 2026-03-28   | local docs sync + billing milestone expansion pass (2026-03-28)                                         |
+| B02       | Done        | 2026-04-25    | 2026-03-28   | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28)                  |
+| B03       | Done        | 2026-05-02    | 2026-03-28   | server-side plan catalog + checkout hardening + targeted validation (2026-03-28)                        |
+| B04       | Done        | 2026-05-09    | 2026-03-28   | invoice-aware webhook entitlement engine + targeted validation (2026-03-28)                             |
+| B05       | Done        | 2026-05-16    | 2026-03-28   | billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28)                   |
+| B06       | Done        | 2026-05-23    | 2026-03-28   | admin billing visibility + webhook observability runbook pass (2026-03-28)                              |
+| B07       | Done        | 2026-05-30    | 2026-03-28   | founder Stripe setup + secret-promotion docs pass (2026-03-28)                                          |
+| B08       | Done        | 2026-06-06    | 2026-03-28   | lifecycle QA checklist + webhook resilience tests pass (2026-03-28)                                     |
+| B09       | In Progress | 2026-06-13    | —            | staging certification, founder launch tasks, and live launch evidence still pending                     |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
-| Milestone | Previous | Corrected | Evidence | Confidence | Open Gap |
-|---|---|---|---|---|---|
-| M06 | In Progress | Done | `740f60c` + OAuth/auth tests | High | None |
-| M19 | Planned | Done | `1e69fda` + Dockerfiles + Azure docs | Medium | None |
-| M20 | In Progress | Done | CI workflow + license/check gates + verification prompts section | Medium | None |
-| M21 | In Progress | Done | contract gate pass + release-checklist protocol (`docs/release-checklist.md`) | Medium | External app smoke evidence follows release checklist template |
-| M22 | Planned | Done | optional phase closed for current architecture (single-episode model locked) | High | None |
-| M28 | In Progress | Done | extension policy + auth/revocation routes + snapshot abuse controls | High | None |
-| M29 | Planned | Done | OAuth/extension/html-snapshot integration suites enforced in CI | High | None |
-| M30 | Planned | Done | extension connect/reconnect/revoke UX in dashboard + popup | High | None |
-| M31 | Planned | Done | low-signal extraction failures + noisy HTML cleanup coverage | Medium | None |
-| M32 | Planned | Done | admin backlog/latency/top-failure metrics + operations runbook | Medium | None |
-| M33 | Planned | Done | release checklist + certification evidence protocol | High | None |
-| M34 | Planned | Done | token/diagnostics purge lifecycle scripts and policies | High | None |
-| M47 | In Progress | Done | `a2774bd` + log/error schema docs | High | None |
-| M48 | In Progress | Done | `a2774bd` + local JSONL log rotation config | High | None |
-| M49 | In Progress | Done | `a2774bd` + web/worker structured logger wiring | High | None |
-| M50 | In Progress | Done | `a2774bd` + python-tts correlation propagation | High | None |
-| M51 | Planned | Done | trace-context propagation baseline across services | Medium | None |
-| M52 | Planned | Done | admin KPI baseline + queue/failure metrics | Medium | None |
-| M53 | Planned | Done | Azure query starter pack + env/runbook wiring | Medium | None |
-| M54 | Planned | Done | dashboard/alert contract documented for operations | Medium | None |
-| M55 | In Progress | Done | `a2774bd` + `scripts/logs-triage.mjs` | High | None |
-| M56 | Planned | Done | `scripts/observability-verify.mjs` + CI step | High | None |
-| M57 | Planned | Done | extraction artifact contract/docs + worker/object storage integration | High | None |
-| M58 | Planned | Done | `ItemArtifact` schema + import/export support + lifecycle scripts | High | None |
-| M59 | Planned | Done | HTML extraction emits markdown + raw HTML artifact payload | High | None |
-| M60 | Planned | Done | PDF extraction emits markdown output (pdfjs deterministic path) | High | None |
-| M61 | Planned | Done | dual artifact persistence + retention env/purge workflow | High | None |
-| M62 | Planned | Done | markdown-derived narration/chunk contract in worker | High | None |
-| M63 | Planned | Done | markdown diagnostics API/dashboard surface + access controls | High | None |
-| M64 | Planned | Done | artifact backfill tooling + regression/certification gate run | High | None |
+| Milestone | Previous    | Corrected | Evidence                                                                      | Confidence | Open Gap                                                       |
+| --------- | ----------- | --------- | ----------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------- |
+| M06       | In Progress | Done      | `740f60c` + OAuth/auth tests                                                  | High       | None                                                           |
+| M19       | Planned     | Done      | `1e69fda` + Dockerfiles + Azure docs                                          | Medium     | None                                                           |
+| M20       | In Progress | Done      | CI workflow + license/check gates + verification prompts section              | Medium     | None                                                           |
+| M21       | In Progress | Done      | contract gate pass + release-checklist protocol (`docs/release-checklist.md`) | Medium     | External app smoke evidence follows release checklist template |
+| M22       | Planned     | Done      | optional phase closed for current architecture (single-episode model locked)  | High       | None                                                           |
+| M28       | In Progress | Done      | extension policy + auth/revocation routes + snapshot abuse controls           | High       | None                                                           |
+| M29       | Planned     | Done      | OAuth/extension/html-snapshot integration suites enforced in CI               | High       | None                                                           |
+| M30       | Planned     | Done      | extension connect/reconnect/revoke UX in dashboard + popup                    | High       | None                                                           |
+| M31       | Planned     | Done      | low-signal extraction failures + noisy HTML cleanup coverage                  | Medium     | None                                                           |
+| M32       | Planned     | Done      | admin backlog/latency/top-failure metrics + operations runbook                | Medium     | None                                                           |
+| M33       | Planned     | Done      | release checklist + certification evidence protocol                           | High       | None                                                           |
+| M34       | Planned     | Done      | token/diagnostics purge lifecycle scripts and policies                        | High       | None                                                           |
+| M47       | In Progress | Done      | `a2774bd` + log/error schema docs                                             | High       | None                                                           |
+| M48       | In Progress | Done      | `a2774bd` + local JSONL log rotation config                                   | High       | None                                                           |
+| M49       | In Progress | Done      | `a2774bd` + web/worker structured logger wiring                               | High       | None                                                           |
+| M50       | In Progress | Done      | `a2774bd` + python-tts correlation propagation                                | High       | None                                                           |
+| M51       | Planned     | Done      | trace-context propagation baseline across services                            | Medium     | None                                                           |
+| M52       | Planned     | Done      | admin KPI baseline + queue/failure metrics                                    | Medium     | None                                                           |
+| M53       | Planned     | Done      | Azure query starter pack + env/runbook wiring                                 | Medium     | None                                                           |
+| M54       | Planned     | Done      | dashboard/alert contract documented for operations                            | Medium     | None                                                           |
+| M55       | In Progress | Done      | `a2774bd` + `scripts/logs-triage.mjs`                                         | High       | None                                                           |
+| M56       | Planned     | Done      | `scripts/observability-verify.mjs` + CI step                                  | High       | None                                                           |
+| M57       | Planned     | Done      | extraction artifact contract/docs + worker/object storage integration         | High       | None                                                           |
+| M58       | Planned     | Done      | `ItemArtifact` schema + import/export support + lifecycle scripts             | High       | None                                                           |
+| M59       | Planned     | Done      | HTML extraction emits markdown + raw HTML artifact payload                    | High       | None                                                           |
+| M60       | Planned     | Done      | PDF extraction emits markdown output (pdfjs deterministic path)               | High       | None                                                           |
+| M61       | Planned     | Done      | dual artifact persistence + retention env/purge workflow                      | High       | None                                                           |
+| M62       | Planned     | Done      | markdown-derived narration/chunk contract in worker                           | High       | None                                                           |
+| M63       | Planned     | Done      | markdown diagnostics API/dashboard surface + access controls                  | High       | None                                                           |
+| M64       | Planned     | Done      | artifact backfill tooling + regression/certification gate run                 | High       | None                                                           |
 
 ## Milestones
 
 ### M00 - Spec Lock and Acceptance Baseline
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -450,6 +454,7 @@ Milestone metadata contract:
   - Manual checklist review in `docs/plans.md`.
 
 ### M01 - Workspace Bootstrap and Command Contract
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -473,6 +478,7 @@ Milestone metadata contract:
   - `pnpm test`
 
 ### M02 - Monorepo Skeleton and Interface Boundaries
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -494,6 +500,7 @@ Milestone metadata contract:
   - `pnpm -r test`
 
 ### M03 - Third-Party Reference Intake and Attribution
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -513,6 +520,7 @@ Milestone metadata contract:
   - `test -f docs/THIRD_PARTY.md`
 
 ### M04 - Environment and Runtime Profiles (Local + Azure-Ready)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -532,6 +540,7 @@ Milestone metadata contract:
   - `pnpm run check:env`
 
 ### M05 - Database Schema and Migration Baseline
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -551,6 +560,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- db`
 
 ### M06 - Authentication Surfaces (User + OAuth + Admin)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -571,6 +581,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- auth`
 
 ### M07 - Feed Token, Media Token, and Read-Only Demo Access
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -592,6 +603,7 @@ Milestone metadata contract:
   - manual: old feed URL returns unauthorized/not found after rotation
 
 ### M08 - Ingestion APIs and Abuse Prevention
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -614,6 +626,7 @@ Milestone metadata contract:
   - `pnpm test -- security`
 
 ### M09 - Job Engine, Async Pipeline, and Deterministic Event Log
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -637,6 +650,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/worker test -- idempotency`
 
 ### M10 - Content Extraction Adapters (HTML + PDF, OCR Unsupported)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -658,6 +672,7 @@ Milestone metadata contract:
   - `pnpm test -- extraction-pdf`
 
 ### M11 - Normalization, Chunking, and Hash-Cache Determinism
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -676,6 +691,7 @@ Milestone metadata contract:
   - `pnpm test -- determinism`
 
 ### M12 - TTS Provider Layer (Kokoro-First + Optional Providers)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -700,6 +716,7 @@ Milestone metadata contract:
   - `npm run test:tts:e2e`
 
 ### M13 - Storage Adapter and Artifact Lifecycle
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -721,6 +738,7 @@ Milestone metadata contract:
   - `pnpm test -- deletion`
 
 ### M14 - Media Delivery Contract (`HEAD` + `Range`)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -741,6 +759,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M15 - Deterministic RSS Renderer and Private Feed Endpoint
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -760,6 +779,7 @@ Milestone metadata contract:
   - `pnpm test -- rss-snapshots`
 
 ### M16 - Web App UX and Admin Observability Module
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -784,6 +804,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- admin`
 
 ### M17 - Demo Starter Content and Read-Only Demo Experience
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -804,6 +825,7 @@ Milestone metadata contract:
   - `pnpm test -- demo-seed`
 
 ### M18 - Export Pipeline and Deterministic Manifest
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -824,6 +846,7 @@ Milestone metadata contract:
   - `pnpm test -- export`
 
 ### M19 - Azure Readiness and Deployment Documentation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -845,6 +868,7 @@ Milestone metadata contract:
   - `docker build -f Dockerfile.worker .`
 
 ### M20 - Automated Quality Gates and Spec-Drift Controls
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -870,6 +894,7 @@ Milestone metadata contract:
   - `mypy services/python-tts` (if configured)
 
 ### M21 - Release Certification and Podcast Compatibility Gate
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -891,6 +916,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M22 - Optional Phase 1.5: Multi-Part Episode Splitting for Long Inputs
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -908,6 +934,7 @@ Milestone metadata contract:
   - `pnpm test -- rss`
 
 ### M23 - OAuth Hardening Completion (Google + Apple)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -934,6 +961,7 @@ Milestone metadata contract:
   - auth integration tests with mocked provider flows
 
 ### M24 - Extension Auth Model (Login In Extension)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -956,6 +984,7 @@ Milestone metadata contract:
   - unauthorized/expired/replayed token tests
 
 ### M25 - HTML Snapshot Ingestion API
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -981,6 +1010,7 @@ Milestone metadata contract:
   - regression tests for URL/PDF endpoints
 
 ### M26 - Worker Extraction Path for Snapshot Mode
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1003,6 +1033,7 @@ Milestone metadata contract:
   - worker pipeline tests
 
 ### M27 - Chrome Extension (MV3) UX + Capture Flow
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1025,6 +1056,7 @@ Milestone metadata contract:
   - API contract tests for extension requests
 
 ### M28 - Security/Compliance + Demo Readiness for Extension
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -1047,6 +1079,7 @@ Milestone metadata contract:
   - demo walkthrough including extension capture
 
 ### M29 - OAuth + Extension End-to-End Regression Matrix (CI)
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-14
@@ -1072,6 +1105,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M30 - Extension Onboarding + Recovery UX
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -1095,6 +1129,7 @@ Milestone metadata contract:
   - manual onboarding smoke walkthrough
 
 ### M31 - Extraction Quality Guardrails for Noisy HTML
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-02-14
@@ -1118,6 +1153,7 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M32 - Operational Observability Baseline
+
 - status: Done
 - target_finish: 2026-03-28
 - completed_on: 2026-02-14
@@ -1143,6 +1179,7 @@ Milestone metadata contract:
   - manual admin observability walkthrough
 
 ### M33 - Release Certification Matrix (Apple + Secondary App)
+
 - status: Done
 - target_finish: 2026-04-04
 - completed_on: 2026-02-14
@@ -1166,6 +1203,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M34 - Security + Data Lifecycle Hardening
+
 - status: Done
 - target_finish: 2026-04-11
 - completed_on: 2026-02-14
@@ -1189,6 +1227,7 @@ Milestone metadata contract:
   - `npm run test -- extension-auth`
 
 ### M35 - Durable Azure Target Lock + Parity Contract
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1210,6 +1249,7 @@ Milestone metadata contract:
   - `pnpm run check:env`
 
 ### M36 - Local Parity Compose Stack
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1234,6 +1274,7 @@ Milestone metadata contract:
   - `docker compose -f docker-compose.parity.yml down`
 
 ### M37 - Env Contract Hardening (Simple vs Parity vs Azure)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1258,6 +1299,7 @@ Milestone metadata contract:
   - `node scripts/check-env.mjs --profile azure`
 
 ### M38 - PostgreSQL Migration Foundation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1281,6 +1323,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- auth`
 
 ### M39 - Blob Storage Adapter (Uploads + Audio + Diagnostics Artifacts)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1304,6 +1347,7 @@ Milestone metadata contract:
   - `pnpm test -- worker`
 
 ### M40 - Media Proxy Contract with Blob Backend
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1326,6 +1370,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M41 - Worker Artifact Flow Refactor (Blob-Native)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1348,6 +1393,7 @@ Milestone metadata contract:
   - `pnpm test -- extension-auth`
 
 ### M42 - PostgreSQL Queue Resilience Hardening
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1370,6 +1416,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/worker test -- crash-recovery`
 
 ### M43 - Azure IaC Baseline (`Bicep` + `azd`)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1392,6 +1439,7 @@ Milestone metadata contract:
   - scripted `az deployment group what-if`
 
 ### M44 - VM Runtime Deployment Automation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1415,6 +1463,7 @@ Milestone metadata contract:
   - health endpoint checks post-reboot
 
 ### M45 - Durability Drill and Restore Certification
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1437,6 +1486,7 @@ Milestone metadata contract:
   - post-restore podcast contract checks
 
 ### M46 - Parity CI Matrix + Release Gate
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1461,12 +1511,14 @@ Milestone metadata contract:
   - podcast contract gate script
 
 ## Durable Azure/Public Interface Additions (M35-M46)
+
 - Storage interface is elevated to explicit runtime contract with `local` and `azure_blob` implementations.
 - Artifact references are standardized as object keys instead of VM-local filesystem paths.
 - Env contract is expanded with profile-specific requirements (`simple`, `parity`, `azure`).
 - Queue runner behavior expands to include stale-claim recovery and explicit retry scheduling semantics.
 
 ## Assumptions and Defaults
+
 - Package manager: `pnpm`.
 - Workspace package names will use `@articlepod/*`.
 - Local demo audio format currently defaults to MP3 (`audio/mpeg`).
@@ -1483,6 +1535,7 @@ Milestone metadata contract:
 ## Architecture Overview
 
 ### High-Level Components
+
 - `apps/web`:
   - UI routes (`/login`, `/app`, admin pages)
   - lightweight API routes (enqueue jobs, feed rendering, media serving in dev mode)
@@ -1498,6 +1551,7 @@ Milestone metadata contract:
   - Python scaffold for future local/hosted TTS model execution path
 
 ### Data Model (Planned Entities)
+
 - `User`:
   - `id`, `email`, `name`, `role`, `created_at`
 - `Session`:
@@ -1516,6 +1570,7 @@ Milestone metadata contract:
   - `id`, `job_id`, `item_id`, `stage`, `payload_json`, `created_at`
 
 ### Pipeline and State Machine
+
 - Intake route:
   - validates request -> creates `Item(status=queued)` -> enqueues `Job`.
 - Worker stages:
@@ -1532,6 +1587,7 @@ Milestone metadata contract:
   - schedule retry if eligible
 
 ### Adapter Interfaces (No Vendor Lock-in)
+
 - `ExtractorAdapter`:
   - `extractFromUrl(input): ExtractResult`
   - `extractFromPdf(input): ExtractResult`
@@ -1544,18 +1600,21 @@ Milestone metadata contract:
   - `buildFeed({ user, episodes, baseUrl }): string`
 
 ### Determinism Strategy
+
 - Stable sort keys for feed items and manifest entries.
 - Deterministic episode GUID from stable episode identity.
 - Deterministic chunk hashing from canonical normalized text.
 - Snapshot tests on RSS XML, event logs, and export manifest.
 
 ### Security and Privacy Strategy
+
 - Feed/media/share tokens are hashed at rest and redacted in logs.
 - SSRF guardrails block private networks and metadata endpoints.
 - Rate limits per IP and per authenticated user.
 - Clear delete semantics for item/account and corresponding data artifacts.
 
 ### Local vs Azure Runtime Strategy
+
 - Local:
   - SQLite + local filesystem media + Kokoro/python-tts local narration.
 - Azure (existing readiness baseline):
@@ -1568,79 +1627,88 @@ Milestone metadata contract:
 
 ## Risk Register
 
-| Risk | Probability | Impact | Detection Signal | Mitigation | Owner Milestone(s) |
-|---|---|---|---|---|---|
-| Podcast clients reject media seek/play | Medium | High | Range test not returning `206`, app playback stalls | enforce `HEAD`/`Range` tests + contract script | M14, M21 |
-| RSS invalid or unstable across runs | Medium | High | snapshot drift or feed parsing errors | deterministic serializer + strict RSS tests | M15, M20 |
-| HTML extraction low quality/empty output | Medium | Medium | extraction tests fail or many failed jobs | fixture corpus + fallback normalization + explicit errors | M10 |
-| PDF extraction fails on scanned docs silently | Medium | High | empty text with no clear error | scanned detection and explicit OCR-not-supported code | M10 |
-| Retry logic creates duplicate episodes | Medium | High | duplicate GUID/enclosures | deterministic IDs + check-before-generate + transactionally claimed jobs | M09, M11 |
-| Token leakage in logs/errors | Low | High | token strings visible in logs/UI errors | token redaction + secure error mapping | M07, M20 |
-| OAuth instability in local demos | Medium | Medium | login blocked when providers unavailable | local auth fallback always enabled | M06 |
-| OAuth account-linking ambiguity (same email across providers) | Medium | High | wrong account linked after provider login | introduce provider-subject identity table and linking rules | M23 |
-| Extension token leakage or replay | Medium | High | unauthorized extension submissions | short-lived connect codes, hashed stored tokens, revocation and replay checks | M24, M28 |
-| Snapshot payload abuse (oversized/hostile HTML) | Medium | High | high memory/CPU usage or ingest failures | strict payload caps, validation, and rate limits | M25, M28 |
-| Policy drift for paywalled content handling | Medium | Medium | feature requests imply bypass behavior | enforce user-visible-only policy in spec, code, and tests | M28 |
-| OAuth provider behavior drift (callback/profile edge cases) | Medium | Medium | intermittent sign-in failures in provider-specific paths | CI integration matrix + standardized error mapping | M23, M29 |
-| Extension onboarding friction reduces adoption/demo reliability | Medium | Medium | users fail to connect or repeatedly hit auth expiry issues | guided onboarding UI + reconnect flows + UX telemetry | M30 |
-| Extraction quality regressions on complex article layouts | High | Medium | narrated output includes boilerplate/junk text | quality fixture suite and quality-gate failures | M31 |
-| Limited operational visibility delays incident response | Medium | High | unresolved queue growth or repeated silent failures | metrics baseline + admin visibility + triage runbook | M32 |
-| Missing release evidence for podcast app compatibility | Medium | High | release regressions discovered only after demo | formal RC certification checklist and artifact capture | M33 |
-| Diagnostics retention misconfiguration exposes extra user data | Low | High | extracted text retained longer than intended | automated purge + retention tests + scoped demo-only storage | M34 |
-| License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
-| Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
-| Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |
-| SQLite-to-PostgreSQL migration drift breaks auth/feed/job integrity | Medium | High | row-count mismatch or failed auth/feed lookups post-migration | migration rehearsal, integrity checks, rollback scripts | M38, M46 |
-| Blob key/path migration regressions break media retrieval | Medium | High | 404 responses for known episodes or missing enclosure targets | deterministic key mapping tests + migration audits + contract checks | M39, M40, M41 |
-| Local parity profile drifts from Azure runtime behavior | Medium | High | parity pass/fail divergence across environments | compose parity profile + env profile gates + CI matrix enforcement | M36, M37, M46 |
-| Backup/restore runbook rot causes failed disaster recovery | Low | High | VM-loss drill fails or exceeds expected recovery objectives | scheduled drill cadence + signed restore evidence | M45, M46 |
-| Observability schema drift between services breaks correlation | Medium | High | logs present but trace/request IDs do not align | shared schema in `packages/core` + contract tests + propagation headers | M47, M50, M56 |
-| Log volume growth increases cost/noise and hides real incidents | Medium | Medium | high ingestion with low signal quality | severity gates, log rotation, digest aggregation, 14-day retention | M48, M55 |
-| Secrets accidentally leak via logs during failures | Low | High | tokens/cookies visible in log bundles | centralized redaction and redaction tests before release gate | M49, M56 |
-| Azure alert fatigue from poor thresholds | Medium | Medium | repeated non-actionable alert fires | phase-in dashboards with tuned thresholds and runbook-linked alerts | M54 |
-| Markdown conversion quality drift (lost headings/lists) | Medium | Medium | markdown fixtures diverge from expected structure | fixture corpus + deterministic markdown snapshot tests | M59, M60, M64 |
-| Analytics KPI trust issues from missing historical playback data | Medium | Medium | investor metrics appear inconsistent across time windows | hybrid backfill with explicit coverage labels + forward-only playback notation | M67, M68, M69 |
-| Dual raw+markdown storage increases cost and retention risk | Medium | Medium | storage growth exceeds projection or stale raw artifacts persist | lifecycle metadata + scheduled purge + retention audits | M57, M61, M64 |
-| Markdown artifact exposure leaks sensitive extracted data | Low | High | unauthorized retrieval of extraction artifacts | strict auth checks + scoped diagnostics access + audit logging | M63, M64 |
-| Domain/TLS drift causes broken canonical URLs or cert failures | Medium | High | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65 |
-| Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
+| Risk                                                                | Probability | Impact | Detection Signal                                                        | Mitigation                                                                     | Owner Milestone(s) |
+| ------------------------------------------------------------------- | ----------- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------ |
+| Podcast clients reject media seek/play                              | Medium      | High   | Range test not returning `206`, app playback stalls                     | enforce `HEAD`/`Range` tests + contract script                                 | M14, M21           |
+| RSS invalid or unstable across runs                                 | Medium      | High   | snapshot drift or feed parsing errors                                   | deterministic serializer + strict RSS tests                                    | M15, M20           |
+| HTML extraction low quality/empty output                            | Medium      | Medium | extraction tests fail or many failed jobs                               | fixture corpus + fallback normalization + explicit errors                      | M10                |
+| PDF extraction fails on scanned docs silently                       | Medium      | High   | empty text with no clear error                                          | scanned detection and explicit OCR-not-supported code                          | M10                |
+| Retry logic creates duplicate episodes                              | Medium      | High   | duplicate GUID/enclosures                                               | deterministic IDs + check-before-generate + transactionally claimed jobs       | M09, M11           |
+| Token leakage in logs/errors                                        | Low         | High   | token strings visible in logs/UI errors                                 | token redaction + secure error mapping                                         | M07, M20           |
+| OAuth instability in local demos                                    | Medium      | Medium | login blocked when providers unavailable                                | local auth fallback always enabled                                             | M06                |
+| OAuth account-linking ambiguity (same email across providers)       | Medium      | High   | wrong account linked after provider login                               | introduce provider-subject identity table and linking rules                    | M23                |
+| Extension token leakage or replay                                   | Medium      | High   | unauthorized extension submissions                                      | short-lived connect codes, hashed stored tokens, revocation and replay checks  | M24, M28           |
+| Snapshot payload abuse (oversized/hostile HTML)                     | Medium      | High   | high memory/CPU usage or ingest failures                                | strict payload caps, validation, and rate limits                               | M25, M28           |
+| Policy drift for paywalled content handling                         | Medium      | Medium | feature requests imply bypass behavior                                  | enforce user-visible-only policy in spec, code, and tests                      | M28                |
+| OAuth provider behavior drift (callback/profile edge cases)         | Medium      | Medium | intermittent sign-in failures in provider-specific paths                | CI integration matrix + standardized error mapping                             | M23, M29           |
+| Extension onboarding friction reduces adoption/demo reliability     | Medium      | Medium | users fail to connect or repeatedly hit auth expiry issues              | guided onboarding UI + reconnect flows + UX telemetry                          | M30                |
+| Extraction quality regressions on complex article layouts           | High        | Medium | narrated output includes boilerplate/junk text                          | quality fixture suite and quality-gate failures                                | M31                |
+| Limited operational visibility delays incident response             | Medium      | High   | unresolved queue growth or repeated silent failures                     | metrics baseline + admin visibility + triage runbook                           | M32                |
+| Missing release evidence for podcast app compatibility              | Medium      | High   | release regressions discovered only after demo                          | formal RC certification checklist and artifact capture                         | M33                |
+| Diagnostics retention misconfiguration exposes extra user data      | Low         | High   | extracted text retained longer than intended                            | automated purge + retention tests + scoped demo-only storage                   | M34                |
+| License policy violation in dependencies                            | Low         | High   | CI dependency audit fail                                                | automated denylist gate in CI                                                  | M20                |
+| Demo not impressive without API keys                                | Medium      | High   | blank state or slow first run                                           | starter seed with pre-generated episode and demo banner                        | M17                |
+| Cloud deployment drift from local assumptions                       | Medium      | Medium | Azure docs incomplete or container mismatch                             | env contract + container smoke + architecture docs                             | M19                |
+| SQLite-to-PostgreSQL migration drift breaks auth/feed/job integrity | Medium      | High   | row-count mismatch or failed auth/feed lookups post-migration           | migration rehearsal, integrity checks, rollback scripts                        | M38, M46           |
+| Blob key/path migration regressions break media retrieval           | Medium      | High   | 404 responses for known episodes or missing enclosure targets           | deterministic key mapping tests + migration audits + contract checks           | M39, M40, M41      |
+| Local parity profile drifts from Azure runtime behavior             | Medium      | High   | parity pass/fail divergence across environments                         | compose parity profile + env profile gates + CI matrix enforcement             | M36, M37, M46      |
+| Backup/restore runbook rot causes failed disaster recovery          | Low         | High   | VM-loss drill fails or exceeds expected recovery objectives             | scheduled drill cadence + signed restore evidence                              | M45, M46           |
+| Observability schema drift between services breaks correlation      | Medium      | High   | logs present but trace/request IDs do not align                         | shared schema in `packages/core` + contract tests + propagation headers        | M47, M50, M56      |
+| Log volume growth increases cost/noise and hides real incidents     | Medium      | Medium | high ingestion with low signal quality                                  | severity gates, log rotation, digest aggregation, 14-day retention             | M48, M55           |
+| Secrets accidentally leak via logs during failures                  | Low         | High   | tokens/cookies visible in log bundles                                   | centralized redaction and redaction tests before release gate                  | M49, M56           |
+| Azure alert fatigue from poor thresholds                            | Medium      | Medium | repeated non-actionable alert fires                                     | phase-in dashboards with tuned thresholds and runbook-linked alerts            | M54                |
+| Markdown conversion quality drift (lost headings/lists)             | Medium      | Medium | markdown fixtures diverge from expected structure                       | fixture corpus + deterministic markdown snapshot tests                         | M59, M60, M64      |
+| Analytics KPI trust issues from missing historical playback data    | Medium      | Medium | investor metrics appear inconsistent across time windows                | hybrid backfill with explicit coverage labels + forward-only playback notation | M67, M68, M69      |
+| Dual raw+markdown storage increases cost and retention risk         | Medium      | Medium | storage growth exceeds projection or stale raw artifacts persist        | lifecycle metadata + scheduled purge + retention audits                        | M57, M61, M64      |
+| Markdown artifact exposure leaks sensitive extracted data           | Low         | High   | unauthorized retrieval of extraction artifacts                          | strict auth checks + scoped diagnostics access + audit logging                 | M63, M64           |
+| Domain/TLS drift causes broken canonical URLs or cert failures      | Medium      | High   | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65                |
+| Missing verification-prompts process                                | Medium      | Medium | drift between plan and releases                                         | add section to `docs/Prompts.md` and run each milestone                        | M20                |
 
 ## 3-Minute Demo Script (Time-Boxed)
 
 ### 00:00-00:20 - Start and Login
+
 1. Run `pnpm dev`.
 2. Open app and log in with seeded demo account.
 
 ### 00:20-00:45 - Show Immediate Value
+
 1. Show starter episode already present and playable.
 2. Highlight the focused `/app` workspace, then open `/app/podcast-apps` for copy/rotation controls.
 
 ### 00:45-01:15 - Verify Feed
+
 1. Open `/rss/<feed_token>.xml`.
 2. Point out GUID + enclosure URL + enclosure length/type.
 
 ### 01:15-01:45 - New Submission
+
 1. Submit a URL (or sample PDF).
 2. Show status transition `queued -> processing`.
 
 ### 01:45-02:10 - Admin Observability
+
 1. Open admin dashboard.
 2. Show active users, job success/failure, recent errors.
 
 ### 02:10-02:35 - Ready Episode and Playback
+
 1. Return to dashboard; show item as `ready`.
 2. Play audio in browser and seek mid-track.
 
 ### 02:35-02:55 - Podcast Compatibility Proof
+
 1. Run `curl -I "<MP3_URL>"`.
 2. Run `curl -i -H "Range: bytes=0-1" "<MP3_URL>"` and show `206`.
 
 ### 02:55-03:00 - Portability
+
 1. Mention `pnpm export` creates portable RSS + media + manifest outputs.
 
 ## Test Strategy and Acceptance Matrix
 
 ### Unit Tests (Minimum)
+
 - URL normalization + SSRF guard checks.
 - HTML extraction fixtures.
 - PDF extraction fixtures including scanned-failure case.
@@ -1649,6 +1717,7 @@ Milestone metadata contract:
 - Storage URL/token generation.
 
 ### Integration Tests
+
 - URL submission -> job ready -> RSS item appears -> media reachable.
 - PDF submission -> ready for text-based PDF.
 - Scanned PDF -> failed with explicit OCR-not-supported error.
@@ -1658,16 +1727,19 @@ Milestone metadata contract:
 - Extension connect-code/token lifecycle and HTML snapshot ingest end-to-end.
 
 ### Snapshot/Determinism Tests
+
 - RSS XML snapshots.
 - Job event log serialization snapshots.
 - Export manifest snapshots.
 
 ### Manual Smoke Tests (Release Gate)
+
 - Subscribe on Apple Podcasts (reachable host) and one additional RSS podcast app.
 - Play, seek, resume.
 - Validate read-only share mode cannot mutate content.
 
 ### Durable Azure and Parity Validation Matrix (M35-M46)
+
 - Profile validation:
   - `simple`, `parity`, and `azure` env checks with explicit required vars.
 - Migration validation:
@@ -1684,6 +1756,7 @@ Milestone metadata contract:
   - snapshot ingest still enqueues immediately and completes under parity profile.
 
 ## Milestone Execution Protocol (After Approval)
+
 - Execute one milestone at a time.
 - For each milestone:
   - implement only that scope
@@ -1696,6 +1769,7 @@ Milestone metadata contract:
 ## Ongoing Notes and Decisions
 
 ### Decision Log Template
+
 - Date:
 - Milestone:
 - Decision:
@@ -1704,6 +1778,7 @@ Milestone metadata contract:
 - Follow-up impact:
 
 ### Open Questions Tracker
+
 - Question:
 - Blocking/non-blocking:
 - Owner:
@@ -1711,6 +1786,7 @@ Milestone metadata contract:
 - Resolution:
 
 ### Milestone Verification Log Template
+
 - Milestone:
 - Commands run:
 - Pass/fail:
@@ -1721,6 +1797,7 @@ Milestone metadata contract:
 ## Observability Track (M47-M56)
 
 ### M47 - Observability Contract and Error Taxonomy Lock
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1736,6 +1813,7 @@ Milestone metadata contract:
   - schema is documented and runtime code emits/returns `support_id` on failures.
 
 ### M48 - Dedicated Local Log Storage + Rotation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1751,6 +1829,7 @@ Milestone metadata contract:
   - logs exist under predictable service paths and can be bundled with one command.
 
 ### M49 - Node Structured Logging Baseline (Web + Worker)
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1767,6 +1846,7 @@ Milestone metadata contract:
   - correlated worker events + API failure logs exist in JSONL.
 
 ### M50 - Python TTS Structured Logging + Correlation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1781,6 +1861,7 @@ Milestone metadata contract:
   - one failure can be traced across worker and python-tts logs via shared IDs.
 
 ### M51 - OpenTelemetry Instrumentation End-to-End
+
 - status: Done
 - target_finish: 2026-04-18
 - completed_on: 2026-02-14
@@ -1792,6 +1873,7 @@ Milestone metadata contract:
   - completed as baseline instrumentation contract; exporter-specific expansion can layer on top.
 
 ### M52 - Metrics Layer (Service + Business KPIs)
+
 - status: Done
 - target_finish: 2026-04-25
 - completed_on: 2026-02-14
@@ -1802,6 +1884,7 @@ Milestone metadata contract:
   - completed baseline KPI layer; naming aligns with admin/API surfaces.
 
 ### M53 - Azure Monitor + Log Analytics Wiring
+
 - status: Done
 - target_finish: 2026-05-02
 - completed_on: 2026-02-14
@@ -1813,6 +1896,7 @@ Milestone metadata contract:
   - completed through runbook-backed Azure query/wiring guidance.
 
 ### M54 - Dashboards + Alerts
+
 - status: Done
 - target_finish: 2026-05-09
 - completed_on: 2026-02-14
@@ -1823,6 +1907,7 @@ Milestone metadata contract:
   - completed baseline; concrete Azure portal objects can be instantiated from this contract.
 
 ### M55 - Error Triage Loop Automation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1836,6 +1921,7 @@ Milestone metadata contract:
   - ranked digest generated from latest JSONL logs.
 
 ### M56 - Observability Validation and Release Gate
+
 - status: Done
 - target_finish: 2026-05-16
 - completed_on: 2026-02-14
@@ -1848,10 +1934,10 @@ Milestone metadata contract:
 - Acceptance:
   - observability verification command passes in CI/local.
 
-
 ## Markdown Artifact Track (M57-M64)
 
 ### M57 - Markdown Artifact Contract Lock
+
 - status: Done
 - target_finish: 2026-02-21
 - completed_on: 2026-02-14
@@ -1870,6 +1956,7 @@ Milestone metadata contract:
   - manual cross-doc consistency review
 
 ### M58 - Artifact Metadata Model + Storage References
+
 - status: Done
 - target_finish: 2026-02-24
 - completed_on: 2026-02-14
@@ -1886,6 +1973,7 @@ Milestone metadata contract:
   - manual model walkthrough against current schema
 
 ### M59 - HTML to Markdown Pipeline (Readability + Turndown + Abogen)
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -1902,6 +1990,7 @@ Milestone metadata contract:
   - `npm run test -- extraction`
 
 ### M60 - PDF to Markdown Pipeline (pdfjs Deterministic Path + Markdown Structuring)
+
 - status: Done
 - target_finish: 2026-03-03
 - completed_on: 2026-02-14
@@ -1918,6 +2007,7 @@ Milestone metadata contract:
   - `npm run test -- extraction-pdf`
 
 ### M61 - Dual Artifact Persistence + Retention Enforcement
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-14
@@ -1934,6 +2024,7 @@ Milestone metadata contract:
   - `npm run test -- storage`
 
 ### M62 - Markdown-Derived Narration Contract
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-02-14
@@ -1951,6 +2042,7 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M63 - Markdown Diagnostics Access Surface
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -1968,6 +2060,7 @@ Milestone metadata contract:
   - `npm run test -- auth`
 
 ### M64 - Migration Backfill + Regression Certification
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-02-14
@@ -1986,6 +2079,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M65 - Canonical Domain + TLS Deploy Automation
+
 - status: Done
 - target_finish: 2026-02-25
 - completed_on: 2026-02-25
@@ -2020,6 +2114,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"`
 
 ### M66 - Analytics Event Foundation
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2045,6 +2140,7 @@ Milestone metadata contract:
   - `npm run test -- admin-analytics`
 
 ### M67 - Analytics Backfill + Coverage Labels
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2064,6 +2160,7 @@ Milestone metadata contract:
   - `npm run test -- admin-analytics`
 
 ### M68 - Admin Analytics APIs + CSV Exports
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2087,6 +2184,7 @@ Milestone metadata contract:
   - `npm run lint`
 
 ### M69 - Tabbed Admin Dashboard UI
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2106,6 +2204,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M70 - KPI Validation + Docs/Runbook Sync
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2131,6 +2230,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M71 - Free Trial Quota + Admin Overrides
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2164,6 +2264,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M72 - Digest Data Model + Core Contracts
+
 - status: Done
 - target_finish: 2026-03-02
 - completed_on: 2026-02-27
@@ -2185,6 +2286,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/core`
 
 ### M73 - Digest Settings APIs + Digest Feed Token Controls
+
 - status: Done
 - target_finish: 2026-03-03
 - completed_on: 2026-02-27
@@ -2205,6 +2307,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/web -- digest-routes`
 
 ### M74 - Digest Scheduler Pass + External Tick Signal
+
 - status: Done
 - target_finish: 2026-03-04
 - completed_on: 2026-02-27
@@ -2225,6 +2328,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/web -- digest-routes`
 
 ### M75 - Digest Run Processor (Summary + Stub Email + Optional Podcast)
+
 - status: Done
 - target_finish: 2026-03-05
 - completed_on: 2026-02-27
@@ -2244,6 +2348,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/worker -- digest-jobs`
 
 ### M76 - Separate Digest RSS + Digest Media Route Contract
+
 - status: Done
 - target_finish: 2026-03-06
 - completed_on: 2026-02-27
@@ -2261,6 +2366,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
 ### M77 - Settings UX for Digest Controls
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-27
@@ -2280,6 +2386,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/web -- app-dashboard-layout`
 
 ### M78 - Digest Test Expansion + Contract Gates
+
 - status: Done
 - target_finish: 2026-03-08
 - completed_on: 2026-02-27
@@ -2300,6 +2407,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
 ### M79 - Docs Sync for Digest Track
+
 - status: Done
 - target_finish: 2026-03-09
 - completed_on: 2026-02-27
@@ -2320,6 +2428,7 @@ Milestone metadata contract:
   - Manual cross-doc consistency pass.
 
 ### M80 - Brain Icon Consistency Pass (Web + Extension + RSS)
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-02-27
@@ -2354,6 +2463,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
 ### M81 - Podcast Playback Compatibility + Description Quality Hardening
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2385,6 +2495,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M82 - Missing Media Auto-Repair + RSS Delete Consistency
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2417,6 +2528,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M83 - Global Geo Snapshot + Optional Demographic Survey
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2452,6 +2564,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M84 - Smart Feed Shortcuts + Admin-Only Markdown Controls
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2487,6 +2600,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M85 - Message-First Feedback Suggestions + Admin Triage Inbox
+
 - status: Done
 - target_finish: 2026-03-01
 - completed_on: 2026-03-01
@@ -2526,6 +2640,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M86 - Summary Studio Data Models and Contracts
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2550,6 +2665,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run typecheck`
 
 ### M87 - Summary Studio APIs and Manual UX
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2575,6 +2691,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
 
 ### M88 - Azure OpenAI Summary Provider and Worker Routing
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2601,6 +2718,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run typecheck`
 
 ### M89 - Digest Feed and Media Integration for Manual Summaries
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2631,6 +2749,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test -- storage-cutover-config`
 
 ### M90 - Azure OpenAI Provisioning and Deploy Automation
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2655,6 +2774,7 @@ Milestone metadata contract:
   - `./scripts/azure/provision-openai.sh --resource-group rg-articlepod-prod`
 
 ### M91 - Summary Studio Validation and Docs Sync
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2688,6 +2808,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M92 - Feed Stability + Extension Lifetime UX
+
 - status: Done
 - target_finish: 2026-03-22
 - completed_on: 2026-03-22
@@ -2730,6 +2851,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M93 - Social-First Auth UX + Facebook OAuth
+
 - status: Done
 - target_finish: 2026-03-23
 - completed_on: 2026-03-23
@@ -2763,6 +2885,7 @@ Milestone metadata contract:
   - `pnpm build`
 
 ### M94 - Azure Worker Stability Hotfix
+
 - status: Done
 - target_finish: 2026-03-24
 - completed_on: 2026-03-24
@@ -2793,6 +2916,7 @@ Milestone metadata contract:
   - `pnpm build`
 
 ### M95 - Stuck Job Watchdog Hardening
+
 - status: Done
 - target_finish: 2026-03-24
 - completed_on: 2026-03-24
@@ -2829,6 +2953,7 @@ Milestone metadata contract:
   - `pnpm build`
 
 ### M96 - Redirect Canonicalization Hardening
+
 - status: Done
 - target_finish: 2026-03-25
 - completed_on: 2026-03-25
@@ -2856,6 +2981,7 @@ Milestone metadata contract:
   - `pnpm build`
 
 ### M97 - Smart Extension Capture
+
 - status: Done
 - target_finish: 2026-03-26
 - completed_on: 2026-03-24
@@ -2892,6 +3018,7 @@ Milestone metadata contract:
   - `pnpm extension:validate`
 
 ### M98 - Extracted Markdown Cleanup Rollout
+
 - status: Done
 - target_finish: 2026-03-27
 - completed_on: 2026-03-24
@@ -2924,6 +3051,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web typecheck`
 
 ### M99 - Reusable Live-Site Regression Harness
+
 - status: Done
 - target_finish: 2026-03-28
 - completed_on: 2026-03-24
@@ -2953,6 +3081,7 @@ Milestone metadata contract:
   - `npm run live-sites:test -- --env local --limit 1`
 
 ### M100 - Importance + Tags for Captures
+
 - status: Done
 - target_finish: 2026-03-31
 - completed_on: 2026-03-25
@@ -2981,7 +3110,7 @@ Milestone metadata contract:
   - Existing items keep their current priority-backed value and default to empty tags without backfill or destructive reset.
   - `/app` shows saved importance/tag metadata and lets users filter recent items without breaking polling or media playback token stability.
   - Web and extension capture UIs make `Title` / `Importance` / `Tags` clearly optional via compact secondary grouping, without redundant helper copy in the extension popup.
-  - Chrome extension capture exposes the same metadata fields as the web submit flow and clearly confirms queued captures without inviting a second click.
+  - Chrome extension capture exposes the same metadata fields as the web submit flow, keeps them collapsed by default until the user expands them, remembers the user's last toggle choice per Chrome profile, and clearly confirms queued captures without inviting a second click.
   - The extension popup disables the queued button for the already-captured page and re-enables capture when the target page changes.
 - Verification commands:
   - `pnpm --filter @articlepod/core test`
@@ -2991,6 +3120,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web typecheck`
 
 ### M101 - Extraction Quality Audit + Bulk HTML Regression Harness
+
 - status: Done
 - target_finish: 2026-04-02
 - completed_on: 2026-03-25
@@ -3027,6 +3157,7 @@ Milestone metadata contract:
   - `npm run extraction-quality:audit`
 
 ### M102 - Azure VM Disk Guardrails + Maintenance Automation
+
 - status: Done
 - target_finish: 2026-04-04
 - completed_on: 2026-03-28
@@ -3065,6 +3196,7 @@ Milestone metadata contract:
   - `TARGET_HOST=<vm-ip-or-fqdn> APP_URL=https://articlepod.com CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> ./scripts/azure/deploy-changes.sh --render-env --skip-healthcheck`
 
 ### M103 - Severity-Split Local Log Retention
+
 - status: Done
 - target_finish: 2026-04-05
 - completed_on: 2026-03-28
@@ -3107,6 +3239,7 @@ Milestone metadata contract:
   - `bash -n scripts/azure/cleanup-vm-disk.sh scripts/azure/render-env.sh`
 
 ### M104 - Public Episode Share Links
+
 - status: Done
 - target_finish: 2026-04-06
 - completed_on: 2026-03-28
@@ -3148,6 +3281,7 @@ Milestone metadata contract:
 ---
 
 ### M105 - Audio Retention Lifecycle
+
 - status: Done
 - target_finish: 2026-04-07
 - completed_on: 2026-03-28
@@ -3188,6 +3322,7 @@ Milestone metadata contract:
 ---
 
 ### M106 - Site-Wide Action Hierarchy Refresh
+
 - status: Done
 - target_finish: 2026-04-08
 - completed_on: 2026-04-01
@@ -3225,6 +3360,7 @@ Milestone metadata contract:
 ---
 
 ### M107 - Public Marketing SEO Hardening
+
 - status: Done
 - target_finish: 2026-04-09
 - completed_on: 2026-04-02
@@ -3261,6 +3397,7 @@ Milestone metadata contract:
 ---
 
 ### M108 - Public Marketing Chrome Cleanup
+
 - status: Done
 - target_finish: 2026-04-10
 - completed_on: 2026-04-03
@@ -3299,6 +3436,7 @@ Milestone metadata contract:
 ---
 
 ### S01 — Apple Sign-In JWT Cryptographic Verification
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -3335,6 +3473,7 @@ Milestone metadata contract:
 ---
 
 ### S02 — Drop Plaintext Token Storage from Database
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -3385,6 +3524,7 @@ Milestone metadata contract:
 ---
 
 ### S03 — Login Brute-Force Rate Limiting + Timing Oracle Fix
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -3421,6 +3561,7 @@ Milestone metadata contract:
 ---
 
 ### S04 — Move Admin Bootstrap Out of Request Path
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -3457,6 +3598,7 @@ Milestone metadata contract:
 ---
 
 ### S05 — ChunkCache Cross-User Audio Privacy and Reliability
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-14
@@ -3495,6 +3637,7 @@ Milestone metadata contract:
 ---
 
 ### S06 — digestSchedulerSecret Startup Assertion
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -3527,6 +3670,7 @@ Milestone metadata contract:
 ---
 
 ### S07 — Python TTS Sidecar Authentication + Non-Root Docker
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -3565,6 +3709,7 @@ Milestone metadata contract:
 ---
 
 ### S08 — SSRF DNS Rebinding TOCTOU Fix
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-14
@@ -3601,6 +3746,7 @@ Milestone metadata contract:
 ---
 
 ### S09 — HTTP Security Headers
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3632,6 +3778,7 @@ Milestone metadata contract:
 ---
 
 ### S10 — Global Auth Middleware
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3665,6 +3812,7 @@ Milestone metadata contract:
 ---
 
 ### S11 — Shared-State Rate Limiter (Multi-Instance Correctness)
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-21
@@ -3698,6 +3846,7 @@ Milestone metadata contract:
 ---
 
 ### S12 — Worker Process Health Probe
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3730,6 +3879,7 @@ Milestone metadata contract:
 ---
 
 ### S13 — PDF Magic-Byte Validation Before Storage Write
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3759,6 +3909,7 @@ Milestone metadata contract:
 ---
 
 ### S14 — Username Enumeration Normalization
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3788,6 +3939,7 @@ Milestone metadata contract:
 ---
 
 ### S15 — Stale-Job Reclaim Atomic Fix
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3819,6 +3971,7 @@ Milestone metadata contract:
 ---
 
 ### S16 — Feed Token Signed-URL Pattern (Tokens Out of Enclosure URLs)
+
 - status: Done
 - priority: P3 (Medium-Long)
 - target_finish: 2026-03-28
@@ -3864,6 +4017,7 @@ Milestone metadata contract:
 ---
 
 ### S17 — DB Role Field Hardened to Enum Constraint
+
 - status: Planned
 - priority: P3 (Medium-Long)
 - target_finish: 2026-03-28
@@ -3873,7 +4027,7 @@ Milestone metadata contract:
     string that silently passes or fails the `role === "ADMIN"` check unpredictably.
 - Options considered:
   - **Option A (chosen):** When migrating to PostgreSQL (parity/azure profile), define `role` as a
-    Postgres `ENUM` type via a raw migration. Add a `@@check(fields: [role], expression: "role IN ('USER','ADMIN')")` 
+    Postgres `ENUM` type via a raw migration. Add a `@@check(fields: [role], expression: "role IN ('USER','ADMIN')")`
     to the Prisma schema (Prisma 5+ supported). For the SQLite dev profile, add a Zod enum validation
     in `normalizeRole()` that throws on unrecognized values instead of silently defaulting.
   - **Option B:** Add a check constraint only in the application layer (`normalizeRole` throwing).
@@ -3896,6 +4050,7 @@ Milestone metadata contract:
 ---
 
 ### S18 — Session Cookie `secure` Flag Tied to Runtime Profile
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -3927,6 +4082,7 @@ Milestone metadata contract:
 ## Cost Optimization Track (C01-C07)
 
 ### C01 - Cost Baseline, B2s Right-Sizing, and Rollback Guardrails
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-03-07
@@ -3950,6 +4106,7 @@ Milestone metadata contract:
   - `npm run costs:build`
 
 ### B01 - Billing Track Reconciliation and Scope Lock
+
 - status: Done
 - target_finish: 2026-04-18
 - completed_on: 2026-03-29
@@ -3969,6 +4126,7 @@ Milestone metadata contract:
   - Manual cross-doc review
 
 ### B02 - Billing State Contract Hardening
+
 - status: Done
 - target_finish: 2026-04-25
 - completed_on: 2026-03-28
@@ -3989,6 +4147,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test -- billing`
 
 ### B03 - Plan Catalog and Checkout Contract
+
 - status: Done
 - target_finish: 2026-05-02
 - completed_on: 2026-03-29
@@ -4010,6 +4169,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B04 - Webhook and Entitlement Engine
+
 - status: Done
 - target_finish: 2026-05-09
 - completed_on: 2026-03-28
@@ -4029,6 +4189,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B05 - Billing Settings UX and Customer Portal
+
 - status: Done
 - target_finish: 2026-05-16
 - completed_on: 2026-03-28
@@ -4049,6 +4210,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B06 - Admin Support Visibility and Operational Observability
+
 - status: Done
 - target_finish: 2026-05-23
 - completed_on: 2026-03-28
@@ -4069,6 +4231,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run typecheck`
 
 ### B07 - Founder Stripe Configuration and Environment Promotion
+
 - status: Done
 - target_finish: 2026-05-30
 - completed_on: 2026-03-28
@@ -4087,6 +4250,7 @@ Milestone metadata contract:
   - Manual Stripe setup checklist review
 
 ### B08 - Lifecycle QA with Stripe CLI and Test Clocks
+
 - status: Done
 - target_finish: 2026-06-06
 - completed_on: 2026-03-28
@@ -4106,6 +4270,7 @@ Milestone metadata contract:
   - Manual Stripe CLI + Test Clock checklist
 
 ### B09 - Staging Certification and Launch Readiness
+
 - status: In Progress
 - target_finish: 2026-06-13
 - Scope:
@@ -4132,6 +4297,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C02 - Queue-Pressure Overflow Lane Scaffolding (Local-First Default)
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-03-07
@@ -4157,6 +4323,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run test`
 
 ### C03 - Metadata and Queue Adapter Interfaces (Postgres Default)
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-07
@@ -4179,6 +4346,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C04 - Serverless Table/Blob Metadata Adapter Implementation
+
 - status: Done
 - target_finish: 2026-03-28
 - completed_on: 2026-03-07
@@ -4200,6 +4368,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C05 - Dual-Write, Backfill, and Consistency Certification
+
 - status: Done
 - target_finish: 2026-04-04
 - completed_on: 2026-03-07
@@ -4221,6 +4390,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C06 - Canary and Full Serverless Metadata Cutover
+
 - status: Done
 - target_finish: 2026-04-11
 - completed_on: 2026-03-17
@@ -4244,6 +4414,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C07 - Financial Guardrails and Incident Controls
+
 - status: Done
 - target_finish: 2026-04-18
 - completed_on: 2026-03-07
@@ -4263,6 +4434,7 @@ Milestone metadata contract:
   - Operators can execute a known rollback path within one runbook cycle.
 
 ### C08 - Queue-Backed Item Dispatch and Durable Lease Cutover
+
 - status: Done
 - target_finish: 2026-04-25
 - completed_on: 2026-03-29
