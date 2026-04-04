@@ -51,9 +51,9 @@ export const marketingCopy = {
   securityIntro:
     "Podcast access stays private across sign-in, pairing, and playback.",
   securityBullets: [
-    "Server-side social sign-in keeps identity flows secure.",
-    "One-time Chrome pairing protects your feed URL.",
-    "Feed and episode audio stay token-protected."
+    "Social sign-in stays in secure server-side sessions.",
+    "Chrome pairing uses a one-time code to protect your feed URL.",
+    "Feed access and episode audio stay token-protected."
   ] as const,
   ctaPrimary: "Start your knowledge feed",
   ctaSecondary: "Open app"

@@ -310,7 +310,7 @@ export function AuthLandingPage() {
             </div>
           </section>
 
-          <section className="space-y-4 lg:pt-2">
+          <section className="space-y-5 lg:pt-2">
             <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
               {marketingCopy.heroHeadline}
             </h2>
@@ -318,34 +318,6 @@ export function AuthLandingPage() {
             <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
               {marketingCopy.heroSubheading}
             </p>
-
-            <section className="rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(240,249,245,0.94))] p-4 shadow-[0_18px_45px_rgba(20,38,30,0.06)] backdrop-blur sm:p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
-                <div className="max-w-sm space-y-1.5 xl:flex-[0_0_240px]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                    Security
-                  </p>
-                  <h3 className="text-lg font-semibold text-[var(--ink)]">
-                    Private by design
-                  </h3>
-                  <p className="text-sm text-[var(--muted)]">
-                    {marketingCopy.securityIntro}
-                  </p>
-                </div>
-
-                <ul className="grid flex-1 gap-2.5 sm:grid-cols-3">
-                  {marketingCopy.securityBullets.map((bullet) => (
-                    <li
-                      key={bullet}
-                      className="rounded-2xl border border-[rgba(31,122,90,0.12)] bg-white/88 px-3.5 py-3 text-sm leading-5 text-[var(--muted)]"
-                    >
-                      <span className="mb-2 block h-2 w-2 rounded-full bg-[var(--accent)]" />
-                      {bullet}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
 
             <div className="grid gap-2.5 sm:grid-cols-3">
               {marketingCopy.heroHighlights.map((item) => (
@@ -358,6 +330,32 @@ export function AuthLandingPage() {
                 </article>
               ))}
             </div>
+
+            <section className="max-w-2xl border-t border-[rgba(31,122,90,0.14)] pt-4">
+              <div className="space-y-1.5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+                  Security
+                </p>
+                <h3 className="text-lg font-semibold text-[var(--ink)]">
+                  Private by design
+                </h3>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  {marketingCopy.securityIntro}
+                </p>
+              </div>
+
+              <ul className="mt-3 space-y-3">
+                {marketingCopy.securityBullets.map((bullet) => (
+                  <li
+                    key={bullet}
+                    className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]"
+                  >
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                    <p>{bullet}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
           </section>
         </div>
       </div>

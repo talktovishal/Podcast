@@ -48,9 +48,9 @@ test("hero copy does not include banned phrases", () => {
 
 test("security bullets has exactly three concise entries", () => {
   assert.deepEqual(marketingCopy.securityBullets, [
-    "Server-side social sign-in keeps identity flows secure.",
-    "One-time Chrome pairing protects your feed URL.",
-    "Feed and episode audio stay token-protected."
+    "Social sign-in stays in secure server-side sessions.",
+    "Chrome pairing uses a one-time code to protect your feed URL.",
+    "Feed access and episode audio stay token-protected."
   ]);
   for (const bullet of marketingCopy.securityBullets) {
     assert.ok(bullet.length > 0, "bullet must not be empty");
@@ -58,9 +58,9 @@ test("security bullets has exactly three concise entries", () => {
   }
 });
 
-test("auth landing page places the security trust band before the feature highlight cards", () => {
+test("auth landing page places the security section after the feature highlight cards", () => {
   const source = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
-  assert.ok(source.indexOf("Private by design") < source.indexOf("marketingCopy.heroHighlights.map"));
+  assert.ok(source.indexOf("Private by design") > source.indexOf("marketingCopy.heroHighlights.map"));
 });
 
 test("pricing page exposes Starter plus monthly and annual Pro choices with clear billing policy", () => {
