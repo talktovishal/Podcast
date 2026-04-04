@@ -17,6 +17,9 @@ test("marketing layout owns the shared header and footer CTA", () => {
   const ctaSource = readFileSync(new URL("../src/components/marketing-cta.tsx", import.meta.url), "utf8");
   assert.equal(layoutSource.includes("MarketingHeader"), true);
   assert.equal(layoutSource.includes("MarketingCta"), true);
+  assert.equal(layoutSource.includes('h-[100dvh]'), true);
+  assert.equal(layoutSource.includes("overflow-hidden"), true);
+  assert.equal(layoutSource.includes("overflow-y-auto"), true);
   assert.equal(ctaSource.includes("Footer call to action"), true);
   assert.equal(ctaSource.includes('href="/pricing"'), true);
 });
@@ -27,6 +30,7 @@ test("secondary marketing pages stay content-only while the layout supplies shar
     assert.equal(source.includes("MarketingHeader"), false, `page-local header should be removed on ${item.href}`);
     assert.equal(source.includes("MarketingCta"), false, `page-local CTA should be removed on ${item.href}`);
     assert.equal(source.includes("MarketingFooter"), false, `duplicate footer chrome still present on ${item.href}`);
+    assert.equal(source.includes('inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5]'), false, `duplicate hero pill should be removed on ${item.href}`);
   }
 });
 

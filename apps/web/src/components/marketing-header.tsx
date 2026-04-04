@@ -9,7 +9,7 @@ export function MarketingHeader() {
   const pathname = usePathname();
 
   return (
-    <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <header className="flex flex-wrap items-center justify-between gap-4">
       <BrandLogo />
       <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-2 text-sm">
         {marketingNavItems.map((item) => {

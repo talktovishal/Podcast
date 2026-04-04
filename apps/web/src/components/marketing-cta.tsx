@@ -3,7 +3,7 @@ import { marketingCopy } from "@/lib/marketing-content";
 
 export function MarketingCta() {
   return (
-    <footer aria-label="Footer call to action" className="mt-8 flex flex-wrap gap-3">
+    <footer aria-label="Footer call to action" className="flex flex-wrap items-center gap-3">
       <Link href="/" className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white">
         {marketingCopy.ctaPrimary}
       </Link>

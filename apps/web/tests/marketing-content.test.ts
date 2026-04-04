@@ -291,6 +291,12 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     aboutSource.includes(
       "Built for people who save more than they can revisit",
     ),
+    false,
+  );
+  assert.equal(
+    aboutSource.includes(
+      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+    ),
     true,
   );
   assert.equal(

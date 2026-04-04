@@ -197,8 +197,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `robots.txt` and `sitemap.xml` now prioritize the marketing routes and keep private/auth/share surfaces out of search discovery.
 - Public marketing shared chrome persistence (`M109`) is implemented:
   - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the public-site header and footer CTA cannot drift page by page.
-  - the persistent header always shows the logo, `ArticlePod`, and the main menu entries `Product`, `Pricing`, `Resources`, `FAQ`, and `About`.
-  - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page.
+  - the persistent header always shows the logo, `ArticlePod`, and the main menu entries `Product`, `Pricing`, `Resources`, `FAQ`, and `About`, while staying visible as page content scrolls.
+  - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page, while staying visible as page content scrolls.
+  - the public marketing shell now uses a fixed-height viewport layout so only the middle content pane scrolls.
+  - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
+  - `/about` now leads with `Make your reading list effortless—listen anywhere, anytime, and retain more`.
 
 ### Next Milestones
 

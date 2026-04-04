@@ -85,8 +85,11 @@
   - public marketing pages now use route-specific metadata, schema, and shared header/CTA internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
 - Public marketing shared chrome persistence (`M109`) is implemented:
   - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the header and footer CTA are always present on the public marketing surface.
-  - the persistent header keeps the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu.
-  - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page.
+  - the persistent header keeps the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu while staying visible during content scroll.
+  - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
+  - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
+  - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
+  - `/about` now opens with `Make your reading list effortless—listen anywhere, anytime, and retain more`.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -3445,6 +3448,7 @@ Milestone metadata contract:
   - Move the signed-out homepage plus `/product`, `/pricing`, `/resources`, `/faq`, and `/about` under one shared App Router marketing layout so the public-site header and footer CTA are structural.
   - Keep the public marketing header fixed to the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu entries.
   - Keep the public marketing footer fixed to `Start your knowledge feed` and `See pricing` on every public marketing page, while leaving `/login`, `/app`, `/admin`, and `/share` outside that layout.
+  - Lock the public marketing shell to the viewport height so the page content is the only scrollable area.
 - Key files/modules:
   - `apps/web/src/app/(marketing)/layout.tsx`
   - `apps/web/src/app/(marketing)/page.tsx`
@@ -3464,6 +3468,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render exactly one shared primary navigation and one shared footer CTA block.
   - The footer CTA always includes `Start your knowledge feed` linking to `/` and `See pricing` linking to `/pricing`.
+  - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
   - The signed-out auth landing page no longer renders its own page-local header.
   - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
 - Verification commands:

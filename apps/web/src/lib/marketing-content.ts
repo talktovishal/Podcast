@@ -30,7 +30,6 @@ export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
 ];
 
 export const marketingCopy = {
-  heroBadge: "Private Knowledge Feed",
   heroHeadline: "The intellectual sanctuary for busy readers.",
   heroSubheading:
     "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",

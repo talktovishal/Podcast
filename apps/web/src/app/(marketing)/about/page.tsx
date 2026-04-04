@@ -34,10 +34,7 @@ export default function AboutPage() {
       />
 
       <section className="space-y-4">
-        <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
-          About
-        </p>
-        <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Built for people who save more than they can revisit</h1>
+        <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Make your reading list effortless—listen anywhere, anytime, and retain more</h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns article URLs, text-based PDFs, and Chrome captures into private podcast episodes you can hear in regular
           podcast apps. The core flow is simple: save one thing, get one episode, then add weekly digest podcast or email summaries
