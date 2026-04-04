@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.1.7
+- Made the popup's optional capture details start collapsed by default and remember the user's last expanded state in the current Chrome profile.
+- Added packaged-extension smoke coverage so release builds must prove the optional details panel behaves correctly after reopening the popup.
+
 ## v0.1.6
 - Fixed the Chrome Web Store package so the popup includes all runtime modules required for connect and capture actions.
 - Added packaging validation for popup module dependencies to catch missing files before upload.
