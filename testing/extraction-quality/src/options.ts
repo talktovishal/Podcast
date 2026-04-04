@@ -27,6 +27,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     command,
     mode: "dual",
     siteIds: [],
+    days: 7,
     concurrencyUrl: 8,
     concurrencyExtension: 3,
     headed: false,
@@ -36,6 +37,9 @@ export function parseCliOptions(argv: string[]): CliOptions {
   for (; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token) {
+      continue;
+    }
+    if (token === "--") {
       continue;
     }
     if (token === "--help" || token === "-h") {
@@ -82,6 +86,24 @@ export function parseCliOptions(argv: string[]): CliOptions {
       continue;
     }
 
+    if (token === "--days") {
+      options.days = parsePositiveInt(next, "days");
+      index += 1;
+      continue;
+    }
+
+    if (token === "--resource-group") {
+      options.resourceGroup = next;
+      index += 1;
+      continue;
+    }
+
+    if (token === "--table-prefix") {
+      options.tablePrefix = next;
+      index += 1;
+      continue;
+    }
+
     if (token === "--concurrency-url") {
       options.concurrencyUrl = parsePositiveInt(next, "concurrency-url");
       index += 1;
@@ -104,14 +126,19 @@ export function formatHelp(): string {
   return [
     "Usage:",
     "  npm run extraction-quality:audit -- [options]",
+    "  npm run extraction-quality:audit:prod -- [options]",
     "  npm run extraction-quality:test -- [options]",
     "",
     "Commands:",
     "  audit                       Scan stored markdown artifacts under apps/web/.data/media",
+    "  audit-prod                  Scan production-generated summary and episode text from Azure",
     "  compare                     Compare URL and extension extraction on a URL corpus (default)",
     "",
     "Options:",
     "  --mode <url|extension|dual>",
+    "  --days <n>                  Rolling lookback window for production audit (default: 7)",
+    "  --resource-group <name>     Azure resource group for production audit (default: rg-articlepod-prod)",
+    "  --table-prefix <prefix>     Azure Table prefix for production audit (default: articlepod)",
     "  --input <path>              Override the checked-in corpus with a Markdown table or .txt URL list",
     "  --site <id[,id]>            Run only the given corpus IDs",
     "  --limit <n>                 Limit selected targets",

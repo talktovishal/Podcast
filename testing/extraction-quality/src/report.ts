@@ -1,6 +1,15 @@
 import { join } from "node:path";
 import type { MarkdownQualityIssueType } from "../../../packages/core/src/extract/markdownCleanup.ts";
-import type { ArtifactAuditEntry, AuditSummary, ComparisonEntryResult, CompareSummary, PathExtractionResult } from "./types.js";
+import type {
+  ArtifactAuditEntry,
+  AuditSummary,
+  ComparisonEntryResult,
+  CompareSummary,
+  PathExtractionResult,
+  ProductionAuditEntry,
+  ProductionAuditKind,
+  ProductionAuditSummary
+} from "./types.js";
 import { writeJson, writeText } from "./utils.js";
 
 function emptyIssueCounts(): Record<MarkdownQualityIssueType, number> {
@@ -49,6 +58,51 @@ export function buildAuditSummary(entries: ArtifactAuditEntry[]): AuditSummary {
       digestFiles: 0,
       filesWithIssues: 0,
       lowSignalFiles: 0,
+      issueCounts: emptyIssueCounts()
+    }
+  );
+}
+
+function emptyProductionKindCounts(): Record<ProductionAuditKind, number> {
+  return {
+    item_source_markdown: 0,
+    summary_markdown: 0,
+    episode_description: 0,
+    summary_episode_description: 0
+  };
+}
+
+export function buildProductionAuditSummary(entries: ProductionAuditEntry[]): ProductionAuditSummary {
+  return entries.reduce<ProductionAuditSummary>(
+    (summary, entry) => {
+      summary.totalEntries += 1;
+      summary.countsByKind[entry.kind] += 1;
+      if (entry.issues.length > 0) {
+        summary.entriesWithIssues += 1;
+      }
+      if (entry.classification === "stub") {
+        summary.stubEntries += 1;
+      }
+      if (entry.classification === "trivial") {
+        summary.trivialEntries += 1;
+      }
+      if (entry.classification === "empty") {
+        summary.emptyEntries += 1;
+      }
+      if (entry.fetchError) {
+        summary.fetchErrorEntries += 1;
+      }
+      addIssueCounts(summary.issueCounts, entry.issueCounts);
+      return summary;
+    },
+    {
+      totalEntries: 0,
+      countsByKind: emptyProductionKindCounts(),
+      entriesWithIssues: 0,
+      stubEntries: 0,
+      trivialEntries: 0,
+      emptyEntries: 0,
+      fetchErrorEntries: 0,
       issueCounts: emptyIssueCounts()
     }
   );
@@ -155,6 +209,80 @@ export async function writeAuditReports(entries: ArtifactAuditEntry[], summary: 
   });
   await writeText(join(reportDir, "summary.md"), `${summaryLines.join("\n")}\n`);
   await writeText(join(reportDir, "patterns.md"), `# Extraction Artifact Audit Patterns\n\n${formatIssueSections(grouped).join("\n")}\n`);
+  await writeText(join(reportDir, "excerpts.md"), `${excerptsLines.join("\n")}\n`);
+}
+
+export async function writeProductionAuditReports(
+  entries: ProductionAuditEntry[],
+  summary: ProductionAuditSummary,
+  reportDir: string,
+  context: { resourceGroup: string; tablePrefix: string; days: number; windowStart: string; generatedAt: string }
+): Promise<void> {
+  const grouped: Record<MarkdownQualityIssueType, string[]> = {
+    residual_url: [],
+    leading_metadata: [],
+    image_wrapper: [],
+    footer_legal: [],
+    share_or_comment_noise: [],
+    language_footer: [],
+    low_signal_after_cleanup: []
+  };
+
+  for (const entry of entries) {
+    for (const issue of entry.issues) {
+      grouped[issue.type].push(`- ${entry.kind} · ${entry.path}:${issue.lineNumber || "?"} · ${issue.excerpt}`);
+    }
+  }
+
+  const serializable = entries.map((entry) => ({
+    ...entry
+  }));
+
+  const summaryLines = [
+    "# Production Generated Markdown Audit Summary",
+    "",
+    `- Generated at: ${context.generatedAt}`,
+    `- Resource group: ${context.resourceGroup}`,
+    `- Table prefix: ${context.tablePrefix}`,
+    `- Lookback days: ${context.days}`,
+    `- Window start: ${context.windowStart}`,
+    `- Entries audited: ${summary.totalEntries}`,
+    `- Summary markdown entries: ${summary.countsByKind.summary_markdown}`,
+    `- Item source markdown entries: ${summary.countsByKind.item_source_markdown}`,
+    `- Episode description entries: ${summary.countsByKind.episode_description}`,
+    `- Summary episode description entries: ${summary.countsByKind.summary_episode_description}`,
+    `- Entries with cleanup issues: ${summary.entriesWithIssues}`,
+    `- Stub entries: ${summary.stubEntries}`,
+    `- Trivial entries: ${summary.trivialEntries}`,
+    `- Empty entries: ${summary.emptyEntries}`,
+    `- Fetch-error entries: ${summary.fetchErrorEntries}`,
+    "",
+    "## Issue Counts",
+    ...(Object.entries(summary.issueCounts) as Array<[MarkdownQualityIssueType, number]>).map(([key, value]) => `- ${key}: ${value}`)
+  ];
+
+  const flaggedEntries = entries.filter((entry) => entry.issues.length > 0 || entry.classification !== "normal" || entry.fetchError);
+  const excerptsLines = [
+    "# Production Generated Markdown Audit Excerpts",
+    "",
+    ...flaggedEntries.flatMap((entry) => [
+      `## ${entry.path}`,
+      `- kind: ${entry.kind}`,
+      `- classification: ${entry.classification}`,
+      ...(entry.notes.length > 0 ? [`- notes: ${entry.notes.join(", ")}`] : []),
+      ...(entry.fetchError ? [`- fetch_error: ${entry.fetchError}`] : []),
+      ...entry.issues.map((issue) => `- ${issue.type}: ${issue.excerpt}`),
+      ""
+    ])
+  ];
+
+  await writeJson(join(reportDir, "results.json"), {
+    context,
+    summary,
+    results: serializable
+  });
+  await writeText(join(reportDir, "summary.md"), `${summaryLines.join("\n")}\n`);
+  await writeText(join(reportDir, "patterns.md"), `# Production Generated Markdown Audit Patterns\n\n${formatIssueSections(grouped).join("\n")}\n`);
   await writeText(join(reportDir, "excerpts.md"), `${excerptsLines.join("\n")}\n`);
 }
 

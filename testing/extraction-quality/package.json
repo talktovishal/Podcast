@@ -7,11 +7,14 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
     "extraction-quality:audit": "tsx src/cli.ts audit",
+    "extraction-quality:audit:prod": "tsx src/cli.ts audit-prod",
     "extraction-quality:test": "tsx src/cli.ts compare",
     "extraction-quality:test:url": "tsx src/cli.ts compare --mode url",
     "extraction-quality:test:extension": "tsx src/cli.ts compare --mode extension"
   },
   "dependencies": {
+    "@articlepod/core": "workspace:*",
+    "@azure/data-tables": "^13.3.1",
     "@playwright/test": "^1.58.2"
   },
   "devDependencies": {

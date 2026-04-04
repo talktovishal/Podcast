@@ -1,6 +1,7 @@
 import { formatHelp, parseCliOptions } from "./options.js";
 import { runArtifactAudit } from "./audit.js";
 import { runBulkComparison } from "./compare.js";
+import { runProductionAudit } from "./prod-audit.js";
 
 async function main(): Promise<void> {
   const options = parseCliOptions(process.argv.slice(2));
@@ -12,6 +13,14 @@ async function main(): Promise<void> {
   if (options.command === "audit") {
     const report = await runArtifactAudit();
     process.stdout.write(`${JSON.stringify({ reportDir: report.reportDir, files: report.results.length }, null, 2)}\n`);
+    return;
+  }
+
+  if (options.command === "audit-prod") {
+    const report = await runProductionAudit(options);
+    process.stdout.write(
+      `${JSON.stringify({ reportDir: report.reportDir, files: report.results.length, windowStart: report.windowStart.toISOString() }, null, 2)}\n`
+    );
     return;
   }
 

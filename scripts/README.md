@@ -10,6 +10,7 @@
   - `npm run live-sites:test:url`
   - `npm run live-sites:test:extension`
   - `npm run live-sites:test:prod-probe`
+  - `npm run extraction-quality:audit:prod -- --days 7`
 
 ## Azure
 - Azure scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/README.md`

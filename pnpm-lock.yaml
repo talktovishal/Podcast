@@ -170,6 +170,12 @@ importers:
 
   testing/extraction-quality:
     dependencies:
+      '@articlepod/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@azure/data-tables':
+        specifier: ^13.3.1
+        version: 13.3.2
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2

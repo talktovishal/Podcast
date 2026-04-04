@@ -12,13 +12,19 @@ test("parseCliOptions accepts compare defaults", () => {
 
 test("parseCliOptions parses explicit flags", () => {
   const options = parseCliOptions([
-    "compare",
+    "audit-prod",
     "--mode",
     "extension",
     "--input",
     "/tmp/urls.txt",
     "--site",
     "alpha,beta",
+    "--days",
+    "14",
+    "--resource-group",
+    "rg-example",
+    "--table-prefix",
+    "custom-prefix",
     "--limit",
     "10",
     "--concurrency-url",
@@ -28,10 +34,13 @@ test("parseCliOptions parses explicit flags", () => {
     "--headed"
   ]);
 
-  assert.equal(options.command, "compare");
+  assert.equal(options.command, "audit-prod");
   assert.equal(options.mode, "extension");
   assert.equal(options.inputPath, "/tmp/urls.txt");
   assert.deepEqual(options.siteIds, ["alpha", "beta"]);
+  assert.equal(options.days, 14);
+  assert.equal(options.resourceGroup, "rg-example");
+  assert.equal(options.tablePrefix, "custom-prefix");
   assert.equal(options.limit, 10);
   assert.equal(options.concurrencyUrl, 4);
   assert.equal(options.concurrencyExtension, 2);

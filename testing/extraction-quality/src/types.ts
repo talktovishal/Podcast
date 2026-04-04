@@ -1,6 +1,6 @@
 import type { MarkdownQualityAnalysis, MarkdownQualityIssueType } from "../../../packages/core/src/extract/markdownCleanup.ts";
 
-export const commandValues = ["audit", "compare"] as const;
+export const commandValues = ["audit", "audit-prod", "compare"] as const;
 export type CommandMode = (typeof commandValues)[number];
 
 export const compareModeValues = ["url", "extension", "dual"] as const;
@@ -22,6 +22,9 @@ export interface CliOptions {
   inputPath?: string;
   siteIds: string[];
   limit?: number;
+  days: number;
+  resourceGroup?: string;
+  tablePrefix?: string;
   concurrencyUrl: number;
   concurrencyExtension: number;
   headed: boolean;
@@ -91,6 +94,46 @@ export interface AuditSummary {
   digestFiles: number;
   filesWithIssues: number;
   lowSignalFiles: number;
+  issueCounts: Record<MarkdownQualityIssueType, number>;
+}
+
+export const productionAuditKindValues = [
+  "item_source_markdown",
+  "summary_markdown",
+  "episode_description",
+  "summary_episode_description"
+] as const;
+export type ProductionAuditKind = (typeof productionAuditKindValues)[number];
+
+export const productionEntryClassificationValues = ["normal", "stub", "trivial", "empty"] as const;
+export type ProductionEntryClassification = (typeof productionEntryClassificationValues)[number];
+
+export interface ProductionAuditEntry {
+  kind: ProductionAuditKind;
+  path: string;
+  issueCounts: Record<MarkdownQualityIssueType, number>;
+  issues: MarkdownQualityAnalysis["issues"];
+  cleanedMarkdown: string;
+  hasNarratableText: boolean;
+  id: string;
+  userId: string | null;
+  title: string | null;
+  storageKey: string | null;
+  createdAt: string | null;
+  publishedAt: string | null;
+  classification: ProductionEntryClassification;
+  notes: string[];
+  fetchError: string | null;
+}
+
+export interface ProductionAuditSummary {
+  totalEntries: number;
+  countsByKind: Record<ProductionAuditKind, number>;
+  entriesWithIssues: number;
+  stubEntries: number;
+  trivialEntries: number;
+  emptyEntries: number;
+  fetchErrorEntries: number;
   issueCounts: Record<MarkdownQualityIssueType, number>;
 }
 

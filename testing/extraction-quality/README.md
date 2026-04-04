@@ -5,6 +5,7 @@ This workspace focuses on extraction quality only. It does not enqueue jobs, wri
 It provides two reusable workflows:
 
 - `artifact audit`: scan generated markdown artifacts already present under `apps/web/.data/media/`
+- `production audit`: scan production-generated summary markdown plus production episode text across all users from Azure Table + Blob
 - `bulk comparison`: run URL extraction and/or Chrome-extension snapshot extraction side by side on a corpus of URLs, then compare the cleaned markdown outputs
 
 ## When To Use This
@@ -22,6 +23,7 @@ From the repo root:
 
 ```bash
 npm run extraction-quality:audit
+npm run extraction-quality:audit:prod -- --days 7
 npm run extraction-quality:test
 npm run extraction-quality:test -- --limit 20
 npm run extraction-quality:test:url -- --input /path/to/urls.txt
@@ -120,6 +122,13 @@ Audit runs write:
 - `artifact-audit/patterns.md`
 - `artifact-audit/excerpts.md`
 
+Production audit runs write:
+
+- `production-audit/summary.md`
+- `production-audit/results.json`
+- `production-audit/patterns.md`
+- `production-audit/excerpts.md`
+
 Bulk comparison runs write:
 
 - `bulk/summary.md`
@@ -175,6 +184,11 @@ Then rerun the full corpus when the focused subset looks good.
 ## Notes
 
 - Artifact audit scope is intentionally narrow: generated item `source.md` plus digest `summary.md` and `email.md`
+- Production audit scope is read-only and uses Azure Table + Blob from the configured resource group to review:
+  - successful manual summary markdown from the rolling lookback window
+  - item episode source markdown for episodes published in that window
+  - item episode descriptions and summary episode descriptions for that window
+- Production audit reports separate cleanup residue from stub/trivial outputs so placeholder runs do not get confused with real cleanup regressions
 - Docs, worktrees, planning files, and exports are excluded by default
 - If cleanup rules improve, you can refresh stored local artifacts with:
 

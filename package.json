@@ -53,6 +53,7 @@
     "live-sites:test:extension": "npx pnpm --filter @articlepod/live-site run live-sites:test:extension",
     "live-sites:test:prod-probe": "npx pnpm --filter @articlepod/live-site run live-sites:test:prod-probe",
     "extraction-quality:audit": "npx pnpm --filter @articlepod/extraction-quality run extraction-quality:audit",
+    "extraction-quality:audit:prod": "npx pnpm --filter @articlepod/extraction-quality run extraction-quality:audit:prod",
     "extraction-quality:test": "npx pnpm --filter @articlepod/extraction-quality run extraction-quality:test",
     "extraction-quality:test:url": "npx pnpm --filter @articlepod/extraction-quality run extraction-quality:test:url",
     "extraction-quality:test:extension": "npx pnpm --filter @articlepod/extraction-quality run extraction-quality:test:extension",
