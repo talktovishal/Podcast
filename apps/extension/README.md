@@ -31,6 +31,7 @@ A Manifest V3 Chrome extension that captures the current browser tab, safely rev
 
 Use this when developing the extension or testing against a local ArticlePod server.
 No Chrome Web Store account required.
+This is the right path for source-code iteration, but it is not enough for release sign-off.
 
 1. From the repo root, generate the icons (one-time):
 
@@ -124,11 +125,10 @@ To reconnect, generate a new connect code from the web app and repeat the steps 
 
 ## Building the package
 
-Run both commands from the repo root:
+Run this from the repo root for a release candidate package:
 
 ```bash
-npm run extension:package   # build the ZIP + copy listing templates
-npm run extension:validate  # verify the package is Chrome Web Store ready
+corepack pnpm extension:package
 ```
 
 `extension:package` produces:
@@ -140,9 +140,43 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 | `dist/extension/webstore/` | Pre-filled listing text templates |
 | `dist/extension/README.txt` | Quick checklist |
 
-`extension:validate` checks all technical Chrome Web Store requirements (manifest fields, icon dimensions, popup module dependencies, CSP compliance, listing character limits) and exits non-zero if anything is wrong.
+`extension:package` now runs extension-specific release gates before it leaves behind a ZIP:
+- core extension capture tests
+- web auth/exchange integration tests that cover connect-code and snapshot submission
+- live-site extension harness tests, including packaged-artifact dependency checks
+- package build + packaged-artifact validation
+
+If you only want the low-level ZIP builder without the release checks, use:
+
+```bash
+corepack pnpm extension:package:raw
+```
 
 **Always confirm the output ends with `TECHNICALLY READY` before uploading.**
+
+### Release-candidate testing
+
+Do not rely on `apps/extension` alone when you are about to upload or publish.
+
+1. Run the full release gate:
+
+   ```bash
+   corepack pnpm extension:release:check
+   ```
+
+   This runs the packaged smoke flow against the app's stable local fixture page at `/extension-smoke.html`, so the release gate does not depend on a third-party site staying unchanged.
+
+2. If you want a manual local install before Web Store upload, open `chrome://extensions`, enable **Developer mode**, and load unpacked from:
+
+   ```text
+   <repo-root>/dist/extension/package
+   ```
+
+3. Generate a fresh connect code from `/app/chrome-extension`, connect the packaged popup, and submit one real capture.
+
+4. After the store updates, repeat one human smoke test from the actual store-installed extension before calling the release done.
+
+Use `apps/extension` for development. Use `dist/extension/package` or the actual store listing for release confidence.
 
 ---
 
@@ -184,11 +218,10 @@ Suggested screenshots to take:
 1. Build and validate:
 
    ```bash
-   npm run extension:package
-   npm run extension:validate
+   corepack pnpm extension:release:check
    ```
 
-   Confirm output ends with **"TECHNICALLY READY"**.
+   Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smoke run passes.
 
 2. Open <https://chrome.google.com/webstore/devconsole> and click **New item** (or open an existing draft).
 
@@ -237,8 +270,7 @@ To allow anyone to install the extension from the store:
 4. Rebuild and validate:
 
    ```bash
-   npm run extension:package
-   npm run extension:validate
+   corepack pnpm extension:release:check
    ```
 
 5. In the Chrome Web Store Developer Dashboard, open your existing listing and click **Upload new package**.

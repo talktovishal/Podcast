@@ -1,4 +1,13 @@
-import { cohortValues, runnerEnvValues, runnerModeValues, type CliOptions, type Cohort, type RunnerEnv, type RunnerMode } from "./types.js";
+import {
+  cohortValues,
+  extensionBuildValues,
+  runnerEnvValues,
+  runnerModeValues,
+  type CliOptions,
+  type Cohort,
+  type RunnerEnv,
+  type RunnerMode
+} from "./types.js";
 
 function isValue<T extends readonly string[]>(values: T, input: string): input is T[number] {
   return (values as readonly string[]).includes(input);
@@ -8,6 +17,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
   const options: CliOptions = {
     mode: "dual",
     env: "dual",
+    extensionBuild: "source",
     siteIds: [],
     keepStack: false,
     help: false
@@ -68,6 +78,15 @@ export function parseCliOptions(argv: string[]): CliOptions {
       continue;
     }
 
+    if (token === "--extension-build") {
+      if (!isValue(extensionBuildValues, next)) {
+        throw new Error(`Invalid extension build '${next}'. Expected one of: ${extensionBuildValues.join(", ")}`);
+      }
+      options.extensionBuild = next;
+      index += 1;
+      continue;
+    }
+
     if (token === "--limit") {
       const parsed = Number.parseInt(next, 10);
       if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -97,6 +116,7 @@ export function formatHelp(): string {
     "  --cohort <news|social>     Run only one cohort",
     "  --mode <url|extension|dual>",
     "  --env <local|prod-probe|dual>",
+    "  --extension-build <source|package>",
     "  --keep-stack               Keep parity stack running if this harness started it",
     "  --limit <n>                Limit the number of selected targets",
     "  --help                     Show this help"

@@ -21,6 +21,9 @@ export type RunnerMode = (typeof runnerModeValues)[number];
 export const runnerEnvValues = ["local", "prod-probe", "dual"] as const;
 export type RunnerEnv = (typeof runnerEnvValues)[number];
 
+export const extensionBuildValues = ["source", "package"] as const;
+export type ExtensionBuild = (typeof extensionBuildValues)[number];
+
 export type FailureClassification = "product_regression" | "expected_site_block" | "site_behavior_changed" | "harness_issue";
 
 export interface CorpusEntry {
@@ -38,6 +41,7 @@ export interface CorpusEntry {
 export interface CliOptions {
   mode: RunnerMode;
   env: RunnerEnv;
+  extensionBuild: ExtensionBuild;
   siteIds: string[];
   cohort?: Cohort;
   limit?: number;
@@ -58,6 +62,7 @@ export interface Provenance {
   appUrl: string;
   envMode: RunnerEnv;
   runnerMode: RunnerMode;
+  extensionBuild: ExtensionBuild;
   gitCommit: string;
   gitBranch: string;
   extensionVersion: string;

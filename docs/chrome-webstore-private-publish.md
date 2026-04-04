@@ -3,11 +3,11 @@
 This guide is optimized to minimize manual work.
 
 ## What is automated
-Two commands prepare and validate everything needed from this repo:
+The release path is now split into deterministic package gates and a packaged-build smoke check:
 
 ```bash
-npm run extension:package   # build the ZIP + copy webstore metadata templates
-npm run extension:validate  # verify the package is Chrome Web Store ready
+corepack pnpm extension:package        # run extension release checks, then build + validate the ZIP
+corepack pnpm extension:smoke:package  # smoke-test the packaged artifact against a local app stack
 ```
 
 `extension:package` produces:
@@ -25,6 +25,13 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 - No `eval()` in `popup.js`
 - Webstore listing text files are present and within Chrome Web Store character limits
 - Built ZIP and SHA-256 checksum file exist
+
+`extension:smoke:package` loads the packaged artifact from `dist/extension/package`, rewrites only `runtime-config.js` for the local harness target, and verifies the popup can:
+- exchange a fresh connect code
+- enter the connected state
+- submit one real capture successfully
+
+The smoke command targets the app's stable local fixture page at `/extension-smoke.html`, so the release gate does not depend on a third-party site behaving the same way on release day.
 
 ## What remains manual (required by Google)
 - Initial Chrome Web Store developer registration and payment ($5 one-time fee).
@@ -46,11 +53,10 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 1. Build and validate the package:
 
 ```bash
-npm run extension:package
-npm run extension:validate
+corepack pnpm extension:release:check
 ```
 
-   Confirm the output ends with **"TECHNICALLY READY"** before proceeding.
+   Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smoke run passes before proceeding.
 
 2. Capture at least one screenshot of the popup (1280×800 or 640×400).
 
@@ -86,12 +92,13 @@ npm run extension:validate
 You can always run it locally without publishing:
 1. Open `chrome://extensions`
 2. Enable Developer mode
-3. Load unpacked from `apps/extension`
+3. Load unpacked from `dist/extension/package` for release-candidate testing
+4. Use `apps/extension` only for source-level debugging while you are still editing code
 
 ---
 
 ## Notes
-- If you update extension code, rerun `npm run extension:package && npm run extension:validate` before uploading.
+- If you update extension code, rerun `corepack pnpm extension:release:check` before uploading.
 - If you change permissions in `manifest.json`, Chrome Web Store may require additional review details.
 - The packaged store manifest intentionally keeps broad `http://*/*` and `https://*/*` host access so Chrome does not force per-site access grants before capture.
 - For unpacked local debugging against a different ArticlePod origin, update `apps/extension/runtime-config.js` before loading the extension.

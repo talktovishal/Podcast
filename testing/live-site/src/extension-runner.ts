@@ -1,9 +1,9 @@
-import { cp, readFile, writeFile } from "node:fs/promises";
+import { access, cp, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { chromium, type Browser, type Page } from "@playwright/test";
 import { capturePageSnapshot, HTML_SNAPSHOT_MAX_BYTES } from "../../../apps/extension/capture-page.mjs";
-import { EXTENSION_ROOT } from "./paths.js";
-import type { CorpusEntry, ExtensionSmokeResult, LocalHarnessConfig, PathRunResult } from "./types.js";
+import { EXTENSION_PACKAGE_ROOT, EXTENSION_ROOT } from "./paths.js";
+import type { CorpusEntry, ExtensionBuild, ExtensionSmokeResult, LocalHarnessConfig, PathRunResult } from "./types.js";
 import { generateConnectCode, pollForTerminalItem, refreshItems, runPodcastContract, submitSnapshot } from "./local-app.js";
 import { classifyPathFailure, matchLocalExpectation } from "./report.js";
 import { ensureDir, safeFileName, sleep } from "./utils.js";
@@ -42,9 +42,11 @@ async function readPopupDiagnostics(page: Page): Promise<{
   connectionState: string;
   bodyClass: string;
   storedState: Record<string, unknown>;
+  locationSearch: string;
+  openTabs: Array<{ id: number | null; url: string; active: boolean }>;
 }> {
   const readText = async (selector: string) => ((await page.locator(selector).textContent().catch(() => null)) || "").trim();
-  const [status, tokenState, connectionState, bodyClass, storedState] = await Promise.all([
+  const [status, tokenState, connectionState, bodyClass, storedState, locationSearch, openTabs] = await Promise.all([
     readText("#status"),
     readText("#token-state"),
     readText("#connection-state"),
@@ -68,6 +70,21 @@ async function readPopupDiagnostics(page: Page): Promise<{
         return chromeApi.storage.local.get(null) as Promise<Record<string, unknown>>;
       })
       .catch(() => ({}))
+    ,
+    page.evaluate(() => globalThis.window?.location?.search || "").catch(() => ""),
+    page
+      .evaluate(async () => {
+        if (typeof chrome?.tabs?.query !== "function") {
+          return [];
+        }
+        const tabs = await chrome.tabs.query({});
+        return tabs.map((tab) => ({
+          id: Number.isInteger(tab.id) ? tab.id ?? null : null,
+          url: tab.url || "",
+          active: Boolean(tab.active)
+        }));
+      })
+      .catch(() => [])
   ]);
 
   return {
@@ -75,8 +92,38 @@ async function readPopupDiagnostics(page: Page): Promise<{
     tokenState,
     connectionState,
     bodyClass: bodyClass || "",
-    storedState
+    storedState,
+    locationSearch,
+    openTabs
   };
+}
+
+async function resolvePopupTabId(page: Page, targetUrl: string): Promise<number | null> {
+  return await page
+    .evaluate(async (urlToMatch) => {
+      const normalizeUrl = (input) => {
+        if (typeof input !== "string") {
+          return "";
+        }
+        try {
+          const parsed = new URL(input);
+          parsed.hash = "";
+          return parsed.toString().replace(/\/$/, "");
+        } catch {
+          return input.trim().replace(/\/$/, "");
+        }
+      };
+
+      if (!chrome?.tabs?.query) {
+        return null;
+      }
+
+      const wanted = normalizeUrl(urlToMatch);
+      const tabs = await chrome.tabs.query({});
+      const match = tabs.find((tab) => normalizeUrl(tab.url || "") === wanted);
+      return Number.isInteger(match?.id) ? match.id ?? null : null;
+    }, targetUrl)
+    .catch(() => null);
 }
 
 export async function runExtensionPath(
@@ -224,9 +271,23 @@ export async function runExtensionPath(
   }
 }
 
-async function buildTemporaryExtension(appUrl: string, reportDir: string): Promise<string> {
+async function resolveExtensionArtifactRoot(extensionBuild: ExtensionBuild): Promise<string> {
+  const artifactRoot = extensionBuild === "package" ? EXTENSION_PACKAGE_ROOT : EXTENSION_ROOT;
+  try {
+    await access(artifactRoot);
+  } catch {
+    if (extensionBuild === "package") {
+      throw new Error(`Packaged extension artifact not found at ${artifactRoot}. Run \`corepack pnpm extension:package\` first.`);
+    }
+    throw new Error(`Extension source tree not found at ${artifactRoot}.`);
+  }
+  return artifactRoot;
+}
+
+async function buildTemporaryExtension(appUrl: string, reportDir: string, extensionBuild: ExtensionBuild): Promise<string> {
   const extensionCopyRoot = join(reportDir, "tmp-extension");
-  await cp(EXTENSION_ROOT, extensionCopyRoot, {
+  const extensionArtifactRoot = await resolveExtensionArtifactRoot(extensionBuild);
+  await cp(extensionArtifactRoot, extensionCopyRoot, {
     recursive: true
   });
 
@@ -277,13 +338,15 @@ async function discoverExtensionId(userDataDir: string, extensionPath: string): 
 export async function runExtensionSmoke(
   entry: CorpusEntry,
   config: LocalHarnessConfig,
-  reportDir: string
+  reportDir: string,
+  extensionBuild: ExtensionBuild = "source"
 ): Promise<ExtensionSmokeResult> {
   const startedAt = Date.now();
   const userDataDir = join(reportDir, "tmp-profile");
+  const buildLabel = extensionBuild === "package" ? "packaged" : "source";
 
   try {
-    const extensionPath = await buildTemporaryExtension(config.appUrl, reportDir);
+    const extensionPath = await buildTemporaryExtension(config.appUrl, reportDir, extensionBuild);
     const context = await chromium.launchPersistentContext(userDataDir, {
       channel: "chromium",
       headless: true,
@@ -306,6 +369,14 @@ export async function runExtensionSmoke(
           timeout: 30_000
         }
       );
+
+      const targetTabId = await resolvePopupTabId(popupPage, entry.url);
+      if (targetTabId) {
+        await popupPage.goto(`chrome-extension://${extensionId}/popup.html?tab=${targetTabId}`, {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000
+        });
+      }
 
       await popupPage.locator("#connect-code").fill(connectCode);
       await popupPage.locator("#connect-btn").click();
@@ -330,7 +401,7 @@ export async function runExtensionSmoke(
           extensionId,
           errorMessage:
             diagnostics.status ||
-            `Popup did not enter the connected state. connectionState='${diagnostics.connectionState}' tokenState='${diagnostics.tokenState}'`,
+            `The ${buildLabel} popup did not enter the connected state. connectionState='${diagnostics.connectionState}' tokenState='${diagnostics.tokenState}' search='${diagnostics.locationSearch}' tabs='${JSON.stringify(diagnostics.openTabs)}'`,
           screenshotPath,
           recommendation: "Check popup connect flow, stored token state, and extension exchange responses."
         };
@@ -370,7 +441,7 @@ export async function runExtensionSmoke(
               targetUrl: entry.url,
               durationMs: Date.now() - startedAt,
               extensionId,
-              errorMessage: `${diagnostics.status} (tokenState='${diagnostics.tokenState}')`,
+              errorMessage: `${diagnostics.status} (tokenState='${diagnostics.tokenState}' search='${diagnostics.locationSearch}' tabs='${JSON.stringify(diagnostics.openTabs)}')`,
               screenshotPath,
               recommendation: "Review popup auth/capture flow and inspect stored extension state in the smoke diagnostics."
             };
@@ -390,7 +461,7 @@ export async function runExtensionSmoke(
         extensionId,
         errorMessage:
           diagnostics.status ||
-          "The unpacked extension smoke run did not create a new item in the dashboard refresh payload.",
+          `The ${buildLabel} extension smoke run did not create a new item in the dashboard refresh payload. search='${diagnostics.locationSearch}' tabs='${JSON.stringify(diagnostics.openTabs)}'`,
         screenshotPath,
         recommendation: "Check popup automation, extension storage state, and runtime-config targeting."
       };

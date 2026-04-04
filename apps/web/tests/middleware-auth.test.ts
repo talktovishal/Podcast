@@ -11,6 +11,7 @@ test("isPublicPathForAuth allows expected unauthenticated assets and pages", () 
     "/api/share/cta",
     "/api/items/html-snapshot",
     "/manifest.webmanifest",
+    "/extension-smoke.html",
     "/apple-icon.png",
     "/brand/brain-mark-192.png",
     "/rss/token",

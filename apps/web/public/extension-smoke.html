@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ArticlePod Extension Smoke Fixture</title>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>ArticlePod Extension Smoke Fixture</h1>
+        <p>
+          This stable local page exists so release testing can verify the packaged Chrome extension, not just the unpacked source
+          tree. It should always contain enough readable article text for a successful capture.
+        </p>
+        <p>
+          The packaged smoke test uses this page to exercise the real popup connect flow, confirm the packaged JavaScript modules
+          load correctly, and submit one HTML snapshot end to end into the authenticated ArticlePod account.
+        </p>
+        <p>
+          If this fixture stops producing a ready item, treat that as a release blocker for the extension until the packaged popup,
+          auth exchange, or snapshot submission path is understood and fixed.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>

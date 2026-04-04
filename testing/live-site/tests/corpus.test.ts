@@ -18,3 +18,10 @@ test("filterCorpus applies site, cohort, and limit filters", async () => {
   assert.equal(filtered[0]?.cohort, "news");
   assert.equal(["reuters-world", "cnn-business"].includes(filtered[0]?.id || ""), true);
 });
+
+test("parseCliOptions accepts a packaged extension smoke override", () => {
+  const options = parseCliOptions(["--mode", "extension", "--env", "local", "--extension-build", "package"]);
+  assert.equal(options.mode, "extension");
+  assert.equal(options.env, "local");
+  assert.equal(options.extensionBuild, "package");
+});

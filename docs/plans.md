@@ -16,6 +16,7 @@
 - Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
 - URL ingestion now performs a short safe redirect-canonicalization pass before enqueue/extraction so redirecting share/login-style URLs can normalize to their public destination when discoverable.
 - Chrome extension smart capture now uses a popup-triggered bounded reveal pass plus safe inert-node cleanup before HTML snapshot upload, while keeping the worker extraction path HTML-first.
+- Chrome extension release tooling now treats the packaged artifact as a first-class test surface: `extension:package` runs extension-specific regression gates before building, and the live-site smoke harness can target `dist/extension/package` for release-candidate checks.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).

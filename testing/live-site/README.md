@@ -22,6 +22,7 @@ npm run live-sites:test
 npm run live-sites:test -- --env local
 npm run live-sites:test -- --site reuters-world,cnbc-business --mode url
 npm run live-sites:test:extension -- --limit 2
+npm run live-sites:test:extension -- --limit 1 --extension-build package
 npm run live-sites:test:prod-probe -- --site reuters-world
 ```
 
@@ -73,6 +74,14 @@ If the site itself changed, update `corpus.md` or `quirks.md` first. Do not hard
 
 ## Checked-In Extension Versus Web Store
 
-This harness always tests the latest checked-in extension code from `apps/extension`, not the Chrome Web Store build.
+By default, this harness tests the latest checked-in extension code from `apps/extension`, not the Chrome Web Store build.
 
-For smoke coverage, the harness creates a temporary unpacked extension copy and rewrites only `runtime-config.js` so it points at the current local app URL. That keeps the code under test aligned with the repo while still exercising the real popup/connect/capture flow.
+For smoke coverage, the harness creates a temporary unpacked extension copy and rewrites only `runtime-config.js` so it points at the current local app URL. In default mode that keeps the code under test aligned with the repo while still exercising the real popup/connect/capture flow.
+
+For release-candidate testing, pass `--extension-build package` so the smoke step copies from `dist/extension/package` instead of `apps/extension`.
+This is the mode used by `corepack pnpm extension:smoke:package`.
+The dedicated packaged-smoke script targets the app's local `/extension-smoke.html` fixture rather than a third-party corpus URL.
+
+Release rule:
+- use `apps/extension` while you are developing
+- use `dist/extension/package` or the actual Chrome Web Store listing when you are deciding whether a release is safe

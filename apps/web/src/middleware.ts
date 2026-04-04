@@ -26,6 +26,7 @@ const PUBLIC_EXACT: Set<string> = new Set([
   "/api/share/cta",
   "/api/items/html-snapshot",
   "/apple-icon.png",
+  "/extension-smoke.html",
   "/manifest.webmanifest",
   "/robots.txt",
   "/sitemap.xml"

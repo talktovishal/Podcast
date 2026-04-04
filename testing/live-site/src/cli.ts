@@ -24,7 +24,12 @@ async function readExtensionVersion(): Promise<string> {
   return manifest.version || "unknown";
 }
 
-async function buildProvenance(appUrl: string, runnerMode: RunReport["provenance"]["runnerMode"], envMode: RunReport["provenance"]["envMode"]): Promise<Provenance> {
+async function buildProvenance(
+  appUrl: string,
+  runnerMode: RunReport["provenance"]["runnerMode"],
+  envMode: RunReport["provenance"]["envMode"],
+  extensionBuild: RunReport["provenance"]["extensionBuild"]
+): Promise<Provenance> {
   const [gitCommit, gitBranch, extensionVersion] = await Promise.all([
     gitValue(["rev-parse", "HEAD"]),
     gitValue(["rev-parse", "--abbrev-ref", "HEAD"]),
@@ -35,6 +40,7 @@ async function buildProvenance(appUrl: string, runnerMode: RunReport["provenance
     appUrl,
     envMode,
     runnerMode,
+    extensionBuild,
     gitCommit,
     gitBranch,
     extensionVersion,
@@ -81,7 +87,7 @@ async function main(): Promise<void> {
       if ((options.mode === "extension" || options.mode === "dual")) {
         const smokeEntry = corpus.find((entry) => shouldRunExtension(entry) && !entry.requiresManual);
         if (smokeEntry) {
-          smoke = await runExtensionSmoke(smokeEntry, config, reportDir);
+          smoke = await runExtensionSmoke(smokeEntry, config, reportDir, options.extensionBuild);
         }
       }
     }
@@ -99,7 +105,12 @@ async function main(): Promise<void> {
     await localHarness?.shutdown();
   }
 
-  const provenance = await buildProvenance(localHarness?.config.appUrl || process.env.APP_URL || "unknown", options.mode, options.env);
+  const provenance = await buildProvenance(
+    localHarness?.config.appUrl || process.env.APP_URL || "unknown",
+    options.mode,
+    options.env,
+    options.extensionBuild
+  );
   const report: RunReport = {
     provenance,
     options,
