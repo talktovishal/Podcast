@@ -216,14 +216,19 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     true,
   );
   assert.equal(extensionPageSource.includes("DashboardClient"), false);
-  assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), true);
+  assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), false);
   assert.equal(
     resourcesPageSource.includes("ChromeExtensionGuidePanels"),
-    true,
+    false,
   );
   assert.equal(resourcesPageSource.includes("getAuthUserFromCookies"), true);
+  assert.equal(resourcesPageSource.includes("Add to Chrome"), true);
+  assert.equal(resourcesPageSource.includes("/app/chrome-extension"), true);
+  assert.equal(resourcesPageSource.includes("/app/podcast-apps"), true);
   assert.equal(
-    resourcesPageSource.includes("isAuthenticated={Boolean(user)}"),
+    resourcesPageSource.includes(
+      "Keep listening in the player you already trust.",
+    ),
     true,
   );
   assert.equal(
@@ -250,12 +255,8 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     ),
     true,
   );
-  assert.equal(
-    extensionCardSource.includes(
-      'extensionConnectCode ? "Generate new code" : "Generate connect code"',
-    ),
-    true,
-  );
+  assert.equal(extensionCardSource.includes('"Generate new code"'), true);
+  assert.equal(extensionCardSource.includes('"Generate connect code"'), true);
   assert.equal(extensionCardSource.includes("One-time connect code"), true);
   assert.equal(
     extensionCardSource.includes("bg-[rgba(223,243,236,0.82)]"),
