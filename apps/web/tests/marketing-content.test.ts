@@ -295,13 +295,73 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   );
   assert.equal(
     aboutSource.includes(
-      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+      "Listen to your reading list and finally catch up on what matters",
     ),
     true,
   );
   assert.equal(
     aboutSource.includes("weekly digest podcast or email summaries"),
     true,
+  );
+  assert.equal(aboutSource.includes("Live today"), true);
+  assert.equal(aboutSource.includes("What is live today"), false);
+  assert.equal(aboutSource.includes("Why private RSS feed"), true);
+  assert.equal(aboutSource.includes("Why private RSS"), true);
+  assert.equal(aboutSource.includes("Per-article narrated episodes"), true);
+  assert.equal(aboutSource.includes("Chrome extension capture"), true);
+  assert.equal(aboutSource.includes("Private RSS feed delivery"), true);
+  assert.equal(aboutSource.includes("Weekly digest podcast"), true);
+  assert.equal(aboutSource.includes("Weekly Email Options"), true);
+  assert.equal(aboutSource.includes("Integrates with your favorite podcast apps"), true);
+  assert.equal(aboutSource.includes("Listening queue Private by default"), true);
+  assert.equal(aboutSource.includes("Easy feed URL rotation"), true);
+  assert.equal(
+    aboutSource.includes(
+      "ArticlePod turns article URLs and text-based PDFs into private podcast episodes you can hear in your favorite podcast apps,",
+    ),
+    true,
+  );
+  assert.equal(aboutSource.includes("even offline."), true);
+  assert.equal(
+    aboutSource.includes(
+      "For easy recaps, add a weekly digest podcast or email summaries.",
+    ),
+    true,
+  );
+  assert.equal(
+    aboutSource.includes(
+      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+    ),
+    true,
+  );
+  assert.equal(
+    aboutSource.includes(
+      "The product is designed for people who love to read and save thoughtful articles, but need a more practical way to keep",
+    ),
+    true,
+  );
+  assert.equal(
+    aboutSource.includes(
+      "track of them. It enhances reading and learning by making the most valuable pieces easier to organize, finish, retain, and",
+    ),
+    true,
+  );
+  assert.equal(aboutSource.includes("Chrome captures into private podcast episodes"), false);
+  assert.equal(
+    aboutSource.includes(
+      "Make saved reading easier to actually absorb instead of letting it pile up unread.",
+    ),
+    false,
+  );
+  assert.equal(
+    aboutSource.includes(
+      "The product is aimed at people who routinely save thoughtful reading but want a more practical way to revisit it.",
+    ),
+    false,
+  );
+  assert.equal(
+    aboutSource.includes("Your listening queue works in standard podcast apps, stays personal by default, and can be rotated if a feed URL ever"),
+    false,
   );
   assert.equal(aboutSource.includes("daily and weekly"), false);
   assert.equal(aboutSource.includes("Monthly and yearly recaps"), false);

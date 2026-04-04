@@ -741,7 +741,10 @@ test("auth landing redirects admins directly to admin dashboard", () => {
     ),
     true,
   );
-  assert.equal(source.includes("Use email instead"), true);
+  assert.equal(source.includes("Use email instead"), false);
+  assert.equal(source.includes("Already have an email account?"), false);
+  assert.equal(source.includes("Need a new account?"), false);
+  assert.equal(source.includes("<span>OR</span>"), true);
   assert.equal(source.includes("configuredProviders.map"), true);
   assert.equal(source.includes("const primaryAuthActionClass ="), true);
   assert.equal(

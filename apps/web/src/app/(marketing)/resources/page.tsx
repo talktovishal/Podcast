@@ -139,7 +139,7 @@ export default async function ResourcesPage() {
       <header className="card p-5 sm:p-6">
         <div className="space-y-4">
           <div className="space-y-2">
-            <h1 className="max-w-4xl text-4xl font-bold leading-tight sm:text-5xl">
+            <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl">
               Save in Chrome. Listen in the podcast app you already use.
             </h1>
             <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">

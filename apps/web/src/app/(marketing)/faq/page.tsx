@@ -86,7 +86,7 @@ export default function FaqPage() {
       />
 
       <section className="space-y-4">
-        <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Answers to common questions</h1>
+        <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">Answers to common questions</h1>
         <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod is centered on private per-article podcast episodes first, with weekly digest options available when you want a
           recap layer.

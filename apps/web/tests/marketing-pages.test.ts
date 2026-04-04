@@ -51,7 +51,10 @@ test("auth landing page keeps auth card structure and trims duplicate marketing 
   assert.equal(source.includes("Log in to your private podcast feed"), true);
   assert.equal(source.includes("Continue to your feed"), false);
   assert.equal(source.includes("First time? We&apos;ll create your account automatically."), true);
-  assert.equal(source.includes("Use email instead"), true);
+  assert.equal(source.includes("Use email instead"), false);
+  assert.equal(source.includes("Already have an email account?"), false);
+  assert.equal(source.includes("Need a new account?"), false);
+  assert.equal(source.includes("<span>OR</span>"), true);
   assert.equal(source.includes("Join Now"), false);
   assert.equal(source.includes("MarketingHeader"), false);
   assert.equal(source.includes("MarketingCta"), false);

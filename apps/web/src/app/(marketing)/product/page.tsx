@@ -35,7 +35,7 @@ export default function ProductPage() {
       />
 
       <section className="space-y-4">
-        <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">One system for continuous learning</h1>
+        <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">One system for continuous learning</h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod starts with one podcast episode per saved source, then adds weekly digest podcast and email summaries when you
           want a recap layer.

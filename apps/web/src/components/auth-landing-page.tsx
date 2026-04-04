@@ -212,22 +212,12 @@ export function AuthLandingPage() {
 
           <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
             <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
-            <span>Or use email</span>
+            <span>OR</span>
             <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
           </div>
 
           <div className="rounded-3xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.92)] p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-[var(--ink)]">
-                  Use email instead
-                </p>
-                <p className="text-xs text-[var(--muted)]">
-                  {mode === "login"
-                    ? "Need a new account?"
-                    : "Already have an email account?"}
-                </p>
-              </div>
+            <div className="flex justify-end">
               <div className="inline-flex rounded-full bg-[rgba(223,243,236,0.92)] p-1 text-sm">
                 <button
                   className={`rounded-full px-3 py-1.5 font-medium transition ${
@@ -306,7 +296,7 @@ export function AuthLandingPage() {
       </section>
 
       <section className="space-y-5 lg:pt-2">
-        <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
+        <h2 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
           {marketingCopy.heroHeadline}
         </h2>
 

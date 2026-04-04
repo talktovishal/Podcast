@@ -89,7 +89,7 @@
   - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
   - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
-  - `/about` now opens with `Make your reading list effortless—listen anywhere, anytime, and retain more`.
+  - `/about` now opens with `Listen to your reading list and finally catch up on what matters`.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback

@@ -30,7 +30,7 @@ const secondaryMarketingPages = [
   },
   {
     path: "/about",
-    heading: "Make your reading list effortless—listen anywhere, anytime, and retain more",
+    heading: "Listen to your reading list and finally catch up on what matters",
     secondaryCta: "See pricing"
   }
 ] as const;
