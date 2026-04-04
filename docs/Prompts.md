@@ -195,8 +195,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/login` is now a compatibility redirect back to `/`, so there is one maintained public auth/marketing surface instead of two competing versions.
   - public `/product`, `/pricing`, `/resources`, `/about`, and `/faq` pages now ship route-specific metadata, schema, and shared header/CTA internal-link support without repeating the site nav in a bottom footer.
   - `robots.txt` and `sitemap.xml` now prioritize the marketing routes and keep private/auth/share surfaces out of search discovery.
-- Public marketing chrome cleanup (`M108`) is implemented:
-  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now stop after the focused CTA instead of repeating the top-level site nav and ArticlePod summary in a footer.
+- Public marketing shared chrome persistence (`M109`) is implemented:
+  - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the public-site header and footer CTA cannot drift page by page.
+  - the persistent header always shows the logo, `ArticlePod`, and the main menu entries `Product`, `Pricing`, `Resources`, `FAQ`, and `About`.
+  - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page.
 
 ### Next Milestones
 

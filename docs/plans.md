@@ -83,9 +83,10 @@
   - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.
   - `/login` is now a compatibility redirect to `/`, so the product maintains one public auth/marketing experience instead of two competing variants.
   - public marketing pages now use route-specific metadata, schema, and shared header/CTA internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
-- Public marketing chrome cleanup (`M108`) is implemented:
-  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now stop after the focused CTA instead of repeating the main nav and product summary in a footer.
-  - the signed-out homepage keeps the existing no-footer treatment, so all public marketing pages now follow one consistent chrome pattern.
+- Public marketing shared chrome persistence (`M109`) is implemented:
+  - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the header and footer CTA are always present on the public marketing surface.
+  - the persistent header keeps the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu.
+  - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -210,6 +211,7 @@
 | 60-day generated audio retention lifecycle + feed/media expiry gating                          | M105                                             |
 | Public marketing SEO hardening (homepage, metadata, schema, crawl rules)                       | M107                                             |
 | Public marketing chrome cleanup (remove duplicate footer nav)                                  | M108                                             |
+| Persistent public marketing header + footer layout                                             | M109                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -365,6 +367,7 @@ Milestone metadata contract:
 | M106      | Done        | 2026-04-08    | 2026-04-01   | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
 | M107      | Done        | 2026-04-09    | 2026-04-02   | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)                        |
 | M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
+| M109      | Done        | 2026-04-11    | 2026-04-04   | local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)          |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3310,7 +3313,7 @@ Milestone metadata contract:
   - `apps/web/src/app/api/media/[...path]/route.ts`
   - `apps/web/src/app/api/digest-media/[...path]/route.ts`
   - `apps/web/src/lib/share-links.ts`
-  - `apps/web/src/app/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
 - Acceptance criteria:
   - New item, digest, and summary episodes persist a 60-day `expiresAt` derived from `publishedAt`.
   - Expired audio no longer appears in private RSS feeds, shared episode playback, digest history playback, or dashboard playback controls.
@@ -3374,13 +3377,13 @@ Milestone metadata contract:
   - Convert `/login` into a compatibility redirect back to `/` so search traffic and auth entry both land on the same maintained page.
   - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link coverage across the public marketing pages.
 - Key files/modules:
-  - `apps/web/src/app/page.tsx`
+  - `apps/web/src/app/(marketing)/page.tsx`
   - `apps/web/src/app/login/layout.tsx`
-  - `apps/web/src/app/product/page.tsx`
-  - `apps/web/src/app/pricing/page.tsx`
-  - `apps/web/src/app/resources/page.tsx`
-  - `apps/web/src/app/about/page.tsx`
-  - `apps/web/src/app/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
   - `apps/web/src/app/robots.ts`
   - `apps/web/src/app/sitemap.ts`
   - `apps/web/src/lib/seo.ts`
@@ -3411,11 +3414,11 @@ Milestone metadata contract:
   - Keep the signed-out homepage, signed-in workspace, admin, and share surfaces unchanged because they already use non-duplicative navigation patterns.
   - Update tests and docs so the public-site contract now expects one primary marketing nav and no footer navigation on the secondary public pages.
 - Key files/modules:
-  - `apps/web/src/app/product/page.tsx`
-  - `apps/web/src/app/pricing/page.tsx`
-  - `apps/web/src/app/resources/page.tsx`
-  - `apps/web/src/app/faq/page.tsx`
-  - `apps/web/src/app/about/page.tsx`
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
   - `apps/web/e2e/health-and-public.spec.ts`
   - `apps/web/tests/marketing-pages.test.ts`
   - `apps/web/tests/seo-routes.test.ts`
@@ -3424,6 +3427,45 @@ Milestone metadata contract:
   - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render the shared header navigation once and do not render a footer navigation landmark.
   - Each secondary public marketing page still ends with the focused CTA block, including the primary `Start your knowledge feed` action.
   - `/` continues to render the signed-out auth/marketing homepage without a duplicate footer.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M109 - Persistent Public Marketing Header and Footer
+
+- status: Done
+- target_finish: 2026-04-11
+- completed_on: 2026-04-04
+- evidence: local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)
+- Scope:
+  - Move the signed-out homepage plus `/product`, `/pricing`, `/resources`, `/faq`, and `/about` under one shared App Router marketing layout so the public-site header and footer CTA are structural.
+  - Keep the public marketing header fixed to the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu entries.
+  - Keep the public marketing footer fixed to `Start your knowledge feed` and `See pricing` on every public marketing page, while leaving `/login`, `/app`, `/admin`, and `/share` outside that layout.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/(marketing)/page.tsx`
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
+  - `apps/web/src/components/auth-landing-page.tsx`
+  - `apps/web/src/components/marketing-header.tsx`
+  - `apps/web/src/components/marketing-cta.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/tests/seo-routes.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render exactly one shared primary navigation and one shared footer CTA block.
+  - The footer CTA always includes `Start your knowledge feed` linking to `/` and `See pricing` linking to `/pricing`.
+  - The signed-out auth landing page no longer renders its own page-local header.
+  - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run test`
@@ -4162,7 +4204,7 @@ Milestone metadata contract:
 - Key files/modules:
   - `apps/web/src/lib/billing.ts`
   - `apps/web/src/app/api/billing/checkout/route.ts`
-  - `apps/web/src/app/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
 - Acceptance criteria:
   - Signed-in users can create hosted Stripe subscription checkout sessions from `/pricing` or settings only for approved internal plan keys.
   - Signing in from `/pricing` preserves the upgrade journey and returns the user to billing-ready UI instead of the generic workspace landing page.

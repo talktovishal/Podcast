@@ -168,7 +168,7 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     "utf8",
   );
   const resourcesPageSource = readFileSync(
-    new URL("../src/app/resources/page.tsx", import.meta.url),
+    new URL("../src/app/(marketing)/resources/page.tsx", import.meta.url),
     "utf8",
   );
   const extensionCardSource = readFileSync(
@@ -725,7 +725,7 @@ test("auth landing redirects admins directly to admin dashboard", () => {
     "utf8",
   );
   const pricingSource = readFileSync(
-    new URL("../src/app/pricing/page.tsx", import.meta.url),
+    new URL("../src/app/(marketing)/pricing/page.tsx", import.meta.url),
     "utf8",
   );
   assert.equal(

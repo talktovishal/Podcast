@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { MarketingHeader } from "@/components/marketing-header";
 import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
 import { marketingCopy } from "@/lib/marketing-content";
 import {
@@ -158,207 +157,201 @@ export function AuthLandingPage() {
   }
 
   return (
-    <main className="min-h-screen py-5 sm:py-8">
-      <div className="container-shell">
-        <MarketingHeader />
+    <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-[2.15rem]">
+            Log in to your private podcast feed
+          </h1>
+          <p className="max-w-md text-sm leading-6 text-[var(--muted)]">
+            Continue with social sign-in or email to save articles, upload PDFs, and hear the finished episodes in your regular
+            podcast app.
+          </p>
+        </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-          <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-[2.15rem]">
-                Log in to your private podcast feed
-              </h1>
-              <p className="max-w-md text-sm leading-6 text-[var(--muted)]">
-                Continue with social sign-in or email to save articles, upload PDFs, and hear the finished episodes in your regular
-                podcast app.
-              </p>
-            </div>
+        <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+          Continue with one tap
+        </p>
+        <p className="max-w-xs text-sm text-[var(--muted)]">
+          First time? We&apos;ll create your account automatically.
+        </p>
 
-            <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-              Continue with one tap
-            </p>
-            <p className="max-w-xs text-sm text-[var(--muted)]">
-              First time? We&apos;ll create your account automatically.
-            </p>
-
-            <div className="mt-4 space-y-4">
-              <div>
-                <div className="grid grid-cols-1 gap-2">
-                  {configuredProviders.map((provider) => (
-                    <a
-                      className={primaryAuthActionClass}
-                      href={buildOAuthStartHref(provider.startPath, nextPath)}
-                      key={provider.id}
-                    >
-                      Continue with {provider.label}
-                    </a>
-                  ))}
-                </div>
-                {!oauthProviders ? (
-                  <p className="mt-2 text-xs text-[var(--muted)]">
-                    Checking sign-in options...
-                  </p>
-                ) : null}
-                {oauthProviders && configuredProviders.length === 0 ? (
-                  <p className="mt-2 text-xs text-[var(--muted)]">
-                    {noSocialProvidersMessage}
-                  </p>
-                ) : null}
-              </div>
-
-              {error ? (
-                <p className="text-sm text-[var(--danger)]">{error}</p>
-              ) : null}
-              {oauthErrorMessage ? (
-                <p className="text-sm text-[var(--danger)]">
-                  {oauthErrorMessage}
-                </p>
-              ) : null}
-
-              <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
-                <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
-                <span>Or use email</span>
-                <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
-              </div>
-
-              <div className="rounded-3xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.92)] p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--ink)]">
-                      Use email instead
-                    </p>
-                    <p className="text-xs text-[var(--muted)]">
-                      {mode === "login"
-                        ? "Need a new account?"
-                        : "Already have an email account?"}
-                    </p>
-                  </div>
-                  <div className="inline-flex rounded-full bg-[rgba(223,243,236,0.92)] p-1 text-sm">
-                    <button
-                      className={`rounded-full px-3 py-1.5 font-medium transition ${
-                        mode === "login"
-                          ? "bg-white text-[var(--ink)] shadow-sm"
-                          : "text-[var(--muted)]"
-                      }`}
-                      onClick={() => setMode("login")}
-                      type="button"
-                    >
-                      Log in
-                    </button>
-                    <button
-                      className={`rounded-full px-3 py-1.5 font-medium transition ${
-                        mode === "signup"
-                          ? "bg-white text-[var(--ink)] shadow-sm"
-                          : "text-[var(--muted)]"
-                      }`}
-                      onClick={() => setMode("signup")}
-                      type="button"
-                    >
-                      Create account
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {mode === "signup" ? (
-                    <label className="block">
-                      <span className="mb-1 block text-sm font-medium">
-                        Name
-                      </span>
-                      <input
-                        autoComplete="name"
-                        className={inputClass}
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                      />
-                    </label>
-                  ) : null}
-
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium">
-                      Email
-                    </span>
-                    <input
-                      autoComplete="email"
-                      className={inputClass}
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-1 block text-sm font-medium">
-                      Password
-                    </span>
-                    <input
-                      autoComplete={
-                        mode === "login" ? "current-password" : "new-password"
-                      }
-                      className={inputClass}
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                    />
-                  </label>
-
-                  <button className={primaryAuthActionClass} disabled={isLoading} onClick={submit}>
-                    {isLoading ? "Please wait..." : emailSubmitLabel}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="space-y-5 lg:pt-2">
-            <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
-              {marketingCopy.heroHeadline}
-            </h2>
-
-            <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-              {marketingCopy.heroSubheading}
-            </p>
-
-            <div className="grid gap-2.5 sm:grid-cols-3">
-              {marketingCopy.heroHighlights.map((item) => (
-                <article
-                  key={item.title}
-                  className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-4 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
+        <div className="mt-4 space-y-4">
+          <div>
+            <div className="grid grid-cols-1 gap-2">
+              {configuredProviders.map((provider) => (
+                <a
+                  className={primaryAuthActionClass}
+                  href={buildOAuthStartHref(provider.startPath, nextPath)}
+                  key={provider.id}
                 >
-                  <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
-                </article>
+                  Continue with {provider.label}
+                </a>
               ))}
             </div>
+            {!oauthProviders ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Checking sign-in options...
+              </p>
+            ) : null}
+            {oauthProviders && configuredProviders.length === 0 ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                {noSocialProvidersMessage}
+              </p>
+            ) : null}
+          </div>
 
-            <section className="max-w-2xl border-t border-[rgba(31,122,90,0.14)] pt-4">
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                  Security
+          {error ? (
+            <p className="text-sm text-[var(--danger)]">{error}</p>
+          ) : null}
+          {oauthErrorMessage ? (
+            <p className="text-sm text-[var(--danger)]">
+              {oauthErrorMessage}
+            </p>
+          ) : null}
+
+          <div className="flex items-center gap-3 py-1 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+            <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
+            <span>Or use email</span>
+            <span className="h-px flex-1 bg-[rgba(31,122,90,0.14)]" />
+          </div>
+
+          <div className="rounded-3xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.92)] p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ink)]">
+                  Use email instead
                 </p>
-                <h3 className="text-lg font-semibold text-[var(--ink)]">
-                  Private by design
-                </h3>
-                <p className="text-sm leading-6 text-[var(--muted)]">
-                  {marketingCopy.securityIntro}
+                <p className="text-xs text-[var(--muted)]">
+                  {mode === "login"
+                    ? "Need a new account?"
+                    : "Already have an email account?"}
                 </p>
               </div>
+              <div className="inline-flex rounded-full bg-[rgba(223,243,236,0.92)] p-1 text-sm">
+                <button
+                  className={`rounded-full px-3 py-1.5 font-medium transition ${
+                    mode === "login"
+                      ? "bg-white text-[var(--ink)] shadow-sm"
+                      : "text-[var(--muted)]"
+                  }`}
+                  onClick={() => setMode("login")}
+                  type="button"
+                >
+                  Log in
+                </button>
+                <button
+                  className={`rounded-full px-3 py-1.5 font-medium transition ${
+                    mode === "signup"
+                      ? "bg-white text-[var(--ink)] shadow-sm"
+                      : "text-[var(--muted)]"
+                  }`}
+                  onClick={() => setMode("signup")}
+                  type="button"
+                >
+                  Create account
+                </button>
+              </div>
+            </div>
 
-              <ul className="mt-3 space-y-3">
-                {marketingCopy.securityBullets.map((bullet) => (
-                  <li
-                    key={bullet}
-                    className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]"
-                  >
-                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                    <p>{bullet}</p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </section>
+            <div className="mt-4 space-y-3">
+              {mode === "signup" ? (
+                <label className="block">
+                  <span className="mb-1 block text-sm font-medium">
+                    Name
+                  </span>
+                  <input
+                    autoComplete="name"
+                    className={inputClass}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                  />
+                </label>
+              ) : null}
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">
+                  Email
+                </span>
+                <input
+                  autoComplete="email"
+                  className={inputClass}
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">
+                  Password
+                </span>
+                <input
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  className={inputClass}
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+
+              <button className={primaryAuthActionClass} disabled={isLoading} onClick={submit}>
+                {isLoading ? "Please wait..." : emailSubmitLabel}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </main>
+      </section>
+
+      <section className="space-y-5 lg:pt-2">
+        <h2 className="max-w-3xl text-4xl font-bold leading-[0.98] tracking-tight sm:text-5xl xl:text-[3.8rem]">
+          {marketingCopy.heroHeadline}
+        </h2>
+
+        <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
+          {marketingCopy.heroSubheading}
+        </p>
+
+        <div className="grid gap-2.5 sm:grid-cols-3">
+          {marketingCopy.heroHighlights.map((item) => (
+            <article
+              key={item.title}
+              className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-4 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
+            >
+              <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+            </article>
+          ))}
+        </div>
+
+        <section className="max-w-2xl border-t border-[rgba(31,122,90,0.14)] pt-4">
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+              Security
+            </p>
+            <h3 className="text-lg font-semibold text-[var(--ink)]">
+              Private by design
+            </h3>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              {marketingCopy.securityIntro}
+            </p>
+          </div>
+
+          <ul className="mt-3 space-y-3">
+            {marketingCopy.securityBullets.map((bullet) => (
+              <li
+                key={bullet}
+                className="flex items-start gap-3 text-sm leading-6 text-[var(--muted)]"
+              >
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                <p>{bullet}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </section>
+    </div>
   );
 }

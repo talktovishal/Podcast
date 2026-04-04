@@ -69,8 +69,11 @@ test("sitemap includes the marketing homepage and excludes the login page", () =
 
 test("shared marketing routes keep private surfaces out of search", () => {
   const shareSource = readFileSync(new URL("../src/app/share/page.tsx", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
+  const adminSource = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
   const loginAliasSource = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
   const ctaSource = readFileSync(new URL("../src/components/marketing-cta.tsx", import.meta.url), "utf8");
+  const marketingLayoutSource = readFileSync(new URL("../src/app/(marketing)/layout.tsx", import.meta.url), "utf8");
   const authLandingSource = readFileSync(new URL("../src/components/auth-landing-page.tsx", import.meta.url), "utf8");
   const secondaryMarketingRoutes = ["/product", "/pricing", "/resources", "/faq", "/about"];
 
@@ -78,12 +81,19 @@ test("shared marketing routes keep private surfaces out of search", () => {
   assert.equal(loginAliasSource.includes("redirect(query ? `/?${query}` : \"/\")"), true);
   assert.equal(ctaSource.includes('href="/app"'), false);
   assert.equal(ctaSource.includes('href="/"'), true);
-  assert.equal(ctaSource.includes('secondaryHref = "/product"'), true);
+  assert.equal(ctaSource.includes('href="/pricing"'), true);
+  assert.equal(marketingLayoutSource.includes("MarketingHeader"), true);
+  assert.equal(marketingLayoutSource.includes("MarketingCta"), true);
   assert.equal(authLandingSource.includes("Log in to your private podcast feed"), true);
   assert.equal(existsSync(new URL("../src/components/marketing-footer.tsx", import.meta.url)), false);
+  assert.equal(shareSource.includes("MarketingCta"), false);
+  assert.equal(appSource.includes("MarketingCta"), false);
+  assert.equal(adminSource.includes("MarketingCta"), false);
 
   for (const route of secondaryMarketingRoutes) {
-    const source = readFileSync(new URL(`../src/app${route}/page.tsx`, import.meta.url), "utf8");
+    const source = readFileSync(new URL(`../src/app/(marketing)${route}/page.tsx`, import.meta.url), "utf8");
     assert.equal(source.includes("MarketingFooter"), false, `${route} should not render duplicate footer navigation`);
+    assert.equal(source.includes("MarketingHeader"), false, `${route} should rely on the shared marketing layout`);
+    assert.equal(source.includes("MarketingCta"), false, `${route} should rely on the shared marketing layout`);
   }
 });

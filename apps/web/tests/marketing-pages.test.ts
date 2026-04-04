@@ -3,18 +3,29 @@ import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { marketingNavItems } from "../src/lib/marketing-content";
 
+const marketingAppRoot = "../src/app/(marketing)";
+
 test("public marketing pages exist for all nav routes", () => {
   for (const item of marketingNavItems) {
-    const pagePath = new URL(`../src/app${item.href}/page.tsx`, import.meta.url);
+    const pagePath = new URL(`${marketingAppRoot}${item.href}/page.tsx`, import.meta.url);
     assert.equal(existsSync(pagePath), true, `missing page for route ${item.href}`);
   }
 });
 
-test("secondary marketing pages keep the shared header and CTA without a duplicate footer", () => {
+test("marketing layout owns the shared header and footer CTA", () => {
+  const layoutSource = readFileSync(new URL(`${marketingAppRoot}/layout.tsx`, import.meta.url), "utf8");
+  const ctaSource = readFileSync(new URL("../src/components/marketing-cta.tsx", import.meta.url), "utf8");
+  assert.equal(layoutSource.includes("MarketingHeader"), true);
+  assert.equal(layoutSource.includes("MarketingCta"), true);
+  assert.equal(ctaSource.includes("Footer call to action"), true);
+  assert.equal(ctaSource.includes('href="/pricing"'), true);
+});
+
+test("secondary marketing pages stay content-only while the layout supplies shared chrome", () => {
   for (const item of marketingNavItems) {
-    const source = readFileSync(new URL(`../src/app${item.href}/page.tsx`, import.meta.url), "utf8");
-    assert.equal(source.includes("MarketingHeader"), true, `missing shared header on ${item.href}`);
-    assert.equal(source.includes("MarketingCta"), true, `missing CTA on ${item.href}`);
+    const source = readFileSync(new URL(`${marketingAppRoot}${item.href}/page.tsx`, import.meta.url), "utf8");
+    assert.equal(source.includes("MarketingHeader"), false, `page-local header should be removed on ${item.href}`);
+    assert.equal(source.includes("MarketingCta"), false, `page-local CTA should be removed on ${item.href}`);
     assert.equal(source.includes("MarketingFooter"), false, `duplicate footer chrome still present on ${item.href}`);
   }
 });
@@ -25,7 +36,7 @@ test("login nav has no placeholder links", () => {
 });
 
 test("root homepage renders the shared auth landing page for signed-out visitors", () => {
-  const source = readFileSync(new URL("../src/app/page.tsx", import.meta.url), "utf8");
+  const source = readFileSync(new URL(`${marketingAppRoot}/page.tsx`, import.meta.url), "utf8");
   assert.equal(source.includes('redirect("/login")'), false);
   assert.equal(source.includes("AuthLandingPage"), true);
   assert.equal(source.includes('path: "/"'), true);
@@ -38,6 +49,8 @@ test("auth landing page keeps auth card structure and trims duplicate marketing 
   assert.equal(source.includes("First time? We&apos;ll create your account automatically."), true);
   assert.equal(source.includes("Use email instead"), true);
   assert.equal(source.includes("Join Now"), false);
+  assert.equal(source.includes("MarketingHeader"), false);
+  assert.equal(source.includes("MarketingCta"), false);
   assert.equal(source.includes("MarketingFooter"), false);
   assert.equal(source.includes("Private Knowledge Feed"), false);
   assert.equal(source.includes("Listening now"), false);

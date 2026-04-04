@@ -16,22 +16,22 @@ const secondaryMarketingPages = [
   {
     path: "/pricing",
     heading: "Simple pricing for personal listening",
-    secondaryCta: "Explore product"
+    secondaryCta: "See pricing"
   },
   {
     path: "/resources",
-    heading: "Chrome Extension",
-    secondaryCta: "Read the FAQ"
+    heading: "Save in Chrome. Listen in the podcast app you already use.",
+    secondaryCta: "See pricing"
   },
   {
     path: "/faq",
     heading: "Answers to common questions",
-    secondaryCta: "Set up the extension"
+    secondaryCta: "See pricing"
   },
   {
     path: "/about",
     heading: "Built for people who save more than they can revisit",
-    secondaryCta: "See how it works"
+    secondaryCta: "See pricing"
   }
 ] as const;
 
@@ -76,18 +76,24 @@ test.describe("Health & Public Pages", () => {
     ).toBeVisible();
   });
 
-  test("public homepage keeps a single primary navigation and no footer navigation", async ({ page }) => {
+  test("public homepage keeps a single primary navigation and a persistent footer CTA", async ({ page }) => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
     await expect(
       page.getByRole("navigation", { name: "Primary navigation" })
     ).toBeVisible();
     await expect(
-      page.getByRole("navigation", { name: "Footer navigation" })
-    ).toHaveCount(0);
+      page.getByRole("contentinfo", { name: "Footer call to action" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Start your knowledge feed" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "See pricing" })
+    ).toBeVisible();
   });
 
-  test("secondary marketing pages keep one primary nav, no footer nav, and visible CTAs on desktop", async ({ page }) => {
+  test("secondary marketing pages keep one primary nav and one persistent footer CTA on desktop", async ({ page }) => {
     for (const pageSpec of secondaryMarketingPages) {
       await page.goto(pageSpec.path);
       await page.waitForLoadState("networkidle");
@@ -95,8 +101,8 @@ test.describe("Health & Public Pages", () => {
         page.getByRole("navigation", { name: "Primary navigation" })
       ).toBeVisible();
       await expect(
-        page.getByRole("navigation", { name: "Footer navigation" })
-      ).toHaveCount(0);
+        page.getByRole("contentinfo", { name: "Footer call to action" })
+      ).toBeVisible();
       await expect(
         page.getByRole("heading", { level: 1, name: pageSpec.heading })
       ).toBeVisible();
@@ -109,7 +115,7 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
-  test("secondary marketing pages keep one primary nav, no footer nav, and visible CTAs on mobile", async ({ page }) => {
+  test("secondary marketing pages keep one primary nav and one persistent footer CTA on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     for (const pageSpec of secondaryMarketingPages) {
@@ -119,8 +125,8 @@ test.describe("Health & Public Pages", () => {
         page.getByRole("navigation", { name: "Primary navigation" })
       ).toBeVisible();
       await expect(
-        page.getByRole("navigation", { name: "Footer navigation" })
-      ).toHaveCount(0);
+        page.getByRole("contentinfo", { name: "Footer call to action" })
+      ).toBeVisible();
       await expect(
         page.getByRole("heading", { level: 1, name: pageSpec.heading })
       ).toBeVisible();
@@ -131,5 +137,13 @@ test.describe("Health & Public Pages", () => {
         page.getByRole("link", { name: pageSpec.secondaryCta })
       ).toBeVisible();
     }
+  });
+
+  test("/share stays outside the persistent marketing footer chrome", async ({ page }) => {
+    await page.goto("/share");
+    await page.waitForLoadState("networkidle");
+    await expect(
+      page.getByRole("contentinfo", { name: "Footer call to action" })
+    ).toHaveCount(0);
   });
 });

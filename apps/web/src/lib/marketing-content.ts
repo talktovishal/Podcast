@@ -56,7 +56,7 @@ export const marketingCopy = {
     "Feed access and episode audio stay token-protected."
   ] as const,
   ctaPrimary: "Start your knowledge feed",
-  ctaSecondary: "Open app"
+  ctaSecondary: "See pricing"
 } as const;
 
 export function containsBannedMarketingPhrase(input: string): boolean {

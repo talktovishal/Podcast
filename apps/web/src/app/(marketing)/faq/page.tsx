@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { MarketingCta } from "@/components/marketing-cta";
-import { MarketingHeader } from "@/components/marketing-header";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import {
   buildBreadcrumbSchema,
@@ -87,32 +85,25 @@ export default function FaqPage() {
         ]}
       />
 
-      <main className="min-h-screen py-6 sm:py-10">
-        <div className="container-shell">
-          <MarketingHeader activeHref="/faq" />
-          <section className="space-y-4">
-            <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
-              FAQ
-            </p>
-            <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Answers to common questions</h1>
-            <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
-              ArticlePod is centered on private per-article podcast episodes first, with weekly digest options available when you want a
-              recap layer.
-            </p>
-          </section>
+      <section className="space-y-4">
+        <p className="inline-block rounded-full border border-[#c9e4dc] bg-[#edf8f5] px-4 py-1 text-xs font-semibold text-[#0f6a54] sm:text-sm">
+          FAQ
+        </p>
+        <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">Answers to common questions</h1>
+        <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
+          ArticlePod is centered on private per-article podcast episodes first, with weekly digest options available when you want a
+          recap layer.
+        </p>
+      </section>
 
-          <section className="mt-8 space-y-3">
-            {faqItems.map((item) => (
-              <details key={item.q} className="card p-4">
-                <summary className="cursor-pointer text-sm font-semibold sm:text-base">{item.q}</summary>
-                <p className="mt-2 text-sm text-[var(--muted)]">{item.a}</p>
-              </details>
-            ))}
-          </section>
-
-          <MarketingCta secondaryHref="/resources" secondaryLabel="Set up the extension" />
-        </div>
-      </main>
+      <section className="mt-8 space-y-3">
+        {faqItems.map((item) => (
+          <details key={item.q} className="card p-4">
+            <summary className="cursor-pointer text-sm font-semibold sm:text-base">{item.q}</summary>
+            <p className="mt-2 text-sm text-[var(--muted)]">{item.a}</p>
+          </details>
+        ))}
+      </section>
     </>
   );
 }

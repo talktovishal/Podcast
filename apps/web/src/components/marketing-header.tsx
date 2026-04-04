@@ -1,18 +1,19 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { marketingNavItems } from "@/lib/marketing-content";
 
-type MarketingHeaderProps = {
-  activeHref?: string;
-};
+export function MarketingHeader() {
+  const pathname = usePathname();
 
-export function MarketingHeader({ activeHref }: MarketingHeaderProps) {
   return (
     <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
       <BrandLogo />
       <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-2 text-sm">
         {marketingNavItems.map((item) => {
-          const active = item.href === activeHref;
+          const active = item.href === pathname;
           return (
             <Link
               key={item.href}

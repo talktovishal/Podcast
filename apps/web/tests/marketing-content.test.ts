@@ -13,6 +13,8 @@ import {
   paidPlanConfig,
 } from "../src/lib/paid-plan-config";
 
+const marketingAppRoot = "../src/app/(marketing)";
+
 test("marketing nav items follow canonical order and routes", () => {
   assert.deepEqual(
     marketingNavItems.map((item) => item.label),
@@ -42,6 +44,8 @@ test("marketing copy keeps concise busy-reader framing", () => {
     marketingCopy.securityIntro,
     "Podcast access stays private across sign-in, pairing, and playback.",
   );
+  assert.equal(marketingCopy.ctaPrimary, "Start your knowledge feed");
+  assert.equal(marketingCopy.ctaSecondary, "See pricing");
 });
 
 test("hero copy does not include banned phrases", () => {
@@ -80,7 +84,7 @@ test("auth landing page places the security section after the feature highlight 
 
 test("pricing page exposes Starter plus monthly and annual Pro choices with clear billing policy", () => {
   const source = readFileSync(
-    new URL("../src/app/pricing/page.tsx", import.meta.url),
+    new URL(`${marketingAppRoot}/pricing/page.tsx`, import.meta.url),
     "utf8",
   );
   const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
@@ -137,13 +141,13 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
 
 test("public marketing pages do not leak internal economics or vendor implementation details", () => {
   const publicPageSources = [
-    "../src/app/page.tsx",
+    `${marketingAppRoot}/page.tsx`,
     "../src/components/auth-landing-page.tsx",
-    "../src/app/product/page.tsx",
-    "../src/app/pricing/page.tsx",
-    "../src/app/resources/page.tsx",
-    "../src/app/faq/page.tsx",
-    "../src/app/about/page.tsx",
+    `${marketingAppRoot}/product/page.tsx`,
+    `${marketingAppRoot}/pricing/page.tsx`,
+    `${marketingAppRoot}/resources/page.tsx`,
+    `${marketingAppRoot}/faq/page.tsx`,
+    `${marketingAppRoot}/about/page.tsx`,
   ]
     .map((path) =>
       readFileSync(new URL(path, import.meta.url), "utf8").toLowerCase(),
@@ -161,7 +165,7 @@ test("public marketing pages do not leak internal economics or vendor implementa
 
 test("resources page stays focused on Chrome capture and podcast app listening", () => {
   const source = readFileSync(
-    new URL("../src/app/resources/page.tsx", import.meta.url),
+    new URL(`${marketingAppRoot}/resources/page.tsx`, import.meta.url),
     "utf8",
   ).toLowerCase();
 
@@ -194,19 +198,23 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     "utf8",
   );
   const faqSource = readFileSync(
-    new URL("../src/app/faq/page.tsx", import.meta.url),
+    new URL(`${marketingAppRoot}/faq/page.tsx`, import.meta.url),
     "utf8",
   );
   const aboutSource = readFileSync(
-    new URL("../src/app/about/page.tsx", import.meta.url),
+    new URL(`${marketingAppRoot}/about/page.tsx`, import.meta.url),
     "utf8",
   );
   const productSource = readFileSync(
-    new URL("../src/app/product/page.tsx", import.meta.url),
+    new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
     "utf8",
   );
   const layoutSource = readFileSync(
     new URL("../src/app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const marketingLayoutSource = readFileSync(
+    new URL(`${marketingAppRoot}/layout.tsx`, import.meta.url),
     "utf8",
   );
 
@@ -261,6 +269,8 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     false,
   );
+  assert.equal(loginSource.includes("MarketingHeader"), false);
+  assert.equal(loginSource.includes("MarketingCta"), false);
 
   assert.equal(
     faqSource.includes("What happens when I save an article?"),
@@ -300,4 +310,6 @@ test("public marketing copy focuses on instant episodes and weekly digest option
 
   assert.equal(layoutSource.includes("weekly digest summary options"), true);
   assert.equal(layoutSource.includes("daily and weekly briefings"), false);
+  assert.equal(marketingLayoutSource.includes("MarketingHeader"), true);
+  assert.equal(marketingLayoutSource.includes("MarketingCta"), true);
 });
