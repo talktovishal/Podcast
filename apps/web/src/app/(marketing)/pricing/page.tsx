@@ -234,13 +234,13 @@ export default async function PricingPage({
         </article>
 
         <article className="card flex h-full flex-col border-[#8fcdbb] bg-[#f4fbf8] p-5 shadow-[0_16px_32px_rgba(20,38,30,0.08)]">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1f7a5a]">Daily or habitual use</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1f7a5a]">Daily or habitual use</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold">Pro Annual</h2>
             <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1f7a5a]">
               Best value
             </span>
           </div>
-          <h2 className="mt-3 text-lg font-semibold">Pro Annual</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">The strongest fit when ArticlePod becomes part of your routine.</p>
           <p className="mt-3 text-2xl font-bold">$130/yr</p>
           <p className="mt-1 text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
