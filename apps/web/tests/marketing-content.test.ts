@@ -82,7 +82,7 @@ test("auth landing page places the security section after the feature highlight 
   );
 });
 
-test("pricing page exposes Starter plus monthly and annual Pro choices with clear billing policy", () => {
+test("pricing page exposes Starter plus monthly and annual Pro choices with a comparison table and clear billing policy", () => {
   const source = readFileSync(
     new URL(`${marketingAppRoot}/pricing/page.tsx`, import.meta.url),
     "utf8",
@@ -91,26 +91,31 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
   const annualPlan = paidPlanConfig("PRO_ANNUAL");
   const annualAdvantage = paidPlanCapacityDelta();
 
-  assert.equal(source.includes("Simple pricing for personal listening"), true);
+  assert.equal(
+    source.includes('title: "Pricing for private article podcasts"'),
+    true,
+  );
+  assert.equal(
+    source.includes("Choose the ArticlePod plan that fits your listening habit"),
+    true,
+  );
   assert.equal(source.includes("$15/mo"), true);
   assert.equal(source.includes("$130/yr"), true);
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
-    source.includes("better rate plus more room to publish and summarize"),
-    true,
-  );
-  assert.equal(source.includes("Why Pro Annual wins"), true);
-  assert.equal(source.includes("Billed upfront monthly or yearly."), true);
-  assert.equal(source.includes("Renews automatically until canceled."), true);
-  assert.equal(
     source.includes(
-      "Cancel anytime. Access stays on through the current paid period.",
+      "Start free, upgrade when you want more daily episode capacity, manual summaries, and digest workflows.",
     ),
     true,
   );
+  assert.equal(source.includes("Compare plans at a glance"), true);
+  assert.equal(source.includes("<table"), true);
+  assert.equal(source.includes("What to expect"), true);
+  assert.equal(source.includes("Billed upfront monthly or yearly"), true);
+  assert.equal(source.includes("Renews automatically until canceled"), true);
   assert.equal(
     source.includes(
-      "Annual plans stay active through the paid term, then stop renewing.",
+      "Cancel anytime; access stays through the current paid period",
     ),
     true,
   );
@@ -120,6 +125,9 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with clea
   );
   assert.equal(source.includes("manual summaries per 7 days"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
+  assert.equal(source.includes("Why Pro Annual wins"), false);
+  assert.equal(source.includes("Who Starter is for"), false);
+  assert.equal(source.includes("Why annual stands out"), false);
   assert.equal(source.includes("Daily podcast + email briefing"), false);
   assert.equal(source.includes("scale into Pro or Team"), false);
   assert.equal(

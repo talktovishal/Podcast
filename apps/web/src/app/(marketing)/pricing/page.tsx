@@ -20,12 +20,79 @@ import { paidPlanCapacityDelta, paidPlanConfig } from "@/lib/paid-plan-config";
 const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
 const annualPlan = paidPlanConfig("PRO_ANNUAL");
 const annualAdvantage = paidPlanCapacityDelta();
+const comparisonRows = [
+  {
+    feature: "Price",
+    starter: "$0",
+    monthly: "$15/mo",
+    annual: "$130/yr"
+  },
+  {
+    feature: "Best for",
+    starter: "Trying the workflow",
+    monthly: "Steady weekly use",
+    annual: "Daily or habitual use"
+  },
+  {
+    feature: "Episode allowance",
+    starter: "Limited monthly episodes",
+    monthly: `${monthlyPlan.dailyPodcastLimit} new episodes / 24h`,
+    annual: `${annualPlan.dailyPodcastLimit} new episodes / 24h`
+  },
+  {
+    feature: "Manual summaries",
+    starter: "Upgrade to Pro",
+    monthly: `${monthlyPlan.weeklySummaryLimit} / 7 days`,
+    annual: `${annualPlan.weeklySummaryLimit} / 7 days`
+  },
+  {
+    feature: "URL + PDF ingestion",
+    starter: "Included",
+    monthly: "Included",
+    annual: "Included"
+  },
+  {
+    feature: "Private RSS feed",
+    starter: "Included",
+    monthly: "Included",
+    annual: "Included"
+  },
+  {
+    feature: "Chrome extension capture",
+    starter: "Included",
+    monthly: "Included",
+    annual: "Included"
+  },
+  {
+    feature: "Weekly digest podcast + email",
+    starter: "Upgrade to Pro",
+    monthly: "Included",
+    annual: "Included"
+  },
+  {
+    feature: "Billing cadence",
+    starter: "Free",
+    monthly: "Billed monthly",
+    annual: "Billed yearly"
+  },
+  {
+    feature: "Cancelation behavior",
+    starter: "No renewal",
+    monthly: "Cancel anytime",
+    annual: "Cancel anytime"
+  }
+] as const;
+const trustPoints = [
+  "Billed upfront monthly or yearly",
+  "Renews automatically until canceled",
+  "Cancel anytime; access stays through the current paid period"
+] as const;
 
 const pricingDescription =
   `Simple pricing for personal article podcasts. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} private podcast episodes per day, or go annual for ${annualPlan.dailyPodcastLimit} per day, ${annualPlan.weeklySummaryLimit} manual summaries every 7 days, and nearly 30% savings.`;
 
 export const metadata: Metadata = buildPublicMetadata({
-  title: "Pricing",
+  title: "Pricing for private article podcasts",
   description: pricingDescription,
   path: "/pricing",
   keywords: [
@@ -66,12 +133,22 @@ export default async function PricingPage({
         ]}
       />
 
-      <section className="space-y-4">
-        <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">Simple pricing for personal listening</h1>
-        <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-          Start free. Upgrade to Pro when you want manual summaries and weekly digest workflows. Annual gives you the
-          better rate plus more room to publish and summarize.
+      <section className="space-y-4 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_40px_rgba(20,38,30,0.07)] sm:p-6">
+        <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+          Choose the ArticlePod plan that fits your listening habit
+        </h1>
+        <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
+          Start free, upgrade when you want more daily episode capacity, manual summaries, and digest workflows. Pro
+          Annual is the best value for regular use.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
+            Save nearly 30% on annual
+          </span>
+          <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
+            {annualPlan.dailyPodcastLimit} episodes/day + {annualPlan.weeklySummaryLimit} summaries/7 days
+          </span>
+        </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
           <p className="max-w-2xl rounded-lg border border-[#d9d0a7] bg-[#fff9e8] px-4 py-3 text-sm text-[#6f5400]">
             Sandbox billing active for testing. Live access and quotas still follow your live subscription.
@@ -85,16 +162,18 @@ export default async function PricingPage({
       </section>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-3">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">Starter</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">For trying it out.</p>
+        <article className="card flex h-full flex-col p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">Try the workflow</p>
+          <h2 className="mt-3 text-lg font-semibold">Starter</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Private listening basics without a subscription.</p>
           <p className="mt-3 text-2xl font-bold">$0</p>
-          <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+          <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <li>- Limited monthly episodes</li>
             <li>- URL and PDF ingestion</li>
             <li>- Private RSS feed access</li>
           </ul>
-          <div className="mt-4 text-sm text-[var(--muted)]">
+          <p className="mt-4 text-sm text-[var(--muted)]">No subscription required.</p>
+          <div className="mt-auto pt-6 text-sm text-[var(--muted)]">
             {billing ? (
               <p>
                 {billingState?.mode.effectiveLane === "SANDBOX" ? "Live access" : "Current access"}:{" "}
@@ -107,18 +186,19 @@ export default async function PricingPage({
           </div>
         </article>
 
-        <article className="card border-[#9ad0c0] p-5">
-          <h2 className="text-lg font-semibold">Pro Monthly</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">For steady weekly use.</p>
+        <article className="card flex h-full flex-col border-[#9ad0c0] p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">Steady weekly use</p>
+          <h2 className="mt-3 text-lg font-semibold">Pro Monthly</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Predictable capacity for regular catch-up sessions.</p>
           <p className="mt-3 text-2xl font-bold">$15/mo</p>
-          <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+          <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <li>- {monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
             <li>- {monthlyPlan.weeklySummaryLimit} manual summaries per 7 days</li>
             <li>- Chrome extension capture</li>
             <li>- Weekly digest podcast + email options</li>
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
-          <div className="mt-4">
+          <div className="mt-auto pt-6">
             {!user ? (
               <Link
                 className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
@@ -153,25 +233,29 @@ export default async function PricingPage({
           </div>
         </article>
 
-        <article className="card border-[#9ad0c0] bg-[#f8fcfb] p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#1f7a5a]">Best value</p>
-          <h2 className="mt-1 text-lg font-semibold">Pro Annual</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">For committed, high-frequency use.</p>
+        <article className="card flex h-full flex-col border-[#8fcdbb] bg-[#f4fbf8] p-5 shadow-[0_16px_32px_rgba(20,38,30,0.08)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1f7a5a]">Daily or habitual use</p>
+            <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1f7a5a]">
+              Best value
+            </span>
+          </div>
+          <h2 className="mt-3 text-lg font-semibold">Pro Annual</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">The strongest fit when ArticlePod becomes part of your routine.</p>
           <p className="mt-3 text-2xl font-bold">$130/yr</p>
           <p className="mt-1 text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
           <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
-            Plus {annualAdvantage.extraDailyPodcasts} extra daily episode slot
-            {annualAdvantage.extraDailyPodcasts === 1 ? "" : "s"} and {annualAdvantage.extraWeeklySummaries} more manual
-            summaries than monthly.
+            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes and +{annualAdvantage.extraWeeklySummaries} manual summaries
+            versus monthly.
           </p>
-          <ul className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+          <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <li>- {annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
             <li>- {annualPlan.weeklySummaryLimit} manual summaries per 7 days</li>
             <li>- Chrome extension capture</li>
             <li>- Weekly digest podcast + email options</li>
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
-          <div className="mt-4">
+          <div className="mt-auto pt-6">
             {!user ? (
               <Link
                 className="inline-flex rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
@@ -207,40 +291,58 @@ export default async function PricingPage({
         </article>
       </section>
 
-      <section className="mt-8 rounded-2xl border border-[#cfe7df] bg-[#edf8f5] p-5">
-        <h2 className="text-lg font-semibold">Why Pro Annual wins</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#155240]">
-          Annual is designed for people who expect ArticlePod to be part of their regular routine. You save nearly 30%,
-          keep the higher {annualPlan.dailyPodcastLimit}-episode daily capacity, and get {annualPlan.weeklySummaryLimit}
-          manual summaries every 7 days instead of {monthlyPlan.weeklySummaryLimit}.
-        </p>
-      </section>
-
-      <section className="mt-8 grid gap-4 lg:grid-cols-2">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">Who Starter is for</h2>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-            Starter is the best path if you want to test private article podcasts with real reading. You can save a few sources, hear
-            the end-to-end workflow, and decide later whether you need higher volume or digest features.
+      <section className="mt-8 space-y-4">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold sm:text-xl">Compare plans at a glance</h2>
+          <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            Scan the key differences side by side, then choose the level of listening capacity you want.
           </p>
-        </article>
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">Why annual stands out</h2>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-            Monthly is the lighter paid entry. Pro Annual is the stronger fit when the private RSS feed becomes part of your
-            weekly routine and you want the best rate, the full {annualPlan.dailyPodcastLimit}-episode daily allowance, and
-            {annualPlan.weeklySummaryLimit} manual summaries every 7 days.
-          </p>
-        </article>
+        </div>
+        <div className="card overflow-x-auto">
+          <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-[rgba(31,122,90,0.12)] text-[var(--muted)]">
+                <th className="px-4 py-3 font-semibold" scope="col">
+                  Feature
+                </th>
+                <th className="px-4 py-3 font-semibold" scope="col">
+                  Starter
+                </th>
+                <th className="px-4 py-3 font-semibold" scope="col">
+                  Pro Monthly
+                </th>
+                <th className="bg-[rgba(237,248,245,0.8)] px-4 py-3 font-semibold text-[#155240]" scope="col">
+                  Pro Annual
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonRows.map((row) => (
+                <tr className="border-b border-[rgba(31,122,90,0.08)] last:border-b-0" key={row.feature}>
+                  <th className="px-4 py-3 font-semibold text-[var(--ink)]" scope="row">
+                    {row.feature}
+                  </th>
+                  <td className="px-4 py-3 text-[var(--muted)]">{row.starter}</td>
+                  <td className="px-4 py-3 text-[var(--muted)]">{row.monthly}</td>
+                  <td className="bg-[rgba(237,248,245,0.45)] px-4 py-3 font-medium text-[#155240]">{row.annual}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="mt-8 card p-5">
-        <h2 className="text-lg font-semibold">Billing policy</h2>
-        <ul className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-          <li>- Billed upfront monthly or yearly.</li>
-          <li>- Renews automatically until canceled.</li>
-          <li>- Cancel anytime. Access stays on through the current paid period.</li>
-          <li>- Annual plans stay active through the paid term, then stop renewing.</li>
+        <h2 className="text-lg font-semibold">What to expect</h2>
+        <ul className="mt-4 grid gap-3 text-sm text-[var(--muted)] sm:grid-cols-3">
+          {trustPoints.map((point) => (
+            <li
+              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-[rgba(247,251,250,0.86)] px-4 py-3"
+              key={point}
+            >
+              {point}
+            </li>
+          ))}
         </ul>
       </section>
     </>
