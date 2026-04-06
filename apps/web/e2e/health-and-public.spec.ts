@@ -161,7 +161,8 @@ test.describe("Health & Public Pages", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Account & access" })
     ).toBeVisible();
-    await expect(page.getByText("Search FAQ")).toBeVisible();
+    await expect(page.getByText("Browse by topic")).toBeVisible();
+    await expect(page.getByText("Need something specific?")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pricing" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Privacy" })).toBeVisible();
 

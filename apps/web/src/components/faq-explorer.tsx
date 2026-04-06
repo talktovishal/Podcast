@@ -203,16 +203,14 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
   return (
     <>
       <section className="card p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Search FAQ</span>
-            <input
-              className="w-full rounded-lg border px-3 py-2 text-sm"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search privacy, pricing, PDFs, or digests"
-              value={search}
-            />
-          </label>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-2xl">
+            <h2 className="text-lg font-semibold">Browse by topic</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Start with the area that matters most, then narrow things down if
+              you need something specific.
+            </p>
+          </div>
           <p className="text-sm text-[var(--muted)]">
             {filteredQuestionCount} of {totalQuestionCount} questions
           </p>
@@ -237,6 +235,18 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
               </button>
             );
           })}
+        </div>
+
+        <div className="mt-5 rounded-xl border border-[rgba(31,122,90,0.12)] bg-[var(--surface)]/70 p-3">
+          <label className="space-y-2">
+            <span className="text-sm font-medium">Need something specific?</span>
+            <input
+              className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search privacy, pricing, PDFs, or digests"
+              value={search}
+            />
+          </label>
         </div>
       </section>
 

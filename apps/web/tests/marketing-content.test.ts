@@ -349,7 +349,8 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(faqSource.includes("const faqSections"), false);
   assert.equal(faqSource.includes("const quickAnswers"), false);
   assert.equal(faqSource.includes("flattenFaqQuestionsForSchema"), true);
-  assert.equal(faqExplorerSource.includes("Search FAQ"), true);
+  assert.equal(faqExplorerSource.includes("Browse by topic"), true);
+  assert.equal(faqExplorerSource.includes("Need something specific?"), true);
   assert.equal(faqExplorerSource.includes("aria-pressed"), true);
   assert.equal(
     faqContent.sections

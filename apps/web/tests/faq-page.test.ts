@@ -105,7 +105,8 @@ test("faq content uses conversion-focused questions, topic chips, and richer ans
 });
 
 test("faq explorer supports search, chip filters, and deep-linkable questions", () => {
-  assert.equal(faqExplorerSource.includes("Search FAQ"), true);
+  assert.equal(faqExplorerSource.includes("Browse by topic"), true);
+  assert.equal(faqExplorerSource.includes("Need something specific?"), true);
   assert.equal(
     faqExplorerSource.includes(
       'placeholder="Search privacy, pricing, PDFs, or digests"',
