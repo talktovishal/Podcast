@@ -32,6 +32,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public `/resources` now reuses the same Chrome extension setup cards as `/app/chrome-extension`; logged-out visitors can see the walkthrough but cannot reveal or copy the one-time connect code.
   - release tooling now verifies packaged popup module dependencies before upload, and the live-site smoke harness can target the packaged artifact from `dist/extension/package` for release-candidate testing.
   - production deploys can now seed a dedicated Chrome Web Store reviewer account from env secrets, but reviewer pairing still uses the normal one-time 24-hour connect code generated after login instead of a permanent shared code.
+  - the extension now also supports right-click selection capture into a dedicated `Snippets` workspace, with both instant-save and save-with-comment flows backed by the same long-lived paired extension token.
+  - saved snippets persist in a first-class `Snippet` record separate from episode `Item`s, so selection capture does not enqueue podcast jobs or alter RSS/feed behavior.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
@@ -150,7 +152,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Dashboard feed shortcut and markdown access track (`M84`) is implemented:
   - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with a tighter one-line action nav on desktop.
   - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
-  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`.
+  - `/app/snippets` is now a dedicated review workspace for extension-saved text selections and comment edits.
+  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, `Snippets`, `Summaries`, `Feedback`, and `Settings`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - signed-in `/app/chrome-extension` now prepares a fresh connect code on page load, and the Chrome Web Store CTA also attempts to copy the current code so pairing takes fewer clicks.
@@ -393,7 +396,7 @@ E) Web UI (polished)
 - `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
-  - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
+  - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Snippets`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
   - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace

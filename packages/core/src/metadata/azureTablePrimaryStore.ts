@@ -20,6 +20,7 @@ type TableKey =
   | "oauthIdentities"
   | "extensionConnectCodes"
   | "extensionTokens"
+  | "snippets"
   | "items"
   | "jobs"
   | "itemArtifacts"
@@ -192,6 +193,17 @@ export type AzureTablePrimaryItem = {
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimarySnippet = {
+  id: string;
+  userId: string;
+  sourceUrl: string;
+  sourceTitle: string | null;
+  selectedText: string;
+  comment: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -663,6 +675,7 @@ export class AzureTablePrimaryStore {
       oauthIdentities: createClient(buildTableName(input.tablePrefix, "oauthidentities")),
       extensionConnectCodes: createClient(buildTableName(input.tablePrefix, "extensioncodes")),
       extensionTokens: createClient(buildTableName(input.tablePrefix, "extensiontokens")),
+      snippets: createClient(buildTableName(input.tablePrefix, "snippets")),
       items: createClient(buildTableName(input.tablePrefix, "items")),
       jobs: createClient(buildTableName(input.tablePrefix, "jobs")),
       itemArtifacts: createClient(buildTableName(input.tablePrefix, "artifacts")),
@@ -976,6 +989,19 @@ export class AzureTablePrimaryStore {
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toSnippet(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySnippet {
+    return {
+      id: String(entity.rowKey),
+      userId: parseRequiredString(entity.userId, "userId"),
+      sourceUrl: parseRequiredString(entity.sourceUrl, "sourceUrl"),
+      sourceTitle: parseString(entity.sourceTitle),
+      selectedText: parseRequiredString(entity.selectedText, "selectedText"),
+      comment: parseString(entity.comment),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
     };
@@ -1927,6 +1953,83 @@ export class AzureTablePrimaryStore {
   async findItemById(itemId: string): Promise<AzureTablePrimaryItem | null> {
     const entity = await this.getEntity<Record<string, unknown>>("items", "item", itemId);
     return entity ? this.toItem(entity) : null;
+  }
+
+  async findSnippetById(snippetId: string): Promise<AzureTablePrimarySnippet | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("snippets", "snippet", snippetId);
+    return entity ? this.toSnippet(entity) : null;
+  }
+
+  async listSnippetsByUser(userId: string, limit = 100): Promise<AzureTablePrimarySnippet[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "snippets",
+      joinFilters(filterEquals("PartitionKey", "snippet"), filterEquals("userId", userId))
+    );
+    return sortByTwoDatesDesc(rows.map((row) => this.toSnippet(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(
+      0,
+      limit
+    );
+  }
+
+  async createSnippet(input: {
+    id: string;
+    userId: string;
+    sourceUrl: string;
+    sourceTitle?: string | null;
+    selectedText: string;
+    comment?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimarySnippet> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "snippet",
+      rowKey: input.id,
+      userId: input.userId,
+      sourceUrl: input.sourceUrl,
+      sourceTitle: input.sourceTitle ?? null,
+      selectedText: input.selectedText,
+      comment: input.comment ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("snippets", entity);
+    return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateSnippet(
+    snippetId: string,
+    input: Partial<{
+      sourceUrl: string;
+      sourceTitle: string | null;
+      selectedText: string;
+      comment: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimarySnippet | null> {
+    const current = await this.getEntity<Record<string, unknown>>("snippets", "snippet", snippetId);
+    if (!current) {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "snippet",
+      rowKey: snippetId,
+      sourceUrl: input.sourceUrl ?? parseRequiredString(current.sourceUrl, "sourceUrl"),
+      sourceTitle: input.sourceTitle === undefined ? current.sourceTitle ?? null : input.sourceTitle,
+      selectedText: input.selectedText ?? parseRequiredString(current.selectedText, "selectedText"),
+      comment: input.comment === undefined ? current.comment ?? null : input.comment,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("snippets", entity, current.etag);
+    if (!success) {
+      return this.findSnippetById(snippetId);
+    }
+    return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async deleteSnippet(snippetId: string): Promise<void> {
+    await this.deleteEntity("snippets", "snippet", snippetId);
   }
 
   async listItemsByUser(userId: string, limit = 50): Promise<AzureTablePrimaryItem[]> {

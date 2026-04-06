@@ -76,6 +76,15 @@ test("account delete route allows non-admin deletion", async () => {
       role: "USER"
     }
   });
+  const snippet = await prisma.snippet.create({
+    data: {
+      userId: user.id,
+      sourceUrl: `https://example.com/account-delete/${uniq}`,
+      sourceTitle: "Snippet before delete",
+      selectedText: "Delete me too",
+      comment: "cleanup check"
+    }
+  });
   await prisma.userDemographicSurvey.create({
     data: {
       userId: user.id,
@@ -107,6 +116,11 @@ test("account delete route allows non-admin deletion", async () => {
       where: { userId: user.id }
     });
     assert.equal(deletedSurvey, null);
+
+    const deletedSnippet = await prisma.snippet.findUnique({
+      where: { id: snippet.id }
+    });
+    assert.equal(deletedSnippet, null);
   } finally {
     await prisma.user.deleteMany({ where: { id: user.id } });
   }

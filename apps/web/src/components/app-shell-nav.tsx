@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
 
-type AppShellNavKey = "workspace" | "podcast-apps" | "chrome-extension" | "summary" | "feedback" | "settings";
+type AppShellNavKey = "workspace" | "podcast-apps" | "chrome-extension" | "snippets" | "summary" | "feedback" | "settings";
 
 const NAV_ITEMS: ReadonlyArray<{
   key: AppShellNavKey;
@@ -12,6 +12,7 @@ const NAV_ITEMS: ReadonlyArray<{
   { key: "workspace", href: "/app", label: "Episodes", title: "Episodes" },
   { key: "podcast-apps", href: "/app/podcast-apps", label: "Podcast Apps", title: "Podcast Apps" },
   { key: "chrome-extension", href: "/app/chrome-extension", label: "Chrome Extension", title: "Chrome Extension" },
+  { key: "snippets", href: "/app/snippets", label: "Snippets", title: "Snippets" },
   { key: "summary", href: "/app/summary", label: "Summaries", title: "Summaries" },
   { key: "feedback", href: "/app/feedback", label: "Feedback", title: "Feedback" },
   { key: "settings", href: "/app/settings", label: "Settings", title: "Settings" }

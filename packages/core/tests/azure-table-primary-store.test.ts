@@ -180,3 +180,70 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
   assert.equal(updatedEntity?.tagsJson, '["financial","retirement"]');
   assert.deepEqual(item?.tags, ["financial", "retirement"]);
 });
+
+test("createSnippet stores selected text and optional comment", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const snippet = await store.createSnippet({
+    id: "snippet-1",
+    userId: "user-1",
+    sourceUrl: "https://example.com/article",
+    sourceTitle: "Example",
+    selectedText: "Saved excerpt",
+    comment: "Follow up later"
+  });
+
+  assert.equal(createdEntity?.selectedText, "Saved excerpt");
+  assert.equal(createdEntity?.comment, "Follow up later");
+  assert.equal(snippet.sourceUrl, "https://example.com/article");
+  assert.equal(snippet.comment, "Follow up later");
+});
+
+test("updateSnippet writes comment changes and preserves source fields", async () => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async () => ({
+    partitionKey: "snippet",
+    rowKey: "snippet-2",
+    userId: "user-2",
+    sourceUrl: "https://example.com/original",
+    sourceTitle: "Original title",
+    selectedText: "Original excerpt",
+    comment: "First note",
+    createdAt: "2026-04-06T08:00:00.000Z",
+    updatedAt: "2026-04-06T08:00:00.000Z",
+    etag: "etag-1"
+  });
+
+  (
+    store as unknown as {
+      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
+    }
+  ).updateEntity = async (_key, entity) => {
+    updatedEntity = entity;
+    return true;
+  };
+
+  const snippet = await store.updateSnippet("snippet-2", {
+    comment: "Updated note"
+  });
+
+  assert.equal(updatedEntity?.sourceUrl, "https://example.com/original");
+  assert.equal(updatedEntity?.selectedText, "Original excerpt");
+  assert.equal(updatedEntity?.comment, "Updated note");
+  assert.equal(snippet?.comment, "Updated note");
+});

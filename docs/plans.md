@@ -75,6 +75,10 @@
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
 - `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.
+- Chrome selection snippets (`M113`) are implemented:
+  - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
+  - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
+  - `/app/snippets` provides review, comment editing, and delete actions without entering the podcast queue or RSS/feed pipeline.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
@@ -3549,6 +3553,41 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
   - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq supports quick answers, topic filters, search, and question permalinks" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M113 - Chrome Selection Snippets Workspace
+
+- status: Done
+- target_finish: 2026-04-18
+- completed_on: 2026-04-06
+- evidence: local validation + snippet persistence, `/app/snippets`, and extension context-menu capture pass (2026-04-06)
+- Scope:
+  - Add a dedicated `Snippet` persistence contract separate from episode `Item`s so saved text selections never enqueue podcast generation work.
+  - Extend the MV3 Chrome extension with selection-only right-click actions for immediate save and save-with-comment flows using the existing paired extension token.
+  - Add `/app/snippets` so signed-in users can review saved snippets, edit comments, and delete entries later without changing RSS/media/feed behavior.
+- Migration/backfill/compatibility:
+  - Expand-only rollout: add a new `Snippet` table/model in Prisma plus a new `snippets` table in Azure Table primary metadata; no existing `Item`, feed-token, media-token, or summary contracts change.
+  - No backfill is required because snippets are net-new data; existing accounts keep working without token rotation, queue mutation, or RSS regeneration.
+  - Existing extension tokens remain valid and unchanged; the new snippet create path accepts the same paired extension token used for HTML snapshot capture.
+  - Safe-disable path: hide `/app/snippets` and remove extension context menus while leaving stored snippet rows intact and isolated from podcast flows.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/src/lib/snippets.ts`
+  - `apps/web/src/app/api/snippets/route.ts`
+  - `apps/web/src/app/app/snippets/page.tsx`
+  - `apps/extension/background.js`
+  - `apps/extension/snippet-service.mjs`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+- Acceptance criteria:
+  - A selected text range can be saved from the extension immediately or through a comment-first flow.
+  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and support comment edits and delete.
+  - Saving a snippet does not create `Item` rows, does not enqueue `Job`s, and does not make the snippet available in summary item selection.
+  - Feed/media auth and RSS behavior remain unchanged.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/core run test`
+  - `npx pnpm --filter @articlepod/web run test`
   - `npx pnpm --filter @articlepod/web run build`
 
 ---

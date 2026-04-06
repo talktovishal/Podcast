@@ -289,6 +289,25 @@ export const azureTablePrimaryBackfillConfigs = [
     }
   },
   {
+    modelName: "Snippet",
+    delegate: "snippet",
+    orderByField: "id",
+    tableKey: "snippets",
+    buildEntity(row) {
+      return {
+        partitionKey: "snippet",
+        rowKey: row.id,
+        userId: row.userId,
+        sourceUrl: row.sourceUrl,
+        sourceTitle: row.sourceTitle ?? null,
+        selectedText: row.selectedText,
+        comment: row.comment ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
     modelName: "Job",
     delegate: "job",
     orderByField: "id",

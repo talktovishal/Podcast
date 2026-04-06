@@ -21,7 +21,7 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const [items, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
+  const [items, snippets, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await Promise.all([
           (async () => {
@@ -39,6 +39,7 @@ export async function DELETE(request: NextRequest) {
               }))
             );
           })(),
+          webPrimaryStore.listSnippetsByUser(user.id, 500),
           webPrimaryStore.listDigestRunsByUser(user.id, 200),
           webPrimaryStore.listDigestEpisodesForUser(user.id),
           webPrimaryStore.listSummaryRunsByUser(user.id, 200),
@@ -48,6 +49,12 @@ export async function DELETE(request: NextRequest) {
           prisma.item.findMany({
             where: { userId: user.id },
             include: { episode: true, artifacts: true }
+          }),
+          prisma.snippet.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true
+            }
           }),
           prisma.digestRun.findMany({
             where: { userId: user.id },
@@ -92,6 +99,7 @@ export async function DELETE(request: NextRequest) {
           store.deleteChunkCachesByItemId(item.id)
         ])
       ),
+      ...snippets.map((snippet) => store.deleteSnippet(snippet.id)),
       ...digestRuns.map((run) => store.deleteDigestRun(run.id)),
       ...digestEpisodes.map((episode) => store.deleteDigestEpisode(episode.id)),
       ...summaryRuns.map((run) => Promise.all([store.deleteSummaryRunItemsByRunId(run.id), store.deleteSummaryRun(run.id)])),

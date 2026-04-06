@@ -58,10 +58,12 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
 
   assert.equal(source.includes('href: "/app/podcast-apps"'), true);
   assert.equal(source.includes('href: "/app/chrome-extension"'), true);
+  assert.equal(source.includes('href: "/app/snippets"'), true);
   assert.equal(source.includes('href: "/app/settings"'), true);
   assert.equal(source.includes('label: "Episodes"'), true);
   assert.equal(source.includes('label: "Podcast Apps"'), true);
   assert.equal(source.includes('label: "Chrome Extension"'), true);
+  assert.equal(source.includes('label: "Snippets"'), true);
   assert.equal(source.includes('label: "Summaries"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
   assert.equal(source.includes('title: "Summaries"'), true);
@@ -189,6 +191,10 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     new URL("../src/app/app/summary/page.tsx", import.meta.url),
     "utf8",
   );
+  const snippetsPageSource = readFileSync(
+    new URL("../src/app/app/snippets/page.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.equal(podcastPageSource.includes('viewMode="podcast-apps"'), true);
   assert.equal(podcastPageSource.includes("Podcast Apps"), true);
@@ -216,6 +222,12 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     true,
   );
   assert.equal(extensionPageSource.includes("DashboardClient"), false);
+  assert.equal(snippetsPageSource.includes("Snippets"), true);
+  assert.equal(
+    snippetsPageSource.includes("SnippetsWorkspaceClient"),
+    true,
+  );
+  assert.equal(snippetsPageSource.includes('current="snippets"'), true);
   assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), false);
   assert.equal(
     resourcesPageSource.includes("ChromeExtensionGuidePanels"),

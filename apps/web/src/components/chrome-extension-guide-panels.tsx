@@ -15,6 +15,7 @@ export function ChromeExtensionGuidePanels({ showStatusHint = true }: ChromeExte
           <li>Install the extension from the Chrome Web Store.</li>
           <li>Open this page while signed in and copy the ready connect code.</li>
           <li>Paste it into the extension, then capture any open article page.</li>
+          <li>For lighter saves, highlight text on any page and use the right-click menu to send it to Snippets with or without a comment.</li>
         </ul>
       </div>
       <div className="card p-4 sm:p-5">
@@ -23,7 +24,8 @@ export function ChromeExtensionGuidePanels({ showStatusHint = true }: ChromeExte
           <li>1. Install the extension from the Chrome Web Store.</li>
           <li>2. Paste the copied connect code into the extension.</li>
           <li>3. Capture any standard HTTP or HTTPS article page with one click.</li>
-          {showStatusHint ? <li>4. If processing takes longer, refresh your Episodes page to see the latest item status.</li> : null}
+          <li>4. Or highlight page text and right-click to save a snippet without starting podcast generation.</li>
+          {showStatusHint ? <li>5. If processing takes longer, refresh your Episodes page to see the latest item status.</li> : null}
         </ol>
       </div>
     </section>

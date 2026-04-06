@@ -113,6 +113,12 @@ This flow works the same whether you are using the local development server or y
      The button returns to normal after you switch tabs or navigate to a different page.
      The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
 
+7. To save a text highlight without creating a podcast item yet:
+   - select text on any HTTP/HTTPS page
+   - right-click and choose **Save selection to ArticlePod** for an immediate save
+   - or choose **Save selection with comment to ArticlePod...** to add a note before saving
+   Saved selections land in the web app's **Snippets** workspace instead of the podcast queue.
+
 ### Capture size guardrail
 
 ArticlePod still enforces a hard snapshot size limit on the server.
@@ -295,6 +301,7 @@ The extension communicates with these ArticlePod API endpoints:
 | `POST` | `/api/auth/extension/connect-code` | Generate a one-time connect code (24-hour default, called from the web app) |
 | `POST` | `/api/auth/extension/exchange`     | Exchange connect code for an extension token that stays valid until revoked |
 | `POST` | `/api/items/html-snapshot`         | Submit a captured page HTML snapshot                                        |
+| `POST` | `/api/snippets`                    | Save a selected text snippet with optional comment                          |
 
 Authentication uses a scoped **extension token** (Bearer) obtained during the connect flow.
 Tokens can be rotated or revoked from the web app at any time.

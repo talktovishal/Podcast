@@ -126,6 +126,18 @@ export const submitPdfSchema = z
   }));
 
 export const HTML_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
+export const SNIPPET_SELECTED_TEXT_MAX_CHARS = 20_000;
+export const SNIPPET_COMMENT_MAX_CHARS = 2_000;
+
+const snippetCommentInputSchema = z.string().max(SNIPPET_COMMENT_MAX_CHARS).nullable().optional();
+
+function normalizeOptionalSnippetComment(input: string | null | undefined): string | null {
+  if (typeof input !== "string") {
+    return null;
+  }
+  const trimmed = input.trim();
+  return trimmed ? trimmed : null;
+}
 
 export const submitHtmlSnapshotSchema = z
   .object({
@@ -144,6 +156,31 @@ export const submitHtmlSnapshotSchema = z
     capturedAt: input.capturedAt,
     importance: resolveItemImportance(input.importance, input.priority),
     tags: normalizeItemTags(input.tags)
+  }));
+
+export const createSnippetSchema = z
+  .object({
+    sourceUrl: z.string().url().max(2048),
+    sourceTitle: z.string().trim().min(1).max(200).optional(),
+    selectedText: z.string().trim().min(1).max(SNIPPET_SELECTED_TEXT_MAX_CHARS),
+    comment: snippetCommentInputSchema
+  })
+  .transform((input) => ({
+    sourceUrl: input.sourceUrl,
+    sourceTitle: input.sourceTitle,
+    selectedText: input.selectedText.trim(),
+    comment: normalizeOptionalSnippetComment(input.comment)
+  }));
+
+export const updateSnippetSchema = z
+  .object({
+    comment: snippetCommentInputSchema
+  })
+  .refine((input) => input.comment !== undefined, {
+    message: "At least one snippet field must be provided."
+  })
+  .transform((input) => ({
+    comment: input.comment === undefined ? undefined : normalizeOptionalSnippetComment(input.comment)
   }));
 
 export const updateItemMetadataSchema = z
@@ -238,6 +275,8 @@ export function digestTargetWords(minutes: DigestLengthMinutes): number {
 export type SubmitUrlInput = z.infer<typeof submitUrlSchema>;
 export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
 export type SubmitHtmlSnapshotInput = z.infer<typeof submitHtmlSnapshotSchema>;
+export type CreateSnippetInput = z.infer<typeof createSnippetSchema>;
+export type UpdateSnippetInput = z.infer<typeof updateSnippetSchema>;
 export type UpdateItemMetadataInput = z.infer<typeof updateItemMetadataSchema>;
 export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchema>;
 export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;
