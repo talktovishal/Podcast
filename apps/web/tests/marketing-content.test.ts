@@ -9,11 +9,6 @@ import {
   publicMarketingSensitivePhrases,
 } from "../src/lib/marketing-content";
 import {
-  productProofPills,
-  productRecommendationCards,
-  productStoryBlocks,
-} from "../src/lib/product-page-content";
-import {
   paidPlanCapacityDelta,
   paidPlanConfig,
 } from "../src/lib/paid-plan-config";
@@ -160,7 +155,6 @@ test("public marketing pages do not leak internal economics or vendor implementa
     `${marketingAppRoot}/page.tsx`,
     "../src/components/auth-landing-page.tsx",
     `${marketingAppRoot}/product/page.tsx`,
-    "../src/lib/product-page-content.ts",
     `${marketingAppRoot}/pricing/page.tsx`,
     `${marketingAppRoot}/resources/page.tsx`,
     `${marketingAppRoot}/faq/page.tsx`,
@@ -225,15 +219,6 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   const productSource = readFileSync(
     new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
     "utf8",
-  );
-  const productContentSource = readFileSync(
-    new URL("../src/lib/product-page-content.ts", import.meta.url),
-    "utf8",
-  );
-  const normalizedProductSource = productSource.replace(/\s+/g, " ");
-  const normalizedProductContentSource = productContentSource.replace(
-    /\s+/g,
-    " ",
   );
   const layoutSource = readFileSync(
     new URL("../src/app/layout.tsx", import.meta.url),
@@ -423,43 +408,10 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Monthly and yearly recaps"), false);
 
   assert.equal(
-    normalizedProductSource.includes(
-      "Turn saved reading into a private podcast flow you actually finish.",
-    ),
+    productSource.includes("one podcast episode per saved source"),
     true,
   );
-  assert.equal(
-    normalizedProductSource.includes(
-      "Read-later piles do not become learning just because you saved them.",
-    ),
-    true,
-  );
-  assert.equal(productSource.includes("productRecommendationCards.map"), true);
-  assert.equal(productSource.includes("productStoryBlocks.map"), true);
-  assert.equal(productSource.includes("snap-x snap-mandatory"), true);
-  assert.equal(productSource.includes("overflow-x-auto"), true);
-  assert.equal(productSource.includes("See setup guides"), true);
-  assert.equal(
-    normalizedProductContentSource.includes(
-      "/resources/articlepod-extension-flow.gif",
-    ),
-    true,
-  );
-  assert.equal(
-    normalizedProductContentSource.includes("Workflow clip coming soon"),
-    true,
-  );
-  assert.equal(normalizedProductContentSource.includes("Weekly digests"), true);
-  assert.equal(productProofPills.length, 5);
-  assert.equal(productRecommendationCards.length >= 4, true);
-  assert.equal(productStoryBlocks.length, 3);
-  assert.equal(productStoryBlocks[0]?.media.type, "gif");
-  assert.equal(
-    productStoryBlocks
-      .slice(1)
-      .every((block) => block.media.type === "placeholder"),
-    true,
-  );
+  assert.equal(productSource.includes("Weekly digest"), true);
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 

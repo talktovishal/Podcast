@@ -68,18 +68,6 @@ test("secondary marketing pages stay content-only while the layout supplies shar
   }
 });
 
-test("product page keeps shared chrome while rendering conversion story sections", () => {
-  const source = readFileSync(
-    new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
-    "utf8",
-  );
-  assert.equal(source.includes("MarketingHeader"), false);
-  assert.equal(source.includes("MarketingCta"), false);
-  assert.equal(source.includes("productRecommendationCards.map"), true);
-  assert.equal(source.includes("productStoryBlocks.map"), true);
-  assert.equal(source.includes("See setup guides"), true);
-});
-
 test("login nav has no placeholder links", () => {
   const source = readFileSync(
     new URL("../src/components/auth-landing-page.tsx", import.meta.url),

@@ -206,11 +206,6 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
   - quick-answer cards deep-link to those section anchors while preserving the same underlying FAQ question/answer content and structured data coverage.
-- Product page conversion refresh (`M110`) is implemented:
-  - `/product` now leads with a stronger split hero that frames ArticlePod as a better finish line for saved reading than a read-later backlog.
-  - a compact proof strip highlights `URLs`, `PDFs`, `Chrome capture`, `private RSS`, and `weekly digests` immediately below the hero.
-  - the page now includes a horizontally scrollable recommendation rail plus alternating workflow/media story blocks, using the live Chrome extension GIF first and reserving polished future slots for additional clips.
-  - the narrative now moves through problem, workflow, listening payoff, trust/privacy, and a stronger final CTA instead of repeating generic feature cards.
 
 ### Next Milestones
 
@@ -391,7 +386,6 @@ D) Podcast RSS feed
 E) Web UI (polished)
 
 - `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
-- `/product`: conversion-first story page with a split hero, compact proof strip, horizontally scrollable recommendation rail, alternating workflow/media sections, and a closing CTA that can grow as more workflow GIF clips become available
 - `/app` episodes workspace:
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
