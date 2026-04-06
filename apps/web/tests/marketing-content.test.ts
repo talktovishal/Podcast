@@ -123,11 +123,22 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     true,
   );
   assert.equal(
-    source.includes("new private podcast episodes per 24 hours"),
+    source.includes("new podcast episodes per day"),
     true,
   );
+  assert.equal(source.includes("new private podcast episodes per 24 hours"), false);
   assert.equal(source.includes("manual summaries per 7 days"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
+  assert.equal(
+    source.indexOf('feature: "Manual summaries"') <
+      source.indexOf('feature: "Weekly digest podcast + email"'),
+    true,
+  );
+  assert.equal(
+    source.indexOf('feature: "Weekly digest podcast + email"') <
+      source.indexOf('feature: "URL + PDF ingestion"'),
+    true,
+  );
   assert.equal(source.includes("Why Pro Annual wins"), false);
   assert.equal(source.includes("Who Starter is for"), false);
   assert.equal(source.includes("Why annual stands out"), false);

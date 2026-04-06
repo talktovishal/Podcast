@@ -56,14 +56,20 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Episode allowance",
     starter: { kind: "text", value: "Limited monthly episodes" },
-    monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / 24h` },
-    annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / 24h` }
+    monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / day` },
+    annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
   {
     feature: "Manual summaries",
     starter: { kind: "upgrade", value: "Upgrade to Pro" },
     monthly: { kind: "text", value: `${monthlyPlan.weeklySummaryLimit} / 7 days` },
     annual: { kind: "text", value: `${annualPlan.weeklySummaryLimit} / 7 days` }
+  },
+  {
+    feature: "Weekly digest podcast + email",
+    starter: { kind: "upgrade", value: "Upgrade to Pro" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "URL + PDF ingestion",
@@ -80,12 +86,6 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Chrome extension capture",
     starter: { kind: "included" },
-    monthly: { kind: "included" },
-    annual: { kind: "included" }
-  },
-  {
-    feature: "Weekly digest podcast + email",
-    starter: { kind: "upgrade", value: "Upgrade to Pro" },
     monthly: { kind: "included" },
     annual: { kind: "included" }
   },
@@ -155,6 +155,17 @@ function UpgradeIcon() {
       <path d="M7 17 17 7" />
       <path d="M9 7h8v8" />
     </svg>
+  );
+}
+
+function PlanFeatureItem({ label }: { label: string }) {
+  return (
+    <li className="flex items-start gap-2">
+      <span className="mt-0.5 text-[#1f7a5a]">
+        <CheckIcon />
+      </span>
+      <span>{label}</span>
+    </li>
   );
 }
 
@@ -248,9 +259,9 @@ export default async function PricingPage({
           <p className="mt-1 text-sm text-[var(--muted)]">Private listening basics without a subscription.</p>
           <p className="mt-3 text-2xl font-bold">$0</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <li>- Limited monthly episodes</li>
-            <li>- URL and PDF ingestion</li>
-            <li>- Private RSS feed access</li>
+            <PlanFeatureItem label="Limited monthly episodes" />
+            <PlanFeatureItem label="URL and PDF ingestion" />
+            <PlanFeatureItem label="Private RSS feed access" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">No subscription required.</p>
           <div className="mt-auto pt-6 text-sm text-[var(--muted)]">
@@ -282,10 +293,10 @@ export default async function PricingPage({
           <p className="mt-1 text-sm text-[var(--muted)]">Predictable capacity for regular catch-up sessions.</p>
           <p className="mt-3 text-2xl font-bold">$15/mo</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <li>- {monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
-            <li>- {monthlyPlan.weeklySummaryLimit} manual summaries per 7 days</li>
-            <li>- Chrome extension capture</li>
-            <li>- Weekly digest podcast + email options</li>
+            <PlanFeatureItem label={`${monthlyPlan.dailyPodcastLimit} new podcast episodes per day`} />
+            <PlanFeatureItem label={`${monthlyPlan.weeklySummaryLimit} manual summaries per 7 days`} />
+            <PlanFeatureItem label="Chrome extension capture" />
+            <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">
@@ -332,17 +343,19 @@ export default async function PricingPage({
             </span>
           </div>
           <p className="mt-1 text-sm text-[var(--muted)]">The strongest fit when ArticlePod becomes part of your routine.</p>
-          <p className="mt-3 text-2xl font-bold">$130/yr</p>
-          <p className="mt-1 text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
+          <div className="mt-3 flex flex-wrap items-end gap-x-2 gap-y-1">
+            <p className="text-2xl font-bold">$130/yr</p>
+            <p className="text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
+          </div>
           <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
             Includes +{annualAdvantage.extraDailyPodcasts} daily episodes and +{annualAdvantage.extraWeeklySummaries} manual summaries
             versus monthly.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <li>- {annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours</li>
-            <li>- {annualPlan.weeklySummaryLimit} manual summaries per 7 days</li>
-            <li>- Chrome extension capture</li>
-            <li>- Weekly digest podcast + email options</li>
+            <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
+            <PlanFeatureItem label={`${annualPlan.weeklySummaryLimit} manual summaries per 7 days`} />
+            <PlanFeatureItem label="Chrome extension capture" />
+            <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">
