@@ -94,6 +94,10 @@
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
   - FAQ question copy stays unchanged while the page becomes easier to scan and navigate.
+- Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
+  - `/faq` now uses higher-conversion FAQ questions with friendlier answers, richer bullet/link blocks, and a shared content model that keeps schema coverage aligned.
+  - the FAQ adds topic chips, lightweight search, and question-level deep links that auto-open the matching answer on load.
+  - pricing, privacy, capture, digest, and podcast-app questions now surface faster without changing the shared public marketing shell.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -376,6 +380,7 @@ Milestone metadata contract:
 | M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
 | M109      | Done        | 2026-04-11    | 2026-04-04   | local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)          |
 | M111      | Done        | 2026-04-13    | 2026-04-05   | local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)                |
+| M112      | Done        | 2026-04-20    | 2026-04-05   | local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)                               |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3511,6 +3516,38 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
   - `npx pnpm --filter @articlepod/web run build`
   - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M112 - Public Marketing FAQ Conversion and Discovery Refresh
+
+- status: Done
+- target_finish: 2026-04-20
+- completed_on: 2026-04-05
+- evidence: local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)
+- Scope:
+  - Replace the older support-style FAQ copy with higher-conversion questions that answer product-fit, pricing, privacy, and listening-routine concerns more directly.
+  - Move FAQ content into a shared rich-content model so the rendered answers can use short paragraphs, bullets, and links while schema output stays flat.
+  - Add topic chips, lightweight search, and question-level deep links that auto-open the matching answer without changing the shared public marketing shell.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/components/faq-explorer.tsx`
+  - `apps/web/src/lib/faq-page-content.ts`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` renders the same five sections but with refreshed, conversion-focused questions and friendlier answer tone.
+  - FAQ answers support richer paragraphs, bullets, and internal links while FAQ JSON-LD remains sourced from a flattened question/answer list.
+  - Visitors can filter by topic chip, search by keyword, and open a specific answer directly via `#question-*` hashes.
+  - Public marketing docs and tests reflect the richer FAQ discovery behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq supports quick answers, topic filters, search, and question permalinks" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
 
 ---
 

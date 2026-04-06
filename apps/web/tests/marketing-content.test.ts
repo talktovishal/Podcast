@@ -12,6 +12,7 @@ import {
   paidPlanCapacityDelta,
   paidPlanConfig,
 } from "../src/lib/paid-plan-config";
+import { buildFaqPageContent } from "../src/lib/faq-page-content";
 
 const marketingAppRoot = "../src/app/(marketing)";
 
@@ -223,6 +224,10 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     new URL(`${marketingAppRoot}/faq/page.tsx`, import.meta.url),
     "utf8",
   );
+  const faqExplorerSource = readFileSync(
+    new URL("../src/components/faq-explorer.tsx", import.meta.url),
+    "utf8",
+  );
   const aboutSource = readFileSync(
     new URL(`${marketingAppRoot}/about/page.tsx`, import.meta.url),
     "utf8",
@@ -240,6 +245,13 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     new URL(`${marketingAppRoot}/layout.tsx`, import.meta.url),
     "utf8",
   );
+  const faqContent = buildFaqPageContent({
+    freeTrialSubmissionLimit: 2,
+    proMonthlyDailyPodcastLimit: 12,
+    proMonthlyWeeklySummaryLimit: 5,
+    proAnnualDailyPodcastLimit: 15,
+    proAnnualWeeklySummaryLimit: 10,
+  });
 
   assert.equal(
     marketingSource.includes("The intellectual sanctuary for busy readers."),
@@ -295,39 +307,78 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(loginSource.includes("MarketingHeader"), false);
   assert.equal(loginSource.includes("MarketingCta"), false);
 
+  assert.equal(faqSource.includes("Quick answers"), true);
+  assert.equal(faqSource.includes("FaqExplorer"), true);
+  assert.equal(faqSource.includes("buildFaqPageContent"), true);
   assert.equal(
-    faqSource.includes("What happens when I save an article?"),
+    faqContent.quickAnswers.some(
+      (item) => item.label === "Integrates with standard podcast apps",
+    ),
     true,
   );
-  assert.equal(faqSource.includes("Quick answers"), true);
-  assert.equal(faqSource.includes("One save becomes one episode"), true);
-  assert.equal(faqSource.includes("URLs, PDFs, and Chrome capture"), true);
-  assert.equal(faqSource.includes("Private feed URL you control"), true);
-  assert.equal(faqSource.includes("Works in standard podcast apps"), true);
-  assert.equal(faqSource.includes("Getting started"), true);
-  assert.equal(faqSource.includes("Inputs & capture"), true);
-  assert.equal(faqSource.includes("Privacy & feed"), true);
-  assert.equal(faqSource.includes("Podcast apps"), true);
-  assert.equal(faqSource.includes("Account & access"), true);
+  assert.equal(
+    faqContent.sections.some((section) => section.title === "Getting started"),
+    true,
+  );
+  assert.equal(
+    faqContent.sections.some((section) => section.title === "Inputs & capture"),
+    true,
+  );
+  assert.equal(
+    faqContent.sections.some((section) => section.title === "Privacy & feed"),
+    true,
+  );
+  assert.equal(
+    faqContent.sections.some((section) => section.title === "Podcast apps"),
+    true,
+  );
+  assert.equal(
+    faqContent.sections.some((section) => section.title === "Account & access"),
+    true,
+  );
+  assert.equal(
+    faqContent.topicOptions.some((topic) => topic.label === "Pricing"),
+    true,
+  );
   assert.equal(
     faqSource.includes(
       "const faqItems: ReadonlyArray<{ q: string; a: string }> = [",
     ),
     false,
   );
-  assert.equal(faqSource.includes("const faqSections"), true);
-  assert.equal(faqSource.includes("const quickAnswers"), true);
-  assert.equal(faqSource.includes('href: "#getting-started"'), true);
-  assert.equal(faqSource.includes("weekly podcast and email options"), true);
+  assert.equal(faqSource.includes("const faqSections"), false);
+  assert.equal(faqSource.includes("const quickAnswers"), false);
+  assert.equal(faqSource.includes("flattenFaqQuestionsForSchema"), true);
+  assert.equal(faqExplorerSource.includes("Search FAQ"), true);
+  assert.equal(faqExplorerSource.includes("aria-pressed"), true);
   assert.equal(
-    faqSource.includes("What does the daily podcast include?"),
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some((question) => question.question === "What's included in Starter vs Pro?"),
+    true,
+  );
+  assert.equal(
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some((question) => question.question === "What does the daily podcast include?"),
     false,
   );
   assert.equal(
-    faqSource.includes("Can ArticlePod create long-term recaps?"),
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some((question) => question.question === "Can ArticlePod create long-term recaps?"),
     false,
   );
-  assert.equal(faqSource.includes("Can I upload scanned PDFs?"), true);
+  assert.equal(
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some(
+        (question) =>
+          question.question ===
+          "What happens if a page is messy, blocked, or a scanned PDF?",
+      ),
+    true,
+  );
 
   assert.equal(
     aboutSource.includes(

@@ -206,6 +206,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
   - quick-answer cards deep-link to those section anchors while preserving the same underlying FAQ question/answer content and structured data coverage.
+- Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
+  - `/faq` now uses higher-conversion question framing, friendlier answer tone, and richer answer blocks with bullets and contextual links.
+  - topic chips plus lightweight search help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions.
+  - question-level deep links auto-open the matching answer while FAQ JSON-LD stays flattened from the same shared content model.
 
 ### Next Milestones
 

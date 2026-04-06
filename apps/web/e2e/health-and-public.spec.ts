@@ -25,7 +25,7 @@ const secondaryMarketingPages = [
   },
   {
     path: "/faq",
-    heading: "Answers to common questions",
+    heading: "Common questions, answered",
     secondaryCta: "See pricing"
   },
   {
@@ -139,7 +139,7 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
-  test("/faq groups questions into section anchors with quick answers", async ({ page }) => {
+  test("/faq supports quick answers, topic filters, search, and question permalinks", async ({ page }) => {
     await page.goto("/faq");
     await page.waitForLoadState("networkidle");
 
@@ -161,6 +161,9 @@ test.describe("Health & Public Pages", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Account & access" })
     ).toBeVisible();
+    await expect(page.getByText("Search FAQ")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pricing" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Privacy" })).toBeVisible();
 
     const privacyQuickAnswer = page.getByRole("link", {
       name: /Private feed URL you control/i,
@@ -168,6 +171,30 @@ test.describe("Health & Public Pages", () => {
     await expect(privacyQuickAnswer).toBeVisible();
     await privacyQuickAnswer.click();
     await expect(page).toHaveURL(/\/faq#privacy-feed$/);
+
+    await page.getByRole("button", { name: "Pricing" }).click();
+    await expect(
+      page.getByRole("button", { name: "What's included in Starter vs Pro?" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Is my feed private?" })
+    ).toHaveCount(0);
+
+    await page.getByPlaceholder("Search privacy, pricing, PDFs, or digests").fill("rotate");
+    await expect(
+      page.getByRole("button", { name: "What happens if I need to rotate my feed URL?" })
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "All" }).click();
+    await page.getByPlaceholder("Search privacy, pricing, PDFs, or digests").fill("");
+
+    await page.goto("/faq#question-rotate-feed-url");
+    await page.waitForLoadState("networkidle");
+    const rotateQuestion = page.getByRole("button", {
+      name: "What happens if I need to rotate my feed URL?",
+    });
+    await expect(rotateQuestion).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("Rotation invalidates the old URL.")).toBeVisible();
   });
 
   test("/share stays outside the persistent marketing footer chrome", async ({ page }) => {
