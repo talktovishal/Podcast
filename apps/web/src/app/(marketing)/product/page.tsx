@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Metadata } from "next";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import {
@@ -8,6 +9,39 @@ import {
 
 const productDescription =
   "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with weekly digest summaries when you want a recap layer.";
+
+const productFlowSteps = [
+  {
+    step: "01",
+    title: "Save what matters",
+    body: "Paste a URL, upload a PDF, or use the Chrome extension when you are already reading. The capture step should stay light enough to use in the moment.",
+  },
+  {
+    step: "02",
+    title: "Listen in the app you already use",
+    body: "Each saved article or PDF becomes a private podcast episode, so the finish line feels like pressing play in your normal queue.",
+  },
+  {
+    step: "03",
+    title: "Recap when you want the throughline",
+    body: "Weekly digest podcasts and email summaries can pull important ideas back together without replacing the original episodes.",
+  },
+] as const;
+
+const productTrustPoints = [
+  {
+    title: "Private RSS feed",
+    body: "Your episodes live in a private feed designed for personal listening, not a public stream.",
+  },
+  {
+    title: "Standard podcast apps",
+    body: "Apple Podcasts, Pocket Casts, Overcast, and other familiar players can stay part of the same routine.",
+  },
+  {
+    title: "Your feed, your control",
+    body: "If you ever need to change access, you can rotate the feed without changing the basic listening workflow.",
+  },
+] as const;
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "How ArticlePod works",
@@ -46,115 +80,137 @@ export default function ProductPage() {
         </p>
       </section>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-2">
-        <article className="card p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">
-            1. Capture
+      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(248,252,251,0.88)] p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+            Three-step flow
           </p>
-          <h2 className="mt-2 text-lg font-semibold">From anywhere</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Paste a URL, upload a PDF, or capture the open page via Chrome
-            extension.
-          </p>
-        </article>
-        <article className="card p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">
-            2. Listen now
-          </p>
-          <h2 className="mt-2 text-lg font-semibold">Instant episodes</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Every saved item can become a full podcast episode in your private
-            feed.
-          </p>
-        </article>
-        <article className="card p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">
-            3. Weekly digest
-          </p>
-          <h2 className="mt-2 text-lg font-semibold">Podcast + email</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Add a higher-level weekly recap with a digest podcast and
-            reading-friendly email summary.
-          </p>
-        </article>
-        <article className="card p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#4d7b72]">
-            4. Private by default
-          </p>
-          <h2 className="mt-2 text-lg font-semibold">
-            Standard podcast app workflow
+          <h2 className="max-w-3xl text-2xl font-semibold leading-tight">
+            Save. Listen. Recap.
           </h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Listen in your regular podcast app with a private RSS feed you
-            control.
+          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+            One calm rhythm for turning saved reading into something you
+            actually finish.
           </p>
-        </article>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          {productFlowSteps.map((step) => (
+            <article
+              key={step.step}
+              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/88 p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+                {step.step}
+              </p>
+              <h3 className="mt-3 text-lg font-semibold text-[var(--ink)]">
+                {step.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                {step.body}
+              </p>
+            </article>
+          ))}
+        </div>
       </section>
 
-      <section className="mt-8 grid gap-4 lg:grid-cols-2">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">
-            What makes the workflow useful
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-            ArticlePod is designed for people who want to listen to saved
-            reading without adopting a new playback habit. The output is a
-            private RSS feed, so the end result feels like a regular podcast
-            queue instead of another dashboard to check.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <li>
-              - Save web articles without copy-pasting text into a separate
-              tool.
-            </li>
-            <li>
-              - Upload text-based PDFs and keep them beside article episodes.
-            </li>
-            <li>
-              - Use the Chrome extension when capture from the open tab is the
-              fastest path.
-            </li>
-          </ul>
-        </article>
+      <section className="mt-10 card p-5 sm:p-6">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+                Workflow demo
+              </p>
+              <h2 className="max-w-2xl text-2xl font-semibold leading-tight">
+                See the capture flow once, then let it stay out of the way.
+              </h2>
+              <p className="max-w-2xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+                This is the lightest version of the workflow: connect the
+                extension once, save the page you are already reading, and let
+                ArticlePod turn it into a private episode later.
+              </p>
+            </div>
 
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">
-            What happens after you save something
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-            Each submitted source is processed into its own private podcast
-            episode. When it is ready, you can play it in browser, open it in a
-            podcast app, or keep building toward a digest-style recap flow
-            later.
-          </p>
-          <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <li>- Private RSS delivery for standard podcast apps.</li>
-            <li>
-              - Weekly digest podcast and email options when you want highlights
-              together.
-            </li>
-            <li>
-              - Clear source links so you can return to the original article
-              whenever you want.
-            </li>
-          </ul>
-        </article>
+            <ul className="space-y-3 text-sm leading-6 text-[var(--muted)]">
+              <li className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
+                />
+                <span>
+                  Connect once and keep setup out of your daily routine.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
+                />
+                <span>
+                  Save directly from the article you already have open.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
+                />
+                <span>
+                  Let the finished episode show up in your private feed later.
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="rounded-2xl border border-[rgba(31,122,90,0.15)] bg-white p-3">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <Image
+                alt="Animated walkthrough of the ArticlePod Chrome extension connect and capture flow."
+                className="h-auto w-full"
+                height={1027}
+                priority={false}
+                src="/resources/articlepod-extension-flow.gif"
+                unoptimized
+                width={800}
+              />
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              One quick connection, then saving from the page you are already
+              reading feels almost invisible.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="mt-8 card p-5">
-        <h2 className="text-lg font-semibold">What you get over time</h2>
-        <ul className="mt-3 grid gap-2 text-sm text-[var(--muted)] sm:grid-cols-2">
-          <li>
-            - Full podcast episodes for saved articles, PDFs, and Chrome
-            captures
-          </li>
-          <li>- Weekly digest podcast and email recap options</li>
-          <li>- Private RSS feeds that work in standard podcast apps</li>
-          <li>
-            - Source-grounded listening with direct links back to original
-            articles
-          </li>
-        </ul>
+      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.92))] p-5 sm:p-6">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+            Trust and privacy
+          </p>
+          <h2 className="max-w-3xl text-2xl font-semibold leading-tight">
+            Private by default, familiar in practice.
+          </h2>
+          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+            The listening flow stays personal without asking you to learn a new
+            playback habit.
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {productTrustPoints.map((point) => (
+            <article
+              key={point.title}
+              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/88 p-5"
+            >
+              <h3 className="text-base font-semibold text-[var(--ink)]">
+                {point.title}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                {point.body}
+              </p>
+            </article>
+          ))}
+        </div>
       </section>
     </>
   );
