@@ -2,7 +2,7 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-05)
+## Spec Status (as of 2026-04-06)
 
 ### Implemented (as of 2026-04-05)
 
@@ -209,11 +209,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
-  - quick-answer cards deep-link to those section anchors while preserving the same underlying FAQ question/answer content and structured data coverage.
+  - quick-answer links deep-link to those section anchors while preserving the same underlying FAQ question/answer content and structured data coverage.
 - Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
   - `/faq` now uses higher-conversion question framing, friendlier answer tone, and richer answer blocks with bullets and contextual links.
-  - topic chips plus lightweight search help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions.
+  - topic chips and question-level deep links help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions.
   - question-level deep links auto-open the matching answer while FAQ JSON-LD stays flattened from the same shared content model.
+- Public marketing FAQ control-density trim (`M114`) is implemented:
+  - `/faq` keeps `Quick answers` and `Browse by topic`, but both controls now render as compact wrap rows so the actual answers stay closer to the fold.
+  - the separate FAQ search box is removed for now, relying on grouped sections, quick-answer anchors, topic chips, and question permalinks to keep the page easy to scan.
 
 ### Next Milestones
 

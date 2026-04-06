@@ -104,16 +104,16 @@ test("faq content uses conversion-focused questions, topic chips, and richer ans
   );
 });
 
-test("faq explorer supports search, chip filters, and deep-linkable questions", () => {
+test("faq explorer keeps compact topic filters and deep-linkable questions", () => {
   assert.equal(faqExplorerSource.includes("Browse by topic"), true);
-  assert.equal(faqExplorerSource.includes("Need something specific?"), true);
+  assert.equal(faqExplorerSource.includes("Need something specific?"), false);
   assert.equal(
     faqExplorerSource.includes(
       'placeholder="Search privacy, pricing, PDFs, or digests"',
     ),
-    true,
+    false,
   );
-  assert.equal(faqExplorerSource.includes("useDeferredValue"), true);
+  assert.equal(faqExplorerSource.includes("useDeferredValue"), false);
   assert.equal(faqExplorerSource.includes("aria-pressed"), true);
   assert.equal(faqExplorerSource.includes("hashchange"), true);
   assert.equal(faqExplorerSource.includes("Link to ${question.question}"), true);

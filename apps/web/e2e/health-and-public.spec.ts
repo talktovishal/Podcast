@@ -139,7 +139,7 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
-  test("/faq supports quick answers, topic filters, search, and question permalinks", async ({ page }) => {
+  test("/faq keeps quick answers, topic filters, and question permalinks close to the fold", async ({ page }) => {
     await page.goto("/faq");
     await page.waitForLoadState("networkidle");
 
@@ -162,7 +162,7 @@ test.describe("Health & Public Pages", () => {
       page.getByRole("heading", { level: 2, name: "Account & access" })
     ).toBeVisible();
     await expect(page.getByText("Browse by topic")).toBeVisible();
-    await expect(page.getByText("Need something specific?")).toBeVisible();
+    await expect(page.getByText("Need something specific?")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pricing" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Privacy" })).toBeVisible();
 
@@ -181,13 +181,7 @@ test.describe("Health & Public Pages", () => {
       page.getByRole("button", { name: "Is my feed private?" })
     ).toHaveCount(0);
 
-    await page.getByPlaceholder("Search privacy, pricing, PDFs, or digests").fill("rotate");
-    await expect(
-      page.getByRole("button", { name: "What happens if I need to rotate my feed URL?" })
-    ).toHaveCount(0);
-
     await page.getByRole("button", { name: "All" }).click();
-    await page.getByPlaceholder("Search privacy, pricing, PDFs, or digests").fill("");
 
     await page.goto("/faq#question-rotate-feed-url");
     await page.waitForLoadState("networkidle");

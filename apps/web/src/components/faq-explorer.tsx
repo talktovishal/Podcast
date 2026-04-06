@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   FaqAnswerBlock,
-  FaqQuestion,
   FaqSection,
   FaqTopicFilterId,
-  FaqTopicId,
   FaqTopicOption,
 } from "@/lib/faq-page-content";
 
@@ -22,37 +20,6 @@ function setHash(hash: string) {
   }
   const nextUrl = `${window.location.pathname}${window.location.search}#${hash}`;
   window.history.replaceState(null, "", nextUrl);
-}
-
-function questionMatchesSearch(
-  question: FaqQuestion,
-  sectionTitle: string,
-  normalizedSearch: string,
-  topicLabelLookup: Readonly<Record<FaqTopicId, string>>,
-): boolean {
-  if (!normalizedSearch) {
-    return true;
-  }
-
-  const searchableText = [
-    sectionTitle,
-    question.question,
-    question.schemaAnswer,
-    ...question.chips.map((chip) => topicLabelLookup[chip]),
-    ...question.blocks.flatMap((block) => {
-      if (block.type === "paragraph") {
-        return [block.text];
-      }
-      if (block.type === "bullets") {
-        return [...block.items];
-      }
-      return block.items.map((item) => item.label);
-    }),
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return searchableText.includes(normalizedSearch);
 }
 
 function renderBlock(block: FaqAnswerBlock, key: string) {
@@ -93,24 +60,9 @@ function renderBlock(block: FaqAnswerBlock, key: string) {
 }
 
 export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
-  const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
   const [activeTopic, setActiveTopic] = useState<FaqTopicFilterId>("all");
   const [openQuestionIds, setOpenQuestionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
-  );
-
-  const normalizedSearch = deferredSearch.trim().toLowerCase();
-
-  const topicLabelLookup = useMemo(
-    () =>
-      topicOptions.reduce<Record<FaqTopicId, string>>((lookup, option) => {
-        if (option.id !== "all") {
-          lookup[option.id] = option.label;
-        }
-        return lookup;
-      }, {} as Record<FaqTopicId, string>),
-    [topicOptions],
   );
 
   const questionIds = useMemo(
@@ -123,33 +75,13 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
       sections
         .map((section) => ({
           ...section,
-          questions: section.questions.filter((question) => {
-            const matchesTopic =
-              activeTopic === "all" || question.chips.includes(activeTopic);
-            const matchesSearch = questionMatchesSearch(
-              question,
-              section.title,
-              normalizedSearch,
-              topicLabelLookup,
-            );
-            return matchesTopic && matchesSearch;
-          }),
+          questions: section.questions.filter(
+            (question) =>
+              activeTopic === "all" || question.chips.includes(activeTopic),
+          ),
         }))
         .filter((section) => section.questions.length > 0),
-    [activeTopic, normalizedSearch, sections, topicLabelLookup],
-  );
-
-  const totalQuestionCount = useMemo(
-    () => sections.reduce((count, section) => count + section.questions.length, 0),
-    [sections],
-  );
-  const filteredQuestionCount = useMemo(
-    () =>
-      filteredSections.reduce(
-        (count, section) => count + section.questions.length,
-        0,
-      ),
-    [filteredSections],
+    [activeTopic, sections],
   );
 
   useEffect(() => {
@@ -202,61 +134,36 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
 
   return (
     <>
-      <section className="card p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="max-w-2xl">
-            <h2 className="text-lg font-semibold">Browse by topic</h2>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Start with the area that matters most, then narrow things down if
-              you need something specific.
-            </p>
-          </div>
-          <p className="text-sm text-[var(--muted)]">
-            {filteredQuestionCount} of {totalQuestionCount} questions
-          </p>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {topicOptions.map((option) => {
-            const isActive = option.id === activeTopic;
-            return (
-              <button
-                key={option.id}
-                aria-pressed={isActive}
-                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                  isActive
-                    ? "border-[#8fcdbb] bg-[#edf8f5] text-[#155240]"
-                    : "border-[rgba(31,42,31,0.12)] bg-white text-[var(--muted)] hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
-                }`}
-                onClick={() => setActiveTopic(option.id)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-5 rounded-xl border border-[rgba(31,122,90,0.12)] bg-[var(--surface)]/70 p-3">
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Need something specific?</span>
-            <input
-              className="w-full rounded-lg border bg-white px-3 py-2 text-sm"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search privacy, pricing, PDFs, or digests"
-              value={search}
-            />
-          </label>
-        </div>
+      <section className="mt-4 flex flex-wrap items-center gap-2" aria-labelledby="faq-browse-by-topic">
+        <h2 id="faq-browse-by-topic" className="mr-2 text-sm font-semibold text-[var(--ink)]">
+          Browse by topic
+        </h2>
+        {topicOptions.map((option) => {
+          const isActive = option.id === activeTopic;
+          return (
+            <button
+              key={option.id}
+              aria-pressed={isActive}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                isActive
+                  ? "border-[#8fcdbb] bg-[#edf8f5] text-[#155240]"
+                  : "border-[rgba(31,42,31,0.12)] bg-white text-[var(--muted)] hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
+              }`}
+              onClick={() => setActiveTopic(option.id)}
+              type="button"
+            >
+              {option.label}
+            </button>
+          );
+        })}
       </section>
 
-      <div className="mt-8 space-y-8">
+      <div className="mt-6 space-y-8">
         {filteredSections.length === 0 ? (
           <section className="card p-5">
             <h2 className="text-lg font-semibold">No matching questions yet</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Try a different search term, or switch back to All to browse the
-              full FAQ.
+              Switch back to All to browse the full FAQ.
             </p>
           </section>
         ) : (

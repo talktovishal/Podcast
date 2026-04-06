@@ -57,19 +57,19 @@ export default function FaqPage() {
         </p>
       </section>
 
-      <section className="mt-8 card p-5">
-        <h2 className="text-lg font-semibold">Quick answers</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="mt-6 flex flex-wrap items-center gap-2" aria-labelledby="faq-quick-answers">
+        <h2 id="faq-quick-answers" className="mr-2 text-sm font-semibold text-[var(--ink)]">
+          Quick answers
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {faqContent.quickAnswers.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="card block p-4 transition hover:border-[rgba(31,122,90,0.28)] hover:bg-[var(--accent-soft)]/30 focus:outline-none focus:ring-4 focus:ring-[rgba(31,122,90,0.12)]"
+              aria-label={item.helperText ? `${item.label} (${item.helperText})` : item.label}
+              className="inline-flex rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)] transition hover:border-[rgba(31,122,90,0.28)] hover:bg-[var(--accent-soft)]/30 focus:outline-none focus:ring-4 focus:ring-[rgba(31,122,90,0.12)]"
             >
-              {item.helperText ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">{item.helperText}</p>
-              ) : null}
-              <p className="mt-2 text-sm font-semibold text-[var(--ink)]">{item.label}</p>
+              {item.label}
             </a>
           ))}
         </div>
