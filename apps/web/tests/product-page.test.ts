@@ -36,3 +36,27 @@ test("product page keeps a calm three-step story with one workflow demo and one 
   assert.equal(source.includes("What happens after you save something"), false);
   assert.equal(source.includes("What you get over time"), false);
 });
+
+test("product page ends with one calm closing CTA", () => {
+  const source = readFileSync(
+    new URL("../src/app/(marketing)/product/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const normalizedSource = source.replace(/\s+/g, " ");
+
+  assert.equal(
+    normalizedSource.includes(
+      "Start with one article and let the system grow from there.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedSource.includes(
+      "You do not need a new reading ritual. Just save something worth keeping and let ArticlePod turn it into a calmer listening flow.",
+    ),
+    true,
+  );
+  assert.equal(source.includes("Start your knowledge feed"), true);
+  assert.equal(source.includes('href="/"'), true);
+  assert.equal(source.includes('href="/pricing"'), false);
+});

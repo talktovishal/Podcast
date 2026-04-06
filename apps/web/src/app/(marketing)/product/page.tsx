@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import {
@@ -210,6 +211,26 @@ export default function ProductPage() {
               </p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-6 text-center shadow-[0_18px_40px_rgba(24,38,32,0.05)] sm:p-8">
+        <div className="mx-auto max-w-2xl space-y-4">
+          <h2 className="text-2xl font-semibold leading-tight text-[var(--ink)]">
+            Start with one article and let the system grow from there.
+          </h2>
+          <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+            You do not need a new reading ritual. Just save something worth
+            keeping and let ArticlePod turn it into a calmer listening flow.
+          </p>
+          <div className="pt-1">
+            <Link
+              className="inline-flex items-center justify-center rounded-lg bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-white"
+              href="/"
+            >
+              Start your knowledge feed
+            </Link>
+          </div>
         </div>
       </section>
     </>
