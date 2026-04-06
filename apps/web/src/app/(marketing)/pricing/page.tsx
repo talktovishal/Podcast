@@ -17,69 +17,89 @@ import {
 } from "@/lib/seo";
 import { paidPlanCapacityDelta, paidPlanConfig } from "@/lib/paid-plan-config";
 
+type ComparisonCell =
+  | {
+      kind: "text";
+      value: string;
+    }
+  | {
+      kind: "included";
+    }
+  | {
+      kind: "upgrade";
+      value: string;
+    };
+
+type ComparisonRow = {
+  feature: string;
+  starter: ComparisonCell;
+  monthly: ComparisonCell;
+  annual: ComparisonCell;
+};
+
 const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
 const annualPlan = paidPlanConfig("PRO_ANNUAL");
 const annualAdvantage = paidPlanCapacityDelta();
-const comparisonRows = [
+const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Price",
-    starter: "$0",
-    monthly: "$15/mo",
-    annual: "$130/yr"
+    starter: { kind: "text", value: "$0" },
+    monthly: { kind: "text", value: "$15/mo" },
+    annual: { kind: "text", value: "$130/yr" }
   },
   {
     feature: "Best for",
-    starter: "Trying the workflow",
-    monthly: "Steady weekly use",
-    annual: "Daily or habitual use"
+    starter: { kind: "text", value: "Trying the workflow" },
+    monthly: { kind: "text", value: "Steady weekly use" },
+    annual: { kind: "text", value: "Daily or habitual use" }
   },
   {
     feature: "Episode allowance",
-    starter: "Limited monthly episodes",
-    monthly: `${monthlyPlan.dailyPodcastLimit} new episodes / 24h`,
-    annual: `${annualPlan.dailyPodcastLimit} new episodes / 24h`
+    starter: { kind: "text", value: "Limited monthly episodes" },
+    monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / 24h` },
+    annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / 24h` }
   },
   {
     feature: "Manual summaries",
-    starter: "Upgrade to Pro",
-    monthly: `${monthlyPlan.weeklySummaryLimit} / 7 days`,
-    annual: `${annualPlan.weeklySummaryLimit} / 7 days`
+    starter: { kind: "upgrade", value: "Upgrade to Pro" },
+    monthly: { kind: "text", value: `${monthlyPlan.weeklySummaryLimit} / 7 days` },
+    annual: { kind: "text", value: `${annualPlan.weeklySummaryLimit} / 7 days` }
   },
   {
     feature: "URL + PDF ingestion",
-    starter: "Included",
-    monthly: "Included",
-    annual: "Included"
+    starter: { kind: "included" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "Private RSS feed",
-    starter: "Included",
-    monthly: "Included",
-    annual: "Included"
+    starter: { kind: "included" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "Chrome extension capture",
-    starter: "Included",
-    monthly: "Included",
-    annual: "Included"
+    starter: { kind: "included" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "Weekly digest podcast + email",
-    starter: "Upgrade to Pro",
-    monthly: "Included",
-    annual: "Included"
+    starter: { kind: "upgrade", value: "Upgrade to Pro" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "Billing cadence",
-    starter: "Free",
-    monthly: "Billed monthly",
-    annual: "Billed yearly"
+    starter: { kind: "text", value: "Free" },
+    monthly: { kind: "text", value: "Billed monthly" },
+    annual: { kind: "text", value: "Billed yearly" }
   },
   {
     feature: "Cancelation behavior",
-    starter: "No renewal",
-    monthly: "Cancel anytime",
-    annual: "Cancel anytime"
+    starter: { kind: "text", value: "No renewal" },
+    monthly: { kind: "text", value: "Cancel anytime" },
+    annual: { kind: "text", value: "Cancel anytime" }
   }
 ] as const;
 const trustPoints = [
@@ -102,6 +122,66 @@ export const metadata: Metadata = buildPublicMetadata({
     "article narration pricing"
   ]
 });
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      <path d="M5 12.5 9.5 17 19 7.5" />
+    </svg>
+  );
+}
+
+function UpgradeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
+      <path d="M7 17 17 7" />
+      <path d="M9 7h8v8" />
+    </svg>
+  );
+}
+
+function renderComparisonCell(cell: ComparisonCell, emphasis = false) {
+  if (cell.kind === "included") {
+    return (
+      <span
+        aria-label="Included"
+        className={`inline-flex items-center ${emphasis ? "text-[#155240]" : "text-[#1f7a5a]"}`}
+      >
+        <CheckIcon />
+        <span className="sr-only">Included</span>
+      </span>
+    );
+  }
+
+  if (cell.kind === "upgrade") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(31,122,90,0.12)] bg-white/85 px-2.5 py-1 text-xs font-medium text-[var(--muted)]">
+        <UpgradeIcon />
+        <span>{cell.value}</span>
+      </span>
+    );
+  }
+
+  return <span>{cell.value}</span>;
+}
 
 export default async function PricingPage({
   searchParams
@@ -135,11 +215,11 @@ export default async function PricingPage({
 
       <section className="space-y-4 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(255,255,255,0.82)] p-5 shadow-[0_18px_40px_rgba(20,38,30,0.07)] sm:p-6">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-          Choose the ArticlePod plan that fits your listening habit
+          Choose the ArticlePod plan that fits how you save and learn.
         </h1>
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-          Start free, upgrade when you want more daily episode capacity, manual summaries, and digest workflows. Pro
-          Annual is the best value for regular use.
+          Start free and upgrade when you need more daily episodes, manual summaries, and digest workflows. Pro Annual
+          offers the best value for regular use.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
@@ -181,9 +261,19 @@ export default async function PricingPage({
                 {billingStatusLabel((billingState?.mode.effectiveLane === "SANDBOX" ? billingState.liveBilling : billing).status)}
               </p>
             ) : (
-              <p>Sign in to start with the free plan instantly.</p>
+              <Link
+                className="inline-flex rounded-lg border border-[#bfded4] bg-white px-4 py-2 text-sm font-semibold text-[var(--ink)] transition hover:bg-[rgba(247,251,250,0.92)]"
+                href={buildLoginHref({ next: "/pricing" })}
+              >
+                Sign in to start free
+              </Link>
             )}
           </div>
+          {!billing && !user ? (
+            <p className="mt-3 text-sm text-[var(--muted)]">
+              Create an account and start with the free plan right away.
+            </p>
+          ) : null}
         </article>
 
         <article className="card flex h-full flex-col border-[#9ad0c0] p-5">
@@ -322,9 +412,11 @@ export default async function PricingPage({
                   <th className="px-4 py-3 font-semibold text-[var(--ink)]" scope="row">
                     {row.feature}
                   </th>
-                  <td className="px-4 py-3 text-[var(--muted)]">{row.starter}</td>
-                  <td className="px-4 py-3 text-[var(--muted)]">{row.monthly}</td>
-                  <td className="bg-[rgba(237,248,245,0.45)] px-4 py-3 font-medium text-[#155240]">{row.annual}</td>
+                  <td className="px-4 py-3 text-[var(--muted)]">{renderComparisonCell(row.starter)}</td>
+                  <td className="px-4 py-3 text-[var(--muted)]">{renderComparisonCell(row.monthly)}</td>
+                  <td className="bg-[rgba(237,248,245,0.45)] px-4 py-3 font-medium text-[#155240]">
+                    {renderComparisonCell(row.annual, true)}
+                  </td>
                 </tr>
               ))}
             </tbody>

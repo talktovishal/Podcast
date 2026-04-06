@@ -102,7 +102,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   );
   assert.equal(
     source.includes(
-      "Choose the ArticlePod plan that fits your listening habit",
+      "Choose the ArticlePod plan that fits how you save and learn.",
     ),
     true,
   );
@@ -111,10 +111,11 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
     source.includes(
-      "Start free, upgrade when you want more daily episode capacity, manual summaries, and digest workflows.",
+      "Start free and upgrade when you need more daily episodes, manual summaries, and digest workflows.",
     ),
     true,
   );
+  assert.equal(source.includes("Sign in to start free"), true);
   assert.equal(source.includes("Compare plans at a glance"), true);
   assert.equal(source.includes("<table"), true);
   assert.equal(source.includes("What to expect"), true);
