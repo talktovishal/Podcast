@@ -9,6 +9,11 @@ import {
   publicMarketingSensitivePhrases,
 } from "../src/lib/marketing-content";
 import {
+  productProofPills,
+  productRecommendationCards,
+  productStoryBlocks,
+} from "../src/lib/product-page-content";
+import {
   paidPlanCapacityDelta,
   paidPlanConfig,
 } from "../src/lib/paid-plan-config";
@@ -96,7 +101,9 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     true,
   );
   assert.equal(
-    source.includes("Choose the ArticlePod plan that fits your listening habit"),
+    source.includes(
+      "Choose the ArticlePod plan that fits your listening habit",
+    ),
     true,
   );
   assert.equal(source.includes("$15/mo"), true);
@@ -152,6 +159,7 @@ test("public marketing pages do not leak internal economics or vendor implementa
     `${marketingAppRoot}/page.tsx`,
     "../src/components/auth-landing-page.tsx",
     `${marketingAppRoot}/product/page.tsx`,
+    "../src/lib/product-page-content.ts",
     `${marketingAppRoot}/pricing/page.tsx`,
     `${marketingAppRoot}/resources/page.tsx`,
     `${marketingAppRoot}/faq/page.tsx`,
@@ -216,6 +224,15 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   const productSource = readFileSync(
     new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
     "utf8",
+  );
+  const productContentSource = readFileSync(
+    new URL("../src/lib/product-page-content.ts", import.meta.url),
+    "utf8",
+  );
+  const normalizedProductSource = productSource.replace(/\s+/g, " ");
+  const normalizedProductContentSource = productContentSource.replace(
+    /\s+/g,
+    " ",
   );
   const layoutSource = readFileSync(
     new URL("../src/app/layout.tsx", import.meta.url),
@@ -284,6 +301,25 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     faqSource.includes("What happens when I save an article?"),
     true,
   );
+  assert.equal(faqSource.includes("Quick answers"), true);
+  assert.equal(faqSource.includes("One save becomes one episode"), true);
+  assert.equal(faqSource.includes("URLs, PDFs, and Chrome capture"), true);
+  assert.equal(faqSource.includes("Private feed URL you control"), true);
+  assert.equal(faqSource.includes("Works in standard podcast apps"), true);
+  assert.equal(faqSource.includes("Getting started"), true);
+  assert.equal(faqSource.includes("Inputs & capture"), true);
+  assert.equal(faqSource.includes("Privacy & feed"), true);
+  assert.equal(faqSource.includes("Podcast apps"), true);
+  assert.equal(faqSource.includes("Account & access"), true);
+  assert.equal(
+    faqSource.includes(
+      "const faqItems: ReadonlyArray<{ q: string; a: string }> = [",
+    ),
+    false,
+  );
+  assert.equal(faqSource.includes("const faqSections"), true);
+  assert.equal(faqSource.includes("const quickAnswers"), true);
+  assert.equal(faqSource.includes('href: "#getting-started"'), true);
   assert.equal(faqSource.includes("weekly podcast and email options"), true);
   assert.equal(
     faqSource.includes("What does the daily podcast include?"),
@@ -320,8 +356,14 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Private RSS feed delivery"), true);
   assert.equal(aboutSource.includes("Weekly digest podcast"), true);
   assert.equal(aboutSource.includes("Weekly Email Options"), true);
-  assert.equal(aboutSource.includes("Integrates with your favorite podcast apps"), true);
-  assert.equal(aboutSource.includes("Listening queue Private by default"), true);
+  assert.equal(
+    aboutSource.includes("Integrates with your favorite podcast apps"),
+    true,
+  );
+  assert.equal(
+    aboutSource.includes("Listening queue Private by default"),
+    true,
+  );
   assert.equal(aboutSource.includes("Easy feed URL rotation"), true);
   assert.equal(
     aboutSource.includes(
@@ -354,7 +396,10 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     true,
   );
-  assert.equal(aboutSource.includes("Chrome captures into private podcast episodes"), false);
+  assert.equal(
+    aboutSource.includes("Chrome captures into private podcast episodes"),
+    false,
+  );
   assert.equal(
     aboutSource.includes(
       "Make saved reading easier to actually absorb instead of letting it pile up unread.",
@@ -368,17 +413,52 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     false,
   );
   assert.equal(
-    aboutSource.includes("Your listening queue works in standard podcast apps, stays personal by default, and can be rotated if a feed URL ever"),
+    aboutSource.includes(
+      "Your listening queue works in standard podcast apps, stays personal by default, and can be rotated if a feed URL ever",
+    ),
     false,
   );
   assert.equal(aboutSource.includes("daily and weekly"), false);
   assert.equal(aboutSource.includes("Monthly and yearly recaps"), false);
 
   assert.equal(
-    productSource.includes("one podcast episode per saved source"),
+    normalizedProductSource.includes(
+      "Turn saved reading into a private podcast flow you actually finish.",
+    ),
     true,
   );
-  assert.equal(productSource.includes("Weekly digest"), true);
+  assert.equal(
+    normalizedProductSource.includes(
+      "Read-later piles do not become learning just because you saved them.",
+    ),
+    true,
+  );
+  assert.equal(productSource.includes("productRecommendationCards.map"), true);
+  assert.equal(productSource.includes("productStoryBlocks.map"), true);
+  assert.equal(productSource.includes("snap-x snap-mandatory"), true);
+  assert.equal(productSource.includes("overflow-x-auto"), true);
+  assert.equal(productSource.includes("See setup guides"), true);
+  assert.equal(
+    normalizedProductContentSource.includes(
+      "/resources/articlepod-extension-flow.gif",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedProductContentSource.includes("Workflow clip coming soon"),
+    true,
+  );
+  assert.equal(normalizedProductContentSource.includes("Weekly digests"), true);
+  assert.equal(productProofPills.length, 5);
+  assert.equal(productRecommendationCards.length >= 4, true);
+  assert.equal(productStoryBlocks.length, 3);
+  assert.equal(productStoryBlocks[0]?.media.type, "gif");
+  assert.equal(
+    productStoryBlocks
+      .slice(1)
+      .every((block) => block.media.type === "placeholder"),
+    true,
+  );
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 

@@ -139,6 +139,37 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
+  test("/faq groups questions into section anchors with quick answers", async ({ page }) => {
+    await page.goto("/faq");
+    await page.waitForLoadState("networkidle");
+
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Quick answers" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Getting started" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Inputs & capture" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Privacy & feed" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Podcast apps" })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Account & access" })
+    ).toBeVisible();
+
+    const privacyQuickAnswer = page.getByRole("link", {
+      name: /Private feed URL you control/i,
+    });
+    await expect(privacyQuickAnswer).toBeVisible();
+    await privacyQuickAnswer.click();
+    await expect(page).toHaveURL(/\/faq#privacy-feed$/);
+  });
+
   test("/share stays outside the persistent marketing footer chrome", async ({ page }) => {
     await page.goto("/share");
     await page.waitForLoadState("networkidle");

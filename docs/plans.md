@@ -90,6 +90,15 @@
   - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
   - `/about` now opens with `Listen to your reading list and finally catch up on what matters`.
+- Public marketing FAQ structure refresh (`M111`) is implemented:
+  - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
+  - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
+  - FAQ question copy stays unchanged while the page becomes easier to scan and navigate.
+- Product page conversion refresh (`M110`) is implemented:
+  - `/product` now opens with a split conversion hero that positions ArticlePod as a better finish line for saved reading than a read-later backlog.
+  - a proof strip highlights `URLs`, `PDFs`, `Chrome capture`, `private RSS`, and `weekly digests` immediately below the hero.
+  - the page now includes a horizontally scrollable recommendation rail plus alternating workflow/media story blocks, using the live Chrome extension GIF first and preserving future-ready slots for more clips.
+  - the narrative now moves through problem, workflow, listening payoff, trust/privacy, and a stronger final CTA instead of repeating generic feature cards.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -371,6 +380,8 @@ Milestone metadata contract:
 | M107      | Done        | 2026-04-09    | 2026-04-02   | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)                        |
 | M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
 | M109      | Done        | 2026-04-11    | 2026-04-04   | local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)          |
+| M110      | Done        | 2026-04-12    | 2026-04-05   | local validation + product page conversion refresh pass (2026-04-05)                                    |
+| M111      | Done        | 2026-04-13    | 2026-04-05   | local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)                |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3471,6 +3482,70 @@ Milestone metadata contract:
   - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
   - The signed-out auth landing page no longer renders its own page-local header.
   - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M110 - Product Page Conversion Refresh
+
+- status: Done
+- target_finish: 2026-04-12
+- completed_on: 2026-04-05
+- evidence: local validation + product page conversion refresh pass (2026-04-05)
+- Scope:
+  - Rebuild the public `/product` page into a stronger conversion-first story page instead of a mostly static feature summary.
+  - Keep the signed-in app shell unchanged while improving only the public marketing route.
+  - Add a stronger hero, compact proof strip, horizontally scrollable recommendation rail, alternating workflow/media sections, trust/privacy framing, and a stronger closing CTA.
+  - Use the current Chrome extension GIF as the first live workflow clip and reserve polished story slots for future product clips.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/lib/product-page-content.ts`
+  - `apps/web/src/lib/seo.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - `/product` opens with a stronger split hero, clear conversion CTA, and immediate proof strip for `URLs`, `PDFs`, `Chrome capture`, `private RSS`, and `weekly digests`.
+  - The page includes a manual horizontally scrollable recommendation rail with snap behavior and visible edge fades.
+  - The page renders alternating workflow/media story blocks, with the first block showing the live Chrome extension GIF and later blocks using polished placeholder frames for future clips.
+  - The page narrative clearly moves through problem, workflow, listening payoff, trust/privacy, and final CTA without duplicating shared header/footer chrome.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `npx pnpm --filter @articlepod/web run export`
+  - `npm run license:check`
+
+---
+
+### M111 - Public Marketing FAQ Structure Refresh
+
+- status: Done
+- target_finish: 2026-04-13
+- completed_on: 2026-04-05
+- evidence: local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)
+- Scope:
+  - Reorganize the public `/faq` page from one flat accordion list into grouped sections without changing the existing question and answer copy.
+  - Add a compact above-the-fold `Quick answers` band so visitors can jump to the part of the FAQ they care about most.
+  - Keep FAQ schema coverage and shared public marketing chrome behavior unchanged while syncing the updated information architecture in docs and tests.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` groups the current FAQ content under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
+  - A `Quick answers` band appears above the grouped FAQ sections and links to section anchors without auto-opening any question accordions.
+  - FAQ question and answer copy stays unchanged, and FAQ JSON-LD still includes the same question set.
+  - Public marketing docs and tests reflect the new FAQ grouping and anchor-navigation behavior.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run test`

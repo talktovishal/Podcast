@@ -1,13 +1,16 @@
 # Product Documentation
 
 Related indexes:
+
 - Docs index: `/Users/vishalchowdhary/Documents/Podcast/docs/README.md`
 - Scripts index: `/Users/vishalchowdhary/Documents/Podcast/scripts/README.md`
 
 ## What ArticlePod does
+
 ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and publishes them through a private RSS feed.
 
 ## User flow
+
 1. Sign in with local credentials (or OAuth when configured).
 2. Submit URL, upload PDF, or capture page from Chrome extension, with optional importance and comma-separated tags.
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
@@ -17,7 +20,9 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 7. Logged-in users can submit message-first product feedback at `/app/feedback`.
 
 ## Accounts
+
 Set passwords via environment variables before seeding (see `.env.example`):
+
 - Demo account: `demo@articlepod.local` — password from `DEMO_PASSWORD` env var
 - Chrome Web Store reviewer account: `chrome-reviewer@articlepod.com` by default — seeded only when `WEBSTORE_REVIEWER_PASSWORD` is set, and provisioned with complimentary Pro access so review captures do not hit normal quota limits
 - Admin account: `admin@articlepod.local` — password from `ADMIN_PASSWORD` env var
@@ -54,12 +59,14 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - admin can triage suggestions from `/admin`.
 
 ## Chrome extension
+
 - Source: `/Users/vishalchowdhary/Documents/Podcast/apps/extension`
 - Package command: `npm run extension:package`
 - Icon generation command: `npm run extension:icons`
 - Local load: `chrome://extensions` -> Developer mode -> Load unpacked
 
 Connect flow:
+
 1. In `/app/chrome-extension`, generate one-time extension connect code (24-hour default).
 2. Paste code in extension popup and connect; runtime config still points to `https://articlepod.com`, while the packaged manifest keeps broad HTTP/HTTPS host access so users can capture arbitrary pages without a second Chrome site-access prompt.
 3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
@@ -67,6 +74,7 @@ Connect flow:
 5. Chrome Web Store reviewers should use the dedicated reviewer login, then open `/app/chrome-extension`; the page auto-prepares a fresh one-time connect code on load. The installed extension token remains long-lived after pairing, but the connect code itself intentionally stays one-time and time-limited.
 
 ## Workspace layout
+
 - `/app` is a focused creation workspace:
   - the header now uses the simplest possible billing control: free users get a single `Upgrade to Pro` action, while paid users get one clickable billing pill that opens Stripe billing; `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
@@ -88,6 +96,7 @@ Connect flow:
 - Self-serve `Delete account` is intentionally hidden from the UI for now, while the protected backend route remains in place.
 
 ## Feed and media
+
 - Auth explainer: `/Users/vishalchowdhary/Documents/Podcast/docs/feed-auth-model.md`
 - Feed URL: `/rss/<feed_token>.xml`
 - Digest feed URL: `/rss/digest/<digest_feed_token>.xml`
@@ -111,7 +120,9 @@ Connect flow:
 - Bulk repair command: `npm run audio:backfill-mp3` converts/reconciles stored episodes to MP3 metadata in place.
 
 ## Digest settings
+
 Available in `/app/settings`:
+
 - timezone-aware digest schedule controls:
   - daily: on/off for email + podcast, hour/minute, target length (5/15/30)
   - weekly: on/off for email + podcast, weekday/hour/minute, target length (5/15/30)
@@ -121,16 +132,20 @@ Available in `/app/settings`:
 - recent digest run history (status/source-count/email/podcast outcomes)
 
 Digest APIs:
+
 - `GET /api/digest/settings`
 - `POST /api/digest/settings`
 - `GET /api/digest/runs`
 - `POST /api/digest-feed-token/rotate`
 
 Scheduler trigger API (internal automation):
+
 - `POST /api/internal/digests/tick` (Bearer secret protected via `DIGEST_SCHEDULER_SECRET`)
 
 ## Summaries
+
 Available in `/app/summary`:
+
 - default selection = READY items with markdown artifacts from the last 7 days
 - manual searchable item selection with a 30-item cap
 - optional custom summary title
@@ -142,6 +157,7 @@ Available in `/app/summary`:
 - recent summary run history with markdown preview for completed runs
 
 Summary output shape:
+
 - title
 - intro / hook
 - key themes
@@ -150,11 +166,13 @@ Summary output shape:
 - source list
 
 Summaries APIs:
+
 - `GET /api/summary/items`
 - `POST /api/summary/runs`
 - `GET /api/summary/runs/[id]/markdown`
 
 ## Runtime profiles
+
 - `simple`: local SQLite + local object storage
 - `parity`: Docker Compose PostgreSQL + Azurite + python-tts
 - `azure`: single VM compute + Azure Blob, with `METADATA_PRIMARY_BACKEND` selecting either:
@@ -162,7 +180,9 @@ Summaries APIs:
   - `azure_table`: Azure Table as the primary operational metadata store, plus local SQLite for auxiliary low-cost/admin data
 
 ## Durable rollout status
+
 Milestones `M35`-`M46` are implemented in repository assets:
+
 - parity Docker Compose stack and profile env gates
 - object storage abstraction (`local` + `azure_blob`)
 - SQLite -> PostgreSQL migration/export/import scripts
@@ -176,7 +196,9 @@ Milestones `M35`-`M46` are implemented in repository assets:
 - CI matrix with simple + parity release gates
 
 ## Cost optimization rollout status
+
 Current implementation baseline:
+
 - always-on compute target shifted to `B2s`.
 - local Kokoro lane locked to single worker (`TTS_WORKERS=1`) in VM service template.
 - overflow worker role and queue-pressure hysteresis are implemented in worker runtime.
@@ -212,7 +234,9 @@ Current implementation baseline:
   - `digest-summary-mini` is used for `30` minute runs and as a retry fallback when nano returns invalid or empty output
 
 ## Observability status
+
 Current implementation:
+
 - structured JSONL runtime logs in `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs`
 - activity logs (`DEBUG`/`INFO`/`WARN`) write to `events/<service>/events.log.jsonl`
 - `ERROR`/`FATAL` logs write to `errors/<service>/errors.log.jsonl`
@@ -242,6 +266,7 @@ Current implementation:
   - `npm run logs:triage`
 
 ## Feedback APIs
+
 - `POST /api/feedback`
   - authenticated route
   - required: `message`
@@ -254,6 +279,7 @@ Current implementation:
   - admin-only manual mirror retry
 
 ## GitHub mirror (optional)
+
 - Enable by setting:
   - `GITHUB_FEEDBACK_MIRROR_ENABLED=1`
   - `GITHUB_FEEDBACK_OWNER`
@@ -264,7 +290,9 @@ Current implementation:
 - Mirrored issue body excludes submitter email.
 
 ## Markdown Artifacts
+
 Current (`M57`-`M64` implemented):
+
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
@@ -290,19 +318,24 @@ Current (`M57`-`M64` implemented):
   - `npm run extraction-quality:test -- --limit 20`
 
 ## OAuth setup
+
 Google + Facebook + Apple setup guide:
+
 - `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 
 Only configured OAuth buttons are shown on the root auth landing page (`/`); unconfigured providers stay hidden until their env vars are set.
 The root page now acts as the public homepage surface: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop. `/login` remains available only as a compatibility redirect back to `/`.
 
 The secondary public marketing pages (`/product`, `/pricing`, `/resources`, `/faq`, `/about`) now follow the same chrome principle: keep the shared top navigation plus the bottom CTA, but do not repeat the site links or ArticlePod summary again in a footer.
+The `/product` route is now the conversion-first story page for the public site: it uses a split hero, a compact proof strip, a horizontally scrollable recommendation rail, and alternating workflow/media sections that can absorb more GIF clips later without another layout overhaul.
 
 ## Known boundaries
+
 - No OCR for scanned/image-heavy PDFs.
 - No voice cloning.
 - No native mobile app.
 
 ## Release certification
+
 - Checklist: `/Users/vishalchowdhary/Documents/Podcast/docs/release-checklist.md`
 - Contract gate script: `/Users/vishalchowdhary/Documents/Podcast/scripts/verify_podcast_contract.sh`
