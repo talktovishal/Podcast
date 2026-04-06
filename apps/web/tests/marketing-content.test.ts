@@ -231,6 +231,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
     "utf8",
   );
+  const normalizedProductSource = productSource.replace(/\s+/g, " ");
   const layoutSource = readFileSync(
     new URL("../src/app/layout.tsx", import.meta.url),
     "utf8",
@@ -419,7 +420,15 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Monthly and yearly recaps"), false);
 
   assert.equal(
-    productSource.includes("one podcast episode per saved source"),
+    normalizedProductSource.includes(
+      "ArticlePod turns saved reading into ongoing learning.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedProductSource.includes(
+      "Each article or PDF becomes a private podcast episode",
+    ),
     true,
   );
   assert.equal(productSource.includes("Weekly digest"), true);

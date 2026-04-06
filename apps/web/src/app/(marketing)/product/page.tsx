@@ -39,8 +39,10 @@ export default function ProductPage() {
           One system for continuous learning
         </h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
-          ArticlePod starts with one podcast episode per saved source, then adds
-          weekly digest podcast and email summaries when you want a recap layer.
+          ArticlePod turns saved reading into ongoing learning. Each article or
+          PDF becomes a private podcast episode, with weekly digest podcasts and
+          email summaries when you want an easy recap. It&apos;s a calmer, more
+          practical way to stay current on the topics you care about.
         </p>
       </section>
 
