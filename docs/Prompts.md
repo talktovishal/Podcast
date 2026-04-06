@@ -66,7 +66,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
   - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
   - Canonical markdown cleanup and narration normalization now also strip residual raw HTML tags, decode common HTML entities, and flatten legacy table markup / markdown table separator remnants before TTS.
-  - Cleanup also drops standalone leaked image-asset URL lines and wrapper fragments so CDN paths do not persist into markdown or narration.
+  - Cleanup also drops standalone leaked image-asset URL lines, citation/source-attribution URL tails, and wrapper fragments so CDN paths and raw source links do not persist into markdown or narration.
+  - Cleanup now also unescapes leaked markdown punctuation before persistence/TTS so backslashes from escaped headings, emphasis, numbering, and punctuation are not spoken aloud.
   - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
@@ -461,7 +462,7 @@ I) Extraction artifacts (near-term track)
   - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
   - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
   - apply aggressive site-chrome cleanup only to extracted source markdown, not to generated summary markdown.
-  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags and legacy table remnants stripped before TTS.
+  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags, legacy table remnants, raw source URL tails, and leaked escaped markdown punctuation stripped before TTS.
   - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.
   - apply retention lifecycle to raw artifacts (target 90 days).
   - apply retention lifecycle to generated audio episodes (target 60 days) with backfill + purge tooling for existing rows.

@@ -3142,10 +3142,11 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-04-02
 - completed_on: 2026-03-25
-- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04)
+- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04); raw citation URL + escaped markdown cleanup follow-up (2026-04-06)
 - Scope:
   - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
   - Strip standalone leaked image-asset URL fragments before cleaned source markdown is persisted or narrated.
+  - Strip raw citation/source-attribution URL tails and malformed escaped markdown punctuation before cleaned source markdown is persisted or narrated.
   - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
   - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
   - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
@@ -3164,6 +3165,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
   - Stored markdown cleanup no longer leaves standalone raw image-asset URL lines that would be spoken by TTS or preserved in `source.md`.
+  - Stored markdown cleanup no longer leaves raw citation/source-attribution URL tails or escaped markdown backslashes that would be spoken by TTS or preserved in `source.md`.
   - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
   - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
   - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.

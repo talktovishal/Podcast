@@ -149,6 +149,32 @@ The article opens by explaining how eclipse data changed the way researchers com
   assert.ok(!cleaned.includes(":focal("));
 });
 
+test("cleanExtractedMarkdown strips raw url tails, citation lines, and malformed escaped markdown artifacts", () => {
+  const cleaned = cleanExtractedMarkdown(`
+Something I learned from Adam Harmetz, a better metaphor is surfing (https://blog.mindthebeet.com/p/not-the-career-advice-i-wish-id).
+
+> Yan, Ziyou. (Nov 2025). Product Evals in Three Simple Steps. eugeneyan.com. https://eugeneyan.com/writing/product-evals/.
+
+Business Insider, March 23, 2026, reporting on Andrej Karpathy's recent No Priors appearance: https://www.businessinsider.com/andrej-karpathy-nervous-ai-tokens-2026-3
+
+In the next section, I want to discuss the core components of a coding harness using my \\*Mini Coding Agent\\*: https://github.com/rasbt/mini-coding-agent.
+
+### 1\\. The Code Is Garbage
+
+Think of fan wikis like \\*Tolkien Gateway\\* — thousands of interlinked pages covering characters, places, and events.
+`);
+
+  assert.ok(cleaned.includes("Something I learned from Adam Harmetz, a better metaphor is surfing."));
+  assert.ok(cleaned.includes("In the next section, I want to discuss the core components of a coding harness using my *Mini Coding Agent*."));
+  assert.ok(cleaned.includes("### 1. The Code Is Garbage"));
+  assert.ok(cleaned.includes("Think of fan wikis like *Tolkien Gateway*"));
+  assert.ok(!cleaned.includes("eugeneyan.com"));
+  assert.ok(!cleaned.includes("Business Insider, March 23, 2026"));
+  assert.ok(!cleaned.includes("https://"));
+  assert.ok(!cleaned.includes("\\*"));
+  assert.ok(!cleaned.includes("\\."));
+});
+
 test("cleanExtractedMarkdown removes Fast Company promo and legal footer paragraphs", () => {
   const cleaned = cleanExtractedMarkdown(`
 Last fall, Chives took over Reddit.
@@ -302,13 +328,25 @@ test("markdownToNarrationText preserves inline link text and normalizes escaped 
 Ever since it showed up on my GH feed, Karpathy's [Autoresearch](https://example.com/autoresearch) was rattling around in the back of my mind.
 
 I added a \\[scratchpad\\] file for the agent to use as working memory. This work probably existed before. ↩
+
+Jeff Teper \\- who discovered me in a broken state after OneDrive — helped me reset how I think about product work.
+
+\\# LLM Wiki
+
+\\*\\*Personal\\*\\* notes matter when they keep future summaries grounded.
 `);
 
   const narration = markdownToNarrationText(cleaned);
   assert.ok(narration.includes("Karpathy's Autoresearch was rattling around in the back of my mind."));
   assert.ok(narration.includes("I added a [scratchpad] file for the agent to use as working memory."));
+  assert.ok(narration.includes("Jeff Teper - who discovered me in a broken state after OneDrive"));
+  assert.ok(narration.includes("LLM Wiki"));
+  assert.ok(narration.includes("Personal notes matter when they keep future summaries grounded."));
   assert.ok(!narration.includes("https://"));
   assert.ok(!narration.includes("↩"));
+  assert.ok(!narration.includes("\\#"));
+  assert.ok(!narration.includes("\\*"));
+  assert.ok(!narration.includes("\\-"));
 });
 
 test("markdownToNarrationText does not narrate standalone image asset urls", () => {

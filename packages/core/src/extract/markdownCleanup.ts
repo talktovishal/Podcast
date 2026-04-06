@@ -6,10 +6,11 @@ const LINK_PATTERN = /\[([^\]]+)\]\([^)]+\)/g;
 const DANGLING_LINK_LINE_PATTERN = /^\s*\]\([^)]+\)\s*$/gm;
 const EMPTY_LINK_LINE_PATTERN = /^\s*\[\]\([^)]+\)\s*$/gm;
 const LONE_BRACKET_LINE_PATTERN = /^\s*[\[\]]\s*$/gm;
-const ESCAPED_MARKDOWN_PATTERN = /\\([()[\]])/g;
+const ESCAPED_MARKDOWN_PATTERN = /\\([\\`*_{}\[\]()#+\-.!>])/g;
 const FOOTNOTE_BACKREF_PATTERN = /\s*↩\s*/g;
 const FOOTNOTE_REF_PATTERN = /\[\d+\]/g;
 const MULTIPLE_NEWLINES_PATTERN = /\n{3,}/g;
+const RAW_URL_PATTERN = /(?:https?:\/\/|www\.)[^\s<>()]+/gi;
 const HTML_BREAK_TAG_PATTERN = /<\s*br\s*\/?>/gi;
 const HTML_TABLE_SECTION_TAG_PATTERN = /<\s*\/?\s*(?:table|thead|tbody|tfoot|caption|colgroup|col)\b[^>]*>/gi;
 const HTML_TABLE_ROW_TAG_PATTERN = /<\s*\/?\s*tr\b[^>]*>/gi;
@@ -221,6 +222,63 @@ function stripStandaloneImageAssetLines(input: string): string {
     .join("\n");
 }
 
+function looksLikeCitationSourceLine(input: string): boolean {
+  const plain = paragraphToPlainText(input.replace(/^>\s?/, "").trim());
+  if (!plain) {
+    return false;
+  }
+
+  const hasDomain = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i.test(plain);
+  const hasYear = /\b20\d{2}\b/.test(plain);
+  if (
+    hasDomain &&
+    (/^[A-Z][A-Za-z.'-]+,\s*[A-Z][A-Za-z.'-]+\.?\s*(?:\(|,)/.test(plain) ||
+      /^[A-Z][A-Za-z0-9&.' -]+(?:,\s*|\s+\()\b.*\b20\d{2}\b/.test(plain))
+  ) {
+    return true;
+  }
+
+  return (
+    hasYear &&
+    /(?:reporting on|according to|source:|sources:|via)\b/i.test(plain) &&
+    /:\s*$/.test(plain) &&
+    wordCount(plain) <= 36
+  );
+}
+
+function stripRawUrlArtifactsFromLine(line: string): string {
+  RAW_URL_PATTERN.lastIndex = 0;
+  if (!RAW_URL_PATTERN.test(line)) {
+    return line;
+  }
+
+  RAW_URL_PATTERN.lastIndex = 0;
+  const withoutUrls = line
+    .replace(RAW_URL_PATTERN, " ")
+    .replace(/\(\s*\)/g, " ")
+    .replace(/\[\s*\]/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([([{])\s+/g, "$1")
+    .replace(/\s+([)\]}])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  if (looksLikeCitationSourceLine(withoutUrls)) {
+    return "";
+  }
+
+  const cleaned = withoutUrls
+    .replace(/\s*:\s*$/g, ".")
+    .replace(/[(-,/]+$/g, "")
+    .trim();
+
+  if (!cleaned || /^[()[\]{}\/:.,_-]+$/.test(cleaned)) {
+    return "";
+  }
+
+  return cleaned;
+}
+
 function normalizeTransport(markdown: string): string {
   return stripStandaloneImageAssetLines(
     normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeUnicodeArtifacts(markdown)))
@@ -236,6 +294,9 @@ function normalizeTransport(markdown: string): string {
       .replace(FOOTNOTE_BACKREF_PATTERN, " ")
       .replace(FOOTNOTE_REF_PATTERN, " ")
   )
+    .split("\n")
+    .map((line) => stripRawUrlArtifactsFromLine(line))
+    .join("\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(MULTIPLE_NEWLINES_PATTERN, "\n\n")
     .trim();
