@@ -235,27 +235,59 @@ export function PodcastAppWalkthroughs() {
         icon={<PocketCastsIcon className="h-6 w-6" />}
         name="Pocket Casts"
         platform="iPhone · Android · Web"
+        intro={
+          <>
+            Tap the Pocket Casts button above first so your private feed URL is
+            already copied, then use Pocket Casts search to add the show.
+          </>
+        }
         steps={[
+          <>Open Pocket Casts.</>,
           <>
-            Tap the button above — your feed URL is copied and Pocket Casts
-            opens automatically on mobile.
+            Tap <Ui>Discover</Ui> at the bottom of the screen.
           </>,
           <>
-            In Pocket Casts, tap the <Ui>Discover</Ui> tab (magnifying-glass
-            icon), then tap the <Ui>URL</Ui> field at the top.
+            Paste the podcast&apos;s RSS feed into the search tab and tap{" "}
+            <Ui>Enter</Ui>.
           </>,
           <>
-            Alternatively, go to <Ui>Profile</Ui> → <Ui>Settings</Ui> →{" "}
-            <Ui>Import from OPML or URL</Ui> on some versions.
+            If the show is not already in Pocket Casts yet, entering the RSS
+            feed there will submit it automatically.
           </>,
           <>
-            Paste your feed URL and tap <Ui>Subscribe</Ui>.
-          </>,
-          <>
-            The show appears under <Ui>Podcasts</Ui> in your library.
+            When the show appears, tap <Ui>Subscribe</Ui>.
           </>,
         ]}
         tip="Pocket Casts syncs across all your devices — subscribe once, listen everywhere."
+        extra={
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+                href="https://support.pocketcasts.com/knowledge-base/podcast-search/"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Read the official Pocket Casts help page
+                <span aria-hidden>↗</span>
+              </a>
+
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.16)] bg-white px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:border-[rgba(31,122,90,0.28)] hover:bg-slate-50"
+                href="https://www.youtube.com/watch?v=OQdFoeLrU0s"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Watch the Pocket Casts video
+                <span aria-hidden>↗</span>
+              </a>
+            </div>
+            <p className="text-xs leading-5 text-[var(--muted)]">
+              Pocket Casts says you can search by podcast name, author,
+              network, or RSS feed URL if you need another path.
+            </p>
+          </div>
+        }
       />
 
       {/* Overcast */}

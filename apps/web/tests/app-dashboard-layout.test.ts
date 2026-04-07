@@ -382,6 +382,39 @@ test("apple podcasts walkthrough includes the updated help steps and animation",
   assert.equal(existsSync(gifPath), true);
 });
 
+test("pocket casts walkthrough includes the support article flow and video link", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.pocketcasts.com/knowledge-base/podcast-search/",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("https://www.youtube.com/watch?v=OQdFoeLrU0s"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open Pocket Casts."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Discover</Ui> at the bottom of the screen."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      "Paste the podcast&apos;s RSS feed into the search tab and tap",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("When the show appears, tap <Ui>Subscribe</Ui>."),
+    true,
+  );
+});
+
 test("feedback page exists and keeps message as the first field", () => {
   const source = readFileSync(
     new URL("../src/components/feedback-form.tsx", import.meta.url),
