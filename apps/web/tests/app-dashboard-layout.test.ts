@@ -318,6 +318,38 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   );
 });
 
+test("youtube music walkthrough includes the updated help steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/youtube-music-add-podcast.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.google.com/youtubemusic/answer/13946190?hl=en",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/youtube-music-add-podcast.gif"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open the YouTube Music app."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Add a podcast by RSS feed</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Read the disclaimer and accept it."),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
 test("feedback page exists and keeps message as the first field", () => {
   const source = readFileSync(
     new URL("../src/components/feedback-form.tsx", import.meta.url),

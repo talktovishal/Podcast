@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 import {
   AntennaPodIcon,
@@ -28,16 +29,20 @@ type AppWalkthroughProps = {
   icon: ReactNode;
   name: string;
   platform: string;
+  intro?: ReactNode;
   steps: ReactNode[];
   tip?: ReactNode;
+  extra?: ReactNode;
 };
 
 function AppWalkthrough({
   icon,
   name,
   platform,
+  intro,
   steps,
   tip,
+  extra,
 }: AppWalkthroughProps) {
   return (
     <details className="group rounded-xl border bg-white">
@@ -58,6 +63,9 @@ function AppWalkthrough({
       </summary>
 
       <div className="border-t px-4 pb-5 pt-4 sm:px-5">
+        {intro ? (
+          <p className="mb-4 text-sm text-[var(--muted)]">{intro}</p>
+        ) : null}
         <ol className="space-y-3">
           {steps.map((step, i) => (
             <Step key={i} number={i + 1}>
@@ -70,6 +78,7 @@ function AppWalkthrough({
             💡 {tip}
           </div>
         ) : null}
+        {extra ? <div className="mt-4">{extra}</div> : null}
       </div>
     </details>
   );
@@ -123,27 +132,68 @@ export function PodcastAppWalkthroughs() {
         icon={<YouTubeMusicIcon className="h-6 w-6" />}
         name="YouTube Music"
         platform="iPhone · Android · Web"
+        intro={
+          <>
+            Tap the YouTube Music button above first so your private feed URL is
+            already copied, then follow these steps.
+          </>
+        }
         steps={[
+          <>Open the YouTube Music app.</>,
           <>
-            Tap the button above — your feed URL is copied and YouTube Music
-            opens first on mobile when the app is installed.
+            Tap <Ui>Library</Ui>.
           </>,
           <>
-            In YouTube Music, tap your <Ui>profile picture</Ui> (top-right),
-            then tap <Ui>Settings</Ui>.
+            Tap <Ui>Podcasts</Ui> at the top.
           </>,
           <>
-            Scroll to <Ui>Privacy and location</Ui> →{" "}
-            <Ui>Podcast subscriptions</Ui> and tap <Ui>Add podcast by URL</Ui>.
+            Tap <Ui>Add podcast</Ui> in the bottom-right corner.
           </>,
           <>
-            Paste your feed URL and tap <Ui>Subscribe</Ui>.
+            Tap <Ui>Add a podcast by RSS feed</Ui>.
           </>,
+          <>Read the disclaimer and accept it.</>,
+          <>Paste the full RSS/XML feed URL.</>,
           <>
-            Your podcast appears under <Ui>Library</Ui> → <Ui>Podcasts</Ui>.
+            Tap <Ui>Add</Ui>.
           </>,
         ]}
-        tip="YouTube Music RSS support is rolling out gradually — if the option is not visible yet, try again after the next app update."
+        tip={
+          <>
+            If you do not see the RSS option yet, make sure YouTube Music is up
+            to date and compare with the official help page below.
+          </>
+        }
+        extra={
+          <div className="space-y-3">
+            <a
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+              href="https://support.google.com/youtubemusic/answer/13946190?hl=en"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Read the official YouTube Music help page
+              <span aria-hidden>↗</span>
+            </a>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+                <Image
+                  alt="Animated walkthrough showing where to add a podcast by RSS feed in the YouTube Music mobile app."
+                  className="h-auto w-full"
+                  height={480}
+                  priority={false}
+                  src="/resources/youtube-music-add-podcast.gif"
+                  unoptimized
+                  width={221}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                Preview of the YouTube Music add-by-RSS flow.
+              </p>
+            </div>
+          </div>
+        }
       />
 
       {/* Pocket Casts */}
