@@ -350,6 +350,38 @@ test("youtube music walkthrough includes the updated help steps and animation", 
   assert.equal(existsSync(gifPath), true);
 });
 
+test("apple podcasts walkthrough includes the updated help steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/apple-podcasts-follow-by-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.apple.com/guide/iphone/find-podcasts-iph19bb8e705/ios",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/apple-podcasts-follow-by-url.gif"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open the Podcasts app."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Follow a Show by URL</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste the RSS/XML feed URL."),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
 test("feedback page exists and keeps message as the first field", () => {
   const source = readFileSync(
     new URL("../src/components/feedback-form.tsx", import.meta.url),

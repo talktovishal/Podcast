@@ -105,26 +105,60 @@ export function PodcastAppWalkthroughs() {
         icon={<ApplePodcastsIcon className="h-6 w-6" />}
         name="Apple Podcasts"
         platform="iPhone · iPad · Mac"
+        intro={
+          <>
+            On iPhone, tap the Apple Podcasts button above first so your
+            private feed URL is already copied, then follow these steps.
+          </>
+        }
         steps={[
+          <>Open the Podcasts app.</>,
           <>
-            Tap the button above — your feed URL is copied and Apple Podcasts
-            opens automatically.
+            Tap <Ui>Library</Ui>.
           </>,
           <>
-            In Apple Podcasts on iPhone, tap the <Ui>Library</Ui> tab at the
-            bottom.
+            Tap the More button <Ui>(...)</Ui> near the top of the Library
+            screen.
           </>,
           <>
-            Tap <Ui>Edit</Ui> (top-right corner), then tap{" "}
-            <Ui>Add a Show by URL…</Ui>
+            Tap <Ui>Follow a Show by URL</Ui>.
           </>,
+          <>Paste the RSS/XML feed URL.</>,
           <>
-            Paste your feed URL (already in your clipboard) and tap{" "}
-            <Ui>Subscribe</Ui>.
+            Tap <Ui>Follow</Ui>.
           </>,
-          <>Your podcast will appear in your Library within a few seconds.</>,
         ]}
-        tip="On Mac, open Podcasts, choose File → Follow a Podcast, and paste the URL."
+        tip="If you want to compare the flow screen-by-screen, use the Apple support page below."
+        extra={
+          <div className="space-y-3">
+            <a
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+              href="https://support.apple.com/guide/iphone/find-podcasts-iph19bb8e705/ios"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Read the official Apple Podcasts help page
+              <span aria-hidden>↗</span>
+            </a>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+                <Image
+                  alt="Animated walkthrough showing where to follow a podcast by URL in the Apple Podcasts iPhone app."
+                  className="h-auto w-full"
+                  height={480}
+                  priority={false}
+                  src="/resources/apple-podcasts-follow-by-url.gif"
+                  unoptimized
+                  width={221}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                Preview of the Apple Podcasts follow-by-URL flow on iPhone.
+              </p>
+            </div>
+          </div>
+        }
       />
 
       {/* YouTube Music */}
