@@ -79,7 +79,7 @@ Current behavior (`M57`-`M64` implemented):
   - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
-- aggressive cleanup rules apply to extracted source markdown only; summary markdown artifacts remain author-polished outputs.
+- summary and digest markdown artifacts remain author-polished stored outputs, while their podcast narration and description path now runs a later shared cleanup over stored markdown that removes trailing `Sources` / `References` appendices and other speech-only residue.
 - extraction-quality verification lives in `testing/extraction-quality/`, which reuses the same core URL and snapshot extraction code paths but stops before DB writes and TTS.
 
 ## Async pipeline
@@ -113,7 +113,7 @@ Current behavior (`M57`-`M64` implemented):
 4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
 5. Summary provider adapter generates digest markdown/text (stub, proxy, or Azure OpenAI depending on runtime env), while persisting provider/model/deployment/token usage metadata.
 6. Processor persists summary/email artifacts to object storage; email sender adapter records stub delivery status.
-7. When enabled, processor synthesizes digest audio with existing TTS selection and upserts `DigestEpisode`.
+7. When enabled, processor derives narration text from stored digest markdown with the shared summary cleanup pass, then synthesizes audio and upserts `DigestEpisode`.
 8. Digest RSS route renders separate digest feed using `DigestFeedToken`; media served via digest media range route.
 
 ## Manual Summary Studio pipeline (`M86`-`M91`)
@@ -122,8 +122,8 @@ Current behavior (`M57`-`M64` implemented):
 3. User optionally refines selection, title, target length (`5 / 15 / 30`), and podcast toggle, then creates a `SummaryRun`.
 4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
 5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
-6. Worker stores `summary.md` plus optional episode audio under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
-7. When podcast generation is enabled, the resulting `SummaryEpisode` is published into the main private RSS/media surface so it appears alongside regular episodes.
+6. Worker stores `summary.md` under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
+7. When podcast generation is enabled, worker derives narration text from stored summary markdown with the shared summary cleanup pass, publishes `SummaryEpisode` audio, and surfaces it in the main private RSS/media feed alongside regular episodes.
 
 ## Admin analytics pipeline (`M66`-`M70`)
 Event sources:

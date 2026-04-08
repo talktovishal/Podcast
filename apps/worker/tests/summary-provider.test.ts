@@ -188,3 +188,51 @@ test("azure summary provider retries nano failures once on mini", async () => {
   assert.equal(summary.title, "Fallback summary");
   assert.equal(summary.deployment, "digest-summary-mini");
 });
+
+test("azure summary provider derives plainText from markdown instead of trusting noisy source appendices", async () => {
+  globalThis.fetch = async () =>
+    validAzureResponse({
+      markdown: `# Summary title
+
+This body paragraph is the part we want narrated from the stored summary markdown.
+
+## Sources
+
+- [Research note](https://example.com/research-note)
+- https://cdn.example.com/chart.png`,
+      plainText: "Summary title. This body paragraph is the part we want narrated from the stored summary markdown. Sources. https://example.com/research-note"
+    });
+
+  workerEnv.digestSummaryProvider = "azure_openai";
+  workerEnv.azureOpenAiBaseUrl = "https://example.openai.azure.com";
+  workerEnv.azureOpenAiApiKey = "test-key";
+  resetSummaryProviderForTests();
+
+  const provider = makeSummaryProvider();
+  const summary = await provider.summarize({
+    kind: "summary_studio",
+    cadence: "WEEKLY",
+    timezone: "UTC",
+    periodKey: "2026-03-21_demo",
+    windowStart: new Date("2026-03-14T00:00:00.000Z"),
+    windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+    targetLengthMinutes: 15,
+    targetWords: 2100,
+    requestedTitle: "My Weekly Summary",
+    sources: [
+      {
+        itemId: "item-1",
+        title: "Item one",
+        sourceType: "URL",
+        sourceUrl: "https://example.com/1",
+        createdAt: new Date("2026-03-20T00:00:00.000Z"),
+        markdown: "# Item one\n\nInteresting details"
+      }
+    ]
+  });
+
+  assert.ok(summary.plainText.includes("This body paragraph is the part we want narrated"));
+  assert.ok(!summary.plainText.includes("Sources"));
+  assert.ok(!summary.plainText.includes("example.com/research-note"));
+  assert.ok(!summary.plainText.includes("cdn.example.com"));
+});

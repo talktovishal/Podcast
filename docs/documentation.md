@@ -301,7 +301,7 @@ Current (`M57`-`M64` implemented):
 - HTML-to-markdown conversion still flattens table-heavy extracted shells into readable markdown/text, while narration normalization also flattens legacy HTML/markdown table remnants so TTS does not speak tag names like `td` / `th`.
 - narration cleanup is now the aggressive step: it strips raw URLs, image assets/wrappers, leading metadata, standfirsts, caption/credit-only lines, citation/source tails, and residual raw HTML before TTS, hashing, and episode-description generation.
 - shared markdown quality analysis now distinguishes between stored-markdown wrapper/footer junk and URL/image/table/metadata residue that incorrectly survives narration prep.
-- generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
+- generated summary and digest markdown remain stored as authored markdown for reuse, but their podcast narration/description path now derives from a later shared cleanup pass over stored markdown so trailing `Sources` / `References` appendices and similar speech-only residue are stripped before audio.
 - low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.
 - markdown artifacts are retained for reuse and can be viewed through authorized dashboard/API flows.
 - generated item, digest, and summary MP3 episodes now carry a 60-day retention expiry and disappear from feed/playback surfaces once expired.

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cleanExtractedMarkdown, hasNarratableText, markdownToNarrationText } from "../src/extract/markdownCleanup";
+import {
+  cleanExtractedMarkdown,
+  hasNarratableText,
+  markdownToNarrationText,
+  summaryMarkdownToNarrationText
+} from "../src/extract/markdownCleanup";
 
 test("cleanExtractedMarkdown preserves rich source context while removing obvious chrome", () => {
   const cleaned = cleanExtractedMarkdown(`
@@ -184,6 +189,29 @@ Jeff Teper \\- who discovered me in a broken state after OneDrive — helped me 
   assert.ok(!narration.includes("↩"));
   assert.ok(!narration.includes("\\#"));
   assert.ok(!narration.includes("\\*"));
+});
+
+test("summaryMarkdownToNarrationText removes trailing sources appendix while keeping the summary body", () => {
+  const narration = summaryMarkdownToNarrationText(`
+# Weekly AI Brief
+
+This roundup keeps the polished summary body available for reuse while the narration path removes the citation appendix before audio generation and episode-description derivation.
+
+## Notable developments
+
+- Model routing is getting cheaper.
+
+## Sources
+
+- [Research note](https://example.com/research-note)
+- https://cdn.example.com/chart.png
+`);
+
+  assert.ok(narration.includes("Weekly AI Brief"));
+  assert.ok(narration.includes("Model routing is getting cheaper."));
+  assert.ok(!narration.includes("Sources"));
+  assert.ok(!narration.includes("research-note"));
+  assert.ok(!narration.includes("cdn.example.com"));
 });
 
 test("footer-only junk stays non-narratable after cleanup", () => {

@@ -164,6 +164,7 @@ Common follow-up patterns:
 - repeated `blocked access` on the URL lane usually means a real site block, not a product bug
 - repeated extension failures with visible article screenshots usually indicate a server-side snapshot classification or cleanup bug
 - `share_or_comment_noise`, `footer_legal`, `image_wrapper`, and narration-side `residual_url` / `table_markup` counts are usually the fastest way to spot cleanup regressions at scale
+- for summary/digest artifacts, stored `Sources` / `References` appendices and source URLs are expected; treat them as regressions only when they leak into the narration-side issue counts
 
 ## Rerun Strategy
 
@@ -188,6 +189,7 @@ Then rerun the full corpus when the focused subset looks good.
   - successful manual summary markdown from the rolling lookback window
   - item episode source markdown for episodes published in that window
   - item episode descriptions and summary episode descriptions for that window
+- Summary and digest artifact audits intentionally allow reusable stored markdown context such as source appendices, and focus on whether narration cleanup still strips URL/image/table/source residue before podcast output.
 - Production audit reports separate cleanup residue from stub/trivial outputs so placeholder runs do not get confused with real cleanup regressions
 - Docs, worktrees, planning files, and exports are excluded by default
 - If cleanup rules improve, you can refresh stored local artifacts with:

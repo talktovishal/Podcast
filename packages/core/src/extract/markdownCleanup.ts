@@ -119,10 +119,12 @@ const PROMO_FOOTER_PATTERNS = [
 ];
 const SHARE_OR_COMMENT_PATTERNS = [/^share$/i, /^read more$/i, /^must watch$/i, /^see more comments$/i, /^related content$/i];
 const LANGUAGE_FOOTER_PATTERNS = [/^english\s*\([^)]+\)$/i, /^more languages$/i, /^english\s+\(us\).*more languages$/i];
+const SUMMARY_APPENDIX_BLOCK_PATTERN = /(?:^|\n{2,})(?:#{1,6}\s+(?:sources?|references?)\s*|(?:sources?|references?)\s*:?\s*)(?:\n|$)[\s\S]*$/i;
 
 const MIN_NARRATION_TEXT_LENGTH = 160;
 export const lowSignalExtractionMessage =
   "This page didn't contain enough article text after removing navigation, login, and promo content.";
+const lowSignalSummaryMessage = "This summary didn't contain enough narratable text after removing source lists and formatting.";
 export const markdownQualityIssueTypes = [
   "residual_url",
   "leading_metadata",
@@ -765,6 +767,24 @@ function toNarrationMarkdown(markdown: string): string {
   return trimNarrationParagraphs(splitParagraphs(normalized)).join("\n\n");
 }
 
+function stripSummaryAppendix(markdown: string): string {
+  const normalized = markdown.replace(/\r\n/g, "\n").trim();
+  if (!normalized) {
+    return "";
+  }
+
+  const appendixMatch = normalized.match(SUMMARY_APPENDIX_BLOCK_PATTERN);
+  if (!appendixMatch || appendixMatch.index === undefined) {
+    return normalized;
+  }
+
+  return normalized.slice(0, appendixMatch.index).trim();
+}
+
+function toSummaryNarrationMarkdown(markdown: string): string {
+  return toNarrationMarkdown(stripSummaryAppendix(markdown));
+}
+
 function renderNarrationText(narrationMarkdown: string): string {
   if (!narrationMarkdown) {
     return "";
@@ -787,6 +807,10 @@ function renderNarrationText(narrationMarkdown: string): string {
 
 export function markdownToNarrationText(markdown: string): string {
   return renderNarrationText(toNarrationMarkdown(markdown));
+}
+
+export function summaryMarkdownToNarrationText(markdown: string): string {
+  return renderNarrationText(toSummaryNarrationMarkdown(markdown));
 }
 
 export function hasNarratableText(markdownText: string, minChars = MIN_NARRATION_TEXT_LENGTH): boolean {
@@ -1019,6 +1043,42 @@ export function analyzeMarkdownQuality(markdown: string): MarkdownQualityAnalysi
       "low_signal_after_cleanup",
       cleanedMarkdown || "(empty after cleanup)",
       lowSignalExtractionMessage
+    );
+  }
+
+  return {
+    cleanedMarkdown,
+    narrationText,
+    hasNarratableText: narratable,
+    issues,
+    issueCounts
+  };
+}
+
+export function analyzeSummaryMarkdownQuality(markdown: string): MarkdownQualityAnalysis {
+  const cleanedMarkdown = normalizeArtifactTransport(markdown);
+  const narrationMarkdown = toSummaryNarrationMarkdown(markdown);
+  const narrationText = renderNarrationText(narrationMarkdown);
+  const narratable = hasNarratableText(narrationText);
+  const issues: MarkdownQualityIssue[] = [];
+  const issueCounts = emptyIssueCounts();
+
+  for (const issue of analyzeArtifactMarkdownIssues(markdown)) {
+    pushIssue(issues, issueCounts, markdown, issue.type, issue.excerpt, issue.message);
+  }
+
+  for (const issue of analyzeNarrationIssues(narrationMarkdown, narrationText)) {
+    pushIssue(issues, issueCounts, markdown, issue.type, issue.excerpt, issue.message);
+  }
+
+  if (!narratable) {
+    pushIssue(
+      issues,
+      issueCounts,
+      cleanedMarkdown || markdown,
+      "low_signal_after_cleanup",
+      cleanedMarkdown || "(empty after cleanup)",
+      lowSignalSummaryMessage
     );
   }
 

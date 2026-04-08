@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { analyzeMarkdownQuality } from "../src/extract/markdownCleanup";
+import { analyzeMarkdownQuality, analyzeSummaryMarkdownQuality } from "../src/extract/markdownCleanup";
 
 test("analyzeMarkdownQuality flags broken wrapper junk and share chrome but allows rich stored markdown details", () => {
   const analysis = analyzeMarkdownQuality(`
@@ -71,4 +71,23 @@ Changes from AI and robotics will impact the U.S. economy and American democracy
   assert.equal(analysis.issueCounts.footer_legal, 0);
   assert.equal(analysis.issueCounts.low_signal_after_cleanup, 0);
   assert.ok(analysis.cleanedMarkdown.includes("privacy rights"));
+});
+
+test("analyzeSummaryMarkdownQuality ignores stored source appendices while keeping narration cleanup strict", () => {
+  const analysis = analyzeSummaryMarkdownQuality(`
+# Weekly AI Brief
+
+The summary body stays rich in storage, and this paragraph is long enough that narration should remain valid after the appendix is removed.
+
+## Sources
+
+- [Research note](https://example.com/research-note)
+- https://cdn.example.com/chart.png
+`);
+
+  assert.equal(analysis.issueCounts.residual_url, 0);
+  assert.equal(analysis.issueCounts.image_wrapper, 0);
+  assert.ok(analysis.cleanedMarkdown.includes("https://example.com/research-note"));
+  assert.ok(!analysis.narrationText.includes("research-note"));
+  assert.ok(!analysis.narrationText.includes("cdn.example.com"));
 });

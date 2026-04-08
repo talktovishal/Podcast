@@ -6,7 +6,8 @@ import {
   computeLatestClosedWeeklyWindow,
   computeNextDailyRunAt,
   computeNextWeeklyRunAt,
-  digestTargetWords
+  digestTargetWords,
+  summaryMarkdownToPlainText
 } from "../src";
 
 test("digestTargetWords maps canonical minute buckets", () => {
@@ -101,4 +102,26 @@ test("StubSummaryProvider is deterministic for identical input", async () => {
   assert.equal(first.title, second.title);
   assert.equal(first.markdown, second.markdown);
   assert.equal(first.plainText, second.plainText);
+});
+
+test("summaryMarkdownToPlainText strips summary source appendices and narration-only residue", () => {
+  const plainText = summaryMarkdownToPlainText(`
+# Weekly Robotics Roundup
+
+The robotics market is consolidating around deployment quality instead of demo quality, and this lead paragraph is long enough to remain narratable after formatting cleanup.
+
+| Theme | Signal |
+| --- | --- |
+| Warehouse autonomy | Faster piloting |
+
+## Sources
+- [Warehouse report](https://example.com/report)
+- https://cdn.example.com/chart.png
+`);
+
+  assert.ok(plainText.includes("Weekly Robotics Roundup"));
+  assert.ok(plainText.includes("Warehouse autonomy"));
+  assert.ok(!plainText.includes("## Sources"));
+  assert.ok(!plainText.includes("https://example.com/report"));
+  assert.ok(!plainText.includes("cdn.example.com"));
 });

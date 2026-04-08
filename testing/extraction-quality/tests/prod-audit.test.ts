@@ -29,6 +29,24 @@ test("classifyGeneratedContent suppresses low-signal issues for short descriptio
   assert.equal(result.issues.some((issue) => issue.type === "low_signal_after_cleanup"), false);
 });
 
+test("classifyGeneratedContent treats summary source appendices as summary-surface narration cleanup, not stored-artifact failures", () => {
+  const result = classifyGeneratedContent(
+    `# Weekly AI Brief
+
+This summary body is long enough to remain narratable after the source appendix gets removed for podcast playback.
+
+## Sources
+
+- [Research note](https://example.com/research-note)
+- https://cdn.example.com/chart.png`,
+    { surface: "summary" }
+  );
+
+  assert.equal(result.issueCounts.residual_url, 0);
+  assert.equal(result.issueCounts.image_wrapper, 0);
+  assert.equal(result.classification, "normal");
+});
+
 test("buildProductionAuditSummary tracks cleanup and stub counts separately", () => {
   const entries: ProductionAuditEntry[] = [
     {

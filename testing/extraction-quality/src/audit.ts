@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { analyzeMarkdownQuality } from "../../../packages/core/src/extract/markdownCleanup.ts";
+import { analyzeMarkdownQuality, analyzeSummaryMarkdownQuality } from "../../../packages/core/src/extract/markdownCleanup.ts";
 import { DIGESTS_ROOT, EXPORT_ROOT, ITEMS_ROOT } from "./paths.js";
 import { buildAuditSummary, writeAuditReports } from "./report.js";
 import type { ArtifactAuditEntry } from "./types.js";
@@ -27,9 +27,10 @@ export async function runArtifactAudit(): Promise<{ reportDir: string; results: 
 
   for (const path of paths) {
     const markdown = await readText(path);
-    const analysis = analyzeMarkdownQuality(markdown);
+    const kind = artifactKindForPath(path);
+    const analysis = kind === "source" ? analyzeMarkdownQuality(markdown) : analyzeSummaryMarkdownQuality(markdown);
     results.push({
-      kind: artifactKindForPath(path),
+      kind,
       path,
       relativePath: relativeToRepo(path),
       issueCounts: analysis.issueCounts,

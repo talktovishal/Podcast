@@ -156,10 +156,12 @@ function extractContentPayload(raw: unknown): { title: string; markdown: string;
     throw new RetryableNanoSummaryError(errorCodes.EXTRACTION_EMPTY, "Azure OpenAI returned empty summary content.", 502);
   }
 
+  const normalizedPlainText = summaryMarkdownToPlainText(markdown);
+
   return {
     title,
     markdown,
-    plainText: plainText || summaryMarkdownToPlainText(markdown)
+    plainText: normalizedPlainText || plainText
   };
 }
 
@@ -295,7 +297,7 @@ class AzureOpenAiSummaryProvider implements SummaryProvider {
     return {
       title: parsed.title || responseFallbackTitle(input),
       markdown: parsed.markdown,
-      plainText: parsed.plainText || summaryMarkdownToPlainText(parsed.markdown),
+      plainText: summaryMarkdownToPlainText(parsed.markdown) || parsed.plainText,
       provider: "azure_openai",
       model:
         typeof responseJson.model === "string" && responseJson.model.trim()

@@ -7,6 +7,7 @@ import {
   episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
+  summaryMarkdownToNarrationText,
   toSummaryPodcastUserMessage,
   toSummaryRunUserMessage,
   type DigestLengthMinutes
@@ -32,22 +33,6 @@ function normalizeLengthMinutes(value: number): DigestLengthMinutes {
     return value;
   }
   return 15;
-}
-
-function markdownToNarrationText(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/^[-*+]\s+/gm, "")
-    .replace(/^\d+[.)]\s+/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function toSafeErrorMessage(input: unknown): string {
@@ -336,7 +321,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
 
     if (claimResult.podcastEnabled) {
       try {
-        const narration = markdownToNarrationText(summary.plainText || summary.markdown);
+        const narration = summaryMarkdownToNarrationText(summary.markdown);
         const chunks = chunkText(narration, workerEnv.ttsChunkMaxChars);
         if (chunks.length === 0) {
           throw new AppError(errorCodes.EXTRACTION_EMPTY, "Summary markdown is empty.", 400);
@@ -354,7 +339,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
           normalizeStorageKey(join(summaryDir, "episode.mp3"))
         );
         const guid = `summary-${claimResult.id}`;
-        const description = buildEpisodeDescription(summary.plainText || narration);
+        const description = buildEpisodeDescription(narration);
         const publishedAt = new Date();
         const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 

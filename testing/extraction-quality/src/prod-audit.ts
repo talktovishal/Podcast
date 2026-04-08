@@ -2,7 +2,13 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { TableClient, type TableEntityResult } from "@azure/data-tables";
-import { AzureBlobObjectStorage, analyzeMarkdownQuality, type MarkdownQualityAnalysis, type MarkdownQualityIssue } from "@articlepod/core";
+import {
+  AzureBlobObjectStorage,
+  analyzeMarkdownQuality,
+  analyzeSummaryMarkdownQuality,
+  type MarkdownQualityAnalysis,
+  type MarkdownQualityIssue
+} from "@articlepod/core";
 import { EXPORT_ROOT } from "./paths.js";
 import { buildProductionAuditSummary, writeProductionAuditReports } from "./report.js";
 import type { CliOptions, ProductionAuditEntry, ProductionAuditKind, ProductionEntryClassification } from "./types.js";
@@ -124,9 +130,10 @@ function stripMarkdownToWords(markdown: string): string[] {
 
 export function classifyGeneratedContent(
   content: string,
-  options?: { suppressLowSignal?: boolean }
+  options?: { suppressLowSignal?: boolean; surface?: "source" | "summary" }
 ): Pick<ProductionAuditEntry, "issueCounts" | "issues" | "cleanedMarkdown" | "hasNarratableText" | "classification" | "notes"> {
-  const analysis = analyzeMarkdownQuality(content);
+  const analysis =
+    options?.surface === "summary" ? analyzeSummaryMarkdownQuality(content) : analyzeMarkdownQuality(content);
   const normalized = normalizeIssueSet(analysis, options?.suppressLowSignal ?? false);
   const trimmed = content.trim();
   const words = stripMarkdownToWords(trimmed);
@@ -245,7 +252,7 @@ function baseEntry(input: {
 function withContentAnalysis(
   entry: Omit<ProductionAuditEntry, "issueCounts" | "issues" | "cleanedMarkdown" | "hasNarratableText" | "classification" | "notes" | "fetchError">,
   content: string,
-  options?: { suppressLowSignal?: boolean }
+  options?: { suppressLowSignal?: boolean; surface?: "source" | "summary" }
 ): ProductionAuditEntry {
   const analyzed = classifyGeneratedContent(content, options);
   return {
@@ -325,7 +332,7 @@ export async function runProductionAudit(
 
     try {
       const markdown = await readBlobText(storage, storageKey);
-      return withContentAnalysis(entry, markdown);
+      return withContentAnalysis(entry, markdown, { surface: "summary" });
     } catch (error) {
       return withFetchError(entry, summarizeFetchError(error));
     }

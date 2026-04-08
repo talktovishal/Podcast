@@ -1,4 +1,5 @@
 import { AppError, errorCodes } from "../errors/codes";
+import { summaryMarkdownToNarrationText } from "../extract/markdownCleanup";
 import type { DigestCadence, DigestLengthMinutes } from "../types/domain";
 
 export type SummaryGenerationKind = "digest" | "summary_studio";
@@ -54,7 +55,7 @@ export function normalizeSummarySnippet(markdown: string): string {
 }
 
 export function summaryMarkdownToPlainText(markdown: string): string {
-  return normalizeSummarySnippet(markdown);
+  return summaryMarkdownToNarrationText(markdown);
 }
 
 function cadenceLabel(cadence: DigestCadence): string {
@@ -186,7 +187,7 @@ export class ProxySummaryProvider implements SummaryProvider {
     return {
       title,
       markdown,
-      plainText: parsed.plainText?.trim() || summaryMarkdownToPlainText(markdown),
+      plainText: summaryMarkdownToPlainText(markdown) || parsed.plainText?.trim() || "",
       provider: parsed.provider?.trim() || this.providerLabel,
       model: parsed.model?.trim() || "proxy",
       deployment: parsed.deployment?.trim() || null,

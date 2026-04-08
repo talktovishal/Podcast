@@ -32,7 +32,7 @@
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
-- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts with conservative artifact-safe cleanup, derives hashes/descriptions from a later aggressive narration cleanup step, and keeps the in-place backfill/regeneration command available for explicit follow-up use.
+- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts with conservative artifact-safe cleanup, derives source-item hashes/descriptions from a later aggressive narration cleanup step, and also routes summary/digest podcast narration plus descriptions through a shared markdown-derived cleanup pass while leaving stored summary artifacts untouched.
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
@@ -40,6 +40,7 @@
   - `/app` Recent items now renders capture metadata, while `/app/summary` article selection supports lightweight client-side filtering by importance and tag.
 - Extraction-quality audit track (`M101`) is implemented:
   - shared markdown quality analysis now distinguishes stored-markdown wrapper/footer junk from URL/image/table/metadata residue that incorrectly survives narration prep, plus low-signal post-cleanup results.
+  - summary/digest artifact audits now evaluate stored summary markdown against the summary narration contract, so source appendices and other reusable stored context are allowed while narration-side residue still gets flagged.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
   - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, and snapshot blocking still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
