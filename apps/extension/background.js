@@ -9,6 +9,7 @@ import {
   SNIPPET_CONTEXT_MENU_IDS,
   submitSelectionSnippet,
 } from "./snippet-service.mjs";
+import { captureRichSnippetDetails } from "./snippet-capture.mjs";
 
 const BADGE_RESET_MS = 3500;
 const COMMENT_WINDOW_WIDTH = 500;
@@ -75,13 +76,14 @@ async function handleImmediateSave(info, tab) {
       return;
     }
 
-    await submitSelectionSnippet({
-      serverUrl: activeServerUrl,
-      extensionToken,
-      sourceUrl: tab?.url || info.pageUrl || "",
-      sourceTitle: tab?.title || "",
-      selectedText: info.selectionText || "",
-    });
+    await submitSelectionSnippet(
+      await buildSnippetSubmission({
+        info,
+        tab,
+        serverUrl: activeServerUrl,
+        extensionToken,
+      }),
+    );
     await flashBadge("OK", "#15803d");
   } catch (error) {
     if (error && typeof error === "object" && (error.status === 401 || error.status === 403)) {
@@ -105,11 +107,7 @@ async function handleSaveWithComment(info, tab) {
         ? crypto.randomUUID()
         : `${Date.now()}`;
     const storageKey = draftStorageKey(draftId);
-    const draft = buildSnippetDraft({
-      sourceUrl: tab?.url || info.pageUrl || "",
-      sourceTitle: tab?.title || "",
-      selectedText: info.selectionText || "",
-    });
+    const draft = buildSnippetDraft(await resolveSnippetDraft(info, tab));
 
     await chrome.storage.local.set({
       [storageKey]: draft,
@@ -123,6 +121,57 @@ async function handleSaveWithComment(info, tab) {
   } catch {
     await flashBadge("!", "#b91c1c");
   }
+}
+
+async function resolveRichSnippetCapture(info, tab) {
+  const fallback = {
+    sourceUrl: info.frameUrl || tab?.url || info.pageUrl || "",
+    sourceTitle: tab?.title || "",
+    selectedText: info.selectionText || "",
+  };
+
+  if (!tab?.id || !fallback.sourceUrl || !/^https?:/i.test(fallback.sourceUrl)) {
+    return fallback;
+  }
+
+  try {
+    const target =
+      Number.isInteger(info.frameId) && info.frameId >= 0
+        ? { tabId: tab.id, frameIds: [info.frameId] }
+        : { tabId: tab.id };
+    const results = await chrome.scripting.executeScript({
+      target,
+      func: captureRichSnippetDetails,
+    });
+    const capture = results?.[0]?.result;
+    if (!capture?.ok || !capture.selectedText) {
+      return fallback;
+    }
+
+    return {
+      sourceUrl: capture.sourceUrl || fallback.sourceUrl,
+      sourceTitle: capture.sourceTitle || fallback.sourceTitle,
+      selectedText: capture.selectedText,
+      ...(capture.selectedHtml ? { selectedHtml: capture.selectedHtml } : {}),
+      ...(capture.contextHtml ? { contextHtml: capture.contextHtml } : {}),
+      ...(capture.pageMetadata ? { pageMetadata: capture.pageMetadata } : {}),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+async function resolveSnippetDraft(info, tab) {
+  return resolveRichSnippetCapture(info, tab);
+}
+
+async function buildSnippetSubmission({ info, tab, serverUrl, extensionToken }) {
+  const capture = await resolveRichSnippetCapture(info, tab);
+  return {
+    serverUrl,
+    extensionToken,
+    ...capture,
+  };
 }
 
 chrome.runtime.onInstalled.addListener(() => {

@@ -107,7 +107,7 @@ function hasStrongDomArticleSignal(document: Document): boolean {
   return (substantialParagraphs.length >= 3 && totalWords >= 70) || (substantialParagraphs.length >= 2 && totalWords >= 100);
 }
 
-function htmlToMarkdown(html: string): string {
+export function htmlToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: "atx",
     codeBlockStyle: "fenced",

@@ -18,6 +18,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
 6. Logged-in users can open Summaries at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
 7. Logged-in users can submit message-first product feedback at `/app/feedback`.
+8. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
 
 ## Accounts
 
@@ -72,6 +73,7 @@ Connect flow:
 3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
 4. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page, including lightweight Cloudflare `Verifying...` challenge shells; the popup itself stays mostly focused on DOM capture and cleanup.
 5. Chrome Web Store reviewers should use the dedicated reviewer login, then open `/app/chrome-extension`; the page auto-prepares a fresh one-time connect code on load. The installed extension token remains long-lived after pairing, but the connect code itself intentionally stays one-time and time-limited.
+6. The right-click snippet actions now save more than flat text: each snippet can include sanitized selection HTML, derived markdown context, section-heading path, and normalized page metadata so later review has more structure.
 
 ## Workspace layout
 
@@ -90,6 +92,10 @@ Connect flow:
 - `/app/chrome-extension` is the dedicated capture-setup page:
   - extension install/connect/revoke controls at the top
   - setup notes and future walkthrough/video space below the live tools
+- `/app/snippets` is the saved-selection review page:
+  - newest-first snippet cards
+  - comment editing and delete actions
+  - richer structured context, section path, and page metadata when available from the extension capture
 - `/app/settings` is the account/configuration home:
   - voice settings first, then digest scheduling, then billing
   - demographic profile and digest history follow the core settings

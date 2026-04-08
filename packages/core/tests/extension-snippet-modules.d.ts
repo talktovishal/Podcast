@@ -14,11 +14,17 @@ declare module "../../../apps/extension/snippet-service.mjs" {
     sourceUrl?: string;
     sourceTitle?: string;
     selectedText?: string;
+    selectedHtml?: string;
+    contextHtml?: string;
+    pageMetadata?: Record<string, unknown>;
     comment?: string | null;
   }): {
     sourceUrl: string;
     sourceTitle?: string;
     selectedText: string;
+    selectedHtml?: string;
+    contextHtml?: string;
+    pageMetadata?: Record<string, unknown>;
     comment?: string;
   };
 
@@ -28,6 +34,9 @@ declare module "../../../apps/extension/snippet-service.mjs" {
     sourceUrl?: string;
     sourceTitle?: string;
     selectedText?: string;
+    selectedHtml?: string;
+    contextHtml?: string;
+    pageMetadata?: Record<string, unknown>;
     comment?: string | null;
     fetchImpl?: (url: string, init: RequestInit) => Promise<{
       ok: boolean;
@@ -35,4 +44,21 @@ declare module "../../../apps/extension/snippet-service.mjs" {
       json: () => Promise<any>;
     }>;
   }): Promise<any>;
+}
+
+declare module "../../../apps/extension/snippet-capture.mjs" {
+  export function captureRichSnippetDetails(input?: {
+    window?: Window;
+    document?: Document;
+    location?: Location;
+  }): {
+    ok: boolean;
+    errorMessage?: string;
+    sourceUrl?: string;
+    sourceTitle?: string;
+    selectedText?: string;
+    selectedHtml?: string;
+    contextHtml?: string;
+    pageMetadata?: Record<string, unknown>;
+  };
 }

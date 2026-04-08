@@ -34,6 +34,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - production deploys can now seed a dedicated Chrome Web Store reviewer account from env secrets, but reviewer pairing still uses the normal one-time 24-hour connect code generated after login instead of a permanent shared code.
   - the extension now also supports right-click selection capture into a dedicated `Snippets` workspace, with both instant-save and save-with-comment flows backed by the same long-lived paired extension token.
   - saved snippets persist in a first-class `Snippet` record separate from episode `Item`s, so selection capture does not enqueue podcast jobs or alter RSS/feed behavior.
+  - snippet capture now stores a richer, Obsidian-inspired bundle by default: selected text plus sanitized selection HTML, derived selection/context markdown, normalized page metadata, and a reusable structured markdown template for later review or summarization.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.

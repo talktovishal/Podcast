@@ -9,6 +9,21 @@ type SnippetView = {
   sourceUrl: string;
   sourceTitle: string | null;
   selectedText: string;
+  selectedHtml: string | null;
+  selectionMarkdown: string | null;
+  contextMarkdown: string | null;
+  captureMarkdown: string | null;
+  pageMetadata: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  } | null;
   comment: string | null;
   createdAt: string;
   updatedAt: string;
@@ -46,11 +61,26 @@ function sourceLabel(snippet: SnippetView): string {
     return snippet.sourceTitle.trim();
   }
 
+  if (snippet.pageMetadata?.siteName?.trim()) {
+    return snippet.pageMetadata.siteName.trim();
+  }
+
   try {
     return new URL(snippet.sourceUrl).host;
   } catch {
     return snippet.sourceUrl;
   }
+}
+
+function metadataSummary(snippet: SnippetView): string[] {
+  const values = [
+    snippet.pageMetadata?.siteName?.trim() || null,
+    snippet.pageMetadata?.author?.trim() || snippet.pageMetadata?.byline?.trim() || null,
+    snippet.pageMetadata?.publishedAt?.trim() || null,
+    snippet.pageMetadata?.language?.trim() || null
+  ].filter((value): value is string => Boolean(value));
+
+  return values;
 }
 
 export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
@@ -227,6 +257,7 @@ export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
       {newestFirst.map((snippet) => {
         const draftComment = draftComments[snippet.id] ?? "";
         const normalizedSavedComment = snippet.comment ?? "";
+        const snippetMetadata = metadataSummary(snippet);
         const isDirty = draftComment !== normalizedSavedComment;
         const isSaveBusy = saveBusyId === snippet.id;
         const isDeleteBusy = deleteBusyId === snippet.id;
@@ -253,6 +284,36 @@ export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
             <blockquote className="mt-3 whitespace-pre-wrap rounded-2xl border border-[rgba(31,42,31,0.08)] bg-[rgba(223,243,236,0.3)] p-4 text-sm leading-6 text-[var(--ink)]">
               {snippet.selectedText}
             </blockquote>
+
+            {snippetMetadata.length > 0 ? (
+              <p className="mt-3 text-xs uppercase tracking-[0.16em] text-[var(--muted)]">
+                {snippetMetadata.join(" • ")}
+              </p>
+            ) : null}
+
+            {snippet.pageMetadata?.description ? (
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{snippet.pageMetadata.description}</p>
+            ) : null}
+
+            {snippet.pageMetadata?.sectionHeadings?.length ? (
+              <p className="mt-3 text-sm text-[var(--muted)]">
+                Section path: {snippet.pageMetadata.sectionHeadings.join(" > ")}
+              </p>
+            ) : null}
+
+            {snippet.contextMarkdown ? (
+              <details className="mt-4 rounded-2xl border border-[rgba(31,42,31,0.08)] bg-[rgba(255,255,255,0.7)] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">Captured context</summary>
+                <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--ink)]">{snippet.contextMarkdown}</pre>
+              </details>
+            ) : null}
+
+            {snippet.captureMarkdown ? (
+              <details className="mt-4 rounded-2xl border border-[rgba(31,42,31,0.08)] bg-[rgba(255,255,255,0.7)] p-4">
+                <summary className="cursor-pointer text-sm font-medium text-[var(--ink)]">Structured capture</summary>
+                <pre className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[var(--ink)]">{snippet.captureMarkdown}</pre>
+              </details>
+            ) : null}
 
             <label className="mt-4 block">
               <span className="text-sm font-medium text-[var(--ink)]">Comment</span>

@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import type { CreateSnippetInput, UpdateSnippetInput } from "@articlepod/core";
+import type { Snippet as PrismaSnippet } from "@prisma/client";
+import {
+  buildRichSnippetCapture,
+  parseSnippetPageMetadata,
+  type CreateSnippetInput,
+  type SnippetPageMetadata,
+  type UpdateSnippetInput
+} from "@articlepod/core";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 
@@ -9,6 +16,11 @@ export type SnippetListEntry = {
   sourceUrl: string;
   sourceTitle: string | null;
   selectedText: string;
+  selectedHtml: string | null;
+  selectionMarkdown: string | null;
+  contextMarkdown: string | null;
+  captureMarkdown: string | null;
+  pageMetadata: SnippetPageMetadata | null;
   comment: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -20,6 +32,17 @@ function compareNewestFirst<T extends { createdAt: Date; updatedAt: Date; id: st
     b.updatedAt.getTime() - a.updatedAt.getTime() ||
     a.id.localeCompare(b.id)
   );
+}
+
+function mapPrismaSnippet(snippet: PrismaSnippet): SnippetListEntry {
+  return {
+    ...snippet,
+    selectedHtml: snippet.selectedHtml,
+    selectionMarkdown: snippet.selectionMarkdown,
+    contextMarkdown: snippet.contextMarkdown,
+    captureMarkdown: snippet.captureMarkdown,
+    pageMetadata: parseSnippetPageMetadata(snippet.pageMetadataJson)
+  };
 }
 
 export async function listSnippetsForUser(userId: string, limit = 100): Promise<SnippetListEntry[]> {
@@ -35,7 +58,7 @@ export async function listSnippetsForUser(userId: string, limit = 100): Promise<
     take: normalizedLimit
   });
 
-  return snippets;
+  return snippets.map((snippet) => mapPrismaSnippet(snippet));
 }
 
 export async function hasSnippetsForUser(userId: string): Promise<boolean> {
@@ -61,10 +84,19 @@ export async function findSnippetForUser(userId: string, snippetId: string): Pro
   const snippet = await prisma.snippet.findUnique({
     where: { id: snippetId }
   });
-  return snippet && snippet.userId === userId ? snippet : null;
+  return snippet && snippet.userId === userId ? mapPrismaSnippet(snippet) : null;
 }
 
 export async function createSnippetForUser(userId: string, input: CreateSnippetInput): Promise<SnippetListEntry> {
+  const richCapture = buildRichSnippetCapture({
+    sourceUrl: input.sourceUrl,
+    sourceTitle: input.sourceTitle ?? null,
+    selectedText: input.selectedText,
+    selectedHtml: input.selectedHtml ?? null,
+    contextHtml: input.contextHtml ?? null,
+    pageMetadata: input.pageMetadata ?? null
+  });
+
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     return webPrimaryStore.createSnippet({
       id: randomUUID(),
@@ -72,19 +104,31 @@ export async function createSnippetForUser(userId: string, input: CreateSnippetI
       sourceUrl: input.sourceUrl,
       sourceTitle: input.sourceTitle ?? null,
       selectedText: input.selectedText,
+      selectedHtml: richCapture.selectedHtml,
+      selectionMarkdown: richCapture.selectionMarkdown,
+      contextMarkdown: richCapture.contextMarkdown,
+      captureMarkdown: richCapture.captureMarkdown,
+      pageMetadata: richCapture.pageMetadata,
       comment: input.comment
     });
   }
 
-  return prisma.snippet.create({
+  const snippet = await prisma.snippet.create({
     data: {
       userId,
       sourceUrl: input.sourceUrl,
       sourceTitle: input.sourceTitle ?? null,
       selectedText: input.selectedText,
+      selectedHtml: richCapture.selectedHtml,
+      selectionMarkdown: richCapture.selectionMarkdown,
+      contextMarkdown: richCapture.contextMarkdown,
+      captureMarkdown: richCapture.captureMarkdown,
+      pageMetadataJson: richCapture.pageMetadata ? JSON.stringify(richCapture.pageMetadata) : null,
       comment: input.comment
     }
   });
+
+  return mapPrismaSnippet(snippet);
 }
 
 export async function updateSnippetForUser(
@@ -103,12 +147,14 @@ export async function updateSnippetForUser(
     });
   }
 
-  return prisma.snippet.update({
+  const snippet = await prisma.snippet.update({
     where: { id: snippetId },
     data: {
       ...(input.comment !== undefined ? { comment: input.comment } : {})
     }
   });
+
+  return mapPrismaSnippet(snippet);
 }
 
 export async function deleteSnippetForUser(userId: string, snippetId: string): Promise<boolean> {

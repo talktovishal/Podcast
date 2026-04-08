@@ -16,6 +16,7 @@ export * from "./tts/melo";
 export * from "./extract/html";
 export * from "./extract/markdownCleanup";
 export * from "./extract/pdf";
+export * from "./snippets/richCapture";
 export * from "./storage/localStorage";
 export * from "./storage/types";
 export * from "./storage/localObjectStorage";

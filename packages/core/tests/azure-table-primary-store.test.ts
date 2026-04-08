@@ -181,7 +181,7 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
   assert.deepEqual(item?.tags, ["financial", "retirement"]);
 });
 
-test("createSnippet stores selected text and optional comment", async () => {
+test("createSnippet stores rich snippet capture fields alongside selected text", async () => {
   const store = createStore();
   let createdEntity: Record<string, unknown> | undefined;
 
@@ -199,12 +199,29 @@ test("createSnippet stores selected text and optional comment", async () => {
     sourceUrl: "https://example.com/article",
     sourceTitle: "Example",
     selectedText: "Saved excerpt",
+    selectedHtml: "<p>Saved <strong>excerpt</strong></p>",
+    selectionMarkdown: "Saved **excerpt**",
+    contextMarkdown: "## Context\n\nSaved **excerpt** with more detail.",
+    captureMarkdown: "# Example\n\n## Selected passage\n\nSaved **excerpt**",
+    pageMetadata: {
+      siteName: "Example Site",
+      sectionHeadings: ["Main topic", "Details"]
+    },
     comment: "Follow up later"
   });
 
   assert.equal(createdEntity?.selectedText, "Saved excerpt");
+  assert.equal(createdEntity?.selectedHtml, "<p>Saved <strong>excerpt</strong></p>");
+  assert.equal(createdEntity?.selectionMarkdown, "Saved **excerpt**");
+  assert.equal(createdEntity?.contextMarkdown, "## Context\n\nSaved **excerpt** with more detail.");
+  assert.equal(createdEntity?.captureMarkdown, "# Example\n\n## Selected passage\n\nSaved **excerpt**");
+  assert.deepEqual(JSON.parse(String(createdEntity?.pageMetadataJson)), {
+    sectionHeadings: ["Main topic", "Details"],
+    siteName: "Example Site"
+  });
   assert.equal(createdEntity?.comment, "Follow up later");
   assert.equal(snippet.sourceUrl, "https://example.com/article");
+  assert.equal(snippet.pageMetadata?.siteName, "Example Site");
   assert.equal(snippet.comment, "Follow up later");
 });
 
@@ -223,6 +240,11 @@ test("updateSnippet writes comment changes and preserves source fields", async (
     sourceUrl: "https://example.com/original",
     sourceTitle: "Original title",
     selectedText: "Original excerpt",
+    selectedHtml: "<p>Original excerpt</p>",
+    selectionMarkdown: "Original excerpt",
+    contextMarkdown: "Original excerpt with more context",
+    captureMarkdown: "# Original title",
+    pageMetadataJson: '{"siteName":"Example Site","sectionHeadings":["News"]}',
     comment: "First note",
     createdAt: "2026-04-06T08:00:00.000Z",
     updatedAt: "2026-04-06T08:00:00.000Z",
@@ -244,6 +266,9 @@ test("updateSnippet writes comment changes and preserves source fields", async (
 
   assert.equal(updatedEntity?.sourceUrl, "https://example.com/original");
   assert.equal(updatedEntity?.selectedText, "Original excerpt");
+  assert.equal(updatedEntity?.selectionMarkdown, "Original excerpt");
+  assert.equal(updatedEntity?.pageMetadataJson, '{"siteName":"Example Site","sectionHeadings":["News"]}');
   assert.equal(updatedEntity?.comment, "Updated note");
+  assert.equal(snippet?.pageMetadata?.siteName, "Example Site");
   assert.equal(snippet?.comment, "Updated note");
 });

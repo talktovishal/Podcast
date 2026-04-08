@@ -74,6 +74,16 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
           sourceUrl: `https://example.com/snippets/${uniq}`,
           sourceTitle: `Snippet ${uniq}`,
           selectedText: "A saved highlight from the page.",
+          selectedHtml: "<p>A saved <strong>highlight</strong> from the page.</p>",
+          contextHtml:
+            "<article><h2>Important section</h2><p>A saved <strong>highlight</strong> from the page.</p><p>Supporting context.</p></article>",
+          pageMetadata: {
+            canonicalUrl: `https://example.com/snippets/${uniq}`,
+            siteName: "Example Site",
+            author: "Jane Writer",
+            publishedAt: "2026-04-08T10:00:00Z",
+            sectionHeadings: ["Main topic", "Important section"]
+          },
           comment: "remember this"
         })
       })
@@ -81,17 +91,23 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
     assert.equal(createResponse.status, 200);
     const createPayload = (await createResponse.json()) as {
       ok: boolean;
-      snippet: { id: string; comment: string | null; selectedText: string };
+      snippet: { id: string; comment: string | null; selectedText: string; captureMarkdown: string | null };
     };
     assert.equal(createPayload.ok, true);
     assert.equal(createPayload.snippet.comment, "remember this");
     assert.equal(createPayload.snippet.selectedText, "A saved highlight from the page.");
+    assert.match(createPayload.snippet.captureMarkdown || "", /## Selected passage/);
 
     const createdSnippet = await prisma.snippet.findUnique({
       where: { id: createPayload.snippet.id }
     });
     assert.ok(createdSnippet);
     assert.equal(createdSnippet?.userId, user.id);
+    assert.equal(createdSnippet?.selectedHtml, "<p>A saved <strong>highlight</strong> from the page.</p>");
+    assert.match(createdSnippet?.selectionMarkdown || "", /\*\*highlight\*\*/);
+    assert.match(createdSnippet?.contextMarkdown || "", /Supporting context/);
+    assert.match(createdSnippet?.captureMarkdown || "", /Section path: Main topic > Important section/);
+    assert.equal(createdSnippet?.pageMetadataJson?.includes('"siteName":"Example Site"'), true);
     assert.equal(await prisma.item.count({ where: { userId: user.id } }), 0);
     assert.equal(await prisma.job.count(), initialJobCount);
 
@@ -200,6 +216,12 @@ test("snippets create route accepts extension token auth", async () => {
           sourceUrl: `https://example.com/extension/${uniq}`,
           sourceTitle: "Extension capture",
           selectedText: "Extension-saved selection",
+          selectedHtml: "<p>Extension-saved <em>selection</em></p>",
+          contextHtml: "<article><p>Extension-saved <em>selection</em> with context.</p></article>",
+          pageMetadata: {
+            siteName: "Extension Site",
+            sectionHeadings: ["Saved from extension"]
+          },
           comment: "context from extension"
         })
       })
@@ -218,6 +240,7 @@ test("snippets create route accepts extension token auth", async () => {
     });
     assert.ok(snippet);
     assert.equal(snippet?.userId, user.id);
+    assert.equal(snippet?.pageMetadataJson?.includes('"siteName":"Extension Site"'), true);
     assert.equal(await prisma.item.count({ where: { userId: user.id } }), 0);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });

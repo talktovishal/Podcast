@@ -128,8 +128,12 @@ export const submitPdfSchema = z
 export const HTML_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
 export const SNIPPET_SELECTED_TEXT_MAX_CHARS = 20_000;
 export const SNIPPET_COMMENT_MAX_CHARS = 2_000;
+export const SNIPPET_SELECTED_HTML_MAX_CHARS = 12_000;
+export const SNIPPET_CONTEXT_HTML_MAX_CHARS = 24_000;
+export const SNIPPET_DERIVED_MARKDOWN_MAX_CHARS = 16_000;
 
 const snippetCommentInputSchema = z.string().max(SNIPPET_COMMENT_MAX_CHARS).nullable().optional();
+const snippetSectionHeadingSchema = z.string().trim().min(1).max(200);
 
 function normalizeOptionalSnippetComment(input: string | null | undefined): string | null {
   if (typeof input !== "string") {
@@ -138,6 +142,94 @@ function normalizeOptionalSnippetComment(input: string | null | undefined): stri
   const trimmed = input.trim();
   return trimmed ? trimmed : null;
 }
+
+function normalizeOptionalSnippetField(input: string | null | undefined): string | undefined {
+  if (typeof input !== "string") {
+    return undefined;
+  }
+  const trimmed = input.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeSnippetSectionHeadings(input: ReadonlyArray<string> | null | undefined): string[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  const deduped = new Set<string>();
+  for (const value of input) {
+    const normalized = normalizeOptionalSnippetField(value);
+    if (normalized) {
+      deduped.add(normalized);
+    }
+  }
+
+  return Array.from(deduped);
+}
+
+export const snippetPageMetadataSchema = z
+  .object({
+    canonicalUrl: z.string().url().max(2048).optional(),
+    siteName: z.string().trim().min(1).max(200).optional(),
+    description: z.string().trim().min(1).max(1500).optional(),
+    author: z.string().trim().min(1).max(200).optional(),
+    byline: z.string().trim().min(1).max(400).optional(),
+    publishedAt: z.string().trim().min(1).max(120).optional(),
+    language: z.string().trim().min(1).max(40).optional(),
+    imageUrl: z.string().url().max(2048).optional(),
+    sectionHeadings: z.array(snippetSectionHeadingSchema).max(6).optional()
+  })
+  .transform((input) => {
+    const normalized: {
+      canonicalUrl?: string;
+      siteName?: string;
+      description?: string;
+      author?: string;
+      byline?: string;
+      publishedAt?: string;
+      language?: string;
+      imageUrl?: string;
+      sectionHeadings: string[];
+    } = {
+      sectionHeadings: normalizeSnippetSectionHeadings(input.sectionHeadings)
+    };
+
+    const canonicalUrl = normalizeOptionalSnippetField(input.canonicalUrl);
+    const siteName = normalizeOptionalSnippetField(input.siteName);
+    const description = normalizeOptionalSnippetField(input.description);
+    const author = normalizeOptionalSnippetField(input.author);
+    const byline = normalizeOptionalSnippetField(input.byline);
+    const publishedAt = normalizeOptionalSnippetField(input.publishedAt);
+    const language = normalizeOptionalSnippetField(input.language);
+    const imageUrl = normalizeOptionalSnippetField(input.imageUrl);
+
+    if (canonicalUrl) {
+      normalized.canonicalUrl = canonicalUrl;
+    }
+    if (siteName) {
+      normalized.siteName = siteName;
+    }
+    if (description) {
+      normalized.description = description;
+    }
+    if (author) {
+      normalized.author = author;
+    }
+    if (byline) {
+      normalized.byline = byline;
+    }
+    if (publishedAt) {
+      normalized.publishedAt = publishedAt;
+    }
+    if (language) {
+      normalized.language = language;
+    }
+    if (imageUrl) {
+      normalized.imageUrl = imageUrl;
+    }
+
+    return normalized;
+  });
 
 export const submitHtmlSnapshotSchema = z
   .object({
@@ -163,13 +255,19 @@ export const createSnippetSchema = z
     sourceUrl: z.string().url().max(2048),
     sourceTitle: z.string().trim().min(1).max(200).optional(),
     selectedText: z.string().trim().min(1).max(SNIPPET_SELECTED_TEXT_MAX_CHARS),
-    comment: snippetCommentInputSchema
+    comment: snippetCommentInputSchema,
+    selectedHtml: z.string().trim().min(1).max(SNIPPET_SELECTED_HTML_MAX_CHARS).optional(),
+    contextHtml: z.string().trim().min(1).max(SNIPPET_CONTEXT_HTML_MAX_CHARS).optional(),
+    pageMetadata: snippetPageMetadataSchema.optional()
   })
   .transform((input) => ({
     sourceUrl: input.sourceUrl,
     sourceTitle: input.sourceTitle,
     selectedText: input.selectedText.trim(),
-    comment: normalizeOptionalSnippetComment(input.comment)
+    comment: normalizeOptionalSnippetComment(input.comment),
+    selectedHtml: normalizeOptionalSnippetField(input.selectedHtml),
+    contextHtml: normalizeOptionalSnippetField(input.contextHtml),
+    pageMetadata: input.pageMetadata
   }));
 
 export const updateSnippetSchema = z
@@ -277,6 +375,7 @@ export type SubmitPdfInput = z.infer<typeof submitPdfSchema>;
 export type SubmitHtmlSnapshotInput = z.infer<typeof submitHtmlSnapshotSchema>;
 export type CreateSnippetInput = z.infer<typeof createSnippetSchema>;
 export type UpdateSnippetInput = z.infer<typeof updateSnippetSchema>;
+export type SnippetPageMetadata = z.infer<typeof snippetPageMetadataSchema>;
 export type UpdateItemMetadataInput = z.infer<typeof updateItemMetadataSchema>;
 export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchema>;
 export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;

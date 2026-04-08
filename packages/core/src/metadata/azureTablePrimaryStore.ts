@@ -1,5 +1,6 @@
 import { TableClient, type TableEntity, type TableEntityResult } from "@azure/data-tables";
-import { parseStoredItemTags, serializeItemTags } from "../types/domain";
+import { parseStoredItemTags, serializeItemTags, type SnippetPageMetadata } from "../types/domain";
+import { parseSnippetPageMetadata, serializeSnippetPageMetadata } from "../snippets/richCapture";
 
 type AzureTablePrimaryStoreOptions = {
   tablePrefix: string;
@@ -203,6 +204,11 @@ export type AzureTablePrimarySnippet = {
   sourceUrl: string;
   sourceTitle: string | null;
   selectedText: string;
+  selectedHtml: string | null;
+  selectionMarkdown: string | null;
+  contextMarkdown: string | null;
+  captureMarkdown: string | null;
+  pageMetadata: SnippetPageMetadata | null;
   comment: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -1001,6 +1007,11 @@ export class AzureTablePrimaryStore {
       sourceUrl: parseRequiredString(entity.sourceUrl, "sourceUrl"),
       sourceTitle: parseString(entity.sourceTitle),
       selectedText: parseRequiredString(entity.selectedText, "selectedText"),
+      selectedHtml: parseString(entity.selectedHtml),
+      selectionMarkdown: parseString(entity.selectionMarkdown),
+      contextMarkdown: parseString(entity.contextMarkdown),
+      captureMarkdown: parseString(entity.captureMarkdown),
+      pageMetadata: parseSnippetPageMetadata(parseString(entity.pageMetadataJson)),
       comment: parseString(entity.comment),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
@@ -1977,6 +1988,11 @@ export class AzureTablePrimaryStore {
     sourceUrl: string;
     sourceTitle?: string | null;
     selectedText: string;
+    selectedHtml?: string | null;
+    selectionMarkdown?: string | null;
+    contextMarkdown?: string | null;
+    captureMarkdown?: string | null;
+    pageMetadata?: SnippetPageMetadata | null;
     comment?: string | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimarySnippet> {
@@ -1988,6 +2004,11 @@ export class AzureTablePrimaryStore {
       sourceUrl: input.sourceUrl,
       sourceTitle: input.sourceTitle ?? null,
       selectedText: input.selectedText,
+      selectedHtml: input.selectedHtml ?? null,
+      selectionMarkdown: input.selectionMarkdown ?? null,
+      contextMarkdown: input.contextMarkdown ?? null,
+      captureMarkdown: input.captureMarkdown ?? null,
+      pageMetadataJson: serializeSnippetPageMetadata(input.pageMetadata) ?? null,
       comment: input.comment ?? null,
       createdAt: createdAt.toISOString(),
       updatedAt: createdAt.toISOString()
@@ -2002,6 +2023,11 @@ export class AzureTablePrimaryStore {
       sourceUrl: string;
       sourceTitle: string | null;
       selectedText: string;
+      selectedHtml: string | null;
+      selectionMarkdown: string | null;
+      contextMarkdown: string | null;
+      captureMarkdown: string | null;
+      pageMetadata: SnippetPageMetadata | null;
       comment: string | null;
       updatedAt: Date;
     }>
@@ -2018,6 +2044,14 @@ export class AzureTablePrimaryStore {
       sourceUrl: input.sourceUrl ?? parseRequiredString(current.sourceUrl, "sourceUrl"),
       sourceTitle: input.sourceTitle === undefined ? current.sourceTitle ?? null : input.sourceTitle,
       selectedText: input.selectedText ?? parseRequiredString(current.selectedText, "selectedText"),
+      selectedHtml: input.selectedHtml === undefined ? current.selectedHtml ?? null : input.selectedHtml,
+      selectionMarkdown: input.selectionMarkdown === undefined ? current.selectionMarkdown ?? null : input.selectionMarkdown,
+      contextMarkdown: input.contextMarkdown === undefined ? current.contextMarkdown ?? null : input.contextMarkdown,
+      captureMarkdown: input.captureMarkdown === undefined ? current.captureMarkdown ?? null : input.captureMarkdown,
+      pageMetadataJson:
+        input.pageMetadata === undefined
+          ? current.pageMetadataJson ?? null
+          : serializeSnippetPageMetadata(input.pageMetadata) ?? null,
       comment: input.comment === undefined ? current.comment ?? null : input.comment,
       updatedAt: updatedAt.toISOString()
     };

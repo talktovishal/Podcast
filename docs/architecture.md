@@ -17,6 +17,7 @@ Primary entities:
 - `ChunkCache` (idempotent synthesis cache)
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
+- `Snippet` (user-saved extension selections with optional structured capture metadata/context)
 - `DemoExtractionTrace` (demo-only extraction diagnostics, last 10)
 - `UserDigestSettings` (per-user digest cadence/length/timezone defaults)
 - `DigestFeedToken` (private digest RSS access token with rotation)
@@ -224,6 +225,20 @@ Policy guardrails:
 - capture only user-visible page content
 - no credential forwarding/session replay to backend
 - no bypass automation (paywall/DRM/headless bypass)
+
+## Snippet capture path
+1. User highlights text on a page and uses the Chrome extension context menu.
+2. Extension captures the plain selected text plus a bounded structured bundle from the live DOM:
+   - sanitized selection HTML
+   - nearest useful context HTML, later converted to markdown server-side
+   - normalized page metadata (`canonicalUrl`, `siteName`, `description`, `author` / `byline`, `publishedAt`, `language`, `imageUrl`)
+   - heading-path structure for where the selection sits on the page
+3. `POST /api/snippets` validates the payload and derives reusable snippet fields:
+   - `selectionMarkdown`
+   - `contextMarkdown`
+   - `captureMarkdown` (default structured template combining metadata + selected passage + surrounding context)
+4. The snippet is stored in Prisma or Azure Table primary metadata without creating an `Item`, `Job`, or `Episode`.
+5. `/app/snippets` renders the saved excerpt, metadata, and structured context for later review.
 
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts

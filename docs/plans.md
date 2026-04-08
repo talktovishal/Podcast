@@ -79,6 +79,7 @@
 - Chrome selection snippets (`M113`) are implemented:
   - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
   - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
+  - snippet rows now also persist richer structured capture fields as optional metadata/context, including selection HTML, derived markdown, and a reusable template markdown view.
   - `/app/snippets` provides review, comment editing, and delete actions without entering the podcast queue or RSS/feed pipeline.
   - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, and the page redirects back to `/app` if the last snippet is removed.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
@@ -3569,6 +3570,7 @@ Milestone metadata contract:
 - target_finish: 2026-04-18
 - completed_on: 2026-04-06
 - evidence: local validation + snippet persistence, `/app/snippets`, and extension context-menu capture pass (2026-04-06)
+- follow-up evidence: local validation + rich snippet capture metadata/context/template persistence pass (2026-04-08)
 - Scope:
   - Add a dedicated `Snippet` persistence contract separate from episode `Item`s so saved text selections never enqueue podcast generation work.
   - Extend the MV3 Chrome extension with selection-only right-click actions for immediate save and save-with-comment flows using the existing paired extension token.
@@ -3577,6 +3579,7 @@ Milestone metadata contract:
   - Expand-only rollout: add a new `Snippet` table/model in Prisma plus a new `snippets` table in Azure Table primary metadata; no existing `Item`, feed-token, media-token, or summary contracts change.
   - No backfill is required because snippets are net-new data; existing accounts keep working without token rotation, queue mutation, or RSS regeneration.
   - Existing extension tokens remain valid and unchanged; the new snippet create path accepts the same paired extension token used for HTML snapshot capture.
+  - Rich snippet follow-up remains expand-only: add optional snippet capture columns/fields (`selectedHtml`, `selectionMarkdown`, `contextMarkdown`, `captureMarkdown`, `pageMetadataJson`) while older snippet rows continue to load with null rich fields.
   - Safe-disable path: hide `/app/snippets` and remove extension context menus while leaving stored snippet rows intact and isolated from podcast flows.
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
@@ -3584,11 +3587,14 @@ Milestone metadata contract:
   - `apps/web/src/app/api/snippets/route.ts`
   - `apps/web/src/app/app/snippets/page.tsx`
   - `apps/extension/background.js`
+  - `apps/extension/snippet-capture.mjs`
   - `apps/extension/snippet-service.mjs`
   - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/src/snippets/richCapture.ts`
 - Acceptance criteria:
   - A selected text range can be saved from the extension immediately or through a comment-first flow.
-  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and support comment edits and delete.
+  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and now also retain reusable context markdown plus normalized page metadata.
+  - Existing snippet rows remain readable even when they predate the richer capture fields.
   - Saving a snippet does not create `Item` rows, does not enqueue `Job`s, and does not make the snippet available in summary item selection.
   - Feed/media auth and RSS behavior remain unchanged.
 - Verification commands:

@@ -47,6 +47,25 @@ export function buildSnippetPayload(input = {}) {
       : undefined;
   const selectedText = normalizeSnippetText(input.selectedText);
   const comment = normalizeSnippetComment(input.comment);
+  const selectedHtml =
+    typeof input.selectedHtml === "string" && input.selectedHtml.trim()
+      ? input.selectedHtml.trim()
+      : undefined;
+  const contextHtml =
+    typeof input.contextHtml === "string" && input.contextHtml.trim()
+      ? input.contextHtml.trim()
+      : undefined;
+  const pageMetadata =
+    input.pageMetadata && typeof input.pageMetadata === "object"
+      ? Object.fromEntries(
+          Object.entries(input.pageMetadata).filter(([, value]) => {
+            if (Array.isArray(value)) {
+              return value.length > 0;
+            }
+            return typeof value === "string" ? value.trim().length > 0 : value != null;
+          }),
+        )
+      : undefined;
 
   if (!sourceUrl) {
     throw new Error("A page URL is required to save a snippet.");
@@ -60,6 +79,9 @@ export function buildSnippetPayload(input = {}) {
     sourceUrl,
     sourceTitle,
     selectedText,
+    ...(selectedHtml ? { selectedHtml } : {}),
+    ...(contextHtml ? { contextHtml } : {}),
+    ...(pageMetadata && Object.keys(pageMetadata).length > 0 ? { pageMetadata } : {}),
     ...(comment ? { comment } : {}),
   };
 }

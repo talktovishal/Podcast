@@ -45,6 +45,11 @@ export default async function SnippetsPage() {
             sourceUrl: snippet.sourceUrl,
             sourceTitle: snippet.sourceTitle,
             selectedText: snippet.selectedText,
+            selectedHtml: snippet.selectedHtml,
+            selectionMarkdown: snippet.selectionMarkdown,
+            contextMarkdown: snippet.contextMarkdown,
+            captureMarkdown: snippet.captureMarkdown,
+            pageMetadata: snippet.pageMetadata,
             comment: snippet.comment,
             createdAt: snippet.createdAt.toISOString(),
             updatedAt: snippet.updatedAt.toISOString()
