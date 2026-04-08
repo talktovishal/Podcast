@@ -43,7 +43,10 @@ Defaults:
   npx playwright install chromium
   ```
 
-- demo credentials available through `.env` / parity env
+- local harness credentials available through `.env` / parity env
+  - preference order is `LIVE_SITE_EMAIL` / `LIVE_SITE_PASSWORD`, then `WEBSTORE_REVIEWER_*`, then `DEMO_*`
+  - before each local run, the harness deletes its own prior `[live-site:...]` items for that account so repeated reruns do not accumulate quota/deferred noise
+  - parity also raises the local annual paid daily podcast cap so the full checked-in corpus can run in one session without deferring the back half of the suite
 - `gh auth status` configured if you want prod probes
 
 ## Output

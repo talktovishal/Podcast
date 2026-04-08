@@ -40,6 +40,15 @@ export function classifyPathFailure(result: PathRunResult): FailureClassificatio
     return "product_regression";
   }
   if (result.expected === "blocked_with_extension_hint" && result.actual === "blocked_without_extension_hint") {
+    const normalizedError = (result.errorMessage || "").toLowerCase();
+    if (
+      result.errorCode === "EXTRACTION_EMPTY" ||
+      normalizedError.includes("404") ||
+      normalizedError.includes("not found") ||
+      normalizedError.includes("could not extract readable content")
+    ) {
+      return "site_behavior_changed";
+    }
     return "product_regression";
   }
   if (result.expected === "blocked_without_extension_hint" && result.actual === "blocked_with_extension_hint") {

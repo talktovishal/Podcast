@@ -5,14 +5,14 @@ Edit this table to change the default live-site suite. Keep `id` stable so rerun
 | id | cohort | site | url | path_mode | expected_url | expected_extension | requires_manual | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | reuters-world | news | Reuters | https://www.reuters.com/world/ | both | blocked_with_extension_hint | manual_review | yes | Server-side URL extraction is blocked and automated browsers often hit a DataDome interstitial first. |
-| nytimes-business | news | New York Times | https://www.nytimes.com/section/business | both | blocked_with_extension_hint | manual_review | yes | Metered/personalized behavior can drift. |
+| nytimes-business | news | New York Times | https://www.nytimes.com/section/business | both | ready | manual_review | yes | URL extraction is currently stable in both local and VM probes, but metered/personalized behavior can still drift. |
 | washingtonpost-business | news | Washington Post | https://www.washingtonpost.com/business/ | extension_primary | blocked_with_extension_hint | manual_review | yes | Frequently bot-guarded or meter-guarded. |
 | cnn-business | news | CNN | https://www.cnn.com/business | both | ready | ready | no | Good large-site regression check. |
 | fox-business | news | Fox News | https://www.foxnews.com/category/business | both | ready | ready | no | Public article category page. |
 | usatoday-money | news | USA Today | https://www.usatoday.com/money/ | both | ready | ready | no | Public business/news landing page. |
 | cnbc-business | news | CNBC | https://www.cnbc.com/business/ | both | ready | ready | no | Public business coverage. |
-| forbes-business | news | Forbes | https://www.forbes.com/business/ | both | blocked_with_extension_hint | manual_review | yes | Metered and anti-bot behavior can drift. |
-| fortune-home | news | Fortune | https://fortune.com/ | both | blocked_with_extension_hint | manual_review | yes | Often needs browser capture for stable extraction. |
+| forbes-business | news | Forbes | https://www.forbes.com/business/ | both | ready | manual_review | yes | URL extraction is currently stable in both local and VM probes, but metered and anti-bot behavior can still drift. |
+| fortune-home | news | Fortune | https://fortune.com/ | both | ready | manual_review | yes | URL extraction is currently stable in both local and VM probes, though browser/manual behavior can still drift. |
 | yahoo-news | news | Yahoo News | https://news.yahoo.com/ | both | ready | ready | no | Broad public news surface. |
 | linkedin-pulse | social | LinkedIn | https://www.linkedin.com/pulse/ | extension_primary | blocked_with_extension_hint | manual_review | yes | Public professional surface; login walls vary. |
 | x-openai | social | X | https://x.com/OpenAI | extension_primary | blocked_with_extension_hint | manual_review | yes | Conservative-host handling is the key regression signal. |

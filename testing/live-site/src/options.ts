@@ -28,6 +28,9 @@ export function parseCliOptions(argv: string[]): CliOptions {
     if (!token) {
       continue;
     }
+    if (token === "--") {
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       options.help = true;
       continue;

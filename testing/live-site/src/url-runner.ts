@@ -1,5 +1,12 @@
 import type { CorpusEntry, LocalHarnessConfig, PathRunResult } from "./types.js";
-import { pollForTerminalItem, blockedOutcomeFromError, runPodcastContract, submitUrl } from "./local-app.js";
+import {
+  pollForTerminalItem,
+  blockedOutcomeFromError,
+  isDeferredDueToDailyLimit,
+  isHarnessRuntimeFailure,
+  runPodcastContract,
+  submitUrl
+} from "./local-app.js";
 import { classifyPathFailure, matchLocalExpectation } from "./report.js";
 
 export async function runUrlPath(entry: CorpusEntry, config: LocalHarnessConfig, runLabel: string): Promise<PathRunResult> {
@@ -21,12 +28,10 @@ export async function runUrlPath(entry: CorpusEntry, config: LocalHarnessConfig,
         title,
         durationMs: Date.now() - startedAt,
         errorMessage: "Timed out waiting for the item to reach READY or FAILED.",
-        requiresManual: entry.requiresManual
+        requiresManual: entry.requiresManual,
+        classification: "harness_issue",
+        recommendation: "Increase the local wait window or inspect queue/worker progress, then rerun this URL target."
       };
-      if (result.status === "failed") {
-        result.classification = classifyPathFailure(result);
-        result.recommendation = "Inspect queue/worker behavior locally, then rerun this site with --site.";
-      }
       return result;
     }
 
@@ -58,6 +63,44 @@ export async function runUrlPath(entry: CorpusEntry, config: LocalHarnessConfig,
             : "The site behavior likely changed; review corpus.md and quirks.md.";
       }
       return result;
+    }
+
+    if (isDeferredDueToDailyLimit(item)) {
+      return {
+        path: "url",
+        expected: entry.expectedUrl,
+        actual: "harness_issue",
+        matchedExpectation: false,
+        status: "failed",
+        itemId: item.id,
+        sourceUrl: entry.url,
+        title,
+        durationMs: Date.now() - startedAt,
+        errorCode: item.errorCode,
+        errorMessage: item.errorMessage,
+        requiresManual: entry.requiresManual,
+        classification: "harness_issue",
+        recommendation: "Clear earlier harness-created items or use a fresh reviewer account, then rerun this URL target."
+      };
+    }
+
+    if (isHarnessRuntimeFailure(item.errorMessage)) {
+      return {
+        path: "url",
+        expected: entry.expectedUrl,
+        actual: "harness_issue",
+        matchedExpectation: false,
+        status: "failed",
+        itemId: item.id,
+        sourceUrl: entry.url,
+        title,
+        durationMs: Date.now() - startedAt,
+        errorCode: item.errorCode,
+        errorMessage: item.errorMessage,
+        requiresManual: entry.requiresManual,
+        classification: "harness_issue",
+        recommendation: "Fix the local runtime or parity sidecars, then rerun this URL target."
+      };
     }
 
     const blocked = blockedOutcomeFromError(item.errorMessage);

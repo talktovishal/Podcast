@@ -214,6 +214,22 @@ This roundup keeps the polished summary body available for reuse while the narra
   assert.ok(!narration.includes("cdn.example.com"));
 });
 
+test("markdownToNarrationText strips trailing host-only source suffixes from link lines", () => {
+  const narration = markdownToNarrationText(`
+[Project Glasswing: Securing critical software for the AI era](https://www.anthropic.com/glasswing) ([anthropic.com](https://news.ycombinator.com/from?site=anthropic.com))
+
+[Xilem - An experimental Rust native UI framework](https://github.com/linebender/xilem) ([github.com/linebender](https://news.ycombinator.com/from?site=github.com/linebender))
+
+The follow-up paragraph keeps the sample narratable and confirms the host-only suffix should not be spoken aloud.
+`);
+
+  assert.ok(narration.includes("Project Glasswing: Securing critical software for the AI era"));
+  assert.ok(narration.includes("Xilem - An experimental Rust native UI framework"));
+  assert.ok(narration.includes("The follow-up paragraph keeps the sample narratable"));
+  assert.ok(!narration.includes("anthropic.com"));
+  assert.ok(!narration.includes("github.com/linebender"));
+});
+
 test("footer-only junk stays non-narratable after cleanup", () => {
   const cleaned = cleanExtractedMarkdown(`
 [© 2026 Meta](https://www.facebook.com/)

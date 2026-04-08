@@ -15,6 +15,8 @@ import type {
 } from "./types.js";
 import {
   generateConnectCode,
+  isDeferredDueToDailyLimit,
+  isHarnessRuntimeFailure,
   pollForTerminalItem,
   refreshItems,
   runPodcastContract,
@@ -327,12 +329,10 @@ export async function runExtensionPath(
           "Timed out waiting for snapshot item to reach READY or FAILED.",
         requiresManual: entry.requiresManual,
         captureStats: snapshot.stats || null,
+        classification: "harness_issue",
+        recommendation:
+          "Increase the local wait window or inspect snapshot processing progress, then rerun this target.",
       };
-      if (result.status === "failed") {
-        result.classification = classifyPathFailure(result);
-        result.recommendation =
-          "Inspect snapshot processing or worker behavior, then rerun this target.";
-      }
       return result;
     }
 
@@ -371,33 +371,74 @@ export async function runExtensionPath(
       return result;
     }
 
-    const result: PathRunResult = {
-      path: "extension",
-      expected: entry.expectedExtension,
-      actual: "blocked_without_extension_hint",
-      matchedExpectation: matchLocalExpectation(
-        entry.expectedExtension,
-        "blocked_without_extension_hint",
-      ),
-      status: matchLocalExpectation(
-        entry.expectedExtension,
-        "blocked_without_extension_hint",
-      )
-        ? "passed"
-        : "failed",
-      itemId: item.id,
-      sourceUrl: entry.url,
-      title,
-      durationMs: Date.now() - startedAt,
-      errorCode: item.errorCode,
-      errorMessage: item.errorMessage,
-      extensionHintPresent: false,
-      requiresManual: entry.requiresManual,
-      captureStats: snapshot.stats || null,
-    };
+    if (isDeferredDueToDailyLimit(item)) {
+      return {
+        path: "extension",
+        expected: entry.expectedExtension,
+        actual: "harness_issue",
+        matchedExpectation: false,
+        status: "failed",
+        itemId: item.id,
+        sourceUrl: entry.url,
+        title,
+        durationMs: Date.now() - startedAt,
+        errorCode: item.errorCode,
+        errorMessage: item.errorMessage,
+        extensionHintPresent: false,
+        requiresManual: entry.requiresManual,
+        captureStats: snapshot.stats || null,
+        classification: "harness_issue",
+        recommendation: "Clear earlier harness-created items or use a fresh reviewer account, then rerun this extension target.",
+      };
+    }
+
+    const result: PathRunResult = isHarnessRuntimeFailure(item.errorMessage)
+      ? {
+          path: "extension",
+          expected: entry.expectedExtension,
+          actual: "harness_issue",
+          matchedExpectation: false,
+          status: "failed",
+          itemId: item.id,
+          sourceUrl: entry.url,
+          title,
+          durationMs: Date.now() - startedAt,
+          errorCode: item.errorCode,
+          errorMessage: item.errorMessage,
+          extensionHintPresent: false,
+          requiresManual: entry.requiresManual,
+          captureStats: snapshot.stats || null,
+          classification: "harness_issue",
+          recommendation:
+            "Fix the local runtime or parity sidecars, then rerun this extension target.",
+        }
+      : {
+          path: "extension",
+          expected: entry.expectedExtension,
+          actual: "blocked_without_extension_hint",
+          matchedExpectation: matchLocalExpectation(
+            entry.expectedExtension,
+            "blocked_without_extension_hint",
+          ),
+          status: matchLocalExpectation(
+            entry.expectedExtension,
+            "blocked_without_extension_hint",
+          )
+            ? "passed"
+            : "failed",
+          itemId: item.id,
+          sourceUrl: entry.url,
+          title,
+          durationMs: Date.now() - startedAt,
+          errorCode: item.errorCode,
+          errorMessage: item.errorMessage,
+          extensionHintPresent: false,
+          requiresManual: entry.requiresManual,
+          captureStats: snapshot.stats || null,
+        };
     if (result.status === "failed") {
-      result.classification = classifyPathFailure(result);
-      result.recommendation =
+      result.classification ||= classifyPathFailure(result);
+      result.recommendation ||=
         "The site or snapshot behavior likely changed. Review quirks and rerun this target.";
     }
     return result;

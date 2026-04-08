@@ -29,6 +29,40 @@ test("classifyPathFailure treats missing extension hints as product regressions"
   assert.equal(classification, "product_regression");
 });
 
+test("classifyPathFailure downgrades 404 drift on blocked sites to site behavior changed", () => {
+  const classification = classifyPathFailure({
+    path: "url",
+    expected: "blocked_with_extension_hint",
+    actual: "blocked_without_extension_hint",
+    matchedExpectation: false,
+    status: "failed",
+    sourceUrl: "https://example.com",
+    title: "Example",
+    durationMs: 10,
+    errorCode: "EXTRACTION_FAILED",
+    errorMessage: "The URL returned 404 (not found).",
+    requiresManual: true
+  });
+  assert.equal(classification, "site_behavior_changed");
+});
+
+test("classifyPathFailure downgrades empty extractions on blocked sites to site behavior changed", () => {
+  const classification = classifyPathFailure({
+    path: "url",
+    expected: "blocked_with_extension_hint",
+    actual: "blocked_without_extension_hint",
+    matchedExpectation: false,
+    status: "failed",
+    sourceUrl: "https://example.com",
+    title: "Example",
+    durationMs: 10,
+    errorCode: "EXTRACTION_EMPTY",
+    errorMessage: "Could not extract readable content from this URL.",
+    requiresManual: true
+  });
+  assert.equal(classification, "site_behavior_changed");
+});
+
 test("classifyProdProbeFailure treats blocked-ready mismatches as site behavior changes", () => {
   const classification = classifyProdProbeFailure({
     expected: "ready",

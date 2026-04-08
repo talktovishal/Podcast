@@ -26,6 +26,10 @@ const MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN = /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:
 const MARKDOWN_TABLE_ROW_PATTERN = /^\s*\|(.+?)\|\s*$/gm;
 const MARKDOWN_TABLE_LINE_PATTERN = /^\s*\|.*\|\s*$/m;
 const HOST_LIKE_PATTERN = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i;
+const HOST_WITH_OPTIONAL_PATH_PATTERN = /[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)(?:\/[^\s)]+)?/i;
+const RESIDUAL_HOST_LIKE_PATTERN = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)(?:\/[^\s)]+)?\b(?!['’]s)/i;
+const PARENTHETICAL_HOST_SUFFIX_PATTERN = new RegExp(`\\(\\s*${HOST_WITH_OPTIONAL_PATH_PATTERN.source}\\s*\\)$`, "i");
+const STANDALONE_HOST_LINE_PATTERN = new RegExp(`^\\s*${HOST_WITH_OPTIONAL_PATH_PATTERN.source}\\s*$`, "i");
 const LEADING_METADATA_DATE_PATTERNS = [
   /^(?:written on\s+)?[A-Za-z]+\s+\d{1,2},\s+\d{4}$/i,
   /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?z$/i,
@@ -290,7 +294,11 @@ function looksLikeCitationSourceLine(input: string): boolean {
 function stripRawUrlArtifactsFromLine(line: string): string {
   RAW_URL_PATTERN.lastIndex = 0;
   if (!RAW_URL_PATTERN.test(line)) {
-    return line;
+    const withoutHostSuffix = line
+      .replace(PARENTHETICAL_HOST_SUFFIX_PATTERN, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return STANDALONE_HOST_LINE_PATTERN.test(withoutHostSuffix) ? "" : withoutHostSuffix;
   }
 
   RAW_URL_PATTERN.lastIndex = 0;
@@ -309,11 +317,12 @@ function stripRawUrlArtifactsFromLine(line: string): string {
   }
 
   const cleaned = withoutUrls
+    .replace(PARENTHETICAL_HOST_SUFFIX_PATTERN, " ")
     .replace(/\s*:\s*$/g, ".")
     .replace(/[(-,/]+$/g, "")
     .trim();
 
-  if (!cleaned || /^[()[\]{}\/:.,_-]+$/.test(cleaned)) {
+  if (!cleaned || /^[()[\]{}\/:.,_-]+$/.test(cleaned) || STANDALONE_HOST_LINE_PATTERN.test(cleaned)) {
     return "";
   }
 
@@ -876,7 +885,7 @@ function narrationContainsResidualUrl(input: string): string | null {
     if (!trimmed) {
       continue;
     }
-    if (/https?:\/\/|www\./i.test(trimmed) || HOST_LIKE_PATTERN.test(trimmed)) {
+    if (/https?:\/\/|www\./i.test(trimmed) || RESIDUAL_HOST_LIKE_PATTERN.test(trimmed)) {
       return trimmed;
     }
   }

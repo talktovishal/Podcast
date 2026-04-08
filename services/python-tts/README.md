@@ -20,6 +20,8 @@ This script provisions:
 - provider dependencies from `requirements.providers.txt`
 - runtime language assets required by both models (spaCy, UniDic, NLTK)
 
+Parity Docker builds now preload the same runtime language assets, so the local Docker stack matches the bootstrap script more closely.
+
 Manual fallback (if needed):
 
 ```bash

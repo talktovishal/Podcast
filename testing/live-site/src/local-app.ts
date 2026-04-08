@@ -7,9 +7,15 @@ import { fetchWithTimeout, joinCookieHeader, runCommand, summarizeCommandOutput,
 const LOGIN_PATH = "/api/auth/login";
 const APP_PATH = "/app";
 const REFRESH_PATH = "/api/seed-demo?refresh=items";
+const ITEM_PATH = "/api/items";
 const CONNECT_CODE_PATH = "/api/auth/extension/connect-code";
 const URL_SUBMIT_PATH = "/api/items/url";
 const SNAPSHOT_SUBMIT_PATH = "/api/items/html-snapshot";
+const DEFAULT_DEMO_EMAIL = "demo@articlepod.local";
+const DEFAULT_WEBSTORE_REVIEWER_EMAIL = "chrome-reviewer@articlepod.com";
+const HARNESS_ITEM_TITLE_PREFIX = "[live-site:";
+
+type HarnessAuth = Pick<LocalHarnessConfig, "authEmail" | "authPassword" | "authSource">;
 
 type DashboardRefreshItem = {
   id: string;
@@ -24,6 +30,10 @@ type LoginResponse = {
   error_message?: string;
 };
 
+export function isHarnessItemTitle(title?: string | null): boolean {
+  return typeof title === "string" && title.startsWith(HARNESS_ITEM_TITLE_PREFIX);
+}
+
 function parseEnvLine(line: string): { key: string; value: string } | null {
   const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"?([^"]*)"?\s*$/);
   if (!match) {
@@ -35,25 +45,89 @@ function parseEnvLine(line: string): { key: string; value: string } | null {
   };
 }
 
-async function loadEnvFromFile(path: string): Promise<void> {
+async function readEnvFile(path: string): Promise<Record<string, string>> {
+  const result: Record<string, string> = {};
   try {
     const contents = await readFile(path, "utf8");
     for (const line of contents.split("\n")) {
       const parsed = parseEnvLine(line);
-      if (!parsed || process.env[parsed.key]) {
+      if (!parsed) {
         continue;
       }
-      process.env[parsed.key] = parsed.value;
+      result[parsed.key] = parsed.value;
     }
   } catch {
     // ignore missing env files
   }
+  return result;
+}
+
+export function applyHarnessEnvFiles(
+  currentEnv: NodeJS.ProcessEnv,
+  fileEnvSources: Array<Record<string, string>>
+): NodeJS.ProcessEnv {
+  const mergedFileEnv = fileEnvSources.reduce<Record<string, string>>(
+    (accumulator, next) => ({
+      ...accumulator,
+      ...next
+    }),
+    {}
+  );
+
+  for (const [key, value] of Object.entries(mergedFileEnv)) {
+    if (currentEnv[key] === undefined) {
+      currentEnv[key] = value;
+    }
+  }
+
+  return currentEnv;
+}
+
+export function selectHarnessAuth(env: NodeJS.ProcessEnv): HarnessAuth {
+  const liveSiteEmail = env.LIVE_SITE_EMAIL?.trim() || "";
+  const liveSitePassword = env.LIVE_SITE_PASSWORD?.trim() || "";
+  if (liveSiteEmail || liveSitePassword) {
+    if (!liveSiteEmail || !liveSitePassword) {
+      throw new Error("LIVE_SITE_EMAIL and LIVE_SITE_PASSWORD must both be set when overriding local harness credentials.");
+    }
+    return {
+      authEmail: liveSiteEmail,
+      authPassword: liveSitePassword,
+      authSource: "live-site"
+    };
+  }
+
+  const reviewerPassword = env.WEBSTORE_REVIEWER_PASSWORD?.trim() || "";
+  if (reviewerPassword) {
+    return {
+      authEmail: env.WEBSTORE_REVIEWER_EMAIL?.trim() || DEFAULT_WEBSTORE_REVIEWER_EMAIL,
+      authPassword: reviewerPassword,
+      authSource: "webstore-reviewer"
+    };
+  }
+
+  const demoPassword = env.DEMO_PASSWORD?.trim() || "";
+  if (demoPassword) {
+    return {
+      authEmail: env.DEMO_EMAIL?.trim() || DEFAULT_DEMO_EMAIL,
+      authPassword: demoPassword,
+      authSource: "demo"
+    };
+  }
+
+  throw new Error(
+    "LIVE_SITE_PASSWORD, WEBSTORE_REVIEWER_PASSWORD, or DEMO_PASSWORD is required to run the live-site harness."
+  );
 }
 
 async function loadHarnessEnv(): Promise<void> {
-  await loadEnvFromFile(resolve(REPO_ROOT, ".env"));
-  await loadEnvFromFile(resolve(REPO_ROOT, ".env.parity"));
-  await loadEnvFromFile(resolve(REPO_ROOT, ".env.parity.example"));
+  const [rootEnv, parityExampleEnv, parityEnv] = await Promise.all([
+    readEnvFile(resolve(REPO_ROOT, ".env")),
+    readEnvFile(resolve(REPO_ROOT, ".env.parity.example")),
+    readEnvFile(resolve(REPO_ROOT, ".env.parity"))
+  ]);
+
+  applyHarnessEnvFiles(process.env, [rootEnv, parityExampleEnv, parityEnv]);
 }
 
 function normalizeUrl(input: string): string {
@@ -90,6 +164,34 @@ async function fetchFeedUrl(appUrl: string, cookieHeader: string): Promise<strin
   return `${appUrl}${match[0]}`;
 }
 
+async function deleteHarnessItem(config: LocalHarnessConfig, itemId: string): Promise<void> {
+  const response = await fetchWithTimeout(`${config.appUrl}${ITEM_PATH}/${itemId}`, {
+    method: "DELETE",
+    headers: {
+      cookie: config.cookieHeader
+    },
+    timeoutMs: 20_000
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as {
+      error_message?: string;
+    };
+    throw new Error(payload.error_message || `Failed to delete stale harness item (${response.status})`);
+  }
+}
+
+export async function purgeHarnessItems(config: LocalHarnessConfig): Promise<number> {
+  const items = await refreshItems(config);
+  const harnessItems = items.filter((item) => isHarnessItemTitle(item.title));
+
+  for (const item of harnessItems) {
+    await deleteHarnessItem(config, item.id);
+  }
+
+  return harnessItems.length;
+}
+
 export async function createLocalHarness(keepStack: boolean): Promise<{
   config: LocalHarnessConfig;
   shutdown: () => Promise<void>;
@@ -97,12 +199,7 @@ export async function createLocalHarness(keepStack: boolean): Promise<{
   await loadHarnessEnv();
 
   const appUrl = normalizeUrl(process.env.APP_URL || "http://127.0.0.1:3000");
-  const demoEmail = process.env.DEMO_EMAIL || "demo@articlepod.local";
-  const demoPassword = process.env.DEMO_PASSWORD || "";
-
-  if (!demoPassword) {
-    throw new Error("DEMO_PASSWORD is required to run the live-site harness.");
-  }
+  const auth = selectHarnessAuth(process.env);
 
   let startedParity = false;
   if (!(await isReachable(appUrl))) {
@@ -127,15 +224,15 @@ export async function createLocalHarness(keepStack: boolean): Promise<{
     },
     body: JSON.stringify({
       mode: "login",
-      email: demoEmail,
-      password: demoPassword
+      email: auth.authEmail,
+      password: auth.authPassword
     }),
     timeoutMs: 15_000
   });
 
   const loginPayload = (await loginResponse.json()) as LoginResponse;
   if (!loginResponse.ok || !loginPayload.ok) {
-    throw new Error(loginPayload.error_message || `Demo login failed (${loginResponse.status})`);
+    throw new Error(loginPayload.error_message || `Harness login failed (${loginResponse.status})`);
   }
 
   const cookies =
@@ -144,20 +241,25 @@ export async function createLocalHarness(keepStack: boolean): Promise<{
       : [loginResponse.headers.get("set-cookie") || ""].filter(Boolean);
   const cookieHeader = joinCookieHeader(cookies);
   if (!cookieHeader) {
-    throw new Error("Demo login did not return a session cookie.");
+    throw new Error("Harness login did not return a session cookie.");
   }
 
   const feedUrl = await fetchFeedUrl(appUrl, cookieHeader);
 
+  const config: LocalHarnessConfig = {
+    appUrl,
+    authEmail: auth.authEmail,
+    authPassword: auth.authPassword,
+    authSource: auth.authSource,
+    startedParity,
+    feedUrl,
+    cookieHeader
+  };
+
+  await purgeHarnessItems(config);
+
   return {
-    config: {
-      appUrl,
-      demoEmail,
-      demoPassword,
-      startedParity,
-      feedUrl,
-      cookieHeader
-    },
+    config,
     shutdown: async () => {
       if (!startedParity || keepStack) {
         return;
@@ -269,13 +371,18 @@ export async function generateConnectCode(config: LocalHarnessConfig): Promise<s
 export async function pollForTerminalItem(
   config: LocalHarnessConfig,
   itemId: string,
-  timeoutMs = 180_000
+  timeoutMs = 600_000
 ): Promise<DashboardRefreshItem | null> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const items = await refreshItems(config);
     const match = items.find((item) => item.id === itemId);
-    if (match && (match.status === "READY" || match.status === "FAILED")) {
+    if (
+      match &&
+      (match.status === "READY" ||
+        match.status === "FAILED" ||
+        (match.status === "QUEUED" && match.errorCode === "PRO_DAILY_LIMIT_DEFERRED"))
+    ) {
       return match;
     }
     await new Promise((resolve) => setTimeout(resolve, 5_000));
@@ -308,6 +415,25 @@ export function blockedOutcomeFromError(errorMessage?: string | null): {
     actual: extensionHintPresent ? "blocked_with_extension_hint" : "blocked_without_extension_hint",
     extensionHintPresent
   };
+}
+
+export function isHarnessRuntimeFailure(errorMessage?: string | null): boolean {
+  const normalized = trimToSingleLine(errorMessage).toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    normalized.includes("run scripts/bootstrap-python-tts.sh") ||
+    normalized.includes("ensure python-tts service is running") ||
+    normalized.includes("tts provider unavailable") ||
+    normalized.includes("python kokoro provider failed") ||
+    normalized.includes("python melo provider failed")
+  );
+}
+
+export function isDeferredDueToDailyLimit(item?: DashboardRefreshItem | null): boolean {
+  return item?.status === "QUEUED" && item.errorCode === "PRO_DAILY_LIMIT_DEFERRED";
 }
 
 export function commandSummaryError(error: unknown): string {

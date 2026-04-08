@@ -51,8 +51,9 @@ export interface CliOptions {
 
 export interface LocalHarnessConfig {
   appUrl: string;
-  demoEmail: string;
-  demoPassword: string;
+  authEmail: string;
+  authPassword: string;
+  authSource: "live-site" | "webstore-reviewer" | "demo";
   startedParity: boolean;
   feedUrl: string;
   cookieHeader: string;
