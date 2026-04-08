@@ -457,6 +457,41 @@ test("overcast walkthrough includes the updated steps and animation", () => {
   assert.equal(existsSync(gifPath), true);
 });
 
+test("antennapod walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/antennapod-add-rss-address.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes("Open AntennaPod on your Android device."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      'Open the side bar on the left and select <Ui>Add Podcast</Ui>.',
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes('Select <Ui>Add by RSS address</Ui>.'),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste your RSS feed URL in the field."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/antennapod-add-rss-address.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
 test("feedback page exists and keeps message as the first field", () => {
   const source = readFileSync(
     new URL("../src/components/feedback-form.tsx", import.meta.url),

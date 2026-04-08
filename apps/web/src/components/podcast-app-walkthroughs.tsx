@@ -368,26 +368,44 @@ export function PodcastAppWalkthroughs() {
         icon={<AntennaPodIcon className="h-6 w-6" />}
         name="AntennaPod"
         platform="Android"
+        intro={
+          <>
+            Tap the AntennaPod button above first so your private feed URL is
+            already copied, then follow these Android steps.
+          </>
+        }
         steps={[
+          <>Open AntennaPod on your Android device.</>,
           <>
-            Tap the button above — your feed URL is copied and AntennaPod opens
-            automatically on Android.
+            Open the side bar on the left and select <Ui>Add Podcast</Ui>.
           </>,
           <>
-            In AntennaPod, tap <Ui>Add Podcast</Ui> (the <Ui>+</Ui> icon in the
-            bottom-right corner).
+            Select <Ui>Add by RSS address</Ui>.
           </>,
+          <>Paste your RSS feed URL in the field.</>,
           <>
-            Tap <Ui>Add podcast by RSS address</Ui>.
-          </>,
-          <>
-            Paste your feed URL and tap <Ui>Confirm</Ui>.
-          </>,
-          <>
-            Tap <Ui>Subscribe</Ui> on the podcast preview screen.
+            Tap <Ui>Subscribe</Ui>.
           </>,
         ]}
         tip="AntennaPod is free and open-source. It's Android only — iPhone users should use Apple Podcasts, Overcast, or Castro."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[270px] overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing how to add an RSS address in the AntennaPod Android app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/antennapod-add-rss-address.gif"
+                unoptimized
+                width={270}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the AntennaPod add-by-RSS flow on Android.
+            </p>
+          </div>
+        }
       />
     </div>
   );
