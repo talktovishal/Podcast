@@ -295,24 +295,46 @@ export function PodcastAppWalkthroughs() {
         icon={<OvercastIcon className="h-6 w-6" />}
         name="Overcast"
         platform="iPhone · iPad (iOS only)"
+        intro={
+          <>
+            Tap the Overcast button above first so your private feed URL is
+            already copied, then follow these iPhone steps.
+          </>
+        }
         steps={[
+          <>Open Overcast on your iPhone.</>,
           <>
-            Tap the button above — your feed URL is copied and the Overcast
-            add-URL screen opens automatically on iPhone.
+            Open the add/search screen. On some versions this is a{" "}
+            <Ui>+</Ui> button; in newer redesigns some guides show a{" "}
+            magnifying glass/search button instead.
           </>,
           <>
-            If the app does not open automatically, launch Overcast and tap the{" "}
-            <Ui>+</Ui> button (top-right corner of the Podcasts list).
+            Tap <Ui>Add URL</Ui> in the upper-right corner.
           </>,
+          <>Paste the podcast&apos;s RSS/XML feed URL.</>,
           <>
-            Tap <Ui>Add URL</Ui> and paste your feed URL.
-          </>,
-          <>
-            Tap <Ui>Subscribe to Feed</Ui>. The podcast appears in your
-            subscriptions.
+            Tap <Ui>Add</Ui> or <Ui>Done</Ui>.
           </>,
         ]}
         tip="Overcast is free with optional Premium. It's iOS/iPadOS only — Android users should try Pocket Casts or AntennaPod instead."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing where to add a podcast URL in the Overcast iPhone app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/overcast-add-url.gif"
+                unoptimized
+                width={221}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the Overcast add-by-URL flow on iPhone.
+            </p>
+          </div>
+        }
       />
 
       {/* Castro */}
