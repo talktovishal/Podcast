@@ -144,6 +144,11 @@ model Item {
   errorCode     String?
   errorMessage  String?
   textHash      String?
+  extractionEngine String?
+  extractionSelectionMode String?
+  extractionScoreMargin Float?
+  extractionSummaryJson String?
+  extractionSelectionRecordedAt DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

@@ -218,6 +218,15 @@ Current implementation baseline:
   - `ANALYTICS_STORAGE_MODE`
   - `JOB_EVENT_STORAGE_MODE`
   - `DEMO_EXTRACTION_TRACE_ENABLED`
+- compact HTML extraction-selection scorecards are now stored directly on `Item` rows in both Prisma and Azure Table primary modes:
+  - `extractionEngine`
+  - `extractionSelectionMode`
+  - `extractionScoreMargin`
+  - `extractionSummaryJson`
+  - `extractionSelectionRecordedAt`
+- inspection workflow:
+  - `pnpm --filter @articlepod/web run ops:extraction-selection-report -- --limit 200`
+  - the same command works against local Prisma or Azure Table primary depending on runtime env
 - Azure runtime helpers now support low-cost serverless metadata mode directly:
   - `METADATA_PRIMARY_BACKEND=azure_table`
   - default auxiliary `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`

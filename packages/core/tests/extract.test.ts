@@ -9,6 +9,8 @@ import {
   extractHtmlFromUrl,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
+  parseHtmlExtractionSelectionSummary,
+  summarizeHtmlExtractionSelection,
   shouldSuggestHtmlSnapshotForError
 } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
@@ -158,6 +160,28 @@ test("extractHtmlSnapshot flattens table-heavy markup into markdown instead of p
     result.selectionDiagnostics.candidates.map((candidate) => candidate.engine).sort(),
     ["defuddle", "readability"]
   );
+});
+
+test("HTML extraction selection summaries round-trip through compact persisted JSON", () => {
+  const result = extractHtmlSnapshot({
+    html: `
+      <html>
+        <body>
+          <article>
+            <h1>Round-trip fixture</h1>
+            <p>This fixture has enough text to produce a stable extraction selection summary for persistence tests.</p>
+            <p>It also includes a second paragraph so the cleanup and scoring paths have enough signal to compare.</p>
+          </article>
+        </body>
+      </html>
+    `,
+    url: "https://example.com/round-trip"
+  });
+
+  const summary = summarizeHtmlExtractionSelection(result.selectionDiagnostics);
+  const parsed = parseHtmlExtractionSelectionSummary(JSON.stringify(summary));
+
+  assert.deepEqual(parsed, summary);
 });
 
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {

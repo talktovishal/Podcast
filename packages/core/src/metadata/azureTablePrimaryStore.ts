@@ -194,6 +194,11 @@ export type AzureTablePrimaryItem = {
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
+  extractionEngine: string | null;
+  extractionSelectionMode: string | null;
+  extractionScoreMargin: number | null;
+  extractionSummaryJson: string | null;
+  extractionSelectionRecordedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -569,6 +574,14 @@ function parseNumber(input: unknown, fallback = 0): number {
     }
   }
   return fallback;
+}
+
+function parseNullableNumber(input: unknown): number | null {
+  if (input === null || input === undefined || input === "") {
+    return null;
+  }
+  const value = parseNumber(input, Number.NaN);
+  return Number.isFinite(value) ? value : null;
 }
 
 function parseBoolean(input: unknown, fallback = false): boolean {
@@ -995,6 +1008,11 @@ export class AzureTablePrimaryStore {
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
+      extractionEngine: parseString(entity.extractionEngine),
+      extractionSelectionMode: parseString(entity.extractionSelectionMode),
+      extractionScoreMargin: parseNullableNumber(entity.extractionScoreMargin),
+      extractionSummaryJson: parseString(entity.extractionSummaryJson),
+      extractionSelectionRecordedAt: parseDate(entity.extractionSelectionRecordedAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
     };
@@ -2074,6 +2092,19 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toItem(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
+  async listItemsWithExtractionSelection(limit = 100): Promise<AzureTablePrimaryItem[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("items", filterEquals("PartitionKey", "item"));
+    return rows
+      .map((row) => this.toItem(row))
+      .filter((item) => item.extractionSelectionRecordedAt !== null)
+      .sort((left, right) => {
+        const leftAt = left.extractionSelectionRecordedAt ?? left.createdAt;
+        const rightAt = right.extractionSelectionRecordedAt ?? right.createdAt;
+        return rightAt.getTime() - leftAt.getTime();
+      })
+      .slice(0, limit);
+  }
+
   async countItems(status?: string): Promise<number> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "items",
@@ -2110,6 +2141,11 @@ export class AzureTablePrimaryStore {
     errorCode?: string | null;
     errorMessage?: string | null;
     textHash?: string | null;
+    extractionEngine?: string | null;
+    extractionSelectionMode?: string | null;
+    extractionScoreMargin?: number | null;
+    extractionSummaryJson?: string | null;
+    extractionSelectionRecordedAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryItem> {
     const createdAt = input.createdAt ?? new Date();
@@ -2129,6 +2165,11 @@ export class AzureTablePrimaryStore {
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
       textHash: input.textHash ?? null,
+      extractionEngine: input.extractionEngine ?? null,
+      extractionSelectionMode: input.extractionSelectionMode ?? null,
+      extractionScoreMargin: input.extractionScoreMargin ?? null,
+      extractionSummaryJson: input.extractionSummaryJson ?? null,
+      extractionSelectionRecordedAt: isoOrNull(input.extractionSelectionRecordedAt ?? null),
       createdAt: createdAt.toISOString(),
       updatedAt: createdAt.toISOString()
     };
@@ -2149,6 +2190,11 @@ export class AzureTablePrimaryStore {
       errorCode: string | null;
       errorMessage: string | null;
       textHash: string | null;
+      extractionEngine: string | null;
+      extractionSelectionMode: string | null;
+      extractionScoreMargin: number | null;
+      extractionSummaryJson: string | null;
+      extractionSelectionRecordedAt: Date | null;
       updatedAt: Date;
     }>
   ): Promise<AzureTablePrimaryItem | null> {
@@ -2171,6 +2217,17 @@ export class AzureTablePrimaryStore {
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
       textHash: input.textHash === undefined ? current.textHash : input.textHash,
+      extractionEngine: input.extractionEngine === undefined ? current.extractionEngine : input.extractionEngine,
+      extractionSelectionMode:
+        input.extractionSelectionMode === undefined ? current.extractionSelectionMode : input.extractionSelectionMode,
+      extractionScoreMargin:
+        input.extractionScoreMargin === undefined ? current.extractionScoreMargin : input.extractionScoreMargin,
+      extractionSummaryJson:
+        input.extractionSummaryJson === undefined ? current.extractionSummaryJson : input.extractionSummaryJson,
+      extractionSelectionRecordedAt:
+        input.extractionSelectionRecordedAt === undefined
+          ? current.extractionSelectionRecordedAt
+          : isoOrNull(input.extractionSelectionRecordedAt),
       updatedAt: updatedAt.toISOString()
     };
     const success = await this.updateEntity("items", entity, current.etag);

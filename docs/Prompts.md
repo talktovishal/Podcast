@@ -267,11 +267,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - server-side HTML extraction now runs the existing Readability path and `defuddle` against the same fetched or captured HTML
   - the extractor scores both candidates, penalizes image/caption/presentation residue, and keeps the better markdown/text result
   - worker extraction logs now record the selected engine and per-engine candidate diagnostics so landing-page wins and article-page regressions can be audited over time
+  - each processed HTML item now persists a compact extraction-selection scorecard (`selectedEngine`, `selectionMode`, `scoreMargin`, compact JSON summary, recordedAt) on the durable `Item` row in both Prisma and Azure Table primary modes
+  - `pnpm --filter @articlepod/web run ops:extraction-selection-report -- --limit 200` exports recent extraction-selection winners from either backend for local or production review
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
   - live feed/media contract verification passed (`HEAD 200`, media `206`) after PostgreSQL was disabled.
-- Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in.
+- Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in, while compact per-item extraction-selection scorecards are allowed as operational metadata.
 - New work should be added as new dated milestones before implementation starts.
 
 ### Future / Optional

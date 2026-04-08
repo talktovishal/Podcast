@@ -108,12 +108,27 @@ test("createItem stores tagsJson and returns tags", async () => {
     sourceType: "URL",
     status: "QUEUED",
     priority: "HIGH",
-    tags: ["financial", "retirement"]
+    tags: ["financial", "retirement"],
+    extractionEngine: "defuddle",
+    extractionSelectionMode: "scored",
+    extractionScoreMargin: 1.75,
+    extractionSummaryJson: '{"version":1}',
+    extractionSelectionRecordedAt: new Date("2026-04-08T18:00:00.000Z")
   });
 
   assert.equal(createdEntity?.priority, "HIGH");
   assert.equal(createdEntity?.tagsJson, '["financial","retirement"]');
+  assert.equal(createdEntity?.extractionEngine, "defuddle");
+  assert.equal(createdEntity?.extractionSelectionMode, "scored");
+  assert.equal(createdEntity?.extractionScoreMargin, 1.75);
+  assert.equal(createdEntity?.extractionSummaryJson, '{"version":1}');
+  assert.equal(createdEntity?.extractionSelectionRecordedAt, "2026-04-08T18:00:00.000Z");
   assert.deepEqual(item.tags, ["financial", "retirement"]);
+  assert.equal(item.extractionEngine, "defuddle");
+  assert.equal(item.extractionSelectionMode, "scored");
+  assert.equal(item.extractionScoreMargin, 1.75);
+  assert.equal(item.extractionSummaryJson, '{"version":1}');
+  assert.equal(item.extractionSelectionRecordedAt?.toISOString(), "2026-04-08T18:00:00.000Z");
 });
 
 test("findItemById defaults missing tagsJson to empty tags", async () => {
@@ -157,6 +172,11 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
     status: "QUEUED",
     priority: "LOW",
     tagsJson: '["personal"]',
+    extractionEngine: "readability",
+    extractionSelectionMode: "readability_only",
+    extractionScoreMargin: 0,
+    extractionSummaryJson: '{"version":1,"selectedEngine":"readability"}',
+    extractionSelectionRecordedAt: "2026-03-25T09:15:00.000Z",
     createdAt: "2026-03-25T09:00:00.000Z",
     updatedAt: "2026-03-25T09:00:00.000Z",
     etag: "etag-1"
@@ -173,12 +193,27 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
 
   const item = await store.updateItem("item-3", {
     priority: "HIGH",
-    tags: ["financial", "retirement"]
+    tags: ["financial", "retirement"],
+    extractionEngine: "defuddle",
+    extractionSelectionMode: "scored",
+    extractionScoreMargin: 2.25,
+    extractionSummaryJson: '{"version":1,"selectedEngine":"defuddle"}',
+    extractionSelectionRecordedAt: new Date("2026-03-25T09:45:00.000Z")
   });
 
   assert.equal(updatedEntity?.priority, "HIGH");
   assert.equal(updatedEntity?.tagsJson, '["financial","retirement"]');
+  assert.equal(updatedEntity?.extractionEngine, "defuddle");
+  assert.equal(updatedEntity?.extractionSelectionMode, "scored");
+  assert.equal(updatedEntity?.extractionScoreMargin, 2.25);
+  assert.equal(updatedEntity?.extractionSummaryJson, '{"version":1,"selectedEngine":"defuddle"}');
+  assert.equal(updatedEntity?.extractionSelectionRecordedAt, "2026-03-25T09:45:00.000Z");
   assert.deepEqual(item?.tags, ["financial", "retirement"]);
+  assert.equal(item?.extractionEngine, "defuddle");
+  assert.equal(item?.extractionSelectionMode, "scored");
+  assert.equal(item?.extractionScoreMargin, 2.25);
+  assert.equal(item?.extractionSummaryJson, '{"version":1,"selectedEngine":"defuddle"}');
+  assert.equal(item?.extractionSelectionRecordedAt?.toISOString(), "2026-03-25T09:45:00.000Z");
 });
 
 test("createSnippet stores rich snippet capture fields alongside selected text", async () => {

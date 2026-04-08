@@ -25,6 +25,7 @@ import {
   normalizeTtsSelection,
   resolveEpisodeTitle,
   sanitizeLogPayload,
+  summarizeHtmlExtractionSelection,
   shouldSuggestHtmlSnapshotForError,
   withLogContext,
   sha256,
@@ -60,6 +61,7 @@ type ExtractionResult = {
   markdown: string;
   sourceLabel: string;
   sourceArtifact: SourceArtifact | null;
+  selectionDiagnostics?: HtmlExtractionSelectionDiagnostics | null;
 };
 
 type ClaimedDispatchJob = {
@@ -224,27 +226,20 @@ function appendExtractionLog(
   });
 }
 
-function summarizeHtmlExtractionSelection(diagnostics: HtmlExtractionSelectionDiagnostics): Record<string, unknown> {
+function buildPersistedHtmlExtractionSelection(diagnostics: HtmlExtractionSelectionDiagnostics): {
+  extractionEngine: string;
+  extractionSelectionMode: string;
+  extractionScoreMargin: number;
+  extractionSummaryJson: string;
+  extractionSelectionRecordedAt: Date;
+} {
+  const summary = summarizeHtmlExtractionSelection(diagnostics);
   return {
-    selectedEngine: diagnostics.selectedEngine,
-    selectionMode: diagnostics.selectionMode,
-    scoreMargin: diagnostics.scoreMargin,
-    candidates: diagnostics.candidates.map((candidate) => ({
-      engine: candidate.engine,
-      status: candidate.status,
-      score: candidate.score,
-      textLength: candidate.textLength,
-      markdownLength: candidate.markdownLength,
-      rawIssueCount: candidate.rawIssueCount,
-      cleanedIssueCount: candidate.cleanedIssueCount,
-      hasNarratableText: candidate.hasNarratableText,
-      leadingPresentationBlocks: candidate.leadingPresentationBlocks,
-      standaloneImageParagraphs: candidate.standaloneImageParagraphs,
-      captionLikeParagraphs: candidate.captionLikeParagraphs,
-      helpfulLeadSummary: candidate.helpfulLeadSummary,
-      warningCount: candidate.warningCount,
-      errorMessage: candidate.errorMessage
-    }))
+    extractionEngine: summary.selectedEngine,
+    extractionSelectionMode: summary.selectionMode,
+    extractionScoreMargin: summary.scoreMargin,
+    extractionSummaryJson: JSON.stringify(summary),
+    extractionSelectionRecordedAt: new Date()
   };
 }
 
@@ -586,7 +581,8 @@ async function extractItemText(item: {
         contentType: "text/html; charset=utf-8",
         bytes: Buffer.from(extracted.rawHtml, "utf8"),
         expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-      }
+      },
+      selectionDiagnostics: extracted.selectionDiagnostics
     };
   }
 
@@ -631,7 +627,8 @@ async function extractItemText(item: {
         contentType: "text/html; charset=utf-8",
         bytes: Buffer.from(extracted.rawHtml, "utf8"),
         expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-      }
+      },
+      selectionDiagnostics: extracted.selectionDiagnostics
     };
   }
 
@@ -684,7 +681,8 @@ async function extractItemText(item: {
       contentType: "application/pdf",
       bytes: pdfData,
       expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-    }
+    },
+    selectionDiagnostics: null
   };
 }
 
@@ -1649,6 +1647,9 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       logs: extractionLogs
     });
     const cleanedMarkdown = cleanExtractedMarkdown(extraction.markdown);
+    const persistedHtmlExtractionSelection = extraction.selectionDiagnostics
+      ? buildPersistedHtmlExtractionSelection(extraction.selectionDiagnostics)
+      : null;
     sourceLabelForDiagnostics = extraction.sourceLabel;
     extractedTextForDiagnostics = extraction.text;
     extractedMarkdownForDiagnostics = cleanedMarkdown;
@@ -1745,6 +1746,22 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       storageKey: markdownStored.key,
       bytes: markdownStored.bytes
     });
+
+    if (persistedHtmlExtractionSelection) {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateItem(item.id, persistedHtmlExtractionSelection);
+      } else {
+        await prisma.item.update({
+          where: { id: item.id },
+          data: persistedHtmlExtractionSelection
+        });
+      }
+      appendExtractionLog(extractionLogs, "extract", "Stored HTML extraction selection summary", {
+        selectedEngine: persistedHtmlExtractionSelection.extractionEngine,
+        selectionMode: persistedHtmlExtractionSelection.extractionSelectionMode,
+        scoreMargin: persistedHtmlExtractionSelection.extractionScoreMargin
+      });
+    }
 
     const userProvidedTitle = item.title?.trim() || "";
     const narrationText = markdownToNarrationText(cleanedMarkdown);

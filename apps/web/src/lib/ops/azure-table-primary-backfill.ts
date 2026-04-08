@@ -283,6 +283,11 @@ export const azureTablePrimaryBackfillConfigs = [
         errorCode: row.errorCode ?? null,
         errorMessage: row.errorMessage ?? null,
         textHash: row.textHash ?? null,
+        extractionEngine: row.extractionEngine ?? null,
+        extractionSelectionMode: row.extractionSelectionMode ?? null,
+        extractionScoreMargin: row.extractionScoreMargin ?? null,
+        extractionSummaryJson: row.extractionSummaryJson ?? null,
+        extractionSelectionRecordedAt: isoOrNull(row.extractionSelectionRecordedAt),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString()
       };

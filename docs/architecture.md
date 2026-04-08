@@ -26,6 +26,7 @@ Primary entities:
 - `DigestSchedulerTick` (external scheduler signal queue)
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
 - `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
+- `Item` also carries an optional compact HTML extraction-selection scorecard (`extractionEngine`, `extractionSelectionMode`, `extractionScoreMargin`, `extractionSummaryJson`, `extractionSelectionRecordedAt`) so production trends can be queried from the primary metadata store without persisting verbose logs there.
 
 Auth profile metadata on `User`:
 - coarse geo snapshots from trusted proxy headers:
@@ -79,6 +80,7 @@ Current behavior (`M57`-`M64` implemented):
   - shared markdown quality analysis reports stored-markdown wrapper/footer junk plus narration-surface URL, image, table, metadata, and low-signal residues for audits/tests
   - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
 - HTML extraction diagnostics now log the selected engine plus both candidate scorecards per item so production traces can show where `Readability` or `defuddle` wins over time.
+- the worker also persists the compact extraction-selection winner + score summary onto the `Item` row after HTML extraction succeeds, so Azure Table primary can be inspected over time while detailed candidate traces remain in logs.
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
 - summary and digest markdown artifacts remain author-polished stored outputs, while their podcast narration and description path now runs a later shared cleanup over stored markdown that removes trailing `Sources` / `References` appendices and other speech-only residue.
@@ -261,7 +263,7 @@ Locked target architecture:
 - Durable artifacts: Azure Blob Storage
 - Auxiliary local data: SQLite on VM for low-signal/admin-only state that does not need to sit in Azure Table
 - Migration track: queue/item/digest metadata can still be dual-written to Azure Table mirror for canary comparison and phased cutover
-- Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state
+- Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state, but compact per-item extraction-selection scorecards are first-class operational metadata.
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
 - Deployment automation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/*.sh`
 

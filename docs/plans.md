@@ -48,6 +48,7 @@
   - backend HTML extraction now runs both the existing `Readability` path and `defuddle` on the same fetched or captured HTML before shared cleanup/narration stages continue.
   - candidate scoring now rewards narratable body text while penalizing image-only blocks, caption-like residue, and presentational clutter so the richer lane only wins when it is meaningfully cleaner.
   - worker extraction logs now record the selected engine plus both candidate scorecards so production traces can show where landing-page/feed surfaces and article pages diverge over time.
+  - compact extraction-selection scorecards now persist on durable `Item` rows in Prisma and Azure Table primary so production review no longer depends on transient worker logs.
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
@@ -3518,11 +3519,19 @@ Milestone metadata contract:
   - Run the existing `Readability` extraction path and `defuddle` against the same fetched or captured HTML instead of forcing a single extractor path.
   - Score both candidates using narratable text volume plus markdown-quality penalties for image-only blocks, caption-like residue, and presentational clutter, then keep the better result before the shared cleanup and narration stages continue.
   - Persist the existing fetch diagnostics while adding per-item extraction-selection logging so production traces show the selected engine and losing-lane scorecard over time.
+  - Persist a compact extraction-selection scorecard on each HTML `Item` in both Prisma and Azure Table primary modes so production review can query the durable metadata plane directly.
 - Key files/modules:
   - `packages/core/src/extract/html.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
   - `packages/core/tests/extract.test.ts`
+  - `packages/core/tests/azure-table-primary-store.test.ts`
   - `packages/core/package.json`
   - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/web/scripts/extraction-selection-report.ts`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/prisma/migrations/20260408193000_add_item_extraction_selection_summary/migration.sql`
+  - `apps/web/src/lib/ops/azure-table-primary-backfill.ts`
   - `docs/Prompts.md`
   - `docs/plans.md`
   - `docs/architecture.md`
@@ -3532,10 +3541,13 @@ Milestone metadata contract:
   - URL and HTML-snapshot extraction both evaluate `Readability` and `defuddle` on the same HTML payload and return the selected engine plus both candidate diagnostics.
   - Selection scoring prefers richer results on landing/feed surfaces without regressing the existing cleaner article-path behavior on representative fixture tests.
   - Worker extraction logs include the selected engine, selection mode, score margin, and condensed per-engine candidate metrics for later audit/reporting.
+  - HTML items persist the compact selection winner/score summary into durable metadata, while older rows remain valid with null fields until they are reprocessed.
+  - `ops:extraction-selection-report` works against local Prisma and Azure Table primary environments so local debugging and production inspection use the same scorecard shape.
   - Existing fetch fallback and blocked/interstitial semantics remain unchanged while the new extractor lane stays MIT-licensed and declared in repo attribution docs.
 - Verification commands:
   - `corepack pnpm --filter @articlepod/core run typecheck`
   - `corepack pnpm --filter @articlepod/core run test`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
   - `corepack pnpm --filter @articlepod/worker run typecheck`
   - `corepack pnpm --filter @articlepod/extraction-quality run extraction-quality:test:defuddle -- --limit 10`
 

@@ -78,6 +78,29 @@ export type HtmlExtractionSelectionDiagnostics = {
   scoreMargin: number;
   candidates: HtmlExtractionCandidateDiagnostics[];
 };
+export type HtmlExtractionSelectionSummaryCandidate = {
+  engine: HtmlExtractionEngine;
+  status: "passed" | "failed";
+  score: number | null;
+  textLength: number;
+  markdownLength: number;
+  rawIssueCount: number;
+  cleanedIssueCount: number;
+  hasNarratableText: boolean;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
+  errorMessage?: string;
+};
+export type HtmlExtractionSelectionSummary = {
+  version: 1;
+  selectedEngine: HtmlExtractionEngine;
+  selectionMode: HtmlExtractionSelectionMode;
+  scoreMargin: number;
+  candidates: HtmlExtractionSelectionSummaryCandidate[];
+};
 
 export const BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE =
   "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly.";
@@ -325,6 +348,110 @@ function buildFailedCandidateDiagnostics(engine: HtmlExtractionEngine, error: un
     warningCount: 0,
     errorMessage: error instanceof Error ? error.message : String(error)
   };
+}
+
+export function summarizeHtmlExtractionSelection(
+  diagnostics: HtmlExtractionSelectionDiagnostics
+): HtmlExtractionSelectionSummary {
+  return {
+    version: 1,
+    selectedEngine: diagnostics.selectedEngine,
+    selectionMode: diagnostics.selectionMode,
+    scoreMargin: diagnostics.scoreMargin,
+    candidates: diagnostics.candidates.map((candidate) => ({
+      engine: candidate.engine,
+      status: candidate.status,
+      score: candidate.score,
+      textLength: candidate.textLength,
+      markdownLength: candidate.markdownLength,
+      rawIssueCount: candidate.rawIssueCount,
+      cleanedIssueCount: candidate.cleanedIssueCount,
+      hasNarratableText: candidate.hasNarratableText,
+      leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+      standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+      captionLikeParagraphs: candidate.captionLikeParagraphs,
+      helpfulLeadSummary: candidate.helpfulLeadSummary,
+      warningCount: candidate.warningCount,
+      errorMessage: candidate.errorMessage
+    }))
+  };
+}
+
+export function parseHtmlExtractionSelectionSummary(
+  value: string | null | undefined
+): HtmlExtractionSelectionSummary | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<HtmlExtractionSelectionSummary>;
+    if (
+      parsed.version !== 1 ||
+      (parsed.selectedEngine !== "readability" && parsed.selectedEngine !== "defuddle") ||
+      (parsed.selectionMode !== "scored" &&
+        parsed.selectionMode !== "readability_only" &&
+        parsed.selectionMode !== "defuddle_only") ||
+      typeof parsed.scoreMargin !== "number" ||
+      !Array.isArray(parsed.candidates)
+    ) {
+      return null;
+    }
+
+    const candidates = parsed.candidates.flatMap((candidate) => {
+      if (
+        !candidate ||
+        (candidate.engine !== "readability" && candidate.engine !== "defuddle") ||
+        (candidate.status !== "passed" && candidate.status !== "failed") ||
+        (candidate.score !== null && typeof candidate.score !== "number") ||
+        typeof candidate.textLength !== "number" ||
+        typeof candidate.markdownLength !== "number" ||
+        typeof candidate.rawIssueCount !== "number" ||
+        typeof candidate.cleanedIssueCount !== "number" ||
+        typeof candidate.hasNarratableText !== "boolean" ||
+        typeof candidate.leadingPresentationBlocks !== "number" ||
+        typeof candidate.standaloneImageParagraphs !== "number" ||
+        typeof candidate.captionLikeParagraphs !== "number" ||
+        typeof candidate.helpfulLeadSummary !== "boolean" ||
+        typeof candidate.warningCount !== "number"
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          engine: candidate.engine,
+          status: candidate.status,
+          score: candidate.score,
+          textLength: candidate.textLength,
+          markdownLength: candidate.markdownLength,
+          rawIssueCount: candidate.rawIssueCount,
+          cleanedIssueCount: candidate.cleanedIssueCount,
+          hasNarratableText: candidate.hasNarratableText,
+          leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+          standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+          captionLikeParagraphs: candidate.captionLikeParagraphs,
+          helpfulLeadSummary: candidate.helpfulLeadSummary,
+          warningCount: candidate.warningCount,
+          errorMessage: typeof candidate.errorMessage === "string" ? candidate.errorMessage : undefined
+        } satisfies HtmlExtractionSelectionSummaryCandidate
+      ];
+    });
+
+    if (candidates.length !== parsed.candidates.length) {
+      return null;
+    }
+
+    return {
+      version: 1,
+      selectedEngine: parsed.selectedEngine,
+      selectionMode: parsed.selectionMode,
+      scoreMargin: parsed.scoreMargin,
+      candidates
+    };
+  } catch {
+    return null;
+  }
 }
 
 function selectPreferredExtractionError(currentError: unknown, defuddleError: unknown, fallbackMessage: string): AppError {

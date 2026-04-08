@@ -18,6 +18,7 @@
     "db:export-json": "tsx scripts/db-export-json.ts",
     "db:import-json": "tsx scripts/db-import-json.ts",
     "ops:snapshot": "tsx scripts/ops-snapshot.ts",
+    "ops:extraction-selection-report": "tsx scripts/extraction-selection-report.ts",
     "ops:verify-restore": "tsx scripts/ops-verify-restore.ts",
     "artifacts:backfill": "tsx scripts/backfill-markdown-artifacts.ts",
     "artifacts:cleanup-markdown": "tsx scripts/cleanup-markdown-artifacts.ts",
