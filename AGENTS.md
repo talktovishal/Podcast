@@ -283,3 +283,12 @@ To prevent drift and keep long projects consistent:
 - Do not invent new verification prompts in chat; add them to docs/Prompts.md so the team uses the same checklist every time.
 
 OpenAI’s recommended practice is to use repo docs (like AGENTS.md + related plan/docs files) to create consistent, repeatable behavior across runs. :contentReference[oaicite:2]{index=2}
+
+## graphify
+
+This project may have local-only Graphify outputs under `.runtime/graphify/`.
+
+Rules:
+- If `.runtime/graphify/generated/repo-root/graphify-out/GRAPH_REPORT.md` exists, use it as a navigation aid for god nodes and community structure
+- Treat Graphify outputs as rebuildable local artifacts; do not check them into git unless explicitly requested
+- If a folder-level graph exists under `.runtime/graphify/generated/`, prefer that report over scanning large directories from scratch
