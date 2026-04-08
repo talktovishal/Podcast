@@ -1,7 +1,9 @@
+const LINKED_IMAGE_PATTERN = /\[\s*(!\[[\s\S]*?\]\([^)]+\))\s*\]\([^)]+\)/g;
 const IMAGE_LINK_PATTERN = /\[\s*!\[[\s\S]*?\]\([^)]+\)\s*\]\([^)]+\)/g;
 const IMAGE_PATTERN = /!\[[\s\S]*?\]\([^)]+\)/g;
 const IMAGE_ASSET_URL_PATTERN = /(?:https?:\/\/|www\.)[^\s)]+?\.(?:avif|bmp|gif|jpe?g|png|svg|webp)(?:\?[^\s)]*)?/i;
 const EMPTY_LINK_PATTERN = /\[\s*\]\([^)]+\)/g;
+const NON_IMAGE_EMPTY_LINK_PATTERN = /(^|[^!])\[\s*\]\([^)]+\)/gm;
 const LINK_PATTERN = /\[([^\]]+)\]\([^)]+\)/g;
 const DANGLING_LINK_LINE_PATTERN = /^\s*\]\([^)]+\)\s*$/gm;
 const EMPTY_LINK_LINE_PATTERN = /^\s*\[\]\([^)]+\)\s*$/gm;
@@ -12,14 +14,18 @@ const FOOTNOTE_REF_PATTERN = /\[\d+\]/g;
 const MULTIPLE_NEWLINES_PATTERN = /\n{3,}/g;
 const RAW_URL_PATTERN = /(?:https?:\/\/|www\.)[^\s<>()]+/gi;
 const HTML_BREAK_TAG_PATTERN = /<\s*br\s*\/?>/gi;
+const HTML_TABLE_TAG_PATTERN = /<\s*\/?\s*(?:table|thead|tbody|tfoot|caption|colgroup|col|tr|td|th)\b[^>]*>/gi;
 const HTML_TABLE_SECTION_TAG_PATTERN = /<\s*\/?\s*(?:table|thead|tbody|tfoot|caption|colgroup|col)\b[^>]*>/gi;
 const HTML_TABLE_ROW_TAG_PATTERN = /<\s*\/?\s*tr\b[^>]*>/gi;
 const HTML_TABLE_CELL_TAG_PATTERN = /<\s*\/?\s*(?:td|th)\b[^>]*>/gi;
 const HTML_BLOCK_TAG_PATTERN =
   /<\s*\/?\s*(?:address|article|aside|blockquote|details|div|dl|dt|dd|figure|figcaption|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|summary|ul)\b[^>]*>/gi;
+const NON_TABLE_RAW_HTML_TAG_PATTERN = /<\/?(?!\s*(?:table|thead|tbody|tfoot|caption|colgroup|col|tr|td|th)\b)[A-Za-z][^>\n]*>/gi;
 const RAW_HTML_TAG_PATTERN = /<\/?[A-Za-z][^>\n]*>/g;
 const MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN = /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/gm;
 const MARKDOWN_TABLE_ROW_PATTERN = /^\s*\|(.+?)\|\s*$/gm;
+const MARKDOWN_TABLE_LINE_PATTERN = /^\s*\|.*\|\s*$/m;
+const HOST_LIKE_PATTERN = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i;
 const LEADING_METADATA_DATE_PATTERNS = [
   /^(?:written on\s+)?[A-Za-z]+\s+\d{1,2},\s+\d{4}$/i,
   /^\d{4}-\d{2}-\d{2}t\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?z$/i,
@@ -121,6 +127,7 @@ export const markdownQualityIssueTypes = [
   "residual_url",
   "leading_metadata",
   "image_wrapper",
+  "table_markup",
   "footer_legal",
   "share_or_comment_noise",
   "language_footer",
@@ -171,7 +178,17 @@ function normalizeMarkdownTableRows(input: string): string {
         .map((cell) => cell.trim())
         .filter(Boolean)
         .join("\n")
+        .concat("\n")
     );
+}
+
+function stripNonTableRawHtmlArtifacts(input: string): string {
+  const normalized = input
+    .replace(HTML_BREAK_TAG_PATTERN, "\n")
+    .replace(HTML_BLOCK_TAG_PATTERN, "\n")
+    .replace(NON_TABLE_RAW_HTML_TAG_PATTERN, " ");
+
+  return decodeHtmlEntities(normalized);
 }
 
 function stripRawHtmlArtifacts(input: string): string {
@@ -201,8 +218,30 @@ function normalizeUnicodeArtifacts(input: string): string {
     .replace(/\uFEFF/g, "");
 }
 
-function stripStandaloneImageAssetLines(input: string): string {
+function normalizeMalformedImageWrapperLines(input: string): string {
   return input
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      const urls = trimmed.match(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi")) ?? [];
+      if (!trimmed || urls.length === 0) {
+        return line;
+      }
+
+      const residual = trimmed
+        .replace(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi"), " ")
+        .replace(/:focal\([^)]*\)/gi, " ")
+        .replace(/[()[\]\/:.,_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      return residual ? line : urls.join("\n");
+    })
+    .join("\n");
+}
+
+function stripStandaloneImageAssetLines(input: string): string {
+  return normalizeMalformedImageWrapperLines(input)
     .split("\n")
     .map((line) => {
       const trimmed = line.trim();
@@ -213,7 +252,7 @@ function stripStandaloneImageAssetLines(input: string): string {
       const residual = trimmed
         .replace(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi"), " ")
         .replace(/:focal\([^)]*\)/gi, " ")
-        .replace(/[()[\]\/:.,_-]+/g, " ")
+        .replace(/[()[\]{}\/:.,_-]+/g, " ")
         .replace(/\s+/g, " ")
         .trim();
 
@@ -228,7 +267,7 @@ function looksLikeCitationSourceLine(input: string): boolean {
     return false;
   }
 
-  const hasDomain = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i.test(plain);
+  const hasDomain = HOST_LIKE_PATTERN.test(plain);
   const hasYear = /\b20\d{2}\b/.test(plain);
   if (
     hasDomain &&
@@ -279,18 +318,31 @@ function stripRawUrlArtifactsFromLine(line: string): string {
   return cleaned;
 }
 
-function normalizeTransport(markdown: string): string {
-  return stripStandaloneImageAssetLines(
-    normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeUnicodeArtifacts(markdown)))
+function normalizeArtifactTransport(markdown: string): string {
+  return stripNonTableRawHtmlArtifacts(
+    normalizeMalformedImageWrapperLines(normalizeUnicodeArtifacts(markdown))
       .replace(/\r\n/g, "\n")
-      .replace(IMAGE_LINK_PATTERN, "\n")
-      .replace(IMAGE_PATTERN, "\n")
-      .replace(EMPTY_LINK_PATTERN, " ")
-      .replace(LINK_PATTERN, (_match, label: string) => (label.trim() ? label : " "))
+      .replace(LINKED_IMAGE_PATTERN, "$1")
+      .replace(NON_IMAGE_EMPTY_LINK_PATTERN, "$1 ")
       .replace(DANGLING_LINK_LINE_PATTERN, "")
       .replace(EMPTY_LINK_LINE_PATTERN, "")
       .replace(LONE_BRACKET_LINE_PATTERN, "")
       .replace(ESCAPED_MARKDOWN_PATTERN, "$1")
+  )
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(MULTIPLE_NEWLINES_PATTERN, "\n\n")
+    .trim();
+}
+
+function normalizeNarrationTransport(markdown: string): string {
+  return stripStandaloneImageAssetLines(
+    normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeArtifactTransport(markdown)))
+      .replace(IMAGE_PATTERN, "\n")
+      .replace(NON_IMAGE_EMPTY_LINK_PATTERN, "$1 ")
+      .replace(LINK_PATTERN, (_match, label: string) => (label.trim() ? label : " "))
+      .replace(DANGLING_LINK_LINE_PATTERN, "")
+      .replace(EMPTY_LINK_LINE_PATTERN, "")
+      .replace(LONE_BRACKET_LINE_PATTERN, "")
       .replace(FOOTNOTE_BACKREF_PATTERN, " ")
       .replace(FOOTNOTE_REF_PATTERN, " ")
   )
@@ -334,6 +386,17 @@ function paragraphToPlainText(paragraph: string): string {
     .trim();
 }
 
+function paragraphToNoiseText(paragraph: string): string {
+  return paragraphToPlainText(
+    paragraph
+      .replace(LINKED_IMAGE_PATTERN, " ")
+      .replace(IMAGE_PATTERN, " ")
+      .replace(LINK_PATTERN, (_match, label: string) => (label.trim() ? label : " "))
+      .replace(NON_IMAGE_EMPTY_LINK_PATTERN, "$1 ")
+      .replace(RAW_URL_PATTERN, " ")
+  );
+}
+
 function wordCount(input: string): number {
   if (!input) {
     return 0;
@@ -372,6 +435,15 @@ function isCategoryBar(input: string): boolean {
   return segments.every((segment) => wordCount(segment) <= 4 && !/[.!?]/.test(segment));
 }
 
+function isTabularParagraph(paragraph: string): boolean {
+  return (
+    regexMatches(HTML_TABLE_TAG_PATTERN, paragraph) ||
+    regexMatches(MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN, paragraph) ||
+    regexMatches(MARKDOWN_TABLE_ROW_PATTERN, paragraph) ||
+    MARKDOWN_TABLE_LINE_PATTERN.test(paragraph)
+  );
+}
+
 function isShortTagListParagraph(paragraph: string): boolean {
   const lines = paragraph
     .split("\n")
@@ -396,7 +468,7 @@ function isLikelyTransportNoise(input: string): boolean {
     return true;
   }
 
-  if (input.includes("http") || /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i.test(input)) {
+  if (input.includes("http") || HOST_LIKE_PATTERN.test(input)) {
     const alphaRatio = alphaCharCount(input) / Math.max(input.length, 1);
     return alphaRatio < 0.45;
   }
@@ -420,6 +492,16 @@ function isFooterLegalNoise(input: string): boolean {
   }
 
   return wordCount(input) <= 18 || isCategoryBar(input) || !/[.!?]/.test(input);
+}
+
+function isBrokenWrapperParagraph(paragraph: string): boolean {
+  const singleLine = paragraph.replace(/\n/g, " ").trim();
+  return (
+    regexMatches(NON_IMAGE_EMPTY_LINK_PATTERN, singleLine) ||
+    regexMatches(EMPTY_LINK_LINE_PATTERN, singleLine) ||
+    regexMatches(DANGLING_LINK_LINE_PATTERN, singleLine) ||
+    regexMatches(LONE_BRACKET_LINE_PATTERN, singleLine)
+  );
 }
 
 function isLeadingMetadata(input: string, index: number, paragraph: string): boolean {
@@ -530,20 +612,75 @@ function isGlobalNoise(input: string): boolean {
   return false;
 }
 
+function isArtifactNoiseParagraph(paragraph: string): boolean {
+  if (!paragraph || isBrokenWrapperParagraph(paragraph)) {
+    return true;
+  }
+
+  if (isShortTagListParagraph(paragraph)) {
+    return true;
+  }
+
+  const plain = paragraphToNoiseText(paragraph);
+  if (!plain) {
+    return false;
+  }
+
+  if (GLOBAL_NOISE_PATTERNS.some((pattern) => pattern.test(plain))) {
+    return true;
+  }
+
+  if (isFooterLegalNoise(plain)) {
+    return true;
+  }
+
+  if (PROMO_FOOTER_PATTERNS.some((pattern) => pattern.test(plain))) {
+    return true;
+  }
+
+  if (!isTabularParagraph(paragraph) && isCategoryBar(plain)) {
+    return true;
+  }
+
+  return false;
+}
+
 function isNoiseParagraph(paragraph: string): boolean {
   return isGlobalNoise(paragraphToPlainText(paragraph)) || isShortTagListParagraph(paragraph);
 }
 
+function trimArtifactNoise(paragraphs: string[]): string[] {
+  let start = 0;
+  let end = paragraphs.length;
+
+  while (start < end && isArtifactNoiseParagraph(paragraphs[start] ?? "")) {
+    start += 1;
+  }
+
+  while (end > start && isArtifactNoiseParagraph(paragraphs[end - 1] ?? "")) {
+    end -= 1;
+  }
+
+  return paragraphs.slice(start, end);
+}
+
 function trimLeadingNoise(paragraphs: string[]): string[] {
+  const preserved: string[] = [];
+  let working = paragraphs;
+  if (isMarkdownHeading(working[0] ?? "")) {
+    preserved.push(working[0] ?? "");
+    working = working.slice(1);
+  }
+
   let start = 0;
   let removedCaptionSignal = false;
-  while (start < paragraphs.length) {
-    const plain = paragraphToPlainText(paragraphs[start] ?? "");
-    if (isLikelyLeadingStandfirst(paragraphs[start] ?? "", start, paragraphs[start + 1] ?? "", paragraphs[start + 2] ?? "")) {
+  while (start < working.length) {
+    const plain = paragraphToPlainText(working[start] ?? "");
+    if (isLikelyLeadingStandfirst(working[start] ?? "", start, working[start + 1] ?? "", working[start + 2] ?? "")) {
       start += 1;
       continue;
     }
-    if (isLeadingMetadata(plain, start, paragraphs[start] ?? "")) {
+    if (isLeadingMetadata(plain, start, working[start] ?? "")) {
       start += 1;
       continue;
     }
@@ -552,18 +689,18 @@ function trimLeadingNoise(paragraphs: string[]): string[] {
       start += 1;
       continue;
     }
-    if (isNoiseParagraph(paragraphs[start] ?? "")) {
+    if (isNoiseParagraph(working[start] ?? "")) {
       start += 1;
       continue;
     }
     break;
   }
 
-  if (removedCaptionSignal && isLikelyLeadingCaption(paragraphs[start] ?? "", paragraphs[start + 1] ?? "")) {
+  if (removedCaptionSignal && isLikelyLeadingCaption(working[start] ?? "", working[start + 1] ?? "")) {
     start += 1;
   }
 
-  return paragraphs.slice(start);
+  return [...preserved, ...working.slice(start)];
 }
 
 function trimTrailingNoise(paragraphs: string[]): string[] {
@@ -588,22 +725,16 @@ function trimTrailingNoise(paragraphs: string[]): string[] {
   return paragraphs.slice(0, end);
 }
 
-export function cleanExtractedMarkdown(markdown: string): string {
-  const normalized = normalizeTransport(markdown);
-  if (!normalized) {
-    return "";
-  }
+function trimNarrationParagraphs(paragraphs: string[]): string[] {
+  const filtered = paragraphs.filter((paragraph) => !isNoiseParagraph(paragraph));
 
-  const paragraphs = splitParagraphs(normalized).filter((paragraph) => {
-    return !isNoiseParagraph(paragraph);
-  });
-
-  let trimmed = trimTrailingNoise(trimLeadingNoise(paragraphs)).filter((paragraph, index) => {
+  let trimmed = trimTrailingNoise(trimLeadingNoise(filtered)).filter((paragraph, index) => {
     const plain = paragraphToPlainText(paragraph);
     return !isCaptionNoise(plain, index);
   });
 
-  const hadLeadingMetadataOrCaption = paragraphs.slice(0, Math.min(4, paragraphs.length)).some((paragraph, index) => {
+  const metadataWindow = isMarkdownHeading(filtered[0] ?? "") ? filtered.slice(1, 5) : filtered.slice(0, 4);
+  const hadLeadingMetadataOrCaption = metadataWindow.some((paragraph, index) => {
     const plain = paragraphToPlainText(paragraph);
     return isLeadingMetadata(plain, index, paragraph) || isCaptionNoise(plain, index);
   });
@@ -612,11 +743,34 @@ export function cleanExtractedMarkdown(markdown: string): string {
     trimmed = trimmed.slice(1);
   }
 
-  return trimmed.join("\n\n").replace(MULTIPLE_NEWLINES_PATTERN, "\n\n").trim();
+  return trimmed;
 }
 
-export function markdownToNarrationText(markdown: string): string {
-  return normalizeMarkdownTableRows(stripRawHtmlArtifacts(normalizeTransport(markdown)))
+export function cleanExtractedMarkdown(markdown: string): string {
+  const normalized = normalizeArtifactTransport(markdown);
+  if (!normalized) {
+    return "";
+  }
+
+  const paragraphs = splitParagraphs(normalized).filter((paragraph) => !isArtifactNoiseParagraph(paragraph));
+  return trimArtifactNoise(paragraphs).join("\n\n").replace(MULTIPLE_NEWLINES_PATTERN, "\n\n").trim();
+}
+
+function toNarrationMarkdown(markdown: string): string {
+  const normalized = normalizeNarrationTransport(markdown);
+  if (!normalized) {
+    return "";
+  }
+
+  return trimNarrationParagraphs(splitParagraphs(normalized)).join("\n\n");
+}
+
+function renderNarrationText(narrationMarkdown: string): string {
+  if (!narrationMarkdown) {
+    return "";
+  }
+
+  return narrationMarkdown
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`([^`]+)`/g, "$1")
@@ -629,6 +783,10 @@ export function markdownToNarrationText(markdown: string): string {
     .replace(/[ \t]+\n/g, "\n")
     .replace(MULTIPLE_NEWLINES_PATTERN, "\n\n")
     .trim();
+}
+
+export function markdownToNarrationText(markdown: string): string {
+  return renderNarrationText(toNarrationMarkdown(markdown));
 }
 
 export function hasNarratableText(markdownText: string, minChars = MIN_NARRATION_TEXT_LENGTH): boolean {
@@ -675,65 +833,64 @@ function pushIssue(
   });
 }
 
-function analyzeRawMarkdownIssues(markdown: string): Array<{
-  type: Exclude<MarkdownQualityIssueType, "low_signal_after_cleanup">;
+function hasBrokenImageWrapperResidue(paragraph: string): boolean {
+  const singleLine = paragraph.replace(/\n/g, " ").trim();
+  return (
+    regexMatches(NON_IMAGE_EMPTY_LINK_PATTERN, singleLine) ||
+    regexMatches(EMPTY_LINK_LINE_PATTERN, singleLine) ||
+    regexMatches(DANGLING_LINK_LINE_PATTERN, singleLine) ||
+    regexMatches(LONE_BRACKET_LINE_PATTERN, singleLine) ||
+    /^\/https?:\/\//i.test(singleLine) ||
+    /^:focal\([^)]*\)\//i.test(singleLine)
+  );
+}
+
+function narrationContainsResidualUrl(input: string): string | null {
+  const lines = input.replace(/\r\n/g, "\n").split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (/https?:\/\/|www\./i.test(trimmed) || HOST_LIKE_PATTERN.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  return null;
+}
+
+function narrationContainsTableMarkup(input: string): string | null {
+  const paragraphs = splitParagraphs(input);
+  const tableParagraph = paragraphs.find(
+    (paragraph) => regexMatches(HTML_TABLE_TAG_PATTERN, paragraph) || regexMatches(MARKDOWN_TABLE_SEPARATOR_LINE_PATTERN, paragraph) || regexMatches(MARKDOWN_TABLE_ROW_PATTERN, paragraph)
+  );
+  return tableParagraph ?? null;
+}
+
+function analyzeArtifactMarkdownIssues(markdown: string): Array<{
+  type: Exclude<MarkdownQualityIssueType, "residual_url" | "leading_metadata" | "table_markup" | "low_signal_after_cleanup">;
   excerpt: string;
   message: string;
 }> {
   const issues: Array<{
-    type: Exclude<MarkdownQualityIssueType, "low_signal_after_cleanup">;
+    type: Exclude<MarkdownQualityIssueType, "residual_url" | "leading_metadata" | "table_markup" | "low_signal_after_cleanup">;
     excerpt: string;
     message: string;
   }> = [];
-  const rawLines = markdown.replace(/\r\n/g, "\n").split("\n");
-  const normalized = normalizeTransport(markdown);
-  const transportParagraphs = normalized ? splitParagraphs(normalized) : [];
   const rawParagraphs = splitParagraphs(markdown.replace(/\r\n/g, "\n"));
 
-  const residualUrlLine = rawLines.find((line) => /https?:\/\/|www\./i.test(line.trim()));
-  if (residualUrlLine) {
-    issues.push({
-      type: "residual_url",
-      excerpt: residualUrlLine.trim(),
-      message: "Contains a raw URL or host-like string in extracted markdown."
-    });
-  }
-
-  const imageWrapperParagraph = rawParagraphs.find((paragraph) => {
-    const singleLine = paragraph.replace(/\n/g, " ");
-    return (
-      regexMatches(IMAGE_LINK_PATTERN, singleLine) ||
-      regexMatches(IMAGE_PATTERN, singleLine) ||
-      regexMatches(EMPTY_LINK_PATTERN, singleLine) ||
-      regexMatches(EMPTY_LINK_LINE_PATTERN, singleLine) ||
-      regexMatches(DANGLING_LINK_LINE_PATTERN, singleLine) ||
-      /^\s*!\[/.test(singleLine)
-    );
-  });
+  const imageWrapperParagraph = rawParagraphs.find((paragraph) => hasBrokenImageWrapperResidue(paragraph));
   if (imageWrapperParagraph) {
     issues.push({
       type: "image_wrapper",
       excerpt: imageWrapperParagraph,
-      message: "Contains markdown image/link scaffolding that should be removed before persistence."
+      message: "Contains broken image/link wrapper residue or leaked asset fragments that should not remain in stored markdown."
     });
   }
 
-  for (let index = 0; index < Math.min(6, transportParagraphs.length); index += 1) {
-    const paragraph = transportParagraphs[index] ?? "";
-    const plain = paragraphToPlainText(paragraph);
-    if (isLeadingMetadata(plain, index, paragraph)) {
-      issues.push({
-        type: "leading_metadata",
-        excerpt: paragraph,
-        message: "Contains leading metadata or byline chrome before the article body."
-      });
-      break;
-    }
-  }
-
-  const footerLegalParagraph = transportParagraphs.find((paragraph) => {
-    const plain = paragraphToPlainText(paragraph);
-    return isFooterLegalNoise(plain);
+  const footerLegalParagraph = rawParagraphs.find((paragraph) => {
+    const plain = paragraphToNoiseText(paragraph);
+    return plain ? isFooterLegalNoise(plain) : false;
   });
   if (footerLegalParagraph) {
     issues.push({
@@ -743,21 +900,21 @@ function analyzeRawMarkdownIssues(markdown: string): Array<{
     });
   }
 
-  const shareOrCommentParagraph = transportParagraphs.find((paragraph) => {
-    const plain = paragraphToPlainText(paragraph);
-    return SHARE_OR_COMMENT_PATTERNS.some((pattern) => pattern.test(plain));
+  const shareOrCommentParagraph = rawParagraphs.find((paragraph) => {
+    const plain = paragraphToNoiseText(paragraph);
+    return plain ? SHARE_OR_COMMENT_PATTERNS.some((pattern) => pattern.test(plain)) : false;
   });
   if (shareOrCommentParagraph) {
     issues.push({
       type: "share_or_comment_noise",
       excerpt: shareOrCommentParagraph,
-      message: "Contains share, promo, or comment noise."
+      message: "Contains share, promo, or comment noise that should not remain in stored markdown."
     });
   }
 
-  const languageFooterParagraph = transportParagraphs.find((paragraph) => {
-    const plain = paragraphToPlainText(paragraph);
-    return LANGUAGE_FOOTER_PATTERNS.some((pattern) => pattern.test(plain));
+  const languageFooterParagraph = rawParagraphs.find((paragraph) => {
+    const plain = paragraphToNoiseText(paragraph);
+    return plain ? LANGUAGE_FOOTER_PATTERNS.some((pattern) => pattern.test(plain)) : false;
   });
   if (languageFooterParagraph) {
     issues.push({
@@ -770,14 +927,87 @@ function analyzeRawMarkdownIssues(markdown: string): Array<{
   return issues;
 }
 
+function analyzeNarrationIssues(
+  narrationMarkdown: string,
+  narrationText: string
+): Array<{
+  type: Exclude<MarkdownQualityIssueType, "footer_legal" | "share_or_comment_noise" | "language_footer" | "low_signal_after_cleanup">;
+  excerpt: string;
+  message: string;
+}> {
+  const issues: Array<{
+    type: Exclude<MarkdownQualityIssueType, "footer_legal" | "share_or_comment_noise" | "language_footer" | "low_signal_after_cleanup">;
+    excerpt: string;
+    message: string;
+  }> = [];
+
+  const residualUrlLine = narrationContainsResidualUrl(narrationText);
+  if (residualUrlLine) {
+    issues.push({
+      type: "residual_url",
+      excerpt: residualUrlLine,
+      message: "Narration text still contains a raw URL or host-like string."
+    });
+  }
+
+  const narrationParagraphs = splitParagraphs(narrationMarkdown);
+  for (let index = 0; index < Math.min(6, narrationParagraphs.length); index += 1) {
+    const paragraph = narrationParagraphs[index] ?? "";
+    const plain = paragraphToPlainText(paragraph);
+    if (
+      isLeadingMetadata(plain, index, paragraph) ||
+      isCaptionNoise(plain, index) ||
+      isLikelyLeadingStandfirst(paragraph, index, narrationParagraphs[index + 1] ?? "", narrationParagraphs[index + 2] ?? "")
+    ) {
+      issues.push({
+        type: "leading_metadata",
+        excerpt: paragraph,
+        message: "Narration text still contains leading metadata, standfirst, or caption/credit-only content."
+      });
+      break;
+    }
+  }
+
+  const imageWrapperParagraph = narrationParagraphs.find(
+    (paragraph) =>
+      regexMatches(IMAGE_PATTERN, paragraph) ||
+      hasBrokenImageWrapperResidue(paragraph) ||
+      /:focal\([^)]*\)/i.test(paragraph) ||
+      IMAGE_ASSET_URL_PATTERN.test(paragraph)
+  );
+  if (imageWrapperParagraph) {
+    issues.push({
+      type: "image_wrapper",
+      excerpt: imageWrapperParagraph,
+      message: "Narration cleanup still leaves image wrapper or asset residue."
+    });
+  }
+
+  const tableMarkupParagraph = narrationContainsTableMarkup(narrationMarkdown);
+  if (tableMarkupParagraph) {
+    issues.push({
+      type: "table_markup",
+      excerpt: tableMarkupParagraph,
+      message: "Narration cleanup still leaves raw table markup instead of speakable text."
+    });
+  }
+
+  return issues;
+}
+
 export function analyzeMarkdownQuality(markdown: string): MarkdownQualityAnalysis {
   const cleanedMarkdown = cleanExtractedMarkdown(markdown);
-  const narrationText = markdownToNarrationText(cleanedMarkdown);
+  const narrationMarkdown = toNarrationMarkdown(cleanedMarkdown);
+  const narrationText = renderNarrationText(narrationMarkdown);
   const narratable = hasNarratableText(narrationText);
   const issues: MarkdownQualityIssue[] = [];
   const issueCounts = emptyIssueCounts();
 
-  for (const issue of analyzeRawMarkdownIssues(markdown)) {
+  for (const issue of analyzeArtifactMarkdownIssues(markdown)) {
+    pushIssue(issues, issueCounts, markdown, issue.type, issue.excerpt, issue.message);
+  }
+
+  for (const issue of analyzeNarrationIssues(narrationMarkdown, narrationText)) {
     pushIssue(issues, issueCounts, markdown, issue.type, issue.excerpt, issue.message);
   }
 

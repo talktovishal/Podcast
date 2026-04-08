@@ -12,7 +12,7 @@ import {
   shouldSuggestHtmlSnapshotForError
 } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
-import { cleanExtractedMarkdown } from "../src/extract/markdownCleanup";
+import { cleanExtractedMarkdown, markdownToNarrationText } from "../src/extract/markdownCleanup";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
 
@@ -137,12 +137,14 @@ test("extractHtmlSnapshot flattens table-heavy markup into markdown instead of p
     url: "https://news.ycombinator.com/news"
   });
   const cleaned = cleanExtractedMarkdown(result.markdown);
+  const narration = markdownToNarrationText(cleaned);
 
   assert.ok(!result.markdown.includes("<table"));
   assert.ok(!result.markdown.includes("href="));
-  assert.match(cleaned, /Story title \(example\.com\)/);
+  assert.match(cleaned, /\[Story title\]\(https:\/\/example\.com\/story\)/);
   assert.match(cleaned, /Second story with enough descriptive words/);
-  assert.ok(!cleaned.includes("https://"));
+  assert.ok(cleaned.includes("https://example.com/story"));
+  assert.ok(!narration.includes("https://example.com/story"));
 });
 
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {

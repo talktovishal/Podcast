@@ -295,12 +295,12 @@ Current (`M57`-`M64` implemented):
 
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
-- source-item cleanup removes image/link scaffolding, bare URLs, metadata/date chrome, caption credits, and footer/legal/navigation noise before the markdown artifact is persisted.
-- cleanup also strips standalone leaked image-asset URL lines and wrapper fragments so audio does not speak CDN file paths.
+- source-item persistence cleanup is now conservative: it removes obvious wrapper junk plus footer/legal/navigation/share noise while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in `MARKDOWN`.
+- malformed leaked image wrapper fragments are normalized into URL-bearing stored content instead of being dropped outright, so the durable artifact keeps useful references while narration still suppresses them.
 - cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.
-- HTML-to-markdown conversion now flattens table-heavy extracted shells into regular markdown/text instead of preserving raw table HTML, so cleanup can normalize list-heavy pages without leaving `href` blobs behind.
-- canonical cleanup and narration normalization also strip residual raw HTML tags, decode common HTML entities, and flatten legacy HTML/markdown table remnants so TTS does not speak tag names like `td` / `th`.
-- shared markdown quality analysis classifies residual URLs, image wrappers, leading metadata, footer/legal noise, language footers, share/comment noise, and low-signal post-cleanup outputs for audits and regression reporting.
+- HTML-to-markdown conversion still flattens table-heavy extracted shells into readable markdown/text, while narration normalization also flattens legacy HTML/markdown table remnants so TTS does not speak tag names like `td` / `th`.
+- narration cleanup is now the aggressive step: it strips raw URLs, image assets/wrappers, leading metadata, standfirsts, caption/credit-only lines, citation/source tails, and residual raw HTML before TTS, hashing, and episode-description generation.
+- shared markdown quality analysis now distinguishes between stored-markdown wrapper/footer junk and URL/image/table/metadata residue that incorrectly survives narration prep.
 - generated summary markdown is stored separately and does not use the aggressive source-item cleanup rules.
 - low-signal source pages fail with `EXTRACTION_EMPTY` when too little narratable prose remains after cleanup.
 - markdown artifacts are retained for reuse and can be viewed through authorized dashboard/API flows.

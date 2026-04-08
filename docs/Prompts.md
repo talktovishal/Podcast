@@ -65,11 +65,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Markdown artifact milestones (`M57`-`M64`) are implemented:
   - HTML/PDF extraction emits markdown outputs alongside narration text.
   - Worker persists dual artifacts (`RAW_HTML`/`RAW_PDF` + cleaned extracted `MARKDOWN`) with lifecycle metadata.
-  - Rule-based markdown cleanup removes transport noise such as image/link scaffolding, leading metadata, caption credits, and footer chrome before narration/chunking.
-  - HTML-to-markdown conversion now flattens table-heavy page shells into regular markdown/text instead of preserving raw `<table>`/`href` HTML blobs, so cleanup can normalize list-heavy pages consistently.
-  - Canonical markdown cleanup and narration normalization now also strip residual raw HTML tags, decode common HTML entities, and flatten legacy table markup / markdown table separator remnants before TTS.
-  - Cleanup also drops standalone leaked image-asset URL lines, citation/source-attribution URL tails, and wrapper fragments so CDN paths and raw source links do not persist into markdown or narration.
-  - Cleanup now also unescapes leaked markdown punctuation before persistence/TTS so backslashes from escaped headings, emphasis, numbering, and punctuation are not spoken aloud.
+  - Stored source markdown now uses a conservative artifact-safe cleanup pass: it removes obvious wrapper junk, nav/share/footer chrome, and short taxonomy noise while preserving useful source context such as links, raw URLs, bylines, dates, captions, and table structure.
+  - Narration preparation is now the aggressive cleanup boundary: it strips raw HTML/tag remnants, raw URLs, image wrappers/assets, leading metadata, caption/credit-only lines, and citation/source tails before TTS, chunking, and episode-description derivation.
+  - HTML-to-markdown conversion still flattens extraction-side table-heavy page shells into readable markdown, while narration normalization also flattens legacy stored HTML/markdown table markup into speakable text.
+  - Cleanup still unescapes leaked markdown punctuation so backslashes from escaped headings, emphasis, numbering, and punctuation are not spoken aloud.
   - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
@@ -468,8 +467,8 @@ I) Extraction artifacts (near-term track)
 - Current (`M57`-`M64` implemented):
   - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
   - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
-  - apply aggressive site-chrome cleanup only to extracted source markdown, not to generated summary markdown.
-  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags, legacy table remnants, raw source URL tails, and leaked escaped markdown punctuation stripped before TTS.
+  - apply conservative artifact-safe cleanup to extracted source markdown before persistence, while keeping richer source context such as links, raw URLs, metadata, captions, and tables available in `MARKDOWN`.
+  - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags, legacy table remnants, raw source URL tails, image assets/wrappers, and leading metadata/caption noise stripped at the narration step before TTS.
   - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.
   - apply retention lifecycle to raw artifacts (target 90 days).
   - apply retention lifecycle to generated audio episodes (target 60 days) with backfill + purge tooling for existing rows.

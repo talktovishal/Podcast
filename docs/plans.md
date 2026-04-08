@@ -32,17 +32,17 @@
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
-- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts, uses cleaned narration text for hashes/descriptions, and adds an in-place backfill/regeneration command for existing items.
+- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts with conservative artifact-safe cleanup, derives hashes/descriptions from a later aggressive narration cleanup step, and keeps the in-place backfill/regeneration command available for explicit follow-up use.
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
   - The extension popup now keeps its optional metadata block collapsed by default, remembers the last expanded/collapsed choice per Chrome profile, and includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
   - `/app` Recent items now renders capture metadata, while `/app/summary` article selection supports lightweight client-side filtering by importance and tag.
 - Extraction-quality audit track (`M101`) is implemented:
-  - shared markdown quality analysis now classifies residual URLs, leading metadata, image wrappers, footer/legal noise, language footers, share/comment chrome, and low-signal post-cleanup results.
+  - shared markdown quality analysis now distinguishes stored-markdown wrapper/footer junk from URL/image/table/metadata residue that incorrectly survives narration prep, plus low-signal post-cleanup results.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
-  - follow-up cleanup hardening now removes ISO/display timestamps, read-time pills, subscriber upsell paragraphs, short trailing tag lists, standalone image-asset URL fragments, residual raw HTML tags, and legacy HTML/markdown table remnants, while snapshot blocking tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+  - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, and snapshot blocking still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
@@ -3049,10 +3049,11 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-03-27
 - completed_on: 2026-03-24
-- evidence: local validation + markdown cleanup/backfill rollout pass (2026-03-24)
+- evidence: local validation + markdown cleanup/backfill rollout pass (2026-03-24); stored-markdown vs. narration cleanup split follow-up (2026-04-07)
 - Scope:
   - Add shared rule-based cleanup for extracted source markdown before canonical `MARKDOWN` persistence and before TTS narration derivation.
-  - Strip transport noise such as image/link scaffolding, leading metadata, caption credits, and footer/legal/navigation chrome while preserving meaningful prose.
+  - Keep persistence cleanup conservative so stored `MARKDOWN` preserves useful source context such as links, raw URLs, bylines, dates, captions, and table structure while still removing wrapper/footer/navigation junk.
+  - Move aggressive URL/image/table/metadata stripping into the narration step that feeds TTS, chunk hashes, and episode descriptions.
   - Add idempotent backfill tooling that rewrites existing stored `source.md` artifacts, queues regeneration when narration hashes change, and preserves already-published low-signal episodes for feed stability.
 - Key files/modules:
   - `packages/core/src/extract/markdownCleanup.ts`
@@ -3066,7 +3067,7 @@ Milestone metadata contract:
   - `docs/documentation.md`
 - Acceptance criteria:
   - New items persist cleaned extracted markdown as the canonical `MARKDOWN` artifact while leaving `RAW_HTML` and `RAW_PDF` untouched.
-  - Cleaned markdown drives narration text, chunk hashes, cache keys, and episode descriptions.
+  - Cleaned markdown remains the durable artifact, but narration text, chunk hashes, cache keys, and episode descriptions now come from a later aggressive narration cleanup pass over that markdown.
   - Chrome-only or low-signal pages fail with a clearer `EXTRACTION_EMPTY` message after cleanup.
   - Existing items can be cleaned in place with regeneration queued only when the cleaned narration hash changes.
   - Already-published low-signal items are reported and skipped rather than auto-deleted.
@@ -3151,11 +3152,11 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-04-02
 - completed_on: 2026-03-25
-- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04); raw citation URL + escaped markdown cleanup follow-up (2026-04-06)
+- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04); raw citation URL + escaped markdown cleanup follow-up (2026-04-06); stored-markdown vs. narration cleanup split follow-up (2026-04-07)
 - Scope:
   - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
-  - Strip standalone leaked image-asset URL fragments before cleaned source markdown is persisted or narrated.
-  - Strip raw citation/source-attribution URL tails and malformed escaped markdown punctuation before cleaned source markdown is persisted or narrated.
+  - Keep standalone leaked image-asset URL fragments and raw citation/source URLs out of narration while still allowing useful source references to persist in stored markdown when appropriate.
+  - Strip malformed escaped markdown punctuation before stored markdown or narration text would speak it aloud.
   - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
   - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
   - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
@@ -3172,10 +3173,9 @@ Milestone metadata contract:
   - `docs/architecture.md`
   - `docs/documentation.md`
 - Acceptance criteria:
-  - BBC/Substack/Meta cleanup regressions are covered with shared tests and the cleaned markdown stays free of the known noisy prefixes/wrappers.
-  - Stored markdown cleanup no longer leaves standalone raw image-asset URL lines that would be spoken by TTS or preserved in `source.md`.
-  - Stored markdown cleanup no longer leaves raw citation/source-attribution URL tails or escaped markdown backslashes that would be spoken by TTS or preserved in `source.md`.
-  - Table-heavy/list-heavy extracted pages no longer persist raw `<table>` / `href` HTML blobs in the markdown path.
+  - BBC/Substack/Meta cleanup regressions are covered with shared tests and the stored markdown vs. narration boundary stays explicit.
+  - Stored markdown keeps useful links, URLs, captions, metadata, and table structure, while narration no longer speaks standalone raw image-asset URL lines, citation/source-attribution URL tails, or escaped markdown backslashes.
+  - Table-heavy/list-heavy extracted pages no longer persist raw `href` blobs from extraction, and narration no longer leaks legacy HTML/markdown table markup into spoken text.
   - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
   - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
   - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.

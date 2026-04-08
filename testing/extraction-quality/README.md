@@ -14,7 +14,7 @@ Use this harness when we want to answer questions like:
 
 - does URL-path extraction still work across a large corpus?
 - does the checked-in extension capture logic produce comparable markdown?
-- what cleanup noise is still leaking into persisted markdown?
+- what wrapper/footer junk is still leaking into persisted markdown?
 - which failures are real site blocks versus product regressions?
 
 ## Commands
@@ -163,7 +163,7 @@ Common follow-up patterns:
 
 - repeated `blocked access` on the URL lane usually means a real site block, not a product bug
 - repeated extension failures with visible article screenshots usually indicate a server-side snapshot classification or cleanup bug
-- `leading_metadata`, `footer_legal`, and `residual_url` counts are usually the fastest way to spot cleanup regressions at scale
+- `share_or_comment_noise`, `footer_legal`, `image_wrapper`, and narration-side `residual_url` / `table_markup` counts are usually the fastest way to spot cleanup regressions at scale
 
 ## Rerun Strategy
 

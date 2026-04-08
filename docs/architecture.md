@@ -71,12 +71,12 @@ Current behavior (`M57`-`M64` implemented):
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - extracted-item markdown passes through shared rule-based cleanup before persistence:
-  - remove image/link scaffolding, bare transport URLs, leading metadata, caption/credit noise, and footer/legal/nav chrome
+  - remove obvious wrapper junk plus footer/legal/nav/share chrome while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in the durable `MARKDOWN` artifact
   - strip timestamp/read-time chrome, subscriber upsell fragments, and short trailing tag-list paragraphs without treating ordinary article mentions of `privacy` / `terms` as footer noise
-  - flatten table-heavy extracted markup into regular markdown/text instead of preserving raw table HTML
-  - strip residual raw HTML tags, decode common HTML entities, and flatten legacy HTML/markdown table remnants before narration text is derived
-  - shared markdown quality analysis reports residual URLs, leading metadata, image wrappers, footer/legal noise, language selectors, share/comment noise, and low-signal post-cleanup cases for audits/tests
-  - preserve substantive prose, headings, and meaningful inline link text
+  - normalize malformed leaked image wrapper fragments into URL-bearing stored content instead of silently deleting them
+  - narration cleanup is the aggressive boundary: strip residual raw HTML tags, raw URLs, image assets/wrappers, leading metadata/standfirst/caption noise, and flatten legacy HTML/markdown table remnants before narration text is derived
+  - shared markdown quality analysis reports stored-markdown wrapper/footer junk plus narration-surface URL, image, table, metadata, and low-signal residues for audits/tests
+  - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
 - aggressive cleanup rules apply to extracted source markdown only; summary markdown artifacts remain author-polished outputs.

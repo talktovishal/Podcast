@@ -265,6 +265,7 @@ function withFetchError(
       residual_url: 0,
       leading_metadata: 0,
       image_wrapper: 0,
+      table_markup: 0,
       footer_legal: 0,
       share_or_comment_noise: 0,
       language_footer: 0,

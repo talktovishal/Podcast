@@ -190,7 +190,7 @@ Another paragraph explains why the building matters, how the author framed the s
     assert.equal(chunkCaches, 0);
     assert.ok(storedMarkdown.includes("The photo above shows the entrance to Unity Temple"));
     assert.ok(storedMarkdown.includes("Another paragraph explains why the building matters"));
-    assert.ok(!storedMarkdown.includes("substackcdn.com"));
+    assert.ok(storedMarkdown.includes("substackcdn.com/image/fetch/hero.jpeg"));
     assert.ok(!storedMarkdown.includes("Share"));
     assert.equal(episode?.audioPath, `items/${item.id}/episode.mp3`);
   } finally {
@@ -258,8 +258,8 @@ Agent &amp; Phase summary stays useful for narration after cleanup.
     assert.ok(storedMarkdown.includes("Harness"));
     assert.ok(storedMarkdown.includes("Full harness"));
     assert.ok(storedMarkdown.includes("Agent & Phase summary stays useful for narration after cleanup."));
-    assert.ok(!storedMarkdown.includes("<table"));
-    assert.ok(!storedMarkdown.includes("<th"));
+    assert.ok(storedMarkdown.includes("<table"));
+    assert.ok(storedMarkdown.includes("<th>"));
     assert.ok(!storedMarkdown.includes("&amp;"));
     assert.ok(!narration.includes("tbody"));
     assert.ok(!narration.includes("<table"));

@@ -2,25 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeMarkdownQuality } from "../src/extract/markdownCleanup";
 
-test("analyzeMarkdownQuality reports Substack-style image/share cleanup issues before cleanup", () => {
+test("analyzeMarkdownQuality flags broken wrapper junk and share chrome but allows rich stored markdown details", () => {
   const analysis = analyzeMarkdownQuality(`
 [ ![](https://substackcdn.com/image/fetch/hero.jpeg) ](https://substackcdn.com/image/fetch/hero.jpeg)
 
 _December 5th, 2025. (Photo by Jonathan Hoefler)_
 
-The photo above shows the entrance to Unity Temple and introduces the main article body with enough prose for narration.
+The photo above shows the entrance to Unity Temple and introduces the main article body with enough prose for narration. A second sentence makes the sample long enough that low-signal detection should not trigger.
 
 [Share](https://example.com/share)
+
+My hope was to answer those questions by creating a comprehensive visual timeline that remains useful once the audio path strips the image and raw URL details.
 `);
 
-  assert.equal(analysis.issueCounts.image_wrapper, 1);
-  assert.equal(analysis.issueCounts.residual_url, 1);
+  assert.equal(analysis.issueCounts.image_wrapper, 0);
   assert.equal(analysis.issueCounts.share_or_comment_noise, 1);
-  assert.ok(analysis.cleanedMarkdown.includes("The photo above shows the entrance to Unity Temple"));
-  assert.ok(!analysis.cleanedMarkdown.includes("Share"));
+  assert.equal(analysis.issueCounts.residual_url, 0);
+  assert.equal(analysis.issueCounts.leading_metadata, 0);
+  assert.ok(analysis.cleanedMarkdown.includes("https://substackcdn.com/image/fetch/hero.jpeg"));
+  assert.ok(analysis.cleanedMarkdown.includes("December 5th, 2025"));
+  assert.ok(!analysis.narrationText.includes("substackcdn.com"));
 });
 
-test("analyzeMarkdownQuality reports Meta-style footer/legal and low-signal cleanup issues", () => {
+test("analyzeMarkdownQuality still flags footer and low-signal junk", () => {
   const analysis = analyzeMarkdownQuality(`
 [© 2026 Meta](https://www.facebook.com/)
 
@@ -36,25 +40,23 @@ test("analyzeMarkdownQuality reports Meta-style footer/legal and low-signal clea
   assert.equal(analysis.hasNarratableText, false);
 });
 
-test("analyzeMarkdownQuality reports BBC-style leading metadata and residual URL/image issues", () => {
+test("analyzeMarkdownQuality does not treat leading metadata or raw urls in saved markdown as persistence failures when narration strips them", () => {
   const analysis = analyzeMarkdownQuality(`
-9 hours ago
+By Jane Example
 
-Grace Eliza Goodwin
+March 21, 2026
 
-![](https://static.files.bbci.co.uk/grey-placeholder.png)![Getty Images large gold bars inside a wooden case](https://ichef.bbci.co.uk/news/example.jpg.webp)Getty Images
+See the reference deck at https://example.com/reference-deck for the source appendix and supporting material.
 
-Gold bars taken from the SS Central America ship are displayed at the Museum of American Financial History in 2003 in New York City
-
-A US deep-sea treasure hunter who refused to disclose the location of a famed shipwreck's gold coins has been released from prison after a decade, with 500 coins still unaccounted for.
-
-Tommy Thompson, 73, discovered millions of dollars' worth of sunken treasure from the 1857 wreck of the SS Central America, also known as the Ship of Gold, off the coast of South Carolina in 1988.
+The article body adds enough detail to prove that saved markdown can stay rich while narration removes the metadata and URL residue before TTS and episode descriptions are derived.
 `);
 
-  assert.equal(analysis.issueCounts.leading_metadata, 1);
-  assert.equal(analysis.issueCounts.image_wrapper, 1);
-  assert.equal(analysis.issueCounts.residual_url, 1);
-  assert.ok(analysis.cleanedMarkdown.startsWith("A US deep-sea treasure hunter"));
+  assert.equal(analysis.issueCounts.leading_metadata, 0);
+  assert.equal(analysis.issueCounts.residual_url, 0);
+  assert.ok(analysis.cleanedMarkdown.includes("By Jane Example"));
+  assert.ok(analysis.cleanedMarkdown.includes("https://example.com/reference-deck"));
+  assert.ok(!analysis.narrationText.includes("By Jane Example"));
+  assert.ok(!analysis.narrationText.includes("https://example.com/reference-deck"));
 });
 
 test("analyzeMarkdownQuality does not flag normal article prose about privacy as footer legal noise", () => {
@@ -69,35 +71,4 @@ Changes from AI and robotics will impact the U.S. economy and American democracy
   assert.equal(analysis.issueCounts.footer_legal, 0);
   assert.equal(analysis.issueCounts.low_signal_after_cleanup, 0);
   assert.ok(analysis.cleanedMarkdown.includes("privacy rights"));
-});
-
-test("analyzeMarkdownQuality reports Business Insider-style metadata and subscriber chrome before cleanup", () => {
-  const analysis = analyzeMarkdownQuality(`
-2026-02-19T11:47:08.112Z
-
-Feb 19, 2026, 3:47 AM PT
-
-Nostalgia is everywhere on the internet right now.
-
-With doomsayers predicting that AI could bring about the apocalypse, this January marking the highest number of layoffs to kick off a year since 2009, and ongoing political unrest, people are harking back to simpler times.
-
-4 MIN READ
-
-- Tech
-- AI
-- gen z
-- More
-- Society
-
-## Read next
-
-This story is available exclusively to Business Insider subscribers. Become an Insider and start reading now. Have an account? .
-`);
-
-  assert.equal(analysis.issueCounts.leading_metadata, 1);
-  assert.equal(analysis.issueCounts.footer_legal, 0);
-  assert.ok(analysis.cleanedMarkdown.includes("Nostalgia is everywhere on the internet right now."));
-  assert.ok(!analysis.cleanedMarkdown.includes("4 MIN READ"));
-  assert.ok(!analysis.cleanedMarkdown.includes("Become an Insider"));
-  assert.ok(!analysis.cleanedMarkdown.includes("- Tech"));
 });
