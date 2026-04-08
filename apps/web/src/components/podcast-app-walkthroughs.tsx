@@ -342,25 +342,43 @@ export function PodcastAppWalkthroughs() {
         icon={<CastroIcon className="h-6 w-6" />}
         name="Castro"
         platform="iPhone · iPad (iOS only)"
+        intro={
+          <>
+            Tap the Castro button above first so your private feed URL is
+            already copied, then follow these steps.
+          </>
+        }
         steps={[
+          <>Open Castro on your device.</>,
           <>
-            Tap the button above — your feed URL is copied and Castro opens
-            automatically on iPhone.
+            Tap the search icon in the top-right corner.
           </>,
           <>
-            In Castro, tap the <Ui>Discover</Ui> tab (magnifying-glass icon at
-            the bottom).
+            Paste your RSS feed URL in the field.
           </>,
           <>
-            Tap the search bar and paste your feed URL, then tap <Ui>Return</Ui>
-            .
-          </>,
-          <>
-            Castro finds the feed — tap <Ui>Subscribe</Ui> to add it to your
-            library.
+            Tap the show and click <Ui>Subscribe</Ui>.
           </>,
         ]}
         tip="Castro queues episodes rather than auto-downloading everything. Great for high-volume feeds."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing how to paste a podcast RSS URL and subscribe in the Castro app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/castro-subscribe-by-url.gif"
+                unoptimized
+                width={221}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the Castro subscribe-by-URL flow.
+            </p>
+          </div>
+        }
       />
 
       {/* AntennaPod */}

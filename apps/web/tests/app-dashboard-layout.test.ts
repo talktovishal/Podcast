@@ -492,6 +492,41 @@ test("antennapod walkthrough includes the updated steps and animation", () => {
   assert.equal(existsSync(gifPath), true);
 });
 
+test("castro walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/castro-subscribe-by-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes("Open Castro on your device."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Tap the search icon in the top-right corner."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste your RSS feed URL in the field."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      'Tap the show and click <Ui>Subscribe</Ui>.',
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/castro-subscribe-by-url.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
 test("feedback page exists and keeps message as the first field", () => {
   const source = readFileSync(
     new URL("../src/components/feedback-form.tsx", import.meta.url),
