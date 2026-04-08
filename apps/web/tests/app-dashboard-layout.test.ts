@@ -67,8 +67,10 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes('label: "Summaries"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
   assert.equal(source.includes('title: "Summaries"'), true);
+  assert.equal(source.includes("hasSnippetsForUser"), true);
+  assert.equal(source.includes("showSnippetsLink"), true);
   assert.equal(
-    source.includes("NAV_ITEMS.filter((item) => item.key !== current)"),
+    source.includes('(item.key !== "snippets" || showSnippetsLink)'),
     true,
   );
   assert.equal(source.includes("flex-wrap"), true);
@@ -228,6 +230,8 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     true,
   );
   assert.equal(snippetsPageSource.includes('current="snippets"'), true);
+  assert.equal(snippetsPageSource.includes("if (snippets.length === 0)"), true);
+  assert.equal(snippetsPageSource.includes('redirect("/app")'), true);
   assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), false);
   assert.equal(
     resourcesPageSource.includes("ChromeExtensionGuidePanels"),
@@ -309,6 +313,11 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     extensionGuideSource.includes("ready-to-copy connect code"),
     true,
   );
+  const snippetsClientSource = readFileSync(
+    new URL("../src/components/snippets-workspace-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(snippetsClientSource.includes('router.replace("/app")'), true);
   assert.equal(summaryPageSource.includes("Summaries"), true);
   assert.equal(
     summaryPageSource.includes(
@@ -413,6 +422,39 @@ test("pocket casts walkthrough includes the support article flow and video link"
     walkthroughSource.includes("When the show appears, tap <Ui>Subscribe</Ui>."),
     true,
   );
+});
+
+test("overcast walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/overcast-add-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes("Open Overcast on your iPhone."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Add URL</Ui> in the upper-right corner."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste the podcast&apos;s RSS/XML feed URL."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Add</Ui> or <Ui>Done</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/overcast-add-url.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
 });
 
 test("feedback page exists and keeps message as the first field", () => {

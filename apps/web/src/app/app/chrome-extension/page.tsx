@@ -22,7 +22,7 @@ export default async function ChromeExtensionPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <p className="text-sm text-[var(--muted)]">Capture setup</p>
-              <AppShellNav current="chrome-extension" />
+              <AppShellNav current="chrome-extension" userId={user.id} />
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Chrome Extension</h1>

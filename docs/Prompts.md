@@ -153,7 +153,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app` is now a focused workspace for `Add New Episode` and `Recent items`, with a tighter one-line action nav on desktop.
   - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
   - `/app/snippets` is now a dedicated review workspace for extension-saved text selections and comment edits.
-  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, `Snippets`, `Summaries`, `Feedback`, and `Settings`.
+  - the `Snippets` nav entry only appears after a user has at least one saved snippet; users without snippets do not see that workspace in navigation yet.
+  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, `Feedback`, and `Settings`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - signed-in `/app/chrome-extension` now prepares a fresh connect code on page load, and the Chrome Web Store CTA also attempts to copy the current code so pairing takes fewer clicks.

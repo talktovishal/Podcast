@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
+import { hasSnippetsForUser } from "@/lib/snippets";
 
 type AppShellNavKey = "workspace" | "podcast-apps" | "chrome-extension" | "snippets" | "summary" | "feedback" | "settings";
 
@@ -22,12 +23,21 @@ const baseItemClass =
   "shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
 const neutralItemClass = `${baseItemClass} border-[rgba(31,42,31,0.12)] bg-white text-[var(--ink)] hover:border-slate-300 hover:bg-slate-50`;
 const feedbackItemClass = `${baseItemClass} border-[rgba(31,122,90,0.12)] bg-[rgba(223,243,236,0.38)] text-[var(--ink)] hover:border-[rgba(31,122,90,0.22)] hover:bg-[rgba(223,243,236,0.56)]`;
+export async function AppShellNav({
+  current,
+  userId,
+  showSnippets
+}: {
+  current: AppShellNavKey;
+  userId: string;
+  showSnippets?: boolean;
+}) {
+  const showSnippetsLink = showSnippets ?? (await hasSnippetsForUser(userId));
 
-export function AppShellNav({ current }: { current: AppShellNavKey }) {
   return (
     <nav aria-label="Workspace navigation" className="w-full max-w-full">
       <div className="flex flex-wrap items-center justify-start gap-2 md:flex-nowrap md:justify-end md:overflow-x-auto md:pb-1 lg:overflow-visible lg:pb-0">
-        {NAV_ITEMS.filter((item) => item.key !== current).map((item) => {
+        {NAV_ITEMS.filter((item) => item.key !== current && (item.key !== "snippets" || showSnippetsLink)).map((item) => {
           const className = item.key === "feedback" ? feedbackItemClass : neutralItemClass;
 
           return (

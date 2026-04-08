@@ -42,7 +42,7 @@ export default async function PodcastAppsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <p className="text-sm text-[var(--muted)]">Private feed setup</p>
-              <AppShellNav current="podcast-apps" />
+              <AppShellNav current="podcast-apps" userId={user.id} />
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Podcast Apps</h1>

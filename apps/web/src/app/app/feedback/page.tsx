@@ -21,7 +21,7 @@ export default async function FeedbackPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <p className="text-sm text-[var(--muted)]">Product feedback</p>
-              <AppShellNav current="feedback" />
+              <AppShellNav current="feedback" userId={user.id} />
             </div>
             <div>
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>

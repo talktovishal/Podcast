@@ -16,6 +16,9 @@ export default async function SnippetsPage() {
   }
 
   const snippets = await listSnippetsForUser(user.id, 100);
+  if (snippets.length === 0) {
+    redirect("/app");
+  }
 
   return (
     <main className="py-5 sm:py-8">
@@ -24,7 +27,7 @@ export default async function SnippetsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <p className="text-sm text-[var(--muted)]">Selection workspace</p>
-              <AppShellNav current="snippets" />
+              <AppShellNav current="snippets" userId={user.id} showSnippets />
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Snippets</h1>

@@ -79,9 +79,10 @@
   - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
   - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
   - `/app/snippets` provides review, comment editing, and delete actions without entering the podcast queue or RSS/feed pipeline.
+  - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, and the page redirects back to `/app` if the last snippet is removed.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
-- Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
+- Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, `Feedback`, and `Settings` for clarity.
 - `/` now uses the social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Public marketing SEO hardening (`M107`) is implemented:
   - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.

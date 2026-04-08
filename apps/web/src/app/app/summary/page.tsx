@@ -34,7 +34,7 @@ export default async function SummaryStudioPage() {
               <p className="text-sm text-[var(--muted)]">
                 Manual editorial workspace
               </p>
-              <AppShellNav current="summary" />
+              <AppShellNav current="summary" userId={user.id} />
             </div>
             <div>
               <h1 className="font-bold text-2xl">Summaries</h1>

@@ -68,7 +68,7 @@ export default async function AppDashboardPage({
                 initialBilling={billing}
                 sandboxModeActive={billingState.mode.effectiveLane === "SANDBOX"}
               />
-              <AppShellNav current="workspace" />
+              <AppShellNav current="workspace" userId={user.id} />
             </div>
             <div className="space-y-0.5">
               <h1 className="font-bold text-2xl">{user.name || user.email}</h1>

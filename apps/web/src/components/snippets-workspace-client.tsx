@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type SnippetView = {
@@ -53,6 +54,7 @@ function sourceLabel(snippet: SnippetView): string {
 }
 
 export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
+  const router = useRouter();
   const [snippets, setSnippets] = useState(initialSnippets);
   const [draftComments, setDraftComments] = useState<Record<string, string>>(() =>
     Object.fromEntries(initialSnippets.map((snippet) => [snippet.id, snippet.comment ?? ""]))
@@ -83,6 +85,12 @@ export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
   }, [snippets]);
 
   useEffect(() => {
+    if (snippets.length === 0) {
+      router.replace("/app");
+    }
+  }, [router, snippets.length]);
+
+  useEffect(() => {
     const refreshSnippets = async () => {
       const response = await fetch(`/api/snippets?limit=100&t=${Date.now()}`, {
         cache: "no-store"
@@ -97,7 +105,10 @@ export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
       if (!payload.ok || !Array.isArray(payload.snippets)) {
         return;
       }
-      setSnippets((current) => mergeSnippetsPreservingNewest(current, payload.snippets ?? []).slice(0, 100));
+      const nextSnippets = payload.snippets;
+      setSnippets((current) =>
+        nextSnippets.length === 0 ? [] : mergeSnippetsPreservingNewest(current, nextSnippets).slice(0, 100)
+      );
     };
 
     const refreshIfVisible = () => {
