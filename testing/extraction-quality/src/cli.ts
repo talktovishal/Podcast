@@ -1,6 +1,7 @@
 import { formatHelp, parseCliOptions } from "./options.js";
 import { runArtifactAudit } from "./audit.js";
 import { runBulkComparison } from "./compare.js";
+import { runDefuddleComparison } from "./compare-defuddle.js";
 import { runProductionAudit } from "./prod-audit.js";
 
 async function main(): Promise<void> {
@@ -21,6 +22,16 @@ async function main(): Promise<void> {
     process.stdout.write(
       `${JSON.stringify({ reportDir: report.reportDir, files: report.results.length, windowStart: report.windowStart.toISOString() }, null, 2)}\n`
     );
+    return;
+  }
+
+  if (options.command === "compare-defuddle") {
+    const report = await runDefuddleComparison(options);
+    const flagged = report.results.filter((result) => result.rerunRecommended).length;
+    process.stdout.write(`${JSON.stringify({ reportDir: report.reportDir, flagged }, null, 2)}\n`);
+    if (flagged > 0) {
+      process.exitCode = 1;
+    }
     return;
   }
 

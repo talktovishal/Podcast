@@ -1,6 +1,6 @@
 import type { MarkdownQualityAnalysis, MarkdownQualityIssueType } from "../../../packages/core/src/extract/markdownCleanup.ts";
 
-export const commandValues = ["audit", "audit-prod", "compare"] as const;
+export const commandValues = ["audit", "audit-prod", "compare", "compare-defuddle"] as const;
 export type CommandMode = (typeof commandValues)[number];
 
 export const compareModeValues = ["url", "extension", "dual"] as const;

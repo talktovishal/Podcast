@@ -2,11 +2,12 @@
 
 This workspace focuses on extraction quality only. It does not enqueue jobs, write DB items, or synthesize audio.
 
-It provides two reusable workflows:
+It provides three reusable workflows:
 
 - `artifact audit`: scan generated markdown artifacts already present under `apps/web/.data/media/`
 - `production audit`: scan production-generated summary markdown plus production episode text across all users from Azure Table + Blob
 - `bulk comparison`: run URL extraction and/or Chrome-extension snapshot extraction side by side on a corpus of URLs, then compare the cleaned markdown outputs
+- `defuddle comparison`: fetch each URL once, then run the current shared-HTML extractor and `defuddle` on the same HTML
 
 ## When To Use This
 
@@ -26,6 +27,7 @@ npm run extraction-quality:audit
 npm run extraction-quality:audit:prod -- --days 7
 npm run extraction-quality:test
 npm run extraction-quality:test -- --limit 20
+npm run extraction-quality:test:defuddle -- --limit 20
 npm run extraction-quality:test:url -- --input /path/to/urls.txt
 npm run extraction-quality:test:extension -- --site cnn-business,yahoo-news
 ```
@@ -103,6 +105,7 @@ Then run:
 
 ```bash
 npm run extraction-quality:test -- --input /tmp/extraction-quality-input.txt
+npm run extraction-quality:test:defuddle -- --input /tmp/extraction-quality-input.txt --limit 25
 ```
 
 The supported harness input remains `.txt` or Markdown, so the conversion step is still the handoff into the comparison suite.
@@ -141,6 +144,20 @@ Bulk comparison runs write:
 - `bulk/targets/<id>/extension.cleaned.md`
 - `bulk/targets/<id>/comparison.json`
 
+Defuddle comparison runs write:
+
+- `defuddle/summary.md`
+- `defuddle/results.json`
+- `defuddle/patterns.md`
+- `defuddle/flagged.md`
+- `defuddle/rerun-ids.txt`
+- `defuddle/targets/<id>/shared.html`
+- `defuddle/targets/<id>/current.raw.md`
+- `defuddle/targets/<id>/current.cleaned.md`
+- `defuddle/targets/<id>/defuddle.raw.md`
+- `defuddle/targets/<id>/defuddle.cleaned.md`
+- `defuddle/targets/<id>/comparison.json`
+
 ## Defaults
 
 - default corpus is the checked-in `corpus.md`
@@ -158,6 +175,11 @@ Use these severity buckets as the first pass:
 - `substantive_divergence`: both paths succeeded, but the extracted article content differs materially
 - `cleanup_issue`: extraction succeeded, but one or both outputs still contain cleanup noise
 - `capture_failure`: one or both paths failed before comparison
+
+The defuddle comparison uses similar severity buckets, except:
+
+- `fetch_failure`: the shared HTML fetch failed before either extractor ran
+- `lane_failure`: the shared fetch succeeded, but one extractor failed on that HTML
 
 Common follow-up patterns:
 

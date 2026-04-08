@@ -46,3 +46,10 @@ test("parseCliOptions parses explicit flags", () => {
   assert.equal(options.concurrencyExtension, 2);
   assert.equal(options.headed, true);
 });
+
+test("parseCliOptions accepts compare-defuddle command", () => {
+  const options = parseCliOptions(["compare-defuddle", "--limit", "5"]);
+
+  assert.equal(options.command, "compare-defuddle");
+  assert.equal(options.limit, 5);
+});

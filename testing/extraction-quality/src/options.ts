@@ -133,6 +133,7 @@ export function formatHelp(): string {
     "  audit                       Scan stored markdown artifacts under apps/web/.data/media",
     "  audit-prod                  Scan production-generated summary and episode text from Azure",
     "  compare                     Compare URL and extension extraction on a URL corpus (default)",
+    "  compare-defuddle            Compare current HTML extraction against defuddle using shared fetched HTML",
     "",
     "Options:",
     "  --mode <url|extension|dual>",
