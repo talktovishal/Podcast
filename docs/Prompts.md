@@ -222,7 +222,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M104`) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M114`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
   - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
   - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.
@@ -263,6 +263,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - artifact audit command for stored `source.md` and digest markdown under `apps/web/.data/media/`
   - extraction-only URL vs. extension comparison runner that stores raw + cleaned markdown outputs without generating audio
   - normalized-diff reporting, rerun ID lists, and timestamped bundles under `exports/extraction-quality/`
+- Hybrid runtime HTML extraction selection is implemented:
+  - server-side HTML extraction now runs the existing Readability path and `defuddle` against the same fetched or captured HTML
+  - the extractor scores both candidates, penalizes image/caption/presentation residue, and keeps the better markdown/text result
+  - worker extraction logs now record the selected engine and per-engine candidate diagnostics so landing-page wins and article-page regressions can be audited over time
 - Live Azure cutover completed on 2026-03-17:
   - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
@@ -379,7 +383,7 @@ B) Ingest content
 C) Convert to audio (worker)
 
 - Worker extracts readable text:
-  - URL: SSRF-validated fetch (pinned IP candidates first, hostname fallback when needed) plus Readability extraction with abogen-derived cleanup.
+  - URL: SSRF-validated fetch (pinned IP candidates first, hostname fallback when needed) plus dual-candidate HTML extraction (`Readability` and `defuddle`) with scored selection ahead of the shared cleanup pipeline.
   - PDF: deterministic text extraction (pdfjs path) with markdown output for downstream reuse.
   - Reuse as much as possible from reputable upstream repos (abogen first) and keep attribution in docs.
 - Worker generates audio with a pluggable TTS provider:

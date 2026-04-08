@@ -1,14 +1,40 @@
 import { AppError, errorCodes } from "../errors/codes";
 import { Readability } from "@mozilla/readability";
+import type { DefuddleResponse } from "defuddle";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
-import { lowSignalExtractionMessage } from "./markdownCleanup";
+import { analyzeMarkdownQuality, lowSignalExtractionMessage, type MarkdownQualityAnalysis } from "./markdownCleanup";
 import https from "node:https";
 import http from "node:http";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 
 const FETCH_TIMEOUT_MS = 30_000;
+const LEADING_PRESENTATION_LABELS = new Set(["watch now", "close", "[close](#)", "advertisement", "stories for you"]);
+const IMAGE_ONLY_PARAGRAPH_PATTERN = /^!\[[\s\S]*?\]\([^)]+\)$/;
+const LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN = /^\[\s*!\[[\s\S]*?\]\([^)]+\)\s*(?:[^\]]*)\]\([^)]+\)$/i;
+const KEY_POINTS_LABEL_PATTERN = /^#{0,6}\s*key points\s*$/i;
+const CAPTION_LIKE_PARAGRAPH_PATTERN =
+  /(?:^image caption\b|\b(?:getty images|associated press|ap photo|reuters|image source|toggle caption|hide caption)\b|^\(?photo by\b)/i;
+const require = createRequire(import.meta.url);
+const defuddleDistDir = dirname(require.resolve("defuddle"));
+const { DefuddleClass } = require(join(defuddleDistDir, "node.js")) as {
+  DefuddleClass: new (
+    doc: Document,
+    options?: {
+      url?: string;
+      useAsync?: boolean;
+      includeReplies?: boolean;
+    }
+  ) => {
+    parse(): DefuddleResponse;
+  };
+};
+const { createMarkdownContent } = require(join(defuddleDistDir, "markdown.js")) as {
+  createMarkdownContent: (content: string, url: string) => string;
+};
 
 type FetchResponseLike = {
   status: number;
@@ -27,6 +53,32 @@ export type HtmlFetchDiagnostics = {
   finalFetchStrategy: HtmlFetchStrategy;
 };
 
+export type HtmlExtractionEngine = "readability" | "defuddle";
+export type HtmlExtractionSelectionMode = "scored" | "readability_only" | "defuddle_only";
+export type HtmlExtractionCandidateDiagnostics = {
+  engine: HtmlExtractionEngine;
+  status: "passed" | "failed";
+  score: number | null;
+  titleLength: number;
+  textLength: number;
+  markdownLength: number;
+  rawIssueCount: number;
+  cleanedIssueCount: number;
+  hasNarratableText: boolean;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
+  errorMessage?: string;
+};
+export type HtmlExtractionSelectionDiagnostics = {
+  selectedEngine: HtmlExtractionEngine;
+  selectionMode: HtmlExtractionSelectionMode;
+  scoreMargin: number;
+  candidates: HtmlExtractionCandidateDiagnostics[];
+};
+
 export const BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE =
   "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly.";
 export const BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE =
@@ -38,10 +90,27 @@ type HtmlExtractionResult = {
   markdown: string;
   rawHtml: string;
   byline?: string | null;
+  selectionDiagnostics: HtmlExtractionSelectionDiagnostics;
 };
 
 type HtmlExtractionResultWithDiagnostics = HtmlExtractionResult & {
   diagnostics: HtmlFetchDiagnostics;
+};
+
+type HtmlExtractionCandidate = {
+  engine: HtmlExtractionEngine;
+  title: string;
+  byline: string | null;
+  text: string;
+  markdown: string;
+  rawAnalysis: MarkdownQualityAnalysis;
+  cleanedAnalysis: MarkdownQualityAnalysis;
+  score: number;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
 };
 
 function pinnedIpv6Enabled(): boolean {
@@ -107,6 +176,163 @@ function hasStrongDomArticleSignal(document: Document): boolean {
   return (substantialParagraphs.length >= 3 && totalWords >= 70) || (substantialParagraphs.length >= 2 && totalWords >= 100);
 }
 
+function countIssueTotal(analysis: MarkdownQualityAnalysis): number {
+  return Object.values(analysis.issueCounts).reduce((sum, value) => sum + value, 0);
+}
+
+function splitMarkdownParagraphs(markdown: string): string[] {
+  return markdown
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/g)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function normalizeParagraphLabel(paragraph: string): string {
+  return paragraph.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isLeadingPresentationParagraph(paragraph: string): boolean {
+  const normalized = normalizeParagraphLabel(paragraph);
+  if (LEADING_PRESENTATION_LABELS.has(normalized)) {
+    return true;
+  }
+  return IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph) || LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph);
+}
+
+function countLeadingPresentationBlocks(markdown: string): number {
+  let count = 0;
+  for (const paragraph of splitMarkdownParagraphs(markdown)) {
+    if (!isLeadingPresentationParagraph(paragraph)) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function countStandaloneImageParagraphs(markdown: string): number {
+  return splitMarkdownParagraphs(markdown).filter(
+    (paragraph) => IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph) || LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph)
+  ).length;
+}
+
+function countCaptionLikeParagraphs(markdown: string): number {
+  return splitMarkdownParagraphs(markdown).filter((paragraph) => {
+    if (paragraph.length > 220) {
+      return false;
+    }
+    return CAPTION_LIKE_PARAGRAPH_PATTERN.test(paragraph);
+  }).length;
+}
+
+function hasHelpfulLeadSummary(markdown: string): boolean {
+  const paragraphs = splitMarkdownParagraphs(markdown);
+  let index = 0;
+  while (index < paragraphs.length && isLeadingPresentationParagraph(paragraphs[index] || "")) {
+    index += 1;
+  }
+  if (!KEY_POINTS_LABEL_PATTERN.test(paragraphs[index] || "")) {
+    return false;
+  }
+
+  const bulletLines = (paragraphs[index + 1] || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+  return bulletLines.length >= 2;
+}
+
+function scoreHtmlExtractionCandidate(candidate: {
+  title: string;
+  byline: string | null;
+  text: string;
+  markdown: string;
+  rawAnalysis: MarkdownQualityAnalysis;
+  cleanedAnalysis: MarkdownQualityAnalysis;
+}): Pick<
+  HtmlExtractionCandidate,
+  "score" | "leadingPresentationBlocks" | "standaloneImageParagraphs" | "captionLikeParagraphs" | "helpfulLeadSummary"
+> {
+  const narratableChars = candidate.cleanedAnalysis.narrationText.replace(/\s+/g, " ").trim().length;
+  const normalizedTextLength = normalizeExtracted(candidate.text).length;
+  const rawIssueCount = countIssueTotal(candidate.rawAnalysis);
+  const cleanedIssueCount = countIssueTotal(candidate.cleanedAnalysis);
+  const leadingPresentationBlocks = countLeadingPresentationBlocks(candidate.markdown);
+  const standaloneImageParagraphs = countStandaloneImageParagraphs(candidate.markdown);
+  const captionLikeParagraphs = countCaptionLikeParagraphs(candidate.text);
+  const helpfulLeadSummary = hasHelpfulLeadSummary(candidate.markdown);
+
+  let score = Math.min(5_000, narratableChars) + Math.min(1_500, normalizedTextLength);
+  score -= cleanedIssueCount * 1_000;
+  score -= rawIssueCount * 250;
+  score -= leadingPresentationBlocks * 175;
+  score -= standaloneImageParagraphs * 125;
+  score -= captionLikeParagraphs * 175;
+  if (helpfulLeadSummary) {
+    score += 150;
+  }
+  if (candidate.title.trim()) {
+    score += 50;
+  }
+  if (candidate.byline?.trim()) {
+    score += 10;
+  }
+
+  return {
+    score,
+    leadingPresentationBlocks,
+    standaloneImageParagraphs,
+    captionLikeParagraphs,
+    helpfulLeadSummary
+  };
+}
+
+function buildCandidateDiagnostics(candidate: HtmlExtractionCandidate): HtmlExtractionCandidateDiagnostics {
+  return {
+    engine: candidate.engine,
+    status: "passed",
+    score: candidate.score,
+    titleLength: candidate.title.length,
+    textLength: candidate.text.length,
+    markdownLength: candidate.markdown.length,
+    rawIssueCount: countIssueTotal(candidate.rawAnalysis),
+    cleanedIssueCount: countIssueTotal(candidate.cleanedAnalysis),
+    hasNarratableText: candidate.cleanedAnalysis.hasNarratableText,
+    leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+    standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+    captionLikeParagraphs: candidate.captionLikeParagraphs,
+    helpfulLeadSummary: candidate.helpfulLeadSummary,
+    warningCount: candidate.warningCount
+  };
+}
+
+function buildFailedCandidateDiagnostics(engine: HtmlExtractionEngine, error: unknown): HtmlExtractionCandidateDiagnostics {
+  return {
+    engine,
+    status: "failed",
+    score: null,
+    titleLength: 0,
+    textLength: 0,
+    markdownLength: 0,
+    rawIssueCount: 0,
+    cleanedIssueCount: 0,
+    hasNarratableText: false,
+    leadingPresentationBlocks: 0,
+    standaloneImageParagraphs: 0,
+    captionLikeParagraphs: 0,
+    helpfulLeadSummary: false,
+    warningCount: 0,
+    errorMessage: error instanceof Error ? error.message : String(error)
+  };
+}
+
+function selectPreferredExtractionError(currentError: unknown, defuddleError: unknown, fallbackMessage: string): AppError {
+  const mappedCurrent = mapHtmlExtractionError(currentError, fallbackMessage);
+  const mappedDefuddle = mapHtmlExtractionError(defuddleError, fallbackMessage);
+  return preferMoreSpecificError(mappedCurrent, mappedDefuddle);
+}
+
 export function htmlToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: "atx",
@@ -150,10 +376,7 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
   }
 }
 
-function extractFromHtml(input: {
-  html: string;
-  sourceUrl: string;
-}): HtmlExtractionResult {
+function extractReadabilityCandidate(input: { html: string; sourceUrl: string }): HtmlExtractionCandidate {
   const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
   const text = normalizeExtracted(extracted.text);
   const markdown = extracted.markdown && extracted.markdown.length >= 40 ? extracted.markdown : normalizeExtracted(text);
@@ -161,12 +384,193 @@ function extractFromHtml(input: {
     throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
   }
 
-  return {
+  const rawAnalysis = analyzeMarkdownQuality(markdown);
+  const cleanedAnalysis = analyzeMarkdownQuality(rawAnalysis.cleanedMarkdown);
+  const score = scoreHtmlExtractionCandidate({
     title: extracted.title || "Untitled",
     byline: extracted.byline,
     text,
     markdown,
-    rawHtml: input.html
+    rawAnalysis,
+    cleanedAnalysis
+  });
+
+  return {
+    engine: "readability",
+    title: extracted.title || "Untitled",
+    byline: extracted.byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis,
+    score: score.score,
+    leadingPresentationBlocks: score.leadingPresentationBlocks,
+    standaloneImageParagraphs: score.standaloneImageParagraphs,
+    captionLikeParagraphs: score.captionLikeParagraphs,
+    helpfulLeadSummary: score.helpfulLeadSummary,
+    warningCount: 0
+  };
+}
+
+function parseDefuddleMarkdown(html: string, sourceUrl: string): { result: DefuddleResponse; warningCount: number } {
+  const dom = new JSDOM(html, { url: sourceUrl });
+  try {
+    const defuddle = new DefuddleClass(dom.window.document, {
+      url: sourceUrl,
+      useAsync: false,
+      includeReplies: false
+    });
+    const suppressedWarnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      suppressedWarnings.push(args.map((value) => String(value)).join(" "));
+    };
+    try {
+      const result = defuddle.parse();
+      const markdown = result.content ? createMarkdownContent(result.content, sourceUrl) : "";
+      result.content = markdown;
+      result.contentMarkdown = markdown;
+      return {
+        result,
+        warningCount: suppressedWarnings.length
+      };
+    } finally {
+      console.warn = originalWarn;
+    }
+  } finally {
+    dom.window.close();
+  }
+}
+
+function extractDefuddleCandidate(input: { html: string; sourceUrl: string }): HtmlExtractionCandidate {
+  const { result, warningCount } = parseDefuddleMarkdown(input.html, input.sourceUrl);
+  const markdown = normalizeMarkdown((result.contentMarkdown || result.content || "").trim());
+  if (!markdown) {
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
+  }
+
+  const rawAnalysis = analyzeMarkdownQuality(markdown);
+  const cleanedAnalysis = analyzeMarkdownQuality(rawAnalysis.cleanedMarkdown);
+  if (!cleanedAnalysis.hasNarratableText) {
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
+  }
+
+  const text = normalizeExtracted(cleanedAnalysis.narrationText);
+  const title = result.title?.trim() || resolveTitleFromHtmlWithAbogenFallback(input.html, "Untitled") || "Untitled";
+  const byline = result.author?.trim() || null;
+  const score = scoreHtmlExtractionCandidate({
+    title,
+    byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis
+  });
+
+  return {
+    engine: "defuddle",
+    title,
+    byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis,
+    score: score.score,
+    leadingPresentationBlocks: score.leadingPresentationBlocks,
+    standaloneImageParagraphs: score.standaloneImageParagraphs,
+    captionLikeParagraphs: score.captionLikeParagraphs,
+    helpfulLeadSummary: score.helpfulLeadSummary,
+    warningCount
+  };
+}
+
+function extractFromHtml(input: {
+  html: string;
+  sourceUrl: string;
+}): HtmlExtractionResult {
+  const attempts: Array<
+    | { engine: HtmlExtractionEngine; status: "passed"; candidate: HtmlExtractionCandidate }
+    | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+  > = [];
+
+  try {
+    attempts.push({
+      engine: "readability",
+      status: "passed",
+      candidate: extractReadabilityCandidate(input)
+    });
+  } catch (error) {
+    attempts.push({
+      engine: "readability",
+      status: "failed",
+      error
+    });
+  }
+
+  try {
+    attempts.push({
+      engine: "defuddle",
+      status: "passed",
+      candidate: extractDefuddleCandidate(input)
+    });
+  } catch (error) {
+    attempts.push({
+      engine: "defuddle",
+      status: "failed",
+      error
+    });
+  }
+
+  const successful = attempts.filter((attempt) => attempt.status === "passed") as Array<{
+    engine: HtmlExtractionEngine;
+    status: "passed";
+    candidate: HtmlExtractionCandidate;
+  }>;
+
+  if (successful.length === 0) {
+    const readabilityFailure = attempts.find((attempt) => attempt.engine === "readability" && attempt.status === "failed") as
+      | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+      | undefined;
+    const defuddleFailure = attempts.find((attempt) => attempt.engine === "defuddle" && attempt.status === "failed") as
+      | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+      | undefined;
+    throw selectPreferredExtractionError(
+      readabilityFailure?.error,
+      defuddleFailure?.error,
+      lowSignalExtractionMessage
+    );
+  }
+
+  let selected = successful[0]!.candidate;
+  let selectionMode: HtmlExtractionSelectionMode = successful[0]!.engine === "readability" ? "readability_only" : "defuddle_only";
+  let scoreMargin = 0;
+
+  if (successful.length === 2) {
+    const readabilityCandidate = successful.find((attempt) => attempt.engine === "readability")!.candidate;
+    const defuddleCandidate = successful.find((attempt) => attempt.engine === "defuddle")!.candidate;
+    selected = defuddleCandidate.score > readabilityCandidate.score ? defuddleCandidate : readabilityCandidate;
+    selectionMode = "scored";
+    scoreMargin = Math.abs(defuddleCandidate.score - readabilityCandidate.score);
+  }
+
+  const selectionDiagnostics: HtmlExtractionSelectionDiagnostics = {
+    selectedEngine: selected.engine,
+    selectionMode,
+    scoreMargin,
+    candidates: attempts.map((attempt) =>
+      attempt.status === "passed"
+        ? buildCandidateDiagnostics(attempt.candidate)
+        : buildFailedCandidateDiagnostics(attempt.engine, attempt.error)
+    )
+  };
+
+  return {
+    title: selected.title || "Untitled",
+    byline: selected.byline,
+    text: selected.text,
+    markdown: selected.markdown,
+    rawHtml: input.html,
+    selectionDiagnostics
   };
 }
 
@@ -746,7 +1150,14 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 export function extractHtmlSnapshot(input: {
   html: string;
   url?: string;
-}): { title: string; text: string; markdown: string; rawHtml: string; byline?: string | null } {
+}): {
+  title: string;
+  text: string;
+  markdown: string;
+  rawHtml: string;
+  byline?: string | null;
+  selectionDiagnostics: HtmlExtractionSelectionDiagnostics;
+} {
   const sourceUrl = input.url || BRAND_SNAPSHOT_FALLBACK_URL;
   throwIfCapturedPageInterstitial(
     {
@@ -773,6 +1184,7 @@ export async function extractHtmlFromUrl(url: string, resolvedIp?: string | stri
     text: extracted.text,
     markdown: extracted.markdown,
     rawHtml: extracted.rawHtml,
-    byline: extracted.byline
+    byline: extracted.byline,
+    selectionDiagnostics: extracted.selectionDiagnostics
   };
 }

@@ -40,6 +40,13 @@ test("extractHtmlFromUrl extracts fixture", async () => {
   assert.ok(result.markdown.length > 80);
   assert.ok(result.rawHtml.includes("<html"));
   assert.ok(result.title.includes("Fixture"));
+  assert.match(result.selectionDiagnostics.selectedEngine, /^(readability|defuddle)$/);
+  assert.equal(result.selectionDiagnostics.candidates.length, 2);
+  assert.deepEqual(
+    result.selectionDiagnostics.candidates.map((candidate) => candidate.engine).sort(),
+    ["defuddle", "readability"]
+  );
+  assert.ok(result.selectionDiagnostics.candidates.every((candidate) => candidate.status === "passed"));
 
   globalThis.fetch = originalFetch;
 });
@@ -145,6 +152,12 @@ test("extractHtmlSnapshot flattens table-heavy markup into markdown instead of p
   assert.match(cleaned, /Second story with enough descriptive words/);
   assert.ok(cleaned.includes("https://example.com/story"));
   assert.ok(!narration.includes("https://example.com/story"));
+  assert.match(result.selectionDiagnostics.selectedEngine, /^(readability|defuddle)$/);
+  assert.equal(result.selectionDiagnostics.candidates.length, 2);
+  assert.deepEqual(
+    result.selectionDiagnostics.candidates.map((candidate) => candidate.engine).sort(),
+    ["defuddle", "readability"]
+  );
 });
 
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {

@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import {
   AppError,
   BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
+  type HtmlExtractionSelectionDiagnostics,
   type ReservedDispatchQueueMessage,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
@@ -221,6 +222,30 @@ function appendExtractionLog(
     message,
     details
   });
+}
+
+function summarizeHtmlExtractionSelection(diagnostics: HtmlExtractionSelectionDiagnostics): Record<string, unknown> {
+  return {
+    selectedEngine: diagnostics.selectedEngine,
+    selectionMode: diagnostics.selectionMode,
+    scoreMargin: diagnostics.scoreMargin,
+    candidates: diagnostics.candidates.map((candidate) => ({
+      engine: candidate.engine,
+      status: candidate.status,
+      score: candidate.score,
+      textLength: candidate.textLength,
+      markdownLength: candidate.markdownLength,
+      rawIssueCount: candidate.rawIssueCount,
+      cleanedIssueCount: candidate.cleanedIssueCount,
+      hasNarratableText: candidate.hasNarratableText,
+      leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+      standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+      captionLikeParagraphs: candidate.captionLikeParagraphs,
+      helpfulLeadSummary: candidate.helpfulLeadSummary,
+      warningCount: candidate.warningCount,
+      errorMessage: candidate.errorMessage
+    }))
+  };
 }
 
 function retentionExpiryDate(days: number): Date {
@@ -546,7 +571,8 @@ async function extractItemText(item: {
       pinnedStatuses: extracted.diagnostics.pinnedStatuses,
       fallbackAttempted: extracted.diagnostics.fallbackAttempted,
       fallbackStatus: extracted.diagnostics.fallbackStatus,
-      finalFetchStrategy: extracted.diagnostics.finalFetchStrategy
+      finalFetchStrategy: extracted.diagnostics.finalFetchStrategy,
+      extractionSelection: summarizeHtmlExtractionSelection(extracted.selectionDiagnostics)
     });
 
     return {
@@ -590,7 +616,8 @@ async function extractItemText(item: {
     const extractedTitle = extracted.title ?? "";
     appendExtractionLog(item.logs, "extract:snapshot", "Snapshot extraction complete", {
       extractedTitleLength: extractedTitle.length,
-      extractedTextLength: extracted.text.length
+      extractedTextLength: extracted.text.length,
+      extractionSelection: summarizeHtmlExtractionSelection(extracted.selectionDiagnostics)
     });
 
     return {

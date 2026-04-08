@@ -300,6 +300,7 @@ Current implementation:
 Current (`M57`-`M64` implemented):
 
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
+- URL HTML extraction now runs both the existing `Readability` path and `defuddle` against the same HTML, scores both candidates, and logs the winning engine plus per-engine diagnostics before persistence.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - source-item persistence cleanup is now conservative: it removes obvious wrapper junk plus footer/legal/navigation/share noise while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in `MARKDOWN`.
 - malformed leaked image wrapper fragments are normalized into URL-bearing stored content instead of being dropped outright, so the durable artifact keeps useful references while narration still suppresses them.

@@ -32,10 +32,13 @@
   - `packages/core/src/extract/postcast/rules/cleaners/*`
 
 Runtime note:
-- Current HTML/PDF extraction path uses `packages/core/src/extract/abogen/*` with Readability for URL article isolation.
+- Current HTML/PDF extraction path uses `packages/core/src/extract/abogen/*` with Readability plus a `defuddle` comparison lane for URL and HTML-snapshot article isolation.
 - `packages/core/src/extract/postcast/*` remains in-repo as an attributed reference implementation.
 
 ## Added runtime dependencies
 - `stripe` (MIT)
   - Scope: `apps/web`
   - Purpose: hosted Checkout, hosted Customer Portal, and webhook verification for recurring billing without storing card data locally.
+- `defuddle` (MIT)
+  - Scope: `packages/core`
+  - Purpose: secondary server-side HTML extraction and markdown-conversion lane used for scored runtime selection against the existing Readability path.

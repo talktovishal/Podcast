@@ -44,6 +44,10 @@
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
   - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, and snapshot blocking still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+- Hybrid runtime HTML extraction selection (`M110`) is implemented:
+  - backend HTML extraction now runs both the existing `Readability` path and `defuddle` on the same fetched or captured HTML before shared cleanup/narration stages continue.
+  - candidate scoring now rewards narratable body text while penalizing image-only blocks, caption-like residue, and presentational clutter so the richer lane only wins when it is meaningfully cleaner.
+  - worker extraction logs now record the selected engine plus both candidate scorecards so production traces can show where landing-page/feed surfaces and article pages diverge over time.
 - Azure VM disk guardrails track (`M102`) is implemented:
   - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
   - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
@@ -226,6 +230,7 @@
 | Reusable live-site regression harness and prod-probe runner                                    | M99                                              |
 | Capture importance + tags metadata with Recent items filters                                   | M100                                             |
 | Extraction-quality audit + bulk HTML regression harness                                        | M101                                             |
+| Hybrid runtime HTML extraction selection + per-item engine diagnostics                        | M110                                             |
 | Azure VM disk guardrails + recurring maintenance automation                                    | M102                                             |
 | Severity-split local log retention for activity vs errors                                      | M103                                             |
 | Public episode share links + branded landing page + growth instrumentation                     | M104                                             |
@@ -389,6 +394,7 @@ Milestone metadata contract:
 | M107      | Done        | 2026-04-09    | 2026-04-02   | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)                        |
 | M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
 | M109      | Done        | 2026-04-11    | 2026-04-04   | local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)          |
+| M110      | Done        | 2026-04-12    | 2026-04-08   | local validation + production hybrid HTML extraction selection pass (2026-04-08)                        |
 | M111      | Done        | 2026-04-13    | 2026-04-05   | local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)                |
 | M112      | Done        | 2026-04-20    | 2026-04-05   | local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)                               |
 | M114      | Done        | 2026-04-21    | 2026-04-06   | local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)                        |
@@ -3499,6 +3505,39 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
   - `npx pnpm --filter @articlepod/web run build`
   - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M110 - Hybrid Runtime HTML Extraction Selection
+
+- status: Done
+- target_finish: 2026-04-12
+- completed_on: 2026-04-08
+- evidence: local validation + production hybrid HTML extraction selection pass (2026-04-08)
+- Scope:
+  - Run the existing `Readability` extraction path and `defuddle` against the same fetched or captured HTML instead of forcing a single extractor path.
+  - Score both candidates using narratable text volume plus markdown-quality penalties for image-only blocks, caption-like residue, and presentational clutter, then keep the better result before the shared cleanup and narration stages continue.
+  - Persist the existing fetch diagnostics while adding per-item extraction-selection logging so production traces show the selected engine and losing-lane scorecard over time.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `packages/core/package.json`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/THIRD_PARTY.md`
+- Acceptance criteria:
+  - URL and HTML-snapshot extraction both evaluate `Readability` and `defuddle` on the same HTML payload and return the selected engine plus both candidate diagnostics.
+  - Selection scoring prefers richer results on landing/feed surfaces without regressing the existing cleaner article-path behavior on representative fixture tests.
+  - Worker extraction logs include the selected engine, selection mode, score margin, and condensed per-engine candidate metrics for later audit/reporting.
+  - Existing fetch fallback and blocked/interstitial semantics remain unchanged while the new extractor lane stays MIT-licensed and declared in repo attribution docs.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/core run test`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/extraction-quality run extraction-quality:test:defuddle -- --limit 10`
 
 ---
 

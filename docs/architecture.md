@@ -57,7 +57,7 @@ Monetization/quota fields on `User`:
 - `HTML_SNAPSHOT` (Chrome extension captured HTML)
 
 The worker extraction adapter branches by source type:
-- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup, with fetched challenge/interstitial HTML classified before generic extraction fallback messaging
+- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + dual-candidate extraction (`Readability` and `defuddle`) + scored selection + cleanup, with fetched challenge/interstitial HTML classified before generic extraction fallback messaging
 - PDF: uploaded bytes from artifact storage + text extraction
 - HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup, including lightweight verification shells
 
@@ -78,6 +78,7 @@ Current behavior (`M57`-`M64` implemented):
   - narration cleanup is the aggressive boundary: strip residual raw HTML tags, raw URLs, image assets/wrappers, leading metadata/standfirst/caption noise, and flatten legacy HTML/markdown table remnants before narration text is derived
   - shared markdown quality analysis reports stored-markdown wrapper/footer junk plus narration-surface URL, image, table, metadata, and low-signal residues for audits/tests
   - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
+- HTML extraction diagnostics now log the selected engine plus both candidate scorecards per item so production traces can show where `Readability` or `defuddle` wins over time.
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
 - summary and digest markdown artifacts remain author-polished stored outputs, while their podcast narration and description path now runs a later shared cleanup over stored markdown that removes trailing `Sources` / `References` appendices and other speech-only residue.
