@@ -732,9 +732,12 @@ test("processing stores cleaned markdown artifacts and hashes cleaned narration 
     assert.equal(refreshedItem?.textHash, expectedCacheKey);
     assert.equal(hasNarratableText(narration), true);
     assert.ok(storedMarkdown.includes("This article includes enough stable prose"));
-    assert.ok(!storedMarkdown.includes("Written by Example Reporter"));
-    assert.ok(!storedMarkdown.includes("Getty Images"));
+    assert.ok(storedMarkdown.includes("Written by Example Reporter"));
+    assert.ok(storedMarkdown.includes("Getty Images"));
     assert.ok(!storedMarkdown.includes("Read more"));
+    assert.ok(!narration.includes("Written by Example Reporter"));
+    assert.ok(!narration.includes("Getty Images"));
+    assert.ok(!narration.includes("Read more"));
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

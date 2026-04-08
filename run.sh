@@ -191,4 +191,8 @@ else
   echo "Starting local stack (web + worker). Press Ctrl+C to stop."
 fi
 
-exec node scripts/dev.mjs "${DEV_ARGS[@]}"
+if [[ "${#DEV_ARGS[@]}" -gt 0 ]]; then
+  exec node scripts/dev.mjs "${DEV_ARGS[@]}"
+else
+  exec node scripts/dev.mjs
+fi
