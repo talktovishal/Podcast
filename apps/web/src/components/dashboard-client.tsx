@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { copyText } from "@/lib/copy-text";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import { FeedUrlActions } from "@/components/feed-url-actions";
@@ -532,6 +532,7 @@ export function DashboardClient({
               placeholder="Leave blank to auto-title"
               value={titleInput}
               onChange={(event) => setTitleInput(event.target.value)}
+              onKeyDown={handleActiveSourceEnter}
             />
           </label>
 
@@ -556,6 +557,7 @@ export function DashboardClient({
                 placeholder="financial, personal, retirement"
                 value={tagsInput}
                 onChange={(event) => setTagsInput(event.target.value)}
+                onKeyDown={handleActiveSourceEnter}
               />
             </label>
           </div>
@@ -833,6 +835,25 @@ export function DashboardClient({
     await submitPdf();
   }
 
+  function handleActiveSourceSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submissionBlocked || isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)) {
+      return;
+    }
+    void submitActiveSource();
+  }
+
+  function handleActiveSourceEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (submissionBlocked || isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)) {
+      return;
+    }
+    void submitActiveSource();
+  }
+
   async function saveDigestSettings() {
     setIsDigestBusy(true);
     setStatusMessage(null);
@@ -854,6 +875,25 @@ export function DashboardClient({
     } finally {
       setIsDigestBusy(false);
     }
+  }
+
+  function handleDigestSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isDigestBusy) {
+      return;
+    }
+    void saveDigestSettings();
+  }
+
+  function handleDigestSettingsEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (isDigestBusy) {
+      return;
+    }
+    void saveDigestSettings();
   }
 
   async function saveTtsSettings() {
@@ -915,6 +955,25 @@ export function DashboardClient({
     } finally {
       setIsDemographicBusy(false);
     }
+  }
+
+  function handleDemographicSurveySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isDemographicBusy) {
+      return;
+    }
+    void saveDemographicSurvey();
+  }
+
+  function handleDemographicSurveyEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (isDemographicBusy) {
+      return;
+    }
+    void saveDemographicSurvey();
   }
 
   async function skipDemographicSurvey() {
@@ -1074,176 +1133,183 @@ export function DashboardClient({
           title="Digest Settings"
           description="Open this only when you want to adjust daily or weekly summary delivery."
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Timezone (IANA)</span>
-              <input
-                className="w-full rounded-lg border px-3 py-2"
-                value={digestSettings.timezone}
-                onChange={(event) => setDigestSettings((current) => ({ ...current, timezone: event.target.value.trim() }))}
-              />
-            </label>
-          </div>
-
-          <div className="mt-4 rounded-lg border p-3">
-            <h3 className="text-sm font-semibold">Daily digest</h3>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={digestSettings.dailyEmailEnabled}
-                  onChange={(event) => setDigestSettings((current) => ({ ...current, dailyEmailEnabled: event.target.checked }))}
-                />
-                Daily email
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={digestSettings.dailyPodcastEnabled}
-                  onChange={(event) => setDigestSettings((current) => ({ ...current, dailyPodcastEnabled: event.target.checked }))}
-                />
-                Daily podcast
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Hour</span>
+          <form onSubmit={handleDigestSettingsSubmit}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Timezone (IANA)</span>
                 <input
                   className="w-full rounded-lg border px-3 py-2"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={digestSettings.dailyHour}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({ ...current, dailyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
-                  }
+                  value={digestSettings.timezone}
+                  onChange={(event) => setDigestSettings((current) => ({ ...current, timezone: event.target.value.trim() }))}
+                  onKeyDown={handleDigestSettingsEnter}
                 />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Minute</span>
-                <input
-                  className="w-full rounded-lg border px-3 py-2"
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={digestSettings.dailyMinute}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({ ...current, dailyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Podcast length</span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={digestSettings.dailyLengthMinutes}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({
-                      ...current,
-                      dailyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
-                    }))
-                  }
-                >
-                  {LENGTH_OPTIONS.map((value) => (
-                    <option key={`daily-${value}`} value={value}>
-                      {value} minutes
-                    </option>
-                  ))}
-                </select>
               </label>
             </div>
-          </div>
 
-          <div className="mt-4 rounded-lg border p-3">
-            <h3 className="text-sm font-semibold">Weekly digest</h3>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={digestSettings.weeklyEmailEnabled}
-                  onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyEmailEnabled: event.target.checked }))}
-                />
-                Weekly email
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={digestSettings.weeklyPodcastEnabled}
-                  onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyPodcastEnabled: event.target.checked }))}
-                />
-                Weekly podcast
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Day</span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={digestSettings.weeklyDayOfWeek}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({ ...current, weeklyDayOfWeek: Number.parseInt(event.target.value, 10) || 0 }))
-                  }
-                >
-                  {WEEKDAY_OPTIONS.map((option) => (
-                    <option key={`weekly-day-${option.value}`} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Hour</span>
-                <input
-                  className="w-full rounded-lg border px-3 py-2"
-                  type="number"
-                  min={0}
-                  max={23}
-                  value={digestSettings.weeklyHour}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({ ...current, weeklyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Minute</span>
-                <input
-                  className="w-full rounded-lg border px-3 py-2"
-                  type="number"
-                  min={0}
-                  max={59}
-                  value={digestSettings.weeklyMinute}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({ ...current, weeklyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
-                  }
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="mb-1 block">Podcast length</span>
-                <select
-                  className="w-full rounded-lg border px-3 py-2"
-                  value={digestSettings.weeklyLengthMinutes}
-                  onChange={(event) =>
-                    setDigestSettings((current) => ({
-                      ...current,
-                      weeklyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
-                    }))
-                  }
-                >
-                  {LENGTH_OPTIONS.map((value) => (
-                    <option key={`weekly-${value}`} value={value}>
-                      {value} minutes
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div className="mt-4 rounded-lg border p-3">
+              <h3 className="text-sm font-semibold">Daily digest</h3>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={digestSettings.dailyEmailEnabled}
+                    onChange={(event) => setDigestSettings((current) => ({ ...current, dailyEmailEnabled: event.target.checked }))}
+                  />
+                  Daily email
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={digestSettings.dailyPodcastEnabled}
+                    onChange={(event) => setDigestSettings((current) => ({ ...current, dailyPodcastEnabled: event.target.checked }))}
+                  />
+                  Daily podcast
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Hour</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={digestSettings.dailyHour}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({ ...current, dailyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                    }
+                    onKeyDown={handleDigestSettingsEnter}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Minute</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={digestSettings.dailyMinute}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({ ...current, dailyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                    }
+                    onKeyDown={handleDigestSettingsEnter}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Podcast length</span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2"
+                    value={digestSettings.dailyLengthMinutes}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({
+                        ...current,
+                        dailyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
+                      }))
+                    }
+                  >
+                    {LENGTH_OPTIONS.map((value) => (
+                      <option key={`daily-${value}`} value={value}>
+                        {value} minutes
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
-          </div>
 
-          <div className="mt-3">
-            <button
-              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-              disabled={isDigestBusy}
-              onClick={saveDigestSettings}
-            >
-              Save digest settings
-            </button>
-          </div>
+            <div className="mt-4 rounded-lg border p-3">
+              <h3 className="text-sm font-semibold">Weekly digest</h3>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={digestSettings.weeklyEmailEnabled}
+                    onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyEmailEnabled: event.target.checked }))}
+                  />
+                  Weekly email
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={digestSettings.weeklyPodcastEnabled}
+                    onChange={(event) => setDigestSettings((current) => ({ ...current, weeklyPodcastEnabled: event.target.checked }))}
+                  />
+                  Weekly podcast
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Day</span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2"
+                    value={digestSettings.weeklyDayOfWeek}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({ ...current, weeklyDayOfWeek: Number.parseInt(event.target.value, 10) || 0 }))
+                    }
+                  >
+                    {WEEKDAY_OPTIONS.map((option) => (
+                      <option key={`weekly-day-${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Hour</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={digestSettings.weeklyHour}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({ ...current, weeklyHour: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                    }
+                    onKeyDown={handleDigestSettingsEnter}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Minute</span>
+                  <input
+                    className="w-full rounded-lg border px-3 py-2"
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={digestSettings.weeklyMinute}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({ ...current, weeklyMinute: Number.parseInt(event.target.value || "0", 10) || 0 }))
+                    }
+                    onKeyDown={handleDigestSettingsEnter}
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="mb-1 block">Podcast length</span>
+                  <select
+                    className="w-full rounded-lg border px-3 py-2"
+                    value={digestSettings.weeklyLengthMinutes}
+                    onChange={(event) =>
+                      setDigestSettings((current) => ({
+                        ...current,
+                        weeklyLengthMinutes: Number.parseInt(event.target.value, 10) as 5 | 15 | 30
+                      }))
+                    }
+                  >
+                    {LENGTH_OPTIONS.map((value) => (
+                      <option key={`weekly-${value}`} value={value}>
+                        {value} minutes
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <button
+                className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+                disabled={isDigestBusy}
+                type="submit"
+              >
+                Save digest settings
+              </button>
+            </div>
+          </form>
         </CollapsibleSettingsCard>
       ) : null}
 
@@ -1252,103 +1318,108 @@ export function DashboardClient({
           title="Optional Demographic Profile"
           description="This is optional and used only for aggregate product insights. You can skip it, edit it later, or delete it anytime."
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Age band</span>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
-                value={demographicSurvey.ageBand ?? ""}
-                onChange={(event) =>
-                  setDemographicSurvey((current) => ({
-                    ...current,
-                    ageBand: (event.target.value || null) as DemographicAgeBand | null
-                  }))
-                }
+          <form onSubmit={handleDemographicSurveySubmit}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Age band</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={demographicSurvey.ageBand ?? ""}
+                  onChange={(event) =>
+                    setDemographicSurvey((current) => ({
+                      ...current,
+                      ageBand: (event.target.value || null) as DemographicAgeBand | null
+                    }))
+                  }
+                >
+                  <option value="">Select age band (optional)</option>
+                  {DEMOGRAPHIC_AGE_BANDS.map((ageBand) => (
+                    <option key={ageBand} value={ageBand}>
+                      {ageBandLabel(ageBand)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Gender identity</span>
+                <select
+                  className="w-full rounded-lg border px-3 py-2"
+                  value={demographicSurvey.genderIdentity ?? ""}
+                  onChange={(event) =>
+                    setDemographicSurvey((current) => ({
+                      ...current,
+                      genderIdentity: (event.target.value || null) as DemographicGenderIdentity | null,
+                      genderSelfDescribe: event.target.value === "SELF_DESCRIBE" ? current.genderSelfDescribe : null
+                    }))
+                  }
+                >
+                  <option value="">Select gender identity (optional)</option>
+                  {DEMOGRAPHIC_GENDER_IDENTITIES.map((identity) => (
+                    <option key={identity} value={identity}>
+                      {genderIdentityLabel(identity)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {demographicSurvey.genderIdentity === "SELF_DESCRIBE" ? (
+              <label className="mt-3 block">
+                <span className="mb-1 block text-sm font-medium">Self-describe</span>
+                <input
+                  className="w-full rounded-lg border px-3 py-2"
+                  maxLength={120}
+                  value={demographicSurvey.genderSelfDescribe ?? ""}
+                  onChange={(event) =>
+                    setDemographicSurvey((current) => ({
+                      ...current,
+                      genderSelfDescribe: event.target.value
+                    }))
+                  }
+                  onKeyDown={handleDemographicSurveyEnter}
+                />
+              </label>
+            ) : null}
+
+            <p className="mt-3 text-xs text-[var(--muted)]">
+              Current status: {demographicSurvey.status.toLowerCase()}
+              {demographicSurvey.updatedAt ? ` · Updated ${new Date(demographicSurvey.updatedAt).toLocaleString()}` : ""}
+            </p>
+
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <button
+                className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+                disabled={isDemographicBusy}
+                type="submit"
               >
-                <option value="">Select age band (optional)</option>
-                {DEMOGRAPHIC_AGE_BANDS.map((ageBand) => (
-                  <option key={ageBand} value={ageBand}>
-                    {ageBandLabel(ageBand)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium">Gender identity</span>
-              <select
-                className="w-full rounded-lg border px-3 py-2"
-                value={demographicSurvey.genderIdentity ?? ""}
-                onChange={(event) =>
-                  setDemographicSurvey((current) => ({
-                    ...current,
-                    genderIdentity: (event.target.value || null) as DemographicGenderIdentity | null,
-                    genderSelfDescribe: event.target.value === "SELF_DESCRIBE" ? current.genderSelfDescribe : null
-                  }))
-                }
+                Save demographic profile
+              </button>
+              <button
+                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+                disabled={isDemographicBusy}
+                onClick={skipDemographicSurvey}
+                type="button"
               >
-                <option value="">Select gender identity (optional)</option>
-                {DEMOGRAPHIC_GENDER_IDENTITIES.map((identity) => (
-                  <option key={identity} value={identity}>
-                    {genderIdentityLabel(identity)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {demographicSurvey.genderIdentity === "SELF_DESCRIBE" ? (
-            <label className="mt-3 block">
-              <span className="mb-1 block text-sm font-medium">Self-describe</span>
-              <input
-                className="w-full rounded-lg border px-3 py-2"
-                maxLength={120}
-                value={demographicSurvey.genderSelfDescribe ?? ""}
-                onChange={(event) =>
-                  setDemographicSurvey((current) => ({
-                    ...current,
-                    genderSelfDescribe: event.target.value
-                  }))
-                }
-              />
-            </label>
-          ) : null}
-
-          <p className="mt-3 text-xs text-[var(--muted)]">
-            Current status: {demographicSurvey.status.toLowerCase()}
-            {demographicSurvey.updatedAt ? ` · Updated ${new Date(demographicSurvey.updatedAt).toLocaleString()}` : ""}
-          </p>
-
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-            <button
-              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-              disabled={isDemographicBusy}
-              onClick={saveDemographicSurvey}
-            >
-              Save demographic profile
-            </button>
-            <button
-              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
-              disabled={isDemographicBusy}
-              onClick={skipDemographicSurvey}
-            >
-              Skip for now
-            </button>
-            <button
-              className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
-              disabled={isDemographicBusy}
-              onClick={deleteDemographicSurvey}
-            >
-              Delete responses
-            </button>
-          </div>
+                Skip for now
+              </button>
+              <button
+                className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto"
+                disabled={isDemographicBusy}
+                onClick={deleteDemographicSurvey}
+                type="button"
+              >
+                Delete responses
+              </button>
+            </div>
+          </form>
         </CollapsibleSettingsCard>
       ) : null}
 
       {showSubmissionSection ? (
         <section className="card p-4">
           <h2 className="text-lg font-semibold">Add New Episode</h2>
-          <div className="mt-2.5 rounded-2xl bg-[var(--accent-soft)]/35 p-3">
+          <form className="mt-2.5 rounded-2xl bg-[var(--accent-soft)]/35 p-3" onSubmit={handleActiveSourceSubmit}>
             <fieldset>
               <legend className="sr-only">Choose source</legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1404,6 +1475,7 @@ export function DashboardClient({
                       ref={urlInputRef}
                       value={urlInput}
                       onChange={(event) => setUrlInput(event.target.value)}
+                      onKeyDown={handleActiveSourceEnter}
                     />
                   </label>
                   {optionalDetailsPanel}
@@ -1428,7 +1500,7 @@ export function DashboardClient({
               <button
                 className="w-full rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60 sm:w-auto"
                 disabled={submissionBlocked || isBusy || (sourceMode === "url" ? !urlInput.trim() : !pdfFile)}
-                onClick={submitActiveSource}
+                type="submit"
               >
                 {sourceMode === "url" ? "Submit URL" : "Upload PDF"}
               </button>
@@ -1455,7 +1527,7 @@ export function DashboardClient({
                 )
               ) : null}
             </div>
-          </div>
+          </form>
         </section>
       ) : null}
 

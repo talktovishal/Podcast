@@ -1,4 +1,4 @@
-import { test as baseTest, expect, loginViaUI, loginAsDemo, logout, TEST_PASSWORD, TEST_NAME, DEMO_EMAIL, trackTestUser } from "./helpers";
+import { test as baseTest, expect, loginViaUI, loginAsDemo, logout, TEST_PASSWORD, TEST_NAME, DEMO_EMAIL, DEMO_PASSWORD, trackTestUser } from "./helpers";
 
 // Auth tests need a clean (unauthenticated) browser context
 const test = baseTest.extend({
@@ -29,6 +29,18 @@ test.describe("Authentication Flows", () => {
     expect(page.url()).toContain("/app");
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
     await expect(page.getByText("Recent items")).toBeVisible();
+  });
+
+  test("pressing Enter in the auth form submits login", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: "Log in", exact: true }).click();
+    await page.locator("input[type='email']").fill(DEMO_EMAIL);
+    await page.locator("input[type='password']").fill(DEMO_PASSWORD);
+    await page.locator("input[type='password']").press("Enter");
+
+    await page.waitForURL(/\/(app|admin)/, { timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
   });
 
   test("login with wrong password shows error", async ({ page }) => {

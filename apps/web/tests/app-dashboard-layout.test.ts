@@ -974,7 +974,13 @@ test("auth landing redirects admins directly to admin dashboard", () => {
   );
   assert.equal(
     source.includes(
-      "className={primaryAuthActionClass} disabled={isLoading} onClick={submit}",
+      '<form className="mt-4 space-y-3" onSubmit={handleEmailAuthSubmit}>',
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'className={primaryAuthActionClass} disabled={isLoading} type="submit"',
     ),
     true,
   );

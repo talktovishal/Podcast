@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers";
+import { test, expect, loginAsDemo } from "./helpers";
 
 test.describe("Dashboard & Item Submission", () => {
   test("dashboard shows URL submission form", async ({ page }) => {
@@ -56,6 +56,23 @@ test.describe("Dashboard & Item Submission", () => {
     await page.getByRole("button", { name: "Submit URL" }).click();
 
     await expect(page.getByText("E2E Test Article")).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("pressing Enter in the URL field submits the active source form", async ({ page }) => {
+    await page.context().clearCookies();
+    await loginAsDemo(page);
+
+    const urlInput = page.locator("input[placeholder*='example.com']");
+    const submitRequest = page.waitForResponse((response) => {
+      return response.request().method() === "POST" && response.url().includes("/api/items/url");
+    });
+
+    await urlInput.fill("https://example.com/e2e-enter-submit");
+    await urlInput.press("Enter");
+
+    const response = await submitRequest;
+    expect(response.ok()).toBe(true);
+    await expect(urlInput).toHaveValue("");
   });
 
   test("dashboard header shows feed URL actions", async ({ page }) => {

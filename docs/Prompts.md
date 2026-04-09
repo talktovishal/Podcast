@@ -167,6 +167,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
   - `/app/summary` now keeps the intro neutral while giving article selection and summary creation controls the stronger visual emphasis.
+  - keyboard-first submit affordances now map `Enter` to the obvious primary action across email auth, episode submission, settings saves, summary creation, and admin search/save flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated users can submit message-first feedback from `/app/feedback` with optional type/feature metadata.
   - contact preference defaults to opt-in and can be disabled per submission.

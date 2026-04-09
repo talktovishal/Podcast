@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
 import { marketingCopy } from "@/lib/marketing-content";
@@ -156,6 +156,25 @@ export function AuthLandingPage() {
     }
   }
 
+  function handleEmailAuthSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isLoading) {
+      return;
+    }
+    void submit();
+  }
+
+  function handleEmailAuthEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (isLoading) {
+      return;
+    }
+    void submit();
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
       <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
@@ -244,7 +263,7 @@ export function AuthLandingPage() {
               </div>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <form className="mt-4 space-y-3" onSubmit={handleEmailAuthSubmit}>
               {mode === "signup" ? (
                 <label className="block">
                   <span className="mb-1 block text-sm font-medium">
@@ -255,6 +274,7 @@ export function AuthLandingPage() {
                     className={inputClass}
                     value={name}
                     onChange={(event) => setName(event.target.value)}
+                    onKeyDown={handleEmailAuthEnter}
                   />
                 </label>
               ) : null}
@@ -269,6 +289,7 @@ export function AuthLandingPage() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  onKeyDown={handleEmailAuthEnter}
                 />
               </label>
 
@@ -284,13 +305,14 @@ export function AuthLandingPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  onKeyDown={handleEmailAuthEnter}
                 />
               </label>
 
-              <button className={primaryAuthActionClass} disabled={isLoading} onClick={submit}>
+              <button className={primaryAuthActionClass} disabled={isLoading} type="submit">
                 {isLoading ? "Please wait..." : emailSubmitLabel}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </section>

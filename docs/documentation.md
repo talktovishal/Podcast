@@ -81,6 +81,7 @@ Connect flow:
   - the header now uses the simplest possible billing control: free users get a single `Upgrade to Pro` action, while paid users get one clickable billing pill that opens Stripe billing; `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
   - `Recent items`
+  - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, summary creation, and admin search/save flows
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
   - single-row desktop nav for the other signed-in pages, plus a logout icon

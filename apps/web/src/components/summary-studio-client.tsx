@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 
 type ItemImportance = "LOW" | "MEDIUM" | "HIGH";
 
@@ -212,6 +212,35 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
     summaryUsage.hasPaidAccess &&
     summaryUsage.remainingSummariesLast7Days !== null &&
     summaryUsage.remainingSummariesLast7Days <= 0;
+
+  function handleSummaryCreateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (
+      isBusy ||
+      summaryBlocked ||
+      selectedItemIds.length === 0 ||
+      selectedItemIds.length > 30
+    ) {
+      return;
+    }
+    void handleCreateSummary();
+  }
+
+  function handleSummaryCreateEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (
+      isBusy ||
+      summaryBlocked ||
+      selectedItemIds.length === 0 ||
+      selectedItemIds.length > 30
+    ) {
+      return;
+    }
+    void handleCreateSummary();
+  }
 
   async function refreshItems(): Promise<void> {
     const response = await fetch(`/api/summary/items?limit=200`);
@@ -569,7 +598,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
         </section>
 
         <section className="card border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/40 p-4 sm:p-5 lg:sticky lg:top-6">
-          <div className="space-y-4">
+          <form className="space-y-4" onSubmit={handleSummaryCreateSubmit}>
             <div>
               <h2 className="font-semibold text-lg">Summary Options</h2>
               <p className="text-sm text-[var(--muted)]">
@@ -582,6 +611,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
               <input
                 className="w-full rounded-lg border px-3 py-2"
                 onChange={(event) => setRequestedTitle(event.target.value)}
+                onKeyDown={handleSummaryCreateEnter}
                 placeholder="Optional: exact title to use"
                 value={requestedTitle}
               />
@@ -635,8 +665,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
                 selectedItemIds.length === 0 ||
                 selectedItemIds.length > 30
               }
-              onClick={() => void handleCreateSummary()}
-              type="button"
+              type="submit"
             >
               {isBusy ? "Creating..." : "Create summary"}
             </button>
@@ -644,7 +673,7 @@ export function SummaryStudioClient({ initialItems, initialRuns, initialSummaryU
             {statusMessage ? (
               <p className="text-sm text-[var(--muted)]">{statusMessage}</p>
             ) : null}
-          </div>
+          </form>
         </section>
       </div>
 

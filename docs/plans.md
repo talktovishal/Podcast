@@ -163,6 +163,7 @@
   - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
   - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` and `/app/summary` now emphasize their live setup/composition controls over surrounding instructional copy.
+  - keyboard-first submit affordances now map `Enter` to the obvious primary action across auth, episode submission, settings saves, summary creation, and admin search/save/filter flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
