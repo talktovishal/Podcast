@@ -27,6 +27,7 @@
 - Azure runtime deploy now auto-recovers canonical env file from legacy `/etc/listenlater/listenlater.env` when present.
 - Azure python-tts provisioning now installs CPU-only torch wheels with pip cache disabled to prevent VM disk exhaustion during deploy.
 - Azure runtime deploy now supports incremental patch mode (skip unchanged pnpm/python setup, seed auto-once) with explicit full-deploy override.
+- Azure swap baseline checks now tolerate the one-page `SwapTotal` rounding gap reported by `/proc/meminfo`, so repeat full deploys do not tear down a healthy `4 GiB` swapfile on the B2s VM.
 - Systemd install now removes stale legacy `listenlater-*` unit files before enabling compatibility aliases.
 - Deploy helper health checks now retry by default, tolerate transient HTTP error responses during ingress/TLS handoff, and avoid unreachable `:3000` fallback for FQDN targets.
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).

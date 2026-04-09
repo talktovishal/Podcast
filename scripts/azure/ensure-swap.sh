@@ -20,6 +20,13 @@ fi
 target_bytes=$((SWAPFILE_GB * 1024 * 1024 * 1024))
 current_swap_bytes="$(awk '/^SwapTotal:/ { print $2 * 1024 }' /proc/meminfo)"
 swap_path_escaped="${SWAPFILE_PATH//\//\\/}"
+page_bytes="$(getconf PAGESIZE 2>/dev/null || printf '4096')"
+# /proc/meminfo SwapTotal can report one page below the nominal swapfile size,
+# so tolerate that rounding difference before attempting a disruptive rebuild.
+effective_target_bytes="$target_bytes"
+if [[ "$page_bytes" =~ ^[0-9]+$ ]] && [[ "$page_bytes" -gt 0 ]] && [[ "$target_bytes" -gt "$page_bytes" ]]; then
+  effective_target_bytes=$((target_bytes - page_bytes))
+fi
 
 create_or_resize_swapfile() {
   swapoff "$SWAPFILE_PATH" >/dev/null 2>&1 || true
@@ -33,7 +40,7 @@ create_or_resize_swapfile() {
   mkswap "$SWAPFILE_PATH" >/dev/null
 }
 
-if [[ ! -f "$SWAPFILE_PATH" ]] || [[ "$current_swap_bytes" -lt "$target_bytes" ]]; then
+if [[ ! -f "$SWAPFILE_PATH" ]] || [[ "$current_swap_bytes" -lt "$effective_target_bytes" ]]; then
   create_or_resize_swapfile
 fi
 

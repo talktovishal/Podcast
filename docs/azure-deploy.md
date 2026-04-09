@@ -221,6 +221,7 @@ sudo systemctl status --no-pager articlepod-python-tts articlepod-web articlepod
 Notes:
 - `deploy-vm-runtime.sh` now auto-provisions required python-tts language assets (`en_core_web_sm`, UniDic, NLTK corpora) when missing.
 - `deploy-vm-runtime.sh` also enforces the Azure VM swapfile baseline before service restarts.
+- swap baseline checks now tolerate the one-page `SwapTotal` rounding gap reported by `/proc/meminfo`, so repeat full deploys do not rebuild an already-healthy `4 GiB` `/swapfile` on the B2s VM.
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
 - `deploy-vm-runtime.sh` bootstraps the auxiliary SQLite schema automatically when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
