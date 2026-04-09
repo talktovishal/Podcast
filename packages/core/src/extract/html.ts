@@ -1,6 +1,7 @@
 import { AppError, errorCodes } from "../errors/codes";
 import { Readability } from "@mozilla/readability";
 import type { DefuddleResponse } from "defuddle";
+import { DefuddleClass } from "defuddle/node";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
@@ -8,8 +9,6 @@ import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } 
 import { analyzeMarkdownQuality, lowSignalExtractionMessage, type MarkdownQualityAnalysis } from "./markdownCleanup";
 import https from "node:https";
 import http from "node:http";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
 
 const FETCH_TIMEOUT_MS = 30_000;
 const LEADING_PRESENTATION_LABELS = new Set(["watch now", "close", "[close](#)", "advertisement", "stories for you"]);
@@ -18,23 +17,6 @@ const LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN = /^\[\s*!\[[\s\S]*?\]\([^)]+\)\s*(?:[
 const KEY_POINTS_LABEL_PATTERN = /^#{0,6}\s*key points\s*$/i;
 const CAPTION_LIKE_PARAGRAPH_PATTERN =
   /(?:^image caption\b|\b(?:getty images|associated press|ap photo|reuters|image source|toggle caption|hide caption)\b|^\(?photo by\b)/i;
-const require = createRequire(import.meta.url);
-const defuddleDistDir = dirname(require.resolve("defuddle"));
-const { DefuddleClass } = require(join(defuddleDistDir, "node.js")) as {
-  DefuddleClass: new (
-    doc: Document,
-    options?: {
-      url?: string;
-      useAsync?: boolean;
-      includeReplies?: boolean;
-    }
-  ) => {
-    parse(): DefuddleResponse;
-  };
-};
-const { createMarkdownContent } = require(join(defuddleDistDir, "markdown.js")) as {
-  createMarkdownContent: (content: string, url: string) => string;
-};
 
 type FetchResponseLike = {
   status: number;
@@ -554,7 +536,7 @@ function parseDefuddleMarkdown(html: string, sourceUrl: string): { result: Defud
     };
     try {
       const result = defuddle.parse();
-      const markdown = result.content ? createMarkdownContent(result.content, sourceUrl) : "";
+      const markdown = result.content ? htmlToMarkdown(result.content) : "";
       result.content = markdown;
       result.contentMarkdown = markdown;
       return {
