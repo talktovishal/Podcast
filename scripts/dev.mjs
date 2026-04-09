@@ -2,8 +2,8 @@ import { spawnSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Load root .env into process.env so child processes (including Next.js)
-// inherit vars like GOOGLE_CLIENT_ID that may not be in apps/web/.env.
+// Load the repo-root .env into process.env so local workspace commands use
+// the same source of truth as ./run.sh and the rest of the repo tooling.
 // Next.js won't override vars already present in process.env.
 const rootEnvPath = resolve(process.cwd(), '.env');
 if (existsSync(rootEnvPath)) {

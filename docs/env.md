@@ -11,6 +11,10 @@ Profile examples (copy to `.env` and fill in passwords):
 - `.env.simple.example`
 - `.env.parity.example`
 
+Local dev note:
+- Repo tooling treats the repo-root `.env` and optional repo-root `.env.<profile>` files as the local source of truth.
+- Stale app-local files such as `apps/web/.env` should be removed instead of maintained in parallel.
+
 ## Required by profile
 
 ### `simple`

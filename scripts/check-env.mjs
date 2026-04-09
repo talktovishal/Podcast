@@ -45,17 +45,16 @@ function parseEnvFile(filePath) {
 
 function getEffectiveEnv(profile) {
   const rootEnvPath = path.resolve(".env");
-  const webEnvPath = path.resolve("apps/web/.env");
   const profileEnvPath = path.resolve(`.env.${profile}`);
   const profileExamplePath = path.resolve(`.env.${profile}.example`);
-  const webProfileEnvPath = path.resolve(`apps/web/.env.${profile}`);
 
+  // Keep env validation aligned with run.sh + scripts/dev.mjs: local repo
+  // commands use the repo-root env files, so stale app-local env files
+  // should not override or mask the active configuration.
   const merged = {
-    ...parseEnvFile(rootEnvPath),
-    ...parseEnvFile(webEnvPath),
     ...parseEnvFile(profileExamplePath),
+    ...parseEnvFile(rootEnvPath),
     ...parseEnvFile(profileEnvPath),
-    ...parseEnvFile(webProfileEnvPath),
     ...process.env
   };
 
