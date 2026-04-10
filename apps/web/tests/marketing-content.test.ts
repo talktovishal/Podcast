@@ -337,10 +337,6 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     true,
   );
   assert.equal(
-    faqContent.topicOptions.some((topic) => topic.label === "Pricing"),
-    true,
-  );
-  assert.equal(
     faqSource.includes(
       "const faqItems: ReadonlyArray<{ q: string; a: string }> = [",
     ),
@@ -349,29 +345,42 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(faqSource.includes("const faqSections"), false);
   assert.equal(faqSource.includes("const quickAnswers"), false);
   assert.equal(faqSource.includes("flattenFaqQuestionsForSchema"), true);
-  assert.equal(faqExplorerSource.includes("Browse by topic"), true);
+  assert.equal(faqExplorerSource.includes("Browse by topic"), false);
   assert.equal(faqExplorerSource.includes("Need something specific?"), false);
   assert.equal(
     faqExplorerSource.includes("Search privacy, pricing, PDFs, or digests"),
     false,
   );
-  assert.equal(faqExplorerSource.includes("aria-pressed"), true);
+  assert.equal(faqExplorerSource.includes("aria-pressed"), false);
   assert.equal(
-    faqContent.sections
-      .flatMap((section) => section.questions)
-      .some((question) => question.question === "What's included in Starter vs Pro?"),
-    true,
-  );
-  assert.equal(
-    faqContent.sections
-      .flatMap((section) => section.questions)
-      .some((question) => question.question === "What does the daily podcast include?"),
+    faqExplorerSource.includes("Link to ${question.question}"),
     false,
   );
   assert.equal(
     faqContent.sections
       .flatMap((section) => section.questions)
-      .some((question) => question.question === "Can ArticlePod create long-term recaps?"),
+      .some(
+        (question) =>
+          question.question === "What's included in Starter vs Pro?",
+      ),
+    true,
+  );
+  assert.equal(
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some(
+        (question) =>
+          question.question === "What does the daily podcast include?",
+      ),
+    false,
+  );
+  assert.equal(
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some(
+        (question) =>
+          question.question === "Can ArticlePod create long-term recaps?",
+      ),
     false,
   );
   assert.equal(

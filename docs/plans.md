@@ -109,11 +109,14 @@
   - FAQ question copy stays unchanged while the page becomes easier to scan and navigate.
 - Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
   - `/faq` now uses higher-conversion FAQ questions with friendlier answers, richer bullet/link blocks, and a shared content model that keeps schema coverage aligned.
-  - the FAQ adds topic chips and question-level deep links that auto-open the matching answer on load.
+  - the FAQ keeps question-level deep links that auto-open the matching answer on load.
   - pricing, privacy, capture, digest, and podcast-app questions now surface faster without changing the shared public marketing shell.
 - Public marketing FAQ control-density trim (`M114`) is implemented:
-  - `/faq` keeps `Quick answers` and `Browse by topic`, but both controls are now compact wrap rows so visitors reach the answer list faster.
-  - the page drops the separate FAQ search box for now, relying on grouped sections, quick-answer anchors, topic chips, and question-level permalinks to keep discovery easy without crowding the top of the page.
+  - `/faq` keeps compact `Quick answers` so visitors reach the answer list faster.
+  - the page drops the separate FAQ search box for now, relying on grouped sections, quick-answer anchors, and question-level permalinks to keep discovery easy without crowding the top of the page.
+- Public marketing FAQ navigation simplification (`M115`) is implemented:
+  - `/faq` removes `Browse by topic` and the per-question `Link` button so the page stays focused on the questions themselves.
+  - quick-answer anchors, richer answer links, and `#question-*` auto-open behavior still cover the useful navigation paths without adding extra visible UI chrome.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -406,6 +409,7 @@ Milestone metadata contract:
 | M111      | Done        | 2026-04-13    | 2026-04-05   | local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)                |
 | M112      | Done        | 2026-04-20    | 2026-04-05   | local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)                               |
 | M114      | Done        | 2026-04-21    | 2026-04-06   | local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)                        |
+| M115      | Done        | 2026-04-25    | 2026-04-10   | local validation + FAQ quick-answers-only navigation pass (2026-04-10)                                  |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3696,6 +3700,37 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
 
 ---
+### M115 - Public Marketing FAQ Navigation Simplification
+
+- status: Done
+- target_finish: 2026-04-25
+- completed_on: 2026-04-10
+- evidence: local validation + FAQ quick-answers-only navigation pass (2026-04-10)
+- Scope:
+  - Keep the compact `Quick answers` row on `/faq`, but remove the separate `Browse by topic` strip so the page focuses on the actual question list.
+  - Remove the per-question `Link` button while preserving hash-driven auto-open behavior for direct `#question-*` URLs.
+  - Keep rich in-answer links, grouped sections, FAQ schema output, and shared marketing chrome unchanged.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/components/faq-explorer.tsx`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` still shows compact `Quick answers`, but no longer renders `Browse by topic`.
+  - FAQ answers retain their richer internal links, and direct `#question-*` hashes still auto-open the matching answer.
+  - The visible `Link` button is gone from each FAQ question card.
+  - Public marketing docs and tests reflect the simplified FAQ navigation behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq keeps quick answers while removing extra FAQ chrome" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
 
 ## Security Hardening Track (S01–S18)
 

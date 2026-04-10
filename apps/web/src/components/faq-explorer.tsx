@@ -5,13 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   FaqAnswerBlock,
   FaqSection,
-  FaqTopicFilterId,
-  FaqTopicOption,
 } from "@/lib/faq-page-content";
 
 type FaqExplorerProps = {
   sections: ReadonlyArray<FaqSection>;
-  topicOptions: ReadonlyArray<FaqTopicOption>;
 };
 
 function setHash(hash: string) {
@@ -59,8 +56,7 @@ function renderBlock(block: FaqAnswerBlock, key: string) {
   );
 }
 
-export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
-  const [activeTopic, setActiveTopic] = useState<FaqTopicFilterId>("all");
+export function FaqExplorer({ sections }: FaqExplorerProps) {
   const [openQuestionIds, setOpenQuestionIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -68,20 +64,6 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
   const questionIds = useMemo(
     () => sections.flatMap((section) => section.questions.map((question) => question.id)),
     [sections],
-  );
-
-  const filteredSections = useMemo(
-    () =>
-      sections
-        .map((section) => ({
-          ...section,
-          questions: section.questions.filter(
-            (question) =>
-              activeTopic === "all" || question.chips.includes(activeTopic),
-          ),
-        }))
-        .filter((section) => section.questions.length > 0),
-    [activeTopic, sections],
   );
 
   useEffect(() => {
@@ -121,121 +103,65 @@ export function FaqExplorer({ sections, topicOptions }: FaqExplorerProps) {
     });
   };
 
-  const ensureQuestionOpen = (questionId: string) => {
-    setOpenQuestionIds((current) => {
-      if (current.has(questionId)) {
-        return current;
-      }
-      const next = new Set(current);
-      next.add(questionId);
-      return next;
-    });
-  };
-
   return (
-    <>
-      <section className="mt-4 flex flex-wrap items-center gap-2" aria-labelledby="faq-browse-by-topic">
-        <h2 id="faq-browse-by-topic" className="mr-2 text-sm font-semibold text-[var(--ink)]">
-          Browse by topic
-        </h2>
-        {topicOptions.map((option) => {
-          const isActive = option.id === activeTopic;
-          return (
-            <button
-              key={option.id}
-              aria-pressed={isActive}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                isActive
-                  ? "border-[#8fcdbb] bg-[#edf8f5] text-[#155240]"
-                  : "border-[rgba(31,42,31,0.12)] bg-white text-[var(--muted)] hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
-              }`}
-              onClick={() => setActiveTopic(option.id)}
-              type="button"
+    <div className="mt-6 space-y-8">
+      {sections.map((section) => (
+        <section
+          key={section.id}
+          id={section.id}
+          className="scroll-mt-24 space-y-3"
+          aria-labelledby={`faq-${section.id}`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id={`faq-${section.id}`}
+              className="text-xl font-semibold sm:text-2xl"
             >
-              {option.label}
-            </button>
-          );
-        })}
-      </section>
-
-      <div className="mt-6 space-y-8">
-        {filteredSections.length === 0 ? (
-          <section className="card p-5">
-            <h2 className="text-lg font-semibold">No matching questions yet</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              Switch back to All to browse the full FAQ.
+              {section.title}
+            </h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+              {section.questions.length} question
+              {section.questions.length === 1 ? "" : "s"}
             </p>
-          </section>
-        ) : (
-          filteredSections.map((section) => (
-            <section
-              key={section.id}
-              id={section.id}
-              className="scroll-mt-24 space-y-3"
-              aria-labelledby={`faq-${section.id}`}
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2
-                  id={`faq-${section.id}`}
-                  className="text-xl font-semibold sm:text-2xl"
+          </div>
+          <div className="space-y-3">
+            {section.questions.map((question) => {
+              const isOpen = openQuestionIds.has(question.id);
+              const answerId = `${question.id}-answer`;
+              return (
+                <article
+                  key={question.id}
+                  id={question.id}
+                  className={`card scroll-mt-24 p-4 transition ${
+                    isOpen ? "border-[rgba(31,122,90,0.22)]" : ""
+                  }`}
                 >
-                  {section.title}
-                </h2>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
-                  {section.questions.length} question
-                  {section.questions.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              <div className="space-y-3">
-                {section.questions.map((question) => {
-                  const isOpen = openQuestionIds.has(question.id);
-                  const answerId = `${question.id}-answer`;
-                  return (
-                    <article
-                      key={question.id}
-                      id={question.id}
-                      className={`card scroll-mt-24 p-4 transition ${
-                        isOpen ? "border-[rgba(31,122,90,0.22)]" : ""
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <button
-                          aria-controls={answerId}
-                          aria-expanded={isOpen}
-                          className="flex-1 text-left text-sm font-semibold sm:text-base"
-                          onClick={() => updateQuestionOpenState(question.id)}
-                          type="button"
-                        >
-                          {question.question}
-                        </button>
-                        <a
-                          aria-label={`Link to ${question.question}`}
-                          className="rounded-full border border-[rgba(31,42,31,0.12)] px-2.5 py-1 text-xs font-medium text-[var(--muted)] transition hover:border-[rgba(31,42,31,0.2)] hover:text-[var(--ink)]"
-                          href={`#${question.id}`}
-                          onClick={() => ensureQuestionOpen(question.id)}
-                        >
-                          Link
-                        </a>
-                      </div>
+                  <button
+                    aria-controls={answerId}
+                    aria-expanded={isOpen}
+                    className="w-full text-left text-sm font-semibold sm:text-base"
+                    onClick={() => updateQuestionOpenState(question.id)}
+                    type="button"
+                  >
+                    {question.question}
+                  </button>
 
-                      {isOpen ? (
-                        <div
-                          id={answerId}
-                          className="mt-3 space-y-3"
-                        >
-                          {question.blocks.map((block, index) =>
-                            renderBlock(block, `${question.id}-${index}`),
-                          )}
-                        </div>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))
-        )}
-      </div>
-    </>
+                  {isOpen ? (
+                    <div
+                      id={answerId}
+                      className="mt-3 space-y-3"
+                    >
+                      {question.blocks.map((block, index) =>
+                        renderBlock(block, `${question.id}-${index}`),
+                      )}
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }

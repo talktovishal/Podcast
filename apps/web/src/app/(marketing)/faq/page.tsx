@@ -75,7 +75,7 @@ export default function FaqPage() {
         </div>
       </section>
 
-      <FaqExplorer sections={faqContent.sections} topicOptions={faqContent.topicOptions} />
+      <FaqExplorer sections={faqContent.sections} />
     </>
   );
 }

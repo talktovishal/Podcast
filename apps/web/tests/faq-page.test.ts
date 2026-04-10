@@ -104,8 +104,8 @@ test("faq content uses conversion-focused questions, topic chips, and richer ans
   );
 });
 
-test("faq explorer keeps compact topic filters and deep-linkable questions", () => {
-  assert.equal(faqExplorerSource.includes("Browse by topic"), true);
+test("faq explorer keeps question hash support without extra navigation chrome", () => {
+  assert.equal(faqExplorerSource.includes("Browse by topic"), false);
   assert.equal(faqExplorerSource.includes("Need something specific?"), false);
   assert.equal(
     faqExplorerSource.includes(
@@ -114,9 +114,9 @@ test("faq explorer keeps compact topic filters and deep-linkable questions", () 
     false,
   );
   assert.equal(faqExplorerSource.includes("useDeferredValue"), false);
-  assert.equal(faqExplorerSource.includes("aria-pressed"), true);
+  assert.equal(faqExplorerSource.includes("aria-pressed"), false);
   assert.equal(faqExplorerSource.includes("hashchange"), true);
-  assert.equal(faqExplorerSource.includes("Link to ${question.question}"), true);
+  assert.equal(faqExplorerSource.includes("Link to ${question.question}"), false);
 });
 
 test("faq schema stays flat even though rendered answers are richer", () => {

@@ -139,7 +139,7 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
-  test("/faq keeps quick answers, topic filters, and question permalinks close to the fold", async ({ page }) => {
+  test("/faq keeps quick answers while removing extra FAQ chrome", async ({ page }) => {
     await page.goto("/faq");
     await page.waitForLoadState("networkidle");
 
@@ -161,10 +161,9 @@ test.describe("Health & Public Pages", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: "Account & access" })
     ).toBeVisible();
-    await expect(page.getByText("Browse by topic")).toBeVisible();
+    await expect(page.getByText("Browse by topic")).toHaveCount(0);
     await expect(page.getByText("Need something specific?")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Pricing" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Privacy" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Link" })).toHaveCount(0);
 
     const privacyQuickAnswer = page.getByRole("link", {
       name: /Private feed URL you control/i,
@@ -173,15 +172,11 @@ test.describe("Health & Public Pages", () => {
     await privacyQuickAnswer.click();
     await expect(page).toHaveURL(/\/faq#privacy-feed$/);
 
-    await page.getByRole("button", { name: "Pricing" }).click();
-    await expect(
-      page.getByRole("button", { name: "What's included in Starter vs Pro?" })
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Is my feed private?" }).click();
     await expect(
       page.getByRole("button", { name: "Is my feed private?" })
-    ).toHaveCount(0);
-
-    await page.getByRole("button", { name: "All" }).click();
+    ).toHaveAttribute("aria-expanded", "true");
+    await expect(page).toHaveURL(/\/faq#question-private-feed$/);
 
     await page.goto("/faq#question-rotate-feed-url");
     await page.waitForLoadState("networkidle");
