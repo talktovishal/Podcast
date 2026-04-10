@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   appShellAccentItemClass,
   appShellDangerItemClass,
@@ -16,6 +17,7 @@ type Props = {
   billingConfigured: boolean;
   activationHint?: boolean;
   sandboxModeActive?: boolean;
+  variant?: "default" | "header";
 };
 
 function toneClasses(input: BillingAccountSnapshot) {
@@ -76,15 +78,46 @@ export function WorkspaceBillingSummary({
   billingConfigured,
   activationHint = false,
   sandboxModeActive = false,
+  variant = "default",
 }: Props) {
+  const searchParams = useSearchParams();
+  const shouldPollForActivation =
+    activationHint || searchParams.get("billing") === "success";
   const { billing, pollMessage } = useBillingStatus(
     initialBilling,
-    activationHint,
+    shouldPollForActivation,
   );
   const showPortalAction = billingConfiguredForPortal(billing);
   const tone = toneClasses(billing);
   const message = pollMessage ?? billing.billingIssueMessage;
   const actionLabel = billingActionLabel(billing);
+
+  if (variant === "header") {
+    const compactActionClass = tone.action;
+
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        {billing.accessReason === "complimentary" ? (
+          <span className={compactActionClass}>{actionLabel}</span>
+        ) : showPortalAction ? (
+          <BillingActionButton
+            action="portal"
+            className={compactActionClass}
+            label={actionLabel}
+          />
+        ) : billingConfigured ? (
+          <Link className={compactActionClass} href="/app/settings#billing">
+            {actionLabel}
+          </Link>
+        ) : (
+          <span className={appShellNeutralItemClass}>Billing unavailable</span>
+        )}
+        {sandboxModeActive ? (
+          <span className={appShellNeutralItemClass}>Sandbox</span>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

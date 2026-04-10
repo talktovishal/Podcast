@@ -5,14 +5,8 @@ import {
   normalizeTtsSelection,
   signStableMediaUrl,
 } from "@articlepod/core";
-import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
-import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
-import {
-  getBillingSettingsState,
-  isBillingPlanCheckoutConfigured,
-} from "@/lib/billing";
 import {
   getDashboardItems,
   getDemoExtractionDiagnostics,
@@ -26,11 +20,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AppDashboardPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+export default async function AppDashboardPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
     redirect("/");
@@ -43,26 +33,14 @@ export default async function AppDashboardPage({
     ttsSettings,
     ttsAvailability,
     demoDiagnostics,
-    billingState,
   ] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
     getTtsProviderAvailability(),
     isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
-    getBillingSettingsState(user.id),
   ]);
   const submissionQuota = await getSubmissionQuotaSnapshot(user.id);
-  const monthlyCheckoutConfigured =
-    isBillingPlanCheckoutConfigured("PRO_MONTHLY");
-  const annualCheckoutConfigured =
-    isBillingPlanCheckoutConfigured("PRO_ANNUAL");
-  const billingConfigured =
-    monthlyCheckoutConfigured || annualCheckoutConfigured;
-  const billingSearchParam = Array.isArray(searchParams?.billing)
-    ? searchParams?.billing[0]
-    : searchParams?.billing;
-  const billing = billingState.liveBilling;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice,
@@ -76,30 +54,17 @@ export default async function AppDashboardPage({
   const feedTokenHash = feedAccess.tokenHash;
 
   return (
-    <main className="py-4 sm:py-6">
+    <main className="py-5 sm:py-6">
       <div className="container-shell space-y-4 sm:space-y-5">
-        <header className="card p-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
-              <WorkspaceBillingSummary
-                activationHint={billingSearchParam === "success"}
-                billingConfigured={billingConfigured}
-                initialBilling={billing}
-                sandboxModeActive={
-                  billingState.mode.effectiveLane === "SANDBOX"
-                }
-              />
-              <AppShellNav current="workspace" userId={user.id} />
-            </div>
-            <div className="space-y-0.5">
-              <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-              <p className="text-sm text-[var(--muted)]">
-                Create new episodes quickly, then keep an eye on processing and
-                playback below.
-              </p>
-            </div>
+        <section className="card p-4 sm:p-5">
+          <div className="space-y-0.5">
+            <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
+            <p className="text-sm text-[var(--muted)]">
+              Create new episodes quickly, then keep an eye on processing and
+              playback below.
+            </p>
           </div>
-        </header>
+        </section>
 
         <DashboardClient
           viewMode="workspace"

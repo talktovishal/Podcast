@@ -2,26 +2,16 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-test("app dashboard uses direct navigation links and logout icon", () => {
+test("app dashboard keeps the workspace content below the shared header", () => {
   const source = readFileSync(
     new URL("../src/app/app/page.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /<AppShellNav\b[^>]*\bcurrent=\"workspace\"/);
-  assert.equal(source.includes("WorkspaceBillingSummary"), true);
-  assert.equal(
-    source.includes('activationHint={billingSearchParam === "success"}'),
-    true,
-  );
-  assert.equal(source.includes("billingConfigured={billingConfigured}"), true);
+  assert.equal(source.includes("AppShellNav"), false);
+  assert.equal(source.includes("WorkspaceBillingSummary"), false);
   assert.match(source, /<DashboardClient\b[\s\S]*\bviewMode=\"workspace\"/);
   assert.match(source, /\bisAdmin=\{user\.role\s*=\s*\==\s*\"ADMIN\"\}/);
-  assert.equal(
-    source.indexOf("<WorkspaceBillingSummary") <
-      source.indexOf("<DashboardClient"),
-    true,
-  );
   assert.equal(source.includes("Your workspace"), false);
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
@@ -30,11 +20,33 @@ test("app dashboard uses direct navigation links and logout icon", () => {
     source.includes("keep an eye on processing"),
     true,
   );
-  assert.equal(source.includes("py-4 sm:py-6"), true);
+  assert.equal(source.includes("py-5 sm:py-6"), true);
   assert.equal(source.includes("container-shell space-y-4 sm:space-y-5"), true);
 });
 
-test("workspace billing summary stays compact inside the header", () => {
+test("shared app layout owns the sticky workspace header", () => {
+  const layoutSource = readFileSync(
+    new URL("../src/app/app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const headerSource = readFileSync(
+    new URL("../src/components/app-shell-header.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(layoutSource.includes("AppShellHeader"), true);
+  assert.equal(layoutSource.includes("getBillingSettingsState"), true);
+  assert.equal(layoutSource.includes("isBillingPlanCheckoutConfigured"), true);
+  assert.equal(headerSource.includes("fixed inset-x-0 top-0"), true);
+  assert.equal(headerSource.includes("ArticlePod home"), true);
+  assert.equal(headerSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(headerSource.includes('variant="header"'), true);
+  assert.equal(headerSource.includes("AppShellNav"), true);
+  assert.equal(headerSource.includes("hasSnippetsForUser"), true);
+  assert.equal(layoutSource.includes("pt-36 sm:pt-40 xl:pt-24"), true);
+});
+
+test("workspace billing summary stays compact inside the sticky header", () => {
   const source = readFileSync(
     new URL("../src/components/workspace-billing-summary.tsx", import.meta.url),
     "utf8",
@@ -45,12 +57,14 @@ test("workspace billing summary stays compact inside the header", () => {
   assert.equal(source.includes("Billing issue"), true);
   assert.equal(source.includes("Activating Pro"), true);
   assert.equal(source.includes('href="/app/settings#billing"'), true);
+  assert.equal(source.includes('variant?: "default" | "header"'), true);
+  assert.equal(source.includes("useSearchParams"), true);
   assert.equal(source.includes("Billing ·"), false);
   assert.equal(source.includes("Pro Annual is the best value"), false);
   assert.equal(source.includes("appShellAccentItemClass"), true);
 });
 
-test("app shell nav keeps dedicated pages and icon logout", () => {
+test("app shell nav keeps active destinations visible and groups utility icons", () => {
   const source = readFileSync(
     new URL("../src/components/app-shell-nav.tsx", import.meta.url),
     "utf8",
@@ -67,18 +81,17 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes('label: "Summaries"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
   assert.equal(source.includes('title: "Summaries"'), true);
-  assert.equal(source.includes("hasSnippetsForUser"), true);
-  assert.equal(source.includes("showSnippetsLink"), true);
-  assert.equal(
-    source.includes('(item.key !== "snippets" || showSnippetsLink)'),
-    true,
-  );
+  assert.equal(source.includes("usePathname"), true);
+  assert.equal(source.includes("aria-current"), true);
+  assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("kind: \"utility\""), true);
   assert.equal(source.includes("flex-wrap"), true);
   assert.equal(source.includes("justify-start"), true);
-  assert.equal(source.includes("md:flex-nowrap"), true);
-  assert.equal(source.includes("md:justify-end"), true);
-  assert.equal(source.includes("appShellAccentItemClass"), true);
-  assert.equal(source.includes('variant="icon"'), true);
+  assert.equal(source.includes("lg:justify-end"), true);
+  assert.equal(source.includes("appShellSelectedItemClass"), true);
+  assert.equal(source.includes('variant="responsive"'), true);
+  assert.equal(source.includes("md:sr-only"), true);
+  assert.equal(source.includes("item.key !== current"), false);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });
 
@@ -144,7 +157,8 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(existsSync(pagePath), true);
 
   const source = readFileSync(pagePath, "utf8");
-  assert.equal(source.includes('current="settings"'), true);
+  assert.equal(source.includes("AppShellNav"), false);
+  assert.equal(source.includes("WorkspaceBillingSummary"), false);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
   assert.equal(
@@ -236,7 +250,7 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(extensionPageSource.includes("DashboardClient"), false);
   assert.equal(snippetsPageSource.includes("Snippets"), true);
   assert.equal(snippetsPageSource.includes("SnippetsWorkspaceClient"), true);
-  assert.equal(snippetsPageSource.includes('current="snippets"'), true);
+  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(snippetsPageSource.includes("if (snippets.length === 0)"), true);
   assert.equal(snippetsPageSource.includes('redirect("/app")'), true);
   assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), false);
@@ -332,17 +346,17 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     ),
     false,
   );
-  assert.equal(podcastPageSource.includes("WorkspaceBillingSummary"), true);
-  assert.equal(extensionPageSource.includes("WorkspaceBillingSummary"), true);
-  assert.equal(summaryPageSource.includes("WorkspaceBillingSummary"), true);
-  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(podcastPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(extensionPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(summaryPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(podcastPageSource.includes("Private feed setup"), false);
   assert.equal(extensionPageSource.includes("Capture setup"), false);
   assert.equal(summaryPageSource.includes("Manual editorial workspace"), false);
   assert.equal(snippetsPageSource.includes("Selection workspace"), false);
 });
 
-test("feedback and settings headers use the billing status chip instead of helper labels", () => {
+test("feedback and settings pages keep their headings below the shared header", () => {
   const feedbackPageSource = readFileSync(
     new URL("../src/app/app/feedback/page.tsx", import.meta.url),
     "utf8",
@@ -352,8 +366,8 @@ test("feedback and settings headers use the billing status chip instead of helpe
     "utf8",
   );
 
-  assert.equal(feedbackPageSource.includes("WorkspaceBillingSummary"), true);
-  assert.equal(settingsPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(feedbackPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(settingsPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(feedbackPageSource.includes("Product feedback"), false);
   assert.equal(
     feedbackPageSource.includes(

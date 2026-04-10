@@ -90,7 +90,7 @@
   - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, and the page redirects back to `/app` if the last snippet is removed.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
-- Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, `Feedback`, and `Settings` for clarity, with `Feedback` kept on the same restrained green-tinted hint style as the free-plan upgrade CTA.
+- Signed-in workspace chrome is now shared across all `/app` routes as a sticky header: the ArticlePod icon leads, the compact billing pill sits beside it, active destinations stay visible, and `Feedback`, `Settings`, plus `Logout` are grouped as compact utilities while `Snippets` remains conditional.
 - `/` now uses the social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Public marketing SEO hardening (`M107`) is implemented:
   - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.
@@ -103,6 +103,7 @@
   - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
   - `/about` now opens with `Listen to your reading list and finally catch up on what matters`.
+  - `/about` now inserts an additive founder-story block below the existing hero so visitors can compare the original product framing with a personal co-founder story without removing the original cards.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
@@ -164,6 +165,7 @@
   - markdown preview controls and markdown API access are now admin-only.
 - Action hierarchy refresh (`M106`) is implemented:
   - signed-in nav styling is now neutral-first, with `Feedback` kept as a softer secondary hint instead of a primary-strength highlight.
+  - signed-in workspace navigation is now shared in a sticky `/app` header so the current page stays visible and selected while users move between workspaces.
   - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
   - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` and `/app/summary` now emphasize their live setup/composition controls over surrounding instructional copy.
@@ -241,7 +243,7 @@
 | Reusable live-site regression harness and prod-probe runner                                    | M99                                              |
 | Capture importance + tags metadata with Recent items filters                                   | M100                                             |
 | Extraction-quality audit + bulk HTML regression harness                                        | M101                                             |
-| Hybrid runtime HTML extraction selection + per-item engine diagnostics                        | M110                                             |
+| Hybrid runtime HTML extraction selection + per-item engine diagnostics                         | M110                                             |
 | Azure VM disk guardrails + recurring maintenance automation                                    | M102                                             |
 | Severity-split local log retention for activity vs errors                                      | M103                                             |
 | Public episode share links + branded landing page + growth instrumentation                     | M104                                             |
@@ -3398,6 +3400,7 @@ Milestone metadata contract:
   - `docs/Prompts.md`
 - Acceptance criteria:
   - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill, with duplicate explanatory copy removed and non-blocking quota/capacity status kept secondary below the submit control.
+  - The shared signed-in header keeps the ArticlePod icon, compact billing pill, and all active navigation destinations visible while users scroll or switch pages.
   - `/app/podcast-apps` makes the feed URL copy action visually dominant, with app buttons clearly grouped as the next step.
   - `Feedback` remains easy to find without outranking page-level CTAs.
   - Chrome extension setup and summary creation pages emphasize their live controls over instructional copy.
@@ -3700,6 +3703,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
 
 ---
+
 ### M115 - Public Marketing FAQ Navigation Simplification
 
 - status: Done
@@ -3730,7 +3734,6 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
 
 ---
-
 
 ## Security Hardening Track (S01–S18)
 

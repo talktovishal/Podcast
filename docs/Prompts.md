@@ -211,6 +211,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - the public marketing shell now uses a fixed-height viewport layout so only the middle content pane scrolls.
   - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
   - `/about` now leads with `Listen to your reading list and finally catch up on what matters`.
+  - `/about` now adds an additive founder-story block beneath the existing hero so the page can compare product framing with a more personal co-founder perspective without removing the original proof sections.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
@@ -222,7 +223,6 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public marketing FAQ control-density trim (`M114`) is implemented:
   - `/faq` keeps compact `Quick answers` so the actual answers stay closer to the fold.
   - the separate FAQ search box is removed for now, relying on grouped sections, quick-answer anchors, and question permalinks to keep the page easy to scan.
-
 - Public marketing FAQ navigation simplification (`M115`) is implemented:
   - `/faq` removes `Browse by topic` and the per-question `Link` button, keeping the page focused on the questions and richer in-answer links.
   - question hashes still auto-open matching answers, so direct `#question-*` links continue to work without adding extra visible UI chrome.
@@ -418,8 +418,8 @@ E) Web UI (polished)
 
 - `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
 - `/app` episodes workspace:
-  - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that uses only a subtle green-tinted cue and does not outrank the page's main action
-  - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Snippets`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
+  - compact signed-in header stays visible while the workspace scrolls, with the ArticlePod icon first and the compact billing pill immediately beside it
+  - dedicated top-nav links for `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
   - compact workspace billing control inside the header itself: free users see a single subtly highlighted `Upgrade to Pro` action that jumps straight to the billing section of `/app/settings` without extra upsell copy underneath it, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace

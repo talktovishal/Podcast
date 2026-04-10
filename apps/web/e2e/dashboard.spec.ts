@@ -82,13 +82,70 @@ test.describe("Dashboard & Item Submission", () => {
     await expect(page.getByText(/rss/i).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test("navigation links are present (Settings, Feedback, Logout)", async ({ page }) => {
+  test("workspace header keeps active destinations visible while navigating", async ({ page }) => {
     await page.goto("/app");
     await page.waitForURL(/\/app/);
 
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Feedback" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Podcast Apps" }).click();
+    await page.waitForURL(/\/app\/podcast-apps/);
+    await expect(page.locator("h1", { hasText: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Chrome Extension" }).click();
+    await page.waitForURL(/\/app\/chrome-extension/);
+    await expect(page.locator("h1", { hasText: "Chrome Extension" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Summaries" }).click();
+    await page.waitForURL(/\/app\/summary/);
+    await expect(page.locator("h1", { hasText: "Summaries" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Feedback" }).click();
+    await page.waitForURL(/\/app\/feedback/);
+    await expect(page.locator("h1", { hasText: "Feedback" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feedback" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Settings" }).click();
+    await page.waitForURL(/\/app\/settings/);
+    await expect(page.locator("h1", { hasText: "Account settings" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Episodes" }).click();
+    await page.waitForURL(/\/app$/);
+    await expect(page.getByText("Create new episodes quickly")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+  });
+
+  test("workspace header stays visible after scrolling", async ({ page }) => {
+    await page.goto("/app");
+    await page.waitForURL(/\/app/);
+
+    const header = page.locator("header").first();
+    await expect(header).toBeVisible();
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    const rect = await header.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      return {
+        bottom: bounds.bottom,
+        top: bounds.top,
+      };
+    });
+
+    expect(rect.top).toBeLessThan(12);
+    expect(rect.bottom).toBeGreaterThan(36);
   });
 
   test("logout returns the user to the root auth landing page", async ({ page }) => {

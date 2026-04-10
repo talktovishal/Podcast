@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { BillingSettingsCard } from "@/components/billing-settings-card";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
-import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
-import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import Link from "next/link";
 import { ensureUserDigestSettings, getAuthUserFromCookies } from "@/lib/auth";
 import {
@@ -39,9 +37,6 @@ export default async function AppSettingsPage({
   const billingState = await getBillingSettingsState(user.id);
   const annualPlan = paidPlanConfig("PRO_ANNUAL");
   const annualAdvantage = paidPlanCapacityDelta();
-  const billingSummaryConfigured =
-    isBillingPlanCheckoutConfigured("PRO_MONTHLY") ||
-    isBillingPlanCheckoutConfigured("PRO_ANNUAL");
   const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured(
     "PRO_MONTHLY",
     billingState.mode.effectiveLane,
@@ -62,27 +57,15 @@ export default async function AppSettingsPage({
   return (
     <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <WorkspaceBillingSummary
-                billingConfigured={billingSummaryConfigured}
-                initialBilling={billingState.liveBilling}
-                sandboxModeActive={
-                  billingState.mode.effectiveLane === "SANDBOX"
-                }
-              />
-              <AppShellNav current="settings" userId={user.id} />
-            </div>
-            <div>
-              <h1 className="font-bold text-2xl">Account settings</h1>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Manage billing first, keep your default voice up to date, and
-                open the optional account details only when you need them.
-              </p>
-            </div>
+        <section className="card p-4 sm:p-5">
+          <div>
+            <h1 className="font-bold text-2xl">Account settings</h1>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Manage billing first, keep your default voice up to date, and
+              open the optional account details only when you need them.
+            </p>
           </div>
-        </header>
+        </section>
 
         <BillingSettingsCard
           activationHint={billingSearchParam === "success"}

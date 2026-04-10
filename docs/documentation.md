@@ -78,15 +78,15 @@ Connect flow:
 ## Workspace layout
 
 - `/app` is a focused creation workspace:
+  - the signed-in header is shared across all `/app` routes, stays sticky during scroll, starts with the ArticlePod icon, and keeps the compact billing pill directly beside it
   - the header now uses the simplest possible billing control: free users get a single `Upgrade to Pro` action, while paid users get one clickable billing pill that opens Stripe billing; `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
   - `Recent items`
   - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, summary creation, and admin search/save flows
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
-  - single-row desktop nav for the other signed-in pages, plus a logout icon
+  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
   - mobile/smaller screens wrap the nav instead of hiding destinations offscreen
-  - `Feedback` stays lightly accented instead of using the darkest accent treatment
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
   - setup notes and future walkthrough/video space below the live tools
