@@ -179,9 +179,9 @@ export function AppShellNav({
   return (
     <nav
       aria-label="Workspace navigation"
-      className="flex w-full flex-col items-start gap-2 lg:w-auto lg:items-end"
+      className="flex w-full flex-col items-start gap-2 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end"
     >
-      <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:justify-end">
+      <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
         {primaryItems.map((item) => {
           const active = matchesPath(pathname, item.href);
 
@@ -201,7 +201,7 @@ export function AppShellNav({
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+      <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
         {utilityItems.map((item) => {
           const active = matchesPath(pathname, item.href);
           const icon =

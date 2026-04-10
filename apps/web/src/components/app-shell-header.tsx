@@ -22,23 +22,23 @@ export async function AppShellHeader({
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-[rgba(31,122,90,0.16)] bg-[rgba(247,251,250,0.88)] backdrop-blur">
       <div className="container-shell py-3 sm:py-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <Link
-              aria-label="ArticlePod home"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(31,122,90,0.16)] bg-white/92 shadow-sm transition hover:border-[rgba(31,122,90,0.28)] hover:bg-white"
-              href="/app"
-              title="ArticlePod"
-            >
-              <Image
-                alt="ArticlePod"
-                height={32}
-                priority
-                src={BRAND_ICON_512_PATH}
-                width={32}
-              />
-            </Link>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+          <Link
+            aria-label="ArticlePod home"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(31,122,90,0.16)] bg-white/92 shadow-sm transition hover:border-[rgba(31,122,90,0.28)] hover:bg-white"
+            href="/app"
+            title="ArticlePod"
+          >
+            <Image
+              alt="ArticlePod"
+              height={32}
+              priority
+              src={BRAND_ICON_512_PATH}
+              width={32}
+            />
+          </Link>
 
+          <div className="shrink-0">
             <WorkspaceBillingSummary
               billingConfigured={billingConfigured}
               initialBilling={initialBilling}
@@ -47,7 +47,9 @@ export async function AppShellHeader({
             />
           </div>
 
-          <AppShellNav showSnippets={showSnippets} />
+          <div className="min-w-0 flex-1">
+            <AppShellNav showSnippets={showSnippets} />
+          </div>
         </div>
       </div>
     </header>

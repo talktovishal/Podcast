@@ -38,6 +38,8 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(layoutSource.includes("getBillingSettingsState"), true);
   assert.equal(layoutSource.includes("isBillingPlanCheckoutConfigured"), true);
   assert.equal(headerSource.includes("fixed inset-x-0 top-0"), true);
+  assert.equal(headerSource.includes("lg:flex-row"), true);
+  assert.equal(headerSource.includes("min-w-0 flex-1"), true);
   assert.equal(headerSource.includes("ArticlePod home"), true);
   assert.equal(headerSource.includes("WorkspaceBillingSummary"), true);
   assert.equal(headerSource.includes('variant="header"'), true);
@@ -87,6 +89,8 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("kind: \"utility\""), true);
   assert.equal(source.includes("flex-wrap"), true);
   assert.equal(source.includes("justify-start"), true);
+  assert.equal(source.includes("lg:flex-row"), true);
+  assert.equal(source.includes("lg:flex-nowrap"), true);
   assert.equal(source.includes("lg:justify-end"), true);
   assert.equal(source.includes("appShellSelectedItemClass"), true);
   assert.equal(source.includes('variant="responsive"'), true);
