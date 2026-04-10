@@ -411,7 +411,7 @@ E) Web UI (polished)
   - compact signed-in header focused on navigation, with a softly discoverable `Feedback` shortcut that does not outrank the page's main action
   - dedicated top-nav links for `Podcast Apps`, `Chrome Extension`, `Snippets`, `Summaries`, `Feedback`, and `Settings`, plus a logout icon, omitting the current page link
   - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
-  - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
+  - compact workspace billing control inside the header itself: free users see a single `Upgrade to Pro` action that jumps straight to the billing section of `/app/settings`, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace
   - non-blocking trial quota or capacity copy should sit below the primary submit control with clearly secondary treatment; only blocking states should escalate visually
   - mode labels should be task-first (`Paste article URL`, `Upload PDF`) rather than generic numbered options

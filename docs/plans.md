@@ -77,7 +77,7 @@
 - Public `/resources` now shares the Chrome extension setup surface with `/app/chrome-extension`, while gating connect-code generation/copy behind authenticated sessions only.
 - The packaged extension intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require a separate per-site access grant before capture; runtime config still defaults server communication to `https://articlepod.com`.
 - `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter desktop nav that omits the current page shortcut and wraps cleanly on smaller screens.
-- `/app` now keeps billing as a minimal header control, with a single `Upgrade to Pro` action for free accounts and one clickable billing pill for paid accounts, while the fuller Stripe controls stay in `/app/settings`.
+- `/app` now keeps billing as a minimal header control, with a single `Upgrade to Pro` action for free accounts that deep-links to the billing section of `/app/settings` and one clickable billing pill for paid accounts, while the fuller Stripe controls stay in `/app/settings`.
 - `/app/settings` now also supports a persisted `Live billing` / `Sandbox billing` tester toggle for admins and allowlisted emails, with sandbox Stripe state isolated from live entitlements and quotas.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).

@@ -114,7 +114,7 @@ export function WorkspaceBillingSummary({
         ) : billingConfigured ? (
           <Link
             className="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50"
-            href="/pricing"
+            href="/app/settings#billing"
           >
             Upgrade to Pro
           </Link>

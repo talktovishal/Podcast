@@ -43,7 +43,7 @@ test("workspace billing summary stays compact inside the header", () => {
   assert.equal(source.includes("Billing"), true);
   assert.equal(source.includes("Manage billing"), false);
   assert.equal(source.includes("Upgrade to Pro"), true);
-  assert.equal(source.includes('href="/pricing"'), true);
+  assert.equal(source.includes('href="/app/settings#billing"'), true);
   assert.equal(source.includes("Billing ·"), true);
   assert.equal(source.includes("Choose Pro Monthly"), false);
   assert.equal(source.includes("Choose Pro Annual"), false);
@@ -160,6 +160,16 @@ test("settings page exists and renders settings-only dashboard mode", () => {
     true,
   );
   assert.equal(source.includes("DeleteAccountButton"), false);
+});
+
+test("billing settings card exposes a billing anchor for direct navigation", () => {
+  const source = readFileSync(
+    new URL("../src/components/billing-settings-card.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes('id="billing"'), true);
+  assert.equal(source.includes("scroll-mt-24"), true);
 });
 
 test("podcast apps and chrome extension pages exist as dedicated setup pages", () => {
