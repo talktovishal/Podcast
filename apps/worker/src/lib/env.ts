@@ -14,7 +14,11 @@ type AnalyticsStorageMode = "full" | "off";
 type JobEventStorageMode = "database" | "off";
 type ItemDispatchBackend = "prisma" | "azure_queue";
 
-function normalizeDatabaseUrl(raw: string): string {
+function normalizeDatabaseUrl(raw: string | undefined): string | null {
+  if (!raw) {
+    return null;
+  }
+
   if (!raw.startsWith("file:")) {
     return raw;
   }
@@ -104,6 +108,7 @@ function parseItemDispatchBackend(value: string | undefined): ItemDispatchBacken
   return "auto";
 }
 
+const runtimeProfile = process.env.RUNTIME_PROFILE ?? "simple";
 const pythonTtsTimeoutMs = toPositiveInt(process.env.PYTHON_TTS_TIMEOUT_MS, 120000);
 const logRetentionDays = toNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
 const logErrorRetentionDays = toNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
@@ -117,7 +122,7 @@ const itemDispatchBackend: ItemDispatchBackend =
 const defaultWorkerInstanceId = `${hostname()}:${process.pid}`;
 
 export const workerEnv = {
-  runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  runtimeProfile,
   analyticsStorageMode: parseAnalyticsStorageMode(process.env.ANALYTICS_STORAGE_MODE),
   jobEventStorageMode: parseJobEventStorageMode(process.env.JOB_EVENT_STORAGE_MODE),
   demoExtractionTraceEnabled: (process.env.DEMO_EXTRACTION_TRACE_ENABLED ?? "1") !== "0",
@@ -142,7 +147,9 @@ export const workerEnv = {
   overflowPythonTtsUrl: process.env.OVERFLOW_PYTHON_TTS_URL,
   overflowPythonTtsTimeoutMs: toPositiveInt(process.env.OVERFLOW_PYTHON_TTS_TIMEOUT_MS, pythonTtsTimeoutMs),
   overflowPythonTtsSecret: process.env.OVERFLOW_PYTHON_TTS_SECRET,
-  databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), "../web/.data/db.sqlite")}`),
+  databaseUrl: normalizeDatabaseUrl(
+    process.env.DATABASE_URL ?? (runtimeProfile === "simple" ? `file:${resolve(process.cwd(), "../web/.data/db.sqlite")}` : undefined)
+  ),
   storageBackend,
   storageRoot: normalizeLocalPath(process.env.STORAGE_ROOT ?? resolve(process.cwd(), "../web/.data/media")),
   storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? BRAND_SLUG,

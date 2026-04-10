@@ -313,6 +313,33 @@ export const azureTablePrimaryBackfillConfigs = [
     }
   },
   {
+    modelName: "UserFeedback",
+    delegate: "userFeedback",
+    orderByField: "id",
+    tableKey: "feedback",
+    buildEntity(row) {
+      return {
+        partitionKey: "feedback",
+        rowKey: row.id,
+        userId: row.userId,
+        message: row.message,
+        feedbackType: row.feedbackType ?? null,
+        featureArea: row.featureArea ?? null,
+        allowEmailContact: row.allowEmailContact,
+        status: row.status,
+        sourcePath: row.sourcePath ?? null,
+        mirrorStatus: row.mirrorStatus,
+        mirrorIssueNumber: row.mirrorIssueNumber ?? null,
+        mirrorIssueUrl: row.mirrorIssueUrl ?? null,
+        mirrorAttemptedAt: isoOrNull(row.mirrorAttemptedAt),
+        mirrorErrorCode: row.mirrorErrorCode ?? null,
+        mirrorErrorMessage: row.mirrorErrorMessage ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
     modelName: "Job",
     delegate: "job",
     orderByField: "id",

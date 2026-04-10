@@ -9,10 +9,6 @@ OUT_FILE="${OUT_FILE:-$RUNTIME_ENV_FILE}"
 STATE_ROOT_DEFAULT="/var/lib/${RUNTIME_SERVICE_PREFIX}"
 METADATA_PRIMARY_BACKEND="${METADATA_PRIMARY_BACKEND:-prisma}"
 
-if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" && -z "${DATABASE_URL:-}" ]]; then
-  DATABASE_URL="file:${STATE_ROOT_DEFAULT}/db.sqlite"
-fi
-
 required=(
   APP_URL
   STORAGE_BACKEND
@@ -55,9 +51,9 @@ derive_secret() {
   elif [[ -n "${AZURE_STORAGE_ACCOUNT_URL:-}" || -n "${AZURE_STORAGE_SAS_TOKEN:-}" ]]; then
     entropy_source="${AZURE_STORAGE_ACCOUNT_URL:-}|${AZURE_STORAGE_SAS_TOKEN:-}"
   else
-    entropy_source="${DATABASE_URL}|${APP_URL}|${ADMIN_PASSWORD:-}"
+    entropy_source="${APP_URL}|${ADMIN_PASSWORD:-}"
   fi
-  hash_secret "${purpose}|${DATABASE_URL}|${APP_URL}|${entropy_source}"
+  hash_secret "${purpose}|${DATABASE_URL:-}|${APP_URL}|${entropy_source}"
 }
 
 DIGEST_SCHEDULER_SECRET="${DIGEST_SCHEDULER_SECRET:-$(derive_secret "digest_scheduler")}"
@@ -97,7 +93,7 @@ mkdir -p "$(dirname "$OUT_FILE")"
 
 cat > "$OUT_FILE" <<ENVFILE
 RUNTIME_PROFILE=azure
-DATABASE_URL=${DATABASE_URL}
+DATABASE_URL=${DATABASE_URL:-}
 APP_URL=${APP_URL}
 STORAGE_BACKEND=${STORAGE_BACKEND}
 AZURE_STORAGE_CONTAINER=${AZURE_STORAGE_CONTAINER}

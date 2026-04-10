@@ -17,12 +17,13 @@
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
 6. Blue/green first-cutover state clone:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh --target-host <new-vm-ip>`
-   - This copies `/etc/articlepod/articlepod.env`, `/var/lib/articlepod`, and current Let's Encrypt material from the live VM before the first start.
+   - This copies `/etc/articlepod/articlepod.env` and current Let's Encrypt material from the live VM before the first start.
 7. Existing VM migration (if upgrading from legacy runtime names):
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/migrate-runtime-naming.sh`
 8. Render runtime env for fresh environments only:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh`
    - For the eastus blue/green first cutover, reuse the copied `/etc/articlepod/articlepod.env` instead of rendering a new file.
+   - With `METADATA_PRIMARY_BACKEND=azure_table`, `DATABASE_URL` is optional and should stay unset unless you are intentionally using a Prisma-backed fallback path.
 9. Deploy ACA overflow burst lane:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-aca-overflow.sh --env-file <copied-prod-env>`
 
@@ -46,7 +47,7 @@ Required repo secret for that gate:
 
 Production deploy workflow env assumptions:
 - metadata primary is `azure_table`, using `APP_AZURE_STORAGE_CONNECTION_STRING` for both Blob and Table access
-- `DATABASE_URL` is intentionally omitted so VM env rendering falls back to local auxiliary SQLite
+- `DATABASE_URL` is intentionally omitted in Azure Table mode; production runtime should not depend on a local SQLite file
 - Azure OpenAI summary settings come from production environment secrets:
   - `APP_AZURE_OPENAI_BASE_URL`
   - `APP_AZURE_OPENAI_API_KEY`

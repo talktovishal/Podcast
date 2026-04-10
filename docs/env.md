@@ -36,8 +36,8 @@ Recommended:
 - `PYTHON_TTS_URL`
 
 ### `azure`
-- `DATABASE_URL`
-  - use a local SQLite path such as `file:/var/lib/articlepod/db.sqlite` when `METADATA_PRIMARY_BACKEND=azure_table`
+- `DATABASE_URL` only when Prisma remains active
+  - omit it in normal production when `METADATA_PRIMARY_BACKEND=azure_table`
   - use an Azure PostgreSQL URL only for legacy parity or explicit rollback/canary flows; the eastus blue/green target does not provision PostgreSQL
 - `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
@@ -58,7 +58,7 @@ Recommended:
 
 Azure deploy helper behavior:
 - `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
-- when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` now defaults `DATABASE_URL` to `file:/var/lib/articlepod/db.sqlite` if you do not provide one explicitly.
+- when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` allows `DATABASE_URL` to remain unset.
 - when Azure OpenAI vars are present and `DIGEST_SUMMARY_PROVIDER` is unset, `scripts/azure/render-env.sh` defaults the summary provider to `azure_openai`.
 - in Azure Table primary mode, low-cost diagnostics default to:
   - `ANALYTICS_STORAGE_MODE=off`
@@ -105,7 +105,7 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `GITHUB_FEEDBACK_LABELS` (comma-separated labels, default `feedback`)
 
 Behavior:
-- When disabled or unset, feedback remains DB-only.
+- When disabled or unset, feedback stays in the primary metadata store only.
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
 ## Billing (optional)
@@ -181,7 +181,6 @@ Behavior:
 
 Recommended low-cost Azure setting:
 - `METADATA_PRIMARY_BACKEND=azure_table`
-- `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
 - `ITEM_DISPATCH_BACKEND=azure_queue`
 - `WORKER_QUEUE_PRESSURE_SOURCE=prisma`
 - `METADATA_MIRROR_BACKEND=none` unless you are actively dual-writing for rollback certification
@@ -241,7 +240,7 @@ Cost-optimized Azure guidance:
 - Error logs (`ERROR`/`FATAL`) now write under `LOG_ROOT/errors/<service>/errors.log.jsonl`.
 - Archive rotated logs to Blob if retention is needed after VM replacement.
 - Do not use Azure Table for verbose logs, request traces, or analytics firehose data.
-- Treat local SQLite in Azure Table primary mode as auxiliary state for low-signal/admin-only features, not as the primary durable store.
+- Do not treat VM-local SQLite as part of the normal Azure production contract.
 - Azure VM disk guard defaults:
   - `VM_JOURNAL_MAX_USE` (default: `200M`) caps systemd journal growth.
   - `VM_JOURNAL_KEEP_FREE` (default: `1G`) asks journald to preserve root-disk headroom.

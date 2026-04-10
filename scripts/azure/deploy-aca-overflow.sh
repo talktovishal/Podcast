@@ -276,7 +276,6 @@ worker_env_order = [
     "OVERFLOW_PYTHON_TTS_URL",
     "OVERFLOW_PYTHON_TTS_TIMEOUT_MS",
     "OVERFLOW_PYTHON_TTS_SECRET",
-    "DATABASE_URL",
     "STORAGE_BACKEND",
     "STORAGE_ROOT",
     "MEDIA_ROOT",
@@ -349,7 +348,6 @@ overrides = {
     "STORAGE_ROOT": "/var/lib/articlepod/storage",
     "MEDIA_ROOT": "/var/lib/articlepod/media",
     "UPLOAD_ROOT": "/var/lib/articlepod/uploads",
-    "DATABASE_URL": "file:/var/lib/articlepod/db.sqlite",
     "PYTHON_TTS_URL": "http://127.0.0.1:8010",
 }
 

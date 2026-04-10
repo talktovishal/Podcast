@@ -8,6 +8,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { findPrimaryUserById, listPrimaryOAuthIdentitiesByUser } from "@/lib/metadata-primary-auth";
 import { prisma } from "@/lib/prisma";
 import type { RecordAnalyticsEventInput } from "./types";
 
@@ -26,6 +27,32 @@ function mapRole(role: string | null | undefined): AnalyticsUserRole {
 }
 
 export async function resolveUserAnalyticsProfile(userId: string): Promise<UserAnalyticsProfile> {
+  if (env.analyticsStorageMode === "off") {
+    return { authMethod: "LOCAL", segmentAuth: "LOCAL_ONLY", userRole: "USER" };
+  }
+
+  if (env.metadataPrimaryBackend === "azure_table") {
+    const [user, oauthIdentities] = await Promise.all([findPrimaryUserById(userId), listPrimaryOAuthIdentitiesByUser(userId)]);
+    if (!user) {
+      return { authMethod: "LOCAL", segmentAuth: "LOCAL_ONLY", userRole: "USER" };
+    }
+
+    const providers = new Set(oauthIdentities.map((identity) => identity.provider.toLowerCase()));
+    if (providers.size === 0) {
+      return { authMethod: "LOCAL", segmentAuth: "LOCAL_ONLY", userRole: mapRole(user.role) };
+    }
+    if (providers.size === 1 && providers.has("google")) {
+      return { authMethod: "GOOGLE", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
+    }
+    if (providers.size === 1 && providers.has("facebook")) {
+      return { authMethod: "FACEBOOK", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
+    }
+    if (providers.size === 1 && providers.has("apple")) {
+      return { authMethod: "APPLE", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
+    }
+    return { authMethod: "OAUTH_LINKED", segmentAuth: "OAUTH_LINKED", userRole: mapRole(user.role) };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {

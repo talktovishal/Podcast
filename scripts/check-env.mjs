@@ -131,9 +131,10 @@ function profileRequirements(profile) {
   }
 
   return {
-    required: ["DATABASE_URL", "APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER", "MEDIA_SIGNING_KEY"],
+    required: ["APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER", "MEDIA_SIGNING_KEY"],
     optional: [
       ...commonOptional,
+      "DATABASE_URL",
       "AZURE_STORAGE_CONNECTION_STRING",
       "AZURE_STORAGE_ACCOUNT_URL",
       "AZURE_STORAGE_SAS_TOKEN",
@@ -203,6 +204,10 @@ function run() {
   }
 
   const usesAzureTable = env.METADATA_PRIMARY_BACKEND === "azure_table" || env.METADATA_MIRROR_BACKEND === "azure_table";
+  if (!usesAzureTable && (!env.DATABASE_URL || String(env.DATABASE_URL).trim() === "")) {
+    console.error("[check-env] Non-Azure-Table metadata modes require DATABASE_URL.");
+    process.exit(1);
+  }
   if (usesAzureTable) {
     const hasTableConnString = Boolean(env.AZURE_TABLE_CONNECTION_STRING);
     const hasTableAccountPair = Boolean(env.AZURE_TABLE_ACCOUNT_URL && env.AZURE_TABLE_SAS_TOKEN);

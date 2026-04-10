@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-06)
+## Spec Status (as of 2026-04-10)
 
-### Implemented (as of 2026-04-05)
+### Implemented (as of 2026-04-10)
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
@@ -217,20 +217,24 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - quick-answer links deep-link to those section anchors while preserving the same underlying FAQ question/answer content and structured data coverage.
 - Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
   - `/faq` now uses higher-conversion question framing, friendlier answer tone, and richer answer blocks with bullets and contextual links.
-  - topic chips and question-level deep links help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions.
+  - question-level deep links help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions without changing the richer shared content model.
   - question-level deep links auto-open the matching answer while FAQ JSON-LD stays flattened from the same shared content model.
 - Public marketing FAQ control-density trim (`M114`) is implemented:
-  - `/faq` keeps `Quick answers` and `Browse by topic`, but both controls now render as compact wrap rows so the actual answers stay closer to the fold.
-  - the separate FAQ search box is removed for now, relying on grouped sections, quick-answer anchors, topic chips, and question permalinks to keep the page easy to scan.
+  - `/faq` keeps compact `Quick answers` so the actual answers stay closer to the fold.
+  - the separate FAQ search box is removed for now, relying on grouped sections, quick-answer anchors, and question permalinks to keep the page easy to scan.
+
+- Public marketing FAQ navigation simplification (`M115`) is implemented:
+  - `/faq` removes `Browse by topic` and the per-question `Link` button, keeping the page focused on the questions and richer in-answer links.
+  - question hashes still auto-open matching answers, so direct `#question-*` links continue to work without adding extra visible UI chrome.
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M114`, excluding reserved gaps) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M115`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
   - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
   - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.
   - overflow worker lane is implemented and now targets an eastus Azure Container Apps burst app with a colocated `python-tts` sidecar.
-  - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
+  - operational metadata now runs from Azure Table + Azure Blob, and the Azure production contract no longer requires a local SQLite file.
   - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
   - the new eastus blue/green resource group does not provision PostgreSQL.
 - Billing hardening track (`B01`-`B08`) is implemented in repo:
@@ -247,7 +251,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - worker overflow policy + budget guardrail scripts
   - Azure Table primary operational metadata store
   - Azure Queue-backed item dispatch path with single-worker default and future multi-node worker compatibility
-  - Azure deploy/runtime helpers that default Azure Table primary mode to local auxiliary SQLite instead of managed PostgreSQL
+  - Azure deploy/runtime helpers that allow Azure Table primary mode to run without a production `DATABASE_URL`
   - mirror dual-write/backfill/check tooling for rollback certification
 - Azure worker stability hotfix is implemented:
   - Azure Table primary digest scheduler and extension-token paths no longer issue unsupported `eq null` queries.
@@ -617,7 +621,7 @@ Document tradeoffs in `plans.md`.
 - Local media storage (dev): `apps/web/.data/media/`
 - In Azure mode:
   - operational metadata can move to Azure Table via `METADATA_PRIMARY_BACKEND=azure_table`
-  - `DATABASE_URL` should point at a local SQLite file for auxiliary low-cost/admin-only state when Azure Table is primary
+  - `DATABASE_URL` is optional when Azure Table is primary and should stay unset in production unless you are intentionally running a legacy Prisma-backed auxiliary workflow
   - Azure PostgreSQL is optional only for rollback/canary or if Prisma remains the primary metadata backend
   - media stored in Azure Blob Storage
 

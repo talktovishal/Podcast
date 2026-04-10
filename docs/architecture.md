@@ -248,7 +248,7 @@ Policy guardrails:
 - `parity`: Docker Compose with PostgreSQL + Azurite + python-tts + web + worker
 - `azure`: single VM compute + Azure Blob, with metadata primary selected by `METADATA_PRIMARY_BACKEND`
   - `prisma`: legacy Azure PostgreSQL-backed metadata
-  - `azure_table`: Azure Table-backed operational metadata with local SQLite reserved for auxiliary low-cost/admin state
+  - `azure_table`: Azure Table-backed operational metadata for production; local SQLite remains a local-dev and legacy-only escape hatch, not part of the normal Azure contract
 
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
@@ -261,7 +261,7 @@ Locked target architecture:
 - Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)
 - No PostgreSQL is provisioned in the active blue/green target; Prisma/PostgreSQL remains legacy-only for parity or historical rollback research
 - Durable artifacts: Azure Blob Storage
-- Auxiliary local data: SQLite on the primary VM for low-signal/admin-only state that does not need to sit in Azure Table
+- No required local database on the Azure VM; feedback and operational metadata live in Azure Table, while verbose diagnostics stay on local disk only
 - Migration track: queue/item/digest metadata can still be dual-written to Azure Table mirror for canary comparison and phased cutover
 - Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state, but compact per-item extraction-selection scorecards are first-class operational metadata.
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
@@ -269,7 +269,7 @@ Locked target architecture:
 
 Durability principle:
 - VM loss must not lose customer records, episodes, or media objects.
-- Recovery relies on re-provisioning compute, reconnecting to existing Azure Table + Queue + Blob state, and bootstrapping any auxiliary local SQLite tables as needed.
+- Recovery relies on re-provisioning compute and reconnecting to existing Azure Table + Queue + Blob state; no VM-local database copy is required.
 
 ## Observability contract (M47+)
 All runtime services emit structured JSON events with shared fields:

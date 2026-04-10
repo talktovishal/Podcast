@@ -348,7 +348,23 @@ run_demo_seed_if_needed() {
   fi
 }
 
+metadata_primary_backend="$(read_env_value METADATA_PRIMARY_BACKEND || true)"
+metadata_primary_backend="${metadata_primary_backend:-prisma}"
+
 if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
+  set -euo pipefail
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    export "$key=$value"
+  done < "$ENV_FILE"
+'; then
+  echo "Failed to load env from $ENV_FILE"
+  exit 1
+fi
+
+if [[ "$metadata_primary_backend" != "azure_table" ]] && ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
   set -euo pipefail
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
@@ -372,7 +388,9 @@ run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run pris
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run build"
 run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run build"
 run_python_tts_setup_if_needed
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run db:bootstrap"
+if [[ "$metadata_primary_backend" != "azure_table" ]]; then
+  run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run db:bootstrap"
+fi
 run_demo_seed_if_needed
 
 sudo ENABLE_OVERFLOW_WORKER_SERVICE="$ENABLE_OVERFLOW_WORKER_SERVICE" "$ROOT_DIR/scripts/azure/install-systemd.sh"

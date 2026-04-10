@@ -98,8 +98,7 @@ jobs:
           TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
           # App secrets forwarded to render-env.sh on the VM.
           # Production uses Azure Table as the primary operational metadata store,
-          # so DATABASE_URL is intentionally omitted and render-env.sh falls back
-          # to local auxiliary SQLite on the VM.
+          # so DATABASE_URL is intentionally omitted in the Azure runtime.
           APP_URL: ${{ secrets.APP_URL }}
           APP_DOMAIN_ALIASES: ${{ secrets.APP_DOMAIN_ALIASES || 'www.articlepod.com' }}
           LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}

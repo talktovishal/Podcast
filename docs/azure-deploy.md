@@ -15,9 +15,6 @@
   - Azure OpenAI account in `eastus`
   - `digest-summary-nano` deployment for `5`/`15` minute summary runs
   - `digest-summary-mini` deployment for `30` minute runs and nano fallback
-- Auxiliary local state:
-  - SQLite on the primary VM for low-cost/admin-only data that does not need to live in Azure Table
-
 This keeps compute cost-first while preserving data and media durability on VM loss.
 Current blue/green cutover target:
 - primary VM SKU: `Standard_D2as_v5`
@@ -26,9 +23,10 @@ Current blue/green cutover target:
 - local TTS lane remains fixed at `TTS_WORKERS=1` on both the primary VM and the overflow sidecar
 
 Latest verified production state:
-- 2026-03-17: `articlepod.com` was redeployed in fresh-start low-cost mode with Azure Table primary metadata, Azure Blob artifact storage, and local auxiliary SQLite.
+- 2026-03-17: `articlepod.com` was redeployed in fresh-start low-cost mode with Azure Table primary metadata and Azure Blob artifact storage.
 - 2026-03-17: managed PostgreSQL was stopped after live feed/media contract checks passed (`HEAD 200`, media `206`).
 - 2026-04-10: eastus blue/green prestage created `rg-articlepod-prod-eastus`, `articlepod-eastus-vm`, `articlepod-aca-env`, and `articlepodacrdvlolaz43j6be` with no PostgreSQL resources.
+- 2026-04-10: repo/runtime contract cleanup removed the Azure production dependency on a local SQLite file; feedback now runs from Azure Table primary metadata.
 
 ## Prerequisites (local)
 From repo root:
@@ -156,7 +154,6 @@ For the first eastus cutover, clone the live runtime state instead of rendering 
 
 This copies:
 - `/etc/articlepod/articlepod.env`
-- `/var/lib/articlepod/`
 - `/etc/letsencrypt/live/articlepod.com`
 - `/etc/letsencrypt/archive/articlepod.com`
 - `/etc/letsencrypt/renewal/articlepod.com.conf`
@@ -251,7 +248,6 @@ Defaults now include VM-safe runtime paths:
 - `STORAGE_ROOT=/var/lib/articlepod/storage`
 - `MEDIA_ROOT=/var/lib/articlepod/media`
 - `UPLOAD_ROOT=/var/lib/articlepod/uploads`
-- When `METADATA_PRIMARY_BACKEND=azure_table` and `DATABASE_URL` is omitted, `render-env.sh` now defaults it to `file:/var/lib/articlepod/db.sqlite`.
 - `PYTHON_TTS_TIMEOUT_MS=300000` and `OVERFLOW_PYTHON_TTS_TIMEOUT_MS=300000` on Azure unless explicitly overridden, which avoids false worker failures on slower B2s Kokoro chunk synthesis.
 - `PINNED_FETCH_IPV6_ENABLED=0` on Azure unless explicitly overridden, because the current Azure VM runtime is effectively IPv4-only for outbound pinned fetches and IPv6 candidates can crash Node 22 before request-level recovery logic runs.
 - `WORKER_STALE_PROCESSING_MS=900000`, `WORKER_MAX_STALE_RETRIES=1`, and `WORKER_MAX_PROCESSING_MS=2700000` on Azure unless explicitly overridden, so stalled jobs get one bounded recovery attempt and then fail cleanly instead of blocking the queue forever.
@@ -273,7 +269,7 @@ Notes:
 - `deploy-vm-runtime.sh` also enforces the Azure VM swapfile baseline before service restarts.
 - swap baseline checks now tolerate the one-page `SwapTotal` rounding gap reported by `/proc/meminfo`, so repeat full deploys do not rebuild an already-healthy `4 GiB` `/swapfile` on the B2s VM.
 - `deploy-vm-runtime.sh` removes app-local `.env` files from runtime path and ensures VM runtime directories exist before service startup.
-- `deploy-vm-runtime.sh` bootstraps the auxiliary SQLite schema automatically when Azure Table is the primary metadata backend.
+- `deploy-vm-runtime.sh` skips `db:bootstrap` when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
 - `deploy-vm-runtime.sh` now runs a root-owned disk cleanup pass before build/install work so staging junk, old journal data, and pressure-cleanable caches do not crowd out the deploy.
 - overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
@@ -382,7 +378,7 @@ AZURE_RESOURCE_GROUP="$RG" \
 ## GitHub Actions production deploy
 The `Deploy to Azure` workflow now assumes the same live topology as the VM:
 - `METADATA_PRIMARY_BACKEND=azure_table`
-- auxiliary `DATABASE_URL` omitted so render-env falls back to `file:/var/lib/articlepod/db.sqlite`
+- `DATABASE_URL` omitted in the normal Azure runtime
 - `APP_AZURE_STORAGE_CONNECTION_STRING` is reused for Azure Blob and Azure Table access
 - Azure OpenAI summary settings must be present in the production environment secrets:
   - `APP_AZURE_OPENAI_BASE_URL`

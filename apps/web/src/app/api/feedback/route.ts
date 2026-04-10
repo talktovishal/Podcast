@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { FEEDBACK_FEATURE_AREAS, FEEDBACK_TYPES, feedbackFeatureAreaLabel, feedbackTypeLabel } from "@/lib/feedback";
+import { createFeedback, updateFeedback } from "@/lib/feedback-store";
 import { mirrorFeedback } from "@/lib/feedback-mirror";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
 import { enforceFeedbackRateLimits, getClientIp } from "@/lib/rate-limit";
 
 const submitFeedbackSchema = z.object({
@@ -39,17 +39,15 @@ export async function POST(request: NextRequest) {
       }
     })();
 
-    const feedback = await prisma.userFeedback.create({
-      data: {
-        userId: user.id,
-        message: payload.message,
-        feedbackType: payload.feedbackType || null,
-        featureArea: payload.featureArea || null,
-        allowEmailContact: payload.allowEmailContact ?? true,
-        status: "NEW",
-        sourcePath: payload.sourcePath || fallbackSourcePath,
-        mirrorStatus: "PENDING"
-      }
+    const feedback = await createFeedback({
+      userId: user.id,
+      message: payload.message,
+      feedbackType: payload.feedbackType || null,
+      featureArea: payload.featureArea || null,
+      allowEmailContact: payload.allowEmailContact ?? true,
+      status: "NEW",
+      sourcePath: payload.sourcePath || fallbackSourcePath,
+      mirrorStatus: "PENDING"
     });
 
     const mirrorResult = await mirrorFeedback({
@@ -63,17 +61,18 @@ export async function POST(request: NextRequest) {
       createdAt: feedback.createdAt
     });
 
-    const updated = await prisma.userFeedback.update({
-      where: { id: feedback.id },
-      data: {
-        mirrorStatus: mirrorResult.mirrorStatus,
-        mirrorAttemptedAt: mirrorResult.attemptedAt,
-        mirrorIssueNumber: mirrorResult.issueNumber,
-        mirrorIssueUrl: mirrorResult.issueUrl,
-        mirrorErrorCode: mirrorResult.errorCode,
-        mirrorErrorMessage: mirrorResult.errorMessage
-      }
+    const updated = await updateFeedback(feedback.id, {
+      mirrorStatus: mirrorResult.mirrorStatus,
+      mirrorAttemptedAt: mirrorResult.attemptedAt,
+      mirrorIssueNumber: mirrorResult.issueNumber,
+      mirrorIssueUrl: mirrorResult.issueUrl,
+      mirrorErrorCode: mirrorResult.errorCode,
+      mirrorErrorMessage: mirrorResult.errorMessage
     });
+
+    if (!updated) {
+      throw new Error("Feedback item disappeared before mirror status could be persisted.");
+    }
 
     return NextResponse.json({
       ok: true,

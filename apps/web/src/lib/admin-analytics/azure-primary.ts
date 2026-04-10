@@ -19,7 +19,9 @@ import type {
   AdminAnalyticsTimeseriesPoint,
   AdminAnalyticsUsers
 } from "./types";
+import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
+import { hasPrismaDatabase } from "@/lib/prisma";
 import { webPrimaryStore } from "@/lib/metadata-primary-store";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -195,6 +197,10 @@ function pickEarliest(dates: Array<Date | null | undefined>): Date | null {
 }
 
 async function loadCoverageRows(): Promise<AdminAnalyticsCoverage[]> {
+  if (env.analyticsStorageMode === "off" || !hasPrismaDatabase()) {
+    return [];
+  }
+
   const rows = await prisma.analyticsCoverage.findMany({
     orderBy: [{ metricKey: "asc" }]
   });
@@ -207,6 +213,10 @@ async function loadCoverageRows(): Promise<AdminAnalyticsCoverage[]> {
 }
 
 async function loadPlaybackEvents(filters: AdminAnalyticsFilters): Promise<AzurePrimaryAnalyticsPlaybackEvent[]> {
+  if (env.analyticsStorageMode === "off" || !hasPrismaDatabase()) {
+    return [];
+  }
+
   const where: Record<string, unknown> = {
     eventType: "PLAYBACK_STARTED",
     occurredAt: {

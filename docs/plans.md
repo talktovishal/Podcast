@@ -120,7 +120,7 @@
   - role-gated analytics APIs + CSV exports
   - tabbed investor+ops admin dashboard with masked-by-default user table
   - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
-  - Azure Table primary deployments now derive admin dashboard signup/session/item/job metrics from live primary-store data so the dashboard does not fall back to an empty auxiliary SQLite view.
+  - Azure Table primary deployments now derive admin dashboard signup/session/item/job metrics from live primary-store data so the dashboard does not fall back to an empty auxiliary analytics view.
 - Admin safety hardening: admin login redirects to `/admin`, and admin account deletion is blocked in API/UI.
 - Submission monetization controls (`M71`) are implemented:
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
@@ -169,6 +169,7 @@
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
   - private GitHub mirror support is env-gated and excludes submitter email from mirrored issue bodies.
+  - follow-up Azure runtime hardening now persists feedback through the Azure Table primary store so production no longer depends on Prisma/SQLite for this feature.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
   - manual `/app/summary` workflow supports explicit article selection, title-first saved-article cards, default last-7-days preselection, length presets, and optional podcast creation.
   - summary setup now keeps the podcast publish control in a lower secondary section so the primary desktop/mobile layout stays focused on article selection and markdown options.
@@ -192,6 +193,10 @@
   - add queue-pressure overflow lane with hysteresis before external TTS usage.
   - migrate metadata/queue state toward serverless table/blob adapters with guarded cutover.
   - keep verbose diagnostics out of Table-primary scope; prefer local logs and optional Blob archive.
+- Azure runtime contract cleanup is now implemented in repo:
+  - production Azure Table mode no longer requires `DATABASE_URL` or VM-local SQLite
+  - feedback now persists in Azure Table primary metadata
+  - live production SQLite inspection on 2026-04-10 showed an effectively empty `612 KB` file, so no meaningful user-data migration is required for the SQLite removal
 
 ## Requirement Coverage Snapshot
 
@@ -2643,7 +2648,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-03-01
 - completed_on: 2026-03-01
-- evidence: local validation + implementation pass (2026-03-01)
+- evidence: initial implementation (2026-03-01); Azure Table primary feedback-store hardening + targeted validation (2026-04-10)
 - Scope:
   - Add an authenticated `/app/feedback` page with message-first input and optional type/feature metadata.
   - Add admin feedback inbox in `/admin` with status workflow and mirror retry actions.
@@ -2651,23 +2656,26 @@ Milestone metadata contract:
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
   - `apps/web/prisma/schema.postgres.prisma`
-  - `apps/web/src/lib/feedback.ts`
+  - `apps/web/src/lib/feedback-store.ts`
   - `apps/web/src/lib/feedback-mirror.ts`
   - `apps/web/src/app/api/feedback/route.ts`
   - `apps/web/src/app/api/admin/feedback/route.ts`
   - `apps/web/src/app/api/admin/feedback/[id]/status/route.ts`
   - `apps/web/src/app/api/admin/feedback/[id]/mirror/route.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
   - `apps/web/src/components/feedback-form.tsx`
   - `apps/web/src/app/app/feedback/page.tsx`
   - `apps/web/src/components/admin-feedback-inbox.tsx`
   - `apps/web/src/app/admin/page.tsx`
   - `apps/web/tests/feedback-api.test.ts`
+  - `apps/web/tests/env-path-normalization.test.ts`
 - Acceptance criteria:
   - `/app/feedback` renders feedback message as the first and required field.
   - Feedback `type` and `feature area` are optional and persist as `null` when omitted.
   - Contact checkbox defaults to checked and persists user opt-out when unchecked.
   - Admin inbox supports filtering, status updates, and mirror retry for failed/pending mirror states.
   - Mirror failures never block successful feedback submission.
+  - Azure Table primary mode persists and lists feedback without requiring `DATABASE_URL` or a VM-local SQLite file.
 - Verification commands:
   - `pnpm --filter @articlepod/web run lint`
   - `pnpm --filter @articlepod/web test`
@@ -4667,7 +4675,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Serverless metadata path runs stable through full cutover window.
   - PostgreSQL dependency can be disabled without user-facing regressions.
-  - Fresh-start Azure deployment uses Azure Table primary metadata + Azure Blob artifacts + local auxiliary SQLite.
+  - Fresh-start Azure deployment uses Azure Table primary metadata + Azure Blob artifacts, with no required local SQLite contract in production.
   - Live Azure feed/media contract passed after PostgreSQL was stopped, and exploratory PostgreSQL data was intentionally left behind.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test`
@@ -4744,7 +4752,7 @@ Milestone metadata contract:
 - Scope:
   - Rebuild the primary runtime in `eastus` on `Standard_D2as_v5`.
   - Reuse the live Blob/Table/OpenAI data plane exactly as-is, with no PostgreSQL in the new resource group.
-  - Clone `/etc/articlepod/articlepod.env`, `/var/lib/articlepod`, and current TLS material from the live VM before first start.
+  - Clone `/etc/articlepod/articlepod.env` and current TLS material from the live VM before first start; do not depend on cloning VM-local database state.
   - Deploy a private Azure Container Apps overflow app with `worker` + `python-tts` sidecar and queue-based wake-up.
   - Validate the new primary and overflow lanes before the final Squarespace DNS flip.
 - Key files/modules:
@@ -4765,7 +4773,7 @@ Milestone metadata contract:
   - Final DNS cutover only requires updating the apex `A` record and `www` CNAME in Squarespace after prestage validation succeeds.
 - Migration/backfill plan:
   - Keep the existing `centralus` VM live and unchanged during prestage and early cutover.
-  - Clone live runtime state forward to the eastus VM; do not render a fresh env file for the first bring-up.
+  - Clone live runtime env and TLS material forward to the eastus VM; do not render a fresh env file for the first bring-up.
   - Reuse the existing Azure Storage account, Azure Table data, Azure Queue dispatch lane, and Azure OpenAI account.
   - Rollback is DNS-first: point `articlepod.com` back to the old VM while leaving data plane resources untouched.
 - Verification commands:

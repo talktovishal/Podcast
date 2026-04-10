@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { FEEDBACK_FEATURE_AREAS, FEEDBACK_MIRROR_STATUSES, FEEDBACK_STATUSES, FEEDBACK_TYPES, feedbackFeatureAreaLabel, feedbackTypeLabel } from "@/lib/feedback";
+import { listFeedbackForAdmin } from "@/lib/feedback-store";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
 
 const statusFilterValues = ["ALL", ...FEEDBACK_STATUSES] as const;
 const typeFilterValues = ["ALL", ...FEEDBACK_TYPES] as const;
@@ -41,56 +40,15 @@ export async function GET(request: NextRequest) {
 
     const page = parsed.page ?? 1;
     const pageSize = parsed.pageSize ?? 25;
-    const where: Prisma.UserFeedbackWhereInput = {};
-
-    if (parsed.status && parsed.status !== "ALL") {
-      where.status = parsed.status;
-    }
-    if (parsed.feedbackType && parsed.feedbackType !== "ALL") {
-      where.feedbackType = parsed.feedbackType;
-    }
-    if (parsed.featureArea && parsed.featureArea !== "ALL") {
-      where.featureArea = parsed.featureArea;
-    }
-    if (parsed.mirrorStatus && parsed.mirrorStatus !== "ALL") {
-      where.mirrorStatus = parsed.mirrorStatus;
-    }
-    if (parsed.q && parsed.q.trim()) {
-      where.OR = [
-        {
-          message: {
-            contains: parsed.q
-          }
-        },
-        {
-          user: {
-            email: {
-              contains: parsed.q
-            }
-          }
-        }
-      ];
-    }
-
-    const [totalRows, rows] = await Promise.all([
-      prisma.userFeedback.count({ where }),
-      prisma.userFeedback.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true
-            }
-          }
-        }
-      })
-    ]);
-
-    const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+    const { totalRows, totalPages, rows } = await listFeedbackForAdmin({
+      status: parsed.status,
+      feedbackType: parsed.feedbackType,
+      featureArea: parsed.featureArea,
+      mirrorStatus: parsed.mirrorStatus,
+      q: parsed.q,
+      page,
+      pageSize
+    });
 
     return NextResponse.json({
       ok: true,
@@ -104,7 +62,7 @@ export async function GET(request: NextRequest) {
         rows: rows.map((row) => ({
           id: row.id,
           userId: row.userId,
-          userEmail: row.user.email,
+          userEmail: row.userEmail,
           message: row.message,
           feedbackType: row.feedbackType,
           feedbackTypeLabel: feedbackTypeLabel(row.feedbackType as (typeof FEEDBACK_TYPES)[number] | null),

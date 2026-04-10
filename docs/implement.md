@@ -185,7 +185,7 @@ If parity/azure runtime paths changed, also run:
 3. C05/C06
 - dual-write queue projections from web enqueue and worker state transitions.
 - add backfill and consistency-check commands for mirror canary rollout.
-- add primary-store cutover env (`METADATA_PRIMARY_BACKEND=azure_table`) and Azure deploy defaults for auxiliary SQLite + low-cost diagnostics.
+- add primary-store cutover env (`METADATA_PRIMARY_BACKEND=azure_table`) and Azure deploy defaults that allow production Azure Table mode without a local SQLite dependency.
 - keep queue pressure source toggle (`prisma` vs `mirror`) and diff logging.
 
 4. C07
@@ -227,7 +227,7 @@ If parity/azure runtime paths changed, also run:
   - `sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh`
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
   - ensures runtime directories (`/var/lib/articlepod/{storage,media,uploads}`) and precomputes Kokoro voice previews
-  - in Azure Table primary mode, `render-env.sh` defaults `DATABASE_URL=file:/var/lib/articlepod/db.sqlite` and low-cost diagnostics off
+  - in Azure Table primary mode, `render-env.sh` can leave `DATABASE_URL` unset and defaults low-cost diagnostics off
   - when Azure OpenAI vars are present, `render-env.sh` can default `DIGEST_SUMMARY_PROVIDER=azure_openai`
 - Configure ingress + TLS on VM:
   - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com /opt/articlepod/scripts/azure/configure-nginx.sh`

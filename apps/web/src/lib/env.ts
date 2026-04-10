@@ -58,7 +58,11 @@ const defaultBillingSandboxAllowlistEmails = [
   DEFAULT_DEMO_EMAIL
 ].map((value) => value.toLowerCase());
 
-function normalizeDatabaseUrl(raw: string): string {
+function normalizeDatabaseUrl(raw: string | undefined): string | null {
+  if (!raw) {
+    return null;
+  }
+
   if (!raw.startsWith("file:")) {
     return raw;
   }
@@ -116,6 +120,7 @@ function parseItemDispatchBackend(raw: string | undefined): ItemDispatchBackend 
   return "auto";
 }
 
+const runtimeProfile = process.env.RUNTIME_PROFILE ?? "simple";
 const storageBackend = process.env.STORAGE_BACKEND === "azure_blob" ? "azure_blob" : "local";
 const logRetentionDays = parseNonNegativeInt(process.env.LOG_RETENTION_DAYS, 14);
 const logErrorRetentionDays = parseNonNegativeInt(process.env.LOG_ERROR_RETENTION_DAYS, Math.max(logRetentionDays, 30));
@@ -129,7 +134,7 @@ const itemDispatchBackend: ItemDispatchBackend =
 
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
-  runtimeProfile: process.env.RUNTIME_PROFILE ?? "simple",
+  runtimeProfile,
   analyticsStorageMode: parseAnalyticsStorageMode(process.env.ANALYTICS_STORAGE_MODE),
   jobEventStorageMode: parseJobEventStorageMode(process.env.JOB_EVENT_STORAGE_MODE),
   demoExtractionTraceEnabled: parseBoolean(process.env.DEMO_EXTRACTION_TRACE_ENABLED, true),
@@ -142,7 +147,9 @@ export const env = {
   azureTableSasToken: process.env.AZURE_TABLE_SAS_TOKEN,
   azureTablePrefix: process.env.AZURE_TABLE_PREFIX ?? BRAND_SLUG,
   azureTableCreateTables: parseBoolean(process.env.AZURE_TABLE_CREATE_TABLES, true),
-  databaseUrl: normalizeDatabaseUrl(process.env.DATABASE_URL ?? `file:${resolve(process.cwd(), ".data/db.sqlite")}`),
+  databaseUrl: normalizeDatabaseUrl(
+    process.env.DATABASE_URL ?? (runtimeProfile === "simple" ? `file:${resolve(process.cwd(), ".data/db.sqlite")}` : undefined)
+  ),
   storageBackend,
   storageRoot: normalizeLocalPath(process.env.STORAGE_ROOT ?? resolve(process.cwd(), ".data/media")),
   storageContainer: process.env.AZURE_STORAGE_CONTAINER ?? BRAND_SLUG,

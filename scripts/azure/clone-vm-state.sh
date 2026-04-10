@@ -12,8 +12,9 @@ usage() {
   cat <<EOF
 Usage: scripts/azure/clone-vm-state.sh --target-host <ip-or-fqdn> [options]
 
-Copies the live runtime env, local auxiliary state, and Let's Encrypt cert material
-from the current production VM to a new VM before first start.
+Copies the live runtime env and Let's Encrypt cert material from the current
+production VM to a new VM before first start. Azure Table + Blob remain the
+durable source of truth; local VM state is intentionally not cloned.
 
 Options:
   --source-host <host>   Source VM host (default: ${SOURCE_HOST})
@@ -75,15 +76,14 @@ source_remote="${SOURCE_USER}@${SOURCE_HOST}"
 target_remote="${TARGET_USER}@${TARGET_HOST}"
 
 ssh "${SSH_ARGS[@]}" "$target_remote" \
-  "sudo mkdir -p /etc/articlepod /var/lib/articlepod /etc/letsencrypt/live /etc/letsencrypt/archive /etc/letsencrypt/renewal"
+  "sudo mkdir -p /etc/articlepod /etc/letsencrypt/live /etc/letsencrypt/archive /etc/letsencrypt/renewal"
 
 ssh "${SSH_ARGS[@]}" "$source_remote" \
   "sudo tar czf - -C / \
     etc/articlepod/articlepod.env \
-    var/lib/articlepod \
     etc/letsencrypt/live/articlepod.com \
     etc/letsencrypt/archive/articlepod.com \
     etc/letsencrypt/renewal/articlepod.com.conf" |
   ssh "${SSH_ARGS[@]}" "$target_remote" "sudo tar xzf - -C /"
 
-echo "[clone-vm-state] cloned runtime env, local state, and certificate material to ${TARGET_HOST}"
+echo "[clone-vm-state] cloned runtime env and certificate material to ${TARGET_HOST}"

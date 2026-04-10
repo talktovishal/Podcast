@@ -15,6 +15,7 @@ type TableKey =
   | "sessions"
   | "sandboxBillingAccounts"
   | "billingWebhookEvents"
+  | "feedback"
   | "feedTokens"
   | "digestFeedTokens"
   | "shareTokens"
@@ -124,6 +125,25 @@ export type AzureTablePrimaryBillingWebhookEvent = {
   errorMessage: string | null;
   processedAt: Date | null;
   createdAt: Date;
+};
+
+export type AzureTablePrimaryFeedback = {
+  id: string;
+  userId: string;
+  message: string;
+  feedbackType: string | null;
+  featureArea: string | null;
+  allowEmailContact: boolean;
+  status: string;
+  sourcePath: string | null;
+  mirrorStatus: string;
+  mirrorIssueNumber: number | null;
+  mirrorIssueUrl: string | null;
+  mirrorAttemptedAt: Date | null;
+  mirrorErrorCode: string | null;
+  mirrorErrorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type AzureTablePrimaryTokenRow = {
@@ -688,6 +708,7 @@ export class AzureTablePrimaryStore {
       sessions: createClient(buildTableName(input.tablePrefix, "sessions")),
       sandboxBillingAccounts: createClient(buildTableName(input.tablePrefix, "sandboxbilling")),
       billingWebhookEvents: createClient(buildTableName(input.tablePrefix, "billingevents")),
+      feedback: createClient(buildTableName(input.tablePrefix, "feedback")),
       feedTokens: createClient(buildTableName(input.tablePrefix, "feedtokens")),
       digestFeedTokens: createClient(buildTableName(input.tablePrefix, "digestfeedtokens")),
       shareTokens: createClient(buildTableName(input.tablePrefix, "sharetokens")),
@@ -1031,6 +1052,27 @@ export class AzureTablePrimaryStore {
       captureMarkdown: parseString(entity.captureMarkdown),
       pageMetadata: parseSnippetPageMetadata(parseString(entity.pageMetadataJson)),
       comment: parseString(entity.comment),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toFeedback(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryFeedback {
+    return {
+      id: String(entity.rowKey),
+      userId: parseRequiredString(entity.userId, "userId"),
+      message: parseRequiredString(entity.message, "message"),
+      feedbackType: parseString(entity.feedbackType),
+      featureArea: parseString(entity.featureArea),
+      allowEmailContact: parseBoolean(entity.allowEmailContact, true),
+      status: parseString(entity.status) ?? "NEW",
+      sourcePath: parseString(entity.sourcePath),
+      mirrorStatus: parseString(entity.mirrorStatus) ?? "PENDING",
+      mirrorIssueNumber: parseNullableNumber(entity.mirrorIssueNumber),
+      mirrorIssueUrl: parseString(entity.mirrorIssueUrl),
+      mirrorAttemptedAt: parseDate(entity.mirrorAttemptedAt),
+      mirrorErrorCode: parseString(entity.mirrorErrorCode),
+      mirrorErrorMessage: parseString(entity.mirrorErrorMessage),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
     };
@@ -1989,12 +2031,25 @@ export class AzureTablePrimaryStore {
     return entity ? this.toSnippet(entity) : null;
   }
 
+  async findFeedbackById(feedbackId: string): Promise<AzureTablePrimaryFeedback | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("feedback", "feedback", feedbackId);
+    return entity ? this.toFeedback(entity) : null;
+  }
+
   async listSnippetsByUser(userId: string, limit = 100): Promise<AzureTablePrimarySnippet[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "snippets",
       joinFilters(filterEquals("PartitionKey", "snippet"), filterEquals("userId", userId))
     );
     return sortByTwoDatesDesc(rows.map((row) => this.toSnippet(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(
+      0,
+      limit
+    );
+  }
+
+  async listFeedback(limit = 500): Promise<AzureTablePrimaryFeedback[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("feedback", filterEquals("PartitionKey", "feedback"));
+    return sortByTwoDatesDesc(rows.map((row) => this.toFeedback(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(
       0,
       limit
     );
@@ -2033,6 +2088,47 @@ export class AzureTablePrimaryStore {
     };
     await this.createEntity("snippets", entity);
     return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async createFeedback(input: {
+    id: string;
+    userId: string;
+    message: string;
+    feedbackType?: string | null;
+    featureArea?: string | null;
+    allowEmailContact?: boolean;
+    status?: string;
+    sourcePath?: string | null;
+    mirrorStatus?: string;
+    mirrorIssueNumber?: number | null;
+    mirrorIssueUrl?: string | null;
+    mirrorAttemptedAt?: Date | null;
+    mirrorErrorCode?: string | null;
+    mirrorErrorMessage?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimaryFeedback> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "feedback",
+      rowKey: input.id,
+      userId: input.userId,
+      message: input.message,
+      feedbackType: input.feedbackType ?? null,
+      featureArea: input.featureArea ?? null,
+      allowEmailContact: input.allowEmailContact ?? true,
+      status: input.status ?? "NEW",
+      sourcePath: input.sourcePath ?? null,
+      mirrorStatus: input.mirrorStatus ?? "PENDING",
+      mirrorIssueNumber: input.mirrorIssueNumber ?? null,
+      mirrorIssueUrl: input.mirrorIssueUrl ?? null,
+      mirrorAttemptedAt: input.mirrorAttemptedAt?.toISOString() ?? null,
+      mirrorErrorCode: input.mirrorErrorCode ?? null,
+      mirrorErrorMessage: input.mirrorErrorMessage ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("feedback", entity);
+    return this.toFeedback(entity as TableEntityResult<Record<string, unknown>>);
   }
 
   async updateSnippet(
@@ -2078,6 +2174,61 @@ export class AzureTablePrimaryStore {
       return this.findSnippetById(snippetId);
     }
     return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateFeedback(
+    feedbackId: string,
+    input: Partial<{
+      message: string;
+      feedbackType: string | null;
+      featureArea: string | null;
+      allowEmailContact: boolean;
+      status: string;
+      sourcePath: string | null;
+      mirrorStatus: string;
+      mirrorIssueNumber: number | null;
+      mirrorIssueUrl: string | null;
+      mirrorAttemptedAt: Date | null;
+      mirrorErrorCode: string | null;
+      mirrorErrorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryFeedback | null> {
+    const current = await this.getEntity<Record<string, unknown>>("feedback", "feedback", feedbackId);
+    if (!current) {
+      return null;
+    }
+
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "feedback",
+      rowKey: feedbackId,
+      message: input.message ?? parseRequiredString(current.message, "message"),
+      feedbackType: input.feedbackType === undefined ? current.feedbackType ?? null : input.feedbackType,
+      featureArea: input.featureArea === undefined ? current.featureArea ?? null : input.featureArea,
+      allowEmailContact:
+        input.allowEmailContact === undefined ? parseBoolean(current.allowEmailContact, true) : input.allowEmailContact,
+      status: input.status ?? (parseString(current.status) ?? "NEW"),
+      sourcePath: input.sourcePath === undefined ? current.sourcePath ?? null : input.sourcePath,
+      mirrorStatus: input.mirrorStatus ?? (parseString(current.mirrorStatus) ?? "PENDING"),
+      mirrorIssueNumber:
+        input.mirrorIssueNumber === undefined ? parseNullableNumber(current.mirrorIssueNumber) : input.mirrorIssueNumber,
+      mirrorIssueUrl: input.mirrorIssueUrl === undefined ? current.mirrorIssueUrl ?? null : input.mirrorIssueUrl,
+      mirrorAttemptedAt:
+        input.mirrorAttemptedAt === undefined
+          ? current.mirrorAttemptedAt ?? null
+          : input.mirrorAttemptedAt?.toISOString() ?? null,
+      mirrorErrorCode: input.mirrorErrorCode === undefined ? current.mirrorErrorCode ?? null : input.mirrorErrorCode,
+      mirrorErrorMessage:
+        input.mirrorErrorMessage === undefined ? current.mirrorErrorMessage ?? null : input.mirrorErrorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("feedback", entity, current.etag);
+    if (!success) {
+      return this.findFeedbackById(feedbackId);
+    }
+    return this.toFeedback(entity as TableEntityResult<Record<string, unknown>>);
   }
 
   async deleteSnippet(snippetId: string): Promise<void> {

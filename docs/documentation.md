@@ -184,7 +184,7 @@ Summaries APIs:
 - `parity`: Docker Compose PostgreSQL + Azurite + python-tts
 - `azure`: single VM compute + Azure Blob, with `METADATA_PRIMARY_BACKEND` selecting either:
   - `prisma`: Prisma-backed metadata (legacy Azure PostgreSQL path)
-  - `azure_table`: Azure Table as the primary operational metadata store, plus local SQLite for auxiliary low-cost/admin data
+  - `azure_table`: Azure Table as the primary operational metadata store; production no longer requires a local SQLite file
 
 ## Durable rollout status
 
@@ -231,7 +231,7 @@ Current implementation baseline:
   - the same command works against local Prisma or Azure Table primary depending on runtime env
 - Azure runtime helpers now support low-cost serverless metadata mode directly:
   - `METADATA_PRIMARY_BACKEND=azure_table`
-  - default auxiliary `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
+  - no required `DATABASE_URL` in Azure production
 - eastus blue/green rollout helpers are now checked in:
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-eastus-bluegreen.sh`
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh`
@@ -246,9 +246,12 @@ Current implementation baseline:
   - `articlepod.com` moved to Azure Table primary mode with no PostgreSQL in the hot path
   - operational metadata is served from Azure Table
   - durable media/artifacts are served from Azure Blob
-  - local auxiliary SQLite is used for low-cost admin/runtime data
   - managed PostgreSQL is stopped and kept out of the hot path
   - exploratory PostgreSQL data was intentionally not migrated during this fresh-start testing phase
+- Azure runtime contract cleanup completed in repo on 2026-04-10:
+  - production Azure Table mode no longer depends on a VM-local SQLite file
+  - feedback now persists in Azure Table primary metadata
+  - Azure deploy helpers no longer require `DATABASE_URL` or `db:bootstrap` when Azure Table is primary
 - eastus blue/green prestage started on 2026-04-10:
   - new resource group `rg-articlepod-prod-eastus`
   - new primary VM `articlepod-eastus-vm`

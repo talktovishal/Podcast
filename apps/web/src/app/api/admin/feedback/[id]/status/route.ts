@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { FEEDBACK_STATUSES } from "@/lib/feedback";
+import { findFeedbackById, updateFeedback } from "@/lib/feedback-store";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
 
 const updateStatusSchema = z.object({
   status: z.enum(FEEDBACK_STATUSES)
@@ -18,19 +18,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const payload = updateStatusSchema.parse(await request.json());
-    const existing = await prisma.userFeedback.findUnique({
-      where: { id: params.id }
-    });
+    const existing = await findFeedbackById(params.id);
     if (!existing) {
       return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Feedback item not found." }, { status: 404 });
     }
 
-    const feedback = await prisma.userFeedback.update({
-      where: { id: params.id },
-      data: {
-        status: payload.status
-      }
+    const feedback = await updateFeedback(params.id, {
+      status: payload.status
     });
+    if (!feedback) {
+      return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Feedback item not found." }, { status: 404 });
+    }
 
     return NextResponse.json({
       ok: true,

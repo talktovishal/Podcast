@@ -42,6 +42,7 @@ test("azure table primary backfill covers the operational metadata model set", (
     "SummaryRun",
     "SummaryRunItem",
     "User",
+    "UserFeedback",
     "UserDemographicSurvey",
     "UserDigestSettings"
   ].sort();

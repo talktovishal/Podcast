@@ -845,6 +845,22 @@ export async function findPrimaryOAuthIdentityWithUser(provider: string, provide
   };
 }
 
+export async function listPrimaryOAuthIdentitiesByUser(userId: string): Promise<Array<{ provider: string }>> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.oAuthIdentity.findMany({
+      where: { userId },
+      select: {
+        provider: true
+      }
+    });
+  }
+
+  const identities = await requirePrimaryStore().listOAuthIdentitiesByUser(userId);
+  return identities.map((identity) => ({
+    provider: identity.provider
+  }));
+}
+
 export async function createPrimaryOAuthIdentity(input: {
   userId: string;
   provider: string;

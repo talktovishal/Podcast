@@ -260,6 +260,129 @@ test("createSnippet stores rich snippet capture fields alongside selected text",
   assert.equal(snippet.comment, "Follow up later");
 });
 
+test("createFeedback stores admin inbox and mirror metadata", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const feedback = await store.createFeedback({
+    id: "feedback-1",
+    userId: "user-1",
+    message: "Playback controls are hard to find.",
+    feedbackType: "FEATURE",
+    featureArea: "PLAYBACK",
+    allowEmailContact: false,
+    status: "IN_REVIEW",
+    sourcePath: "/app/feedback",
+    mirrorStatus: "FAILED",
+    mirrorIssueNumber: 42,
+    mirrorIssueUrl: "https://github.com/example/repo/issues/42",
+    mirrorAttemptedAt: new Date("2026-04-10T10:00:00.000Z"),
+    mirrorErrorCode: "MIRROR_TIMEOUT",
+    mirrorErrorMessage: "Timed out"
+  });
+
+  assert.equal(createdEntity?.partitionKey, "feedback");
+  assert.equal(createdEntity?.rowKey, "feedback-1");
+  assert.equal(createdEntity?.message, "Playback controls are hard to find.");
+  assert.equal(createdEntity?.mirrorStatus, "FAILED");
+  assert.equal(createdEntity?.mirrorIssueNumber, 42);
+  assert.equal(createdEntity?.mirrorAttemptedAt, "2026-04-10T10:00:00.000Z");
+  assert.equal(feedback.feedbackType, "FEATURE");
+  assert.equal(feedback.featureArea, "PLAYBACK");
+  assert.equal(feedback.allowEmailContact, false);
+  assert.equal(feedback.mirrorIssueNumber, 42);
+  assert.equal(feedback.mirrorAttemptedAt?.toISOString(), "2026-04-10T10:00:00.000Z");
+});
+
+test("updateFeedback merges mirror fields and listFeedback sorts newest first", async () => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async (_key, _partitionKey, rowKey) => ({
+    partitionKey: "feedback",
+    rowKey,
+    userId: "user-1",
+    message: "Initial message",
+    feedbackType: "GENERAL",
+    featureArea: null,
+    allowEmailContact: true,
+    status: "NEW",
+    sourcePath: "/app/feedback",
+    mirrorStatus: "PENDING",
+    createdAt: "2026-04-10T09:00:00.000Z",
+    updatedAt: "2026-04-10T09:00:00.000Z",
+    etag: "etag-1"
+  });
+
+  (
+    store as unknown as {
+      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
+    }
+  ).updateEntity = async (_key, entity) => {
+    updatedEntity = entity;
+    return true;
+  };
+
+  const updated = await store.updateFeedback("feedback-2", {
+    status: "DONE",
+    mirrorStatus: "MIRRORED",
+    mirrorIssueUrl: "https://github.com/example/repo/issues/99"
+  });
+
+  assert.equal(updatedEntity?.status, "DONE");
+  assert.equal(updatedEntity?.mirrorStatus, "MIRRORED");
+  assert.equal(updatedEntity?.mirrorIssueUrl, "https://github.com/example/repo/issues/99");
+  assert.equal(updated?.status, "DONE");
+  assert.equal(updated?.mirrorStatus, "MIRRORED");
+
+  (
+    store as unknown as {
+      listEntities: (key: string, filter?: string) => Promise<Array<Record<string, unknown>>>;
+    }
+  ).listEntities = async () => [
+    {
+      partitionKey: "feedback",
+      rowKey: "feedback-old",
+      userId: "user-1",
+      message: "Older",
+      allowEmailContact: true,
+      status: "NEW",
+      mirrorStatus: "PENDING",
+      createdAt: "2026-04-09T09:00:00.000Z",
+      updatedAt: "2026-04-09T09:00:00.000Z"
+    },
+    {
+      partitionKey: "feedback",
+      rowKey: "feedback-new",
+      userId: "user-2",
+      message: "Newer",
+      allowEmailContact: true,
+      status: "NEW",
+      mirrorStatus: "PENDING",
+      createdAt: "2026-04-10T09:00:00.000Z",
+      updatedAt: "2026-04-10T09:00:00.000Z"
+    }
+  ];
+
+  const rows = await store.listFeedback(10);
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    ["feedback-new", "feedback-old"]
+  );
+});
+
 test("updateSnippet writes comment changes and preserves source fields", async () => {
   const store = createStore();
   let updatedEntity: Record<string, unknown> | undefined;

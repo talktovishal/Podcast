@@ -6,7 +6,7 @@ Customer accounts, feed metadata, and generated audio must survive VM loss.
 Durability boundary:
 - durable: Azure Table operational metadata + Azure Blob artifacts
 - optional rollback durable path: PostgreSQL only when explicitly kept for canary/rollback
-- non-durable: VM local disk/process state (including auxiliary SQLite, local logs, and demo diagnostics unless archived elsewhere)
+- non-durable: VM local disk/process state (including local logs, caches, and demo diagnostics unless archived elsewhere)
 
 ## VM runtime recovery
 1. Recreate or repair VM compute.
@@ -83,7 +83,8 @@ Notes:
 ## Latest evidence
 - 2026-02-15: First live Azure deployment completed in `rg-articlepod-prod` with public HTTPS health check passing at `https://articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com/api/health`.
 - 2026-02-15: Podcast compatibility gate passed for live feed (`scripts/verify_podcast_contract.sh`) with feed/media `HEAD 200` and media range `206`.
-- 2026-03-17: Fresh-start low-cost Azure cutover completed on `https://articlepod.com` with `METADATA_PRIMARY_BACKEND=azure_table`, Blob artifact storage, local auxiliary SQLite, and VM size `Standard_B2s`.
+- 2026-03-17: Fresh-start low-cost Azure cutover completed on `https://articlepod.com` with `METADATA_PRIMARY_BACKEND=azure_table`, Blob artifact storage, and VM size `Standard_B2s`.
+- 2026-04-10: Azure runtime contract cleanup landed in repo so production Azure Table mode no longer requires a copied or bootstrapped SQLite file on the VM.
 - 2026-03-17: Managed PostgreSQL flexible server `articlepod-pg-dvlolaz43j6be` was stopped after the fresh-start cutover; exploratory PostgreSQL data was intentionally not migrated.
 - 2026-03-17: Live podcast compatibility gate passed again after PostgreSQL was stopped (`feed HEAD 200`, `media HEAD 200`, `Range 206`, artwork `HEAD 200`).
 - Durability snapshot + VM replacement restore drill is still pending signed execution.
@@ -250,7 +251,6 @@ Recommended rollout pattern:
 Full low-cost primary mode:
 ```bash
 METADATA_PRIMARY_BACKEND=azure_table \
-DATABASE_URL="file:/var/lib/articlepod/db.sqlite" \
 AZURE_TABLE_CONNECTION_STRING="<table-connection-string>" \
 ANALYTICS_STORAGE_MODE=off \
 JOB_EVENT_STORAGE_MODE=off \

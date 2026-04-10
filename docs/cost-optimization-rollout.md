@@ -29,7 +29,6 @@
   - Overflow TTS provider can point to external endpoint/provider.
 - Data:
   - Metadata + queue state: serverless table store.
-  - Auxiliary low-signal/admin-only state: local SQLite on the VM (`DATABASE_URL=file:/var/lib/articlepod/db.sqlite` in Azure Table primary mode).
   - Artifacts/audio: blob store.
   - Diagnostics/logs: local disk by default, with optional Blob archive; not Azure Table primary data.
 

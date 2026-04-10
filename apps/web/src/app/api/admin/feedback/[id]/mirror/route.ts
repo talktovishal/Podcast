@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { FEEDBACK_FEATURE_AREAS, FEEDBACK_TYPES } from "@/lib/feedback";
+import { findFeedbackById, updateFeedback } from "@/lib/feedback-store";
 import { mirrorFeedback } from "@/lib/feedback-mirror";
 import { fromError } from "@/lib/http";
-import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const requestId = request.headers.get("x-request-id") || undefined;
@@ -13,9 +13,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
 
-    const feedback = await prisma.userFeedback.findUnique({
-      where: { id: params.id }
-    });
+    const feedback = await findFeedbackById(params.id);
     if (!feedback) {
       return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Feedback item not found." }, { status: 404 });
     }
@@ -31,17 +29,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       createdAt: feedback.createdAt
     });
 
-    const updated = await prisma.userFeedback.update({
-      where: { id: feedback.id },
-      data: {
-        mirrorStatus: mirrorResult.mirrorStatus,
-        mirrorAttemptedAt: mirrorResult.attemptedAt,
-        mirrorIssueNumber: mirrorResult.issueNumber,
-        mirrorIssueUrl: mirrorResult.issueUrl,
-        mirrorErrorCode: mirrorResult.errorCode,
-        mirrorErrorMessage: mirrorResult.errorMessage
-      }
+    const updated = await updateFeedback(feedback.id, {
+      mirrorStatus: mirrorResult.mirrorStatus,
+      mirrorAttemptedAt: mirrorResult.attemptedAt,
+      mirrorIssueNumber: mirrorResult.issueNumber,
+      mirrorIssueUrl: mirrorResult.issueUrl,
+      mirrorErrorCode: mirrorResult.errorCode,
+      mirrorErrorMessage: mirrorResult.errorMessage
     });
+    if (!updated) {
+      return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Feedback item not found." }, { status: 404 });
+    }
 
     return NextResponse.json({
       ok: true,
