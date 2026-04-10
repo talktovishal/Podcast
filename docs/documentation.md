@@ -206,9 +206,10 @@ Milestones `M35`-`M46` are implemented in repository assets:
 
 Current implementation baseline:
 
-- always-on compute target shifted to `B2s`.
-- local Kokoro lane locked to single worker (`TTS_WORKERS=1`) in VM service template.
+- current blue/green primary target is an `eastus` `Standard_D2as_v5` VM.
+- local Kokoro lane stays locked to single worker (`TTS_WORKERS=1`) on the primary VM.
 - overflow worker role and queue-pressure hysteresis are implemented in worker runtime.
+- overflow burst routing now targets a private Azure Container Apps app with a `worker` container plus `python-tts` sidecar (`minReplicas=0`, `maxReplicas=1`) instead of a second always-on VM.
 - Azure Table metadata primary store is implemented for operational state:
   - users/sessions/feed tokens/share tokens
   - items/jobs/episodes/chunk cache/item artifacts
@@ -231,6 +232,10 @@ Current implementation baseline:
 - Azure runtime helpers now support low-cost serverless metadata mode directly:
   - `METADATA_PRIMARY_BACKEND=azure_table`
   - default auxiliary `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
+- eastus blue/green rollout helpers are now checked in:
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-eastus-bluegreen.sh`
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh`
+  - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-aca-overflow.sh`
 - migration scripts are available:
   - `npm run metadata:backfill`
   - `npm run metadata:check`
@@ -238,12 +243,17 @@ Current implementation baseline:
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-budget-alerts.sh`
   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
 - live Azure low-cost cutover completed on 2026-03-17:
-  - `articlepod.com` now runs on Azure `Standard_B2s`
+  - `articlepod.com` moved to Azure Table primary mode with no PostgreSQL in the hot path
   - operational metadata is served from Azure Table
   - durable media/artifacts are served from Azure Blob
   - local auxiliary SQLite is used for low-cost admin/runtime data
   - managed PostgreSQL is stopped and kept out of the hot path
   - exploratory PostgreSQL data was intentionally not migrated during this fresh-start testing phase
+- eastus blue/green prestage started on 2026-04-10:
+  - new resource group `rg-articlepod-prod-eastus`
+  - new primary VM `articlepod-eastus-vm`
+  - ACA environment `articlepod-aca-env`
+  - no PostgreSQL provisioned in the new resource group
 - Azure OpenAI summary generation is now wired as an Azure-native dependency:
   - `scripts/azure/provision-openai.sh` creates or reuses an Azure OpenAI account in `eastus`
   - `digest-summary-nano` is the default deployment for `5` and `15` minute summary runs

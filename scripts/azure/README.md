@@ -3,7 +3,10 @@
 ## First-Time Setup (Per Environment)
 1. Preflight local machine:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/preflight.sh`
-2. Provision infra (outside this folder, with `azd up`).
+2. Provision infra.
+   - Historical single-VM template: `azd up`
+   - Eastus blue/green cutover target: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-eastus-bluegreen.sh`
+   - Do not use `/Users/vishalchowdhary/Documents/Podcast/infra/main.bicep` for the eastus cutover; it still models the old PostgreSQL-backed topology.
 3. Discover runtime resources:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/discover-resources.sh`
    - add `--include-openai` to export Azure OpenAI account metadata
@@ -12,10 +15,16 @@
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-openai.sh --resource-group <RG>`
 5. Bootstrap VM:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh`
-6. Existing VM migration (if upgrading from legacy runtime names):
+6. Blue/green first-cutover state clone:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh --target-host <new-vm-ip>`
+   - This copies `/etc/articlepod/articlepod.env`, `/var/lib/articlepod`, and current Let's Encrypt material from the live VM before the first start.
+7. Existing VM migration (if upgrading from legacy runtime names):
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/migrate-runtime-naming.sh`
-7. Render runtime env:
+8. Render runtime env for fresh environments only:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/render-env.sh`
+   - For the eastus blue/green first cutover, reuse the copied `/etc/articlepod/articlepod.env` instead of rendering a new file.
+9. Deploy ACA overflow burst lane:
+   - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-aca-overflow.sh --env-file <copied-prod-env>`
 
 See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
 
@@ -109,6 +118,9 @@ Security notes:
 - Runs on demand (`workflow_dispatch`) and does not persist source content.
 
 ## Individual Building Blocks
+- Eastus blue/green infra provisioning: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-eastus-bluegreen.sh`
+- Blue/green state clone from current VM: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh`
+- ACA overflow deploy (worker + python-tts sidecar): `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-aca-overflow.sh`
 - Sync only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
 - Promote staged files only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
 - Deploy runtime only: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-vm-runtime.sh`

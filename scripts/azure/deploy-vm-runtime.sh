@@ -129,14 +129,26 @@ ensure_runtime_dirs() {
   local storage_root=""
   local media_root=""
   local upload_root=""
+  local database_url=""
+  local sqlite_path=""
 
   storage_root="$(read_env_value STORAGE_ROOT || true)"
   media_root="$(read_env_value MEDIA_ROOT || true)"
   upload_root="$(read_env_value UPLOAD_ROOT || true)"
+  database_url="$(read_env_value DATABASE_URL || true)"
 
   [[ -n "$storage_root" ]] && runtime_paths+=("$storage_root")
   [[ -n "$media_root" ]] && runtime_paths+=("$media_root")
   [[ -n "$upload_root" ]] && runtime_paths+=("$upload_root")
+
+  if [[ "$database_url" == file:* ]]; then
+    sqlite_path="${database_url#file:}"
+    sqlite_path="${sqlite_path%%\?*}"
+    sqlite_path="${sqlite_path%%\#*}"
+    if [[ -n "$sqlite_path" ]]; then
+      runtime_paths+=("$(dirname "$sqlite_path")")
+    fi
+  fi
 
   if [[ "${#runtime_paths[@]}" -eq 0 ]]; then
     return
@@ -146,6 +158,11 @@ ensure_runtime_dirs() {
     mkdir -p "$path"
   done
   chown -R "$APP_USER":"$APP_GROUP" "${runtime_paths[@]}"
+
+  if [[ -n "$sqlite_path" ]]; then
+    touch "$sqlite_path"
+    chown "$APP_USER":"$APP_GROUP" "$sqlite_path"
+  fi
 }
 
 run_pnpm_install_if_needed() {

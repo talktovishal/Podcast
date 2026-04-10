@@ -1,11 +1,13 @@
 # Azure Deployment (Durable VM Topology)
 
 ## Target architecture
-- Compute: single Linux VM running:
+- Primary compute: single `eastus` Linux VM running:
   - `web` (Next.js)
-  - `worker` (queue processor)
-  - `python-tts` (Kokoro service)
-  - optional `worker-overflow` (queue-pressure-triggered overflow lane)
+  - `worker` (queue processor, `WORKER_ROLE=primary`)
+  - `python-tts` (Kokoro service, `TTS_WORKERS=1`)
+- Overflow compute: private Azure Container Apps app in `eastus` running:
+  - `worker` (`WORKER_ROLE=overflow`)
+  - `python-tts` sidecar (`TTS_WORKERS=1`)
 - Durable data:
   - Azure Table (primary operational metadata when `METADATA_PRIMARY_BACKEND=azure_table`)
   - Azure Blob Storage
@@ -14,16 +16,19 @@
   - `digest-summary-nano` deployment for `5`/`15` minute summary runs
   - `digest-summary-mini` deployment for `30` minute runs and nano fallback
 - Auxiliary local state:
-  - SQLite on the VM for low-cost/admin-only data that does not need to live in Azure Table
+  - SQLite on the primary VM for low-cost/admin-only data that does not need to live in Azure Table
 
 This keeps compute cost-first while preserving data and media durability on VM loss.
-Current right-sizing baseline for cost-control:
-- VM SKU: `Standard_B2s`
-- local TTS lane: fixed `TTS_WORKERS=1`
+Current blue/green cutover target:
+- primary VM SKU: `Standard_D2as_v5`
+- overflow app: Azure Container Apps Consumption, `minReplicas=0`, `maxReplicas=1`
+- no PostgreSQL in the new eastus resource group
+- local TTS lane remains fixed at `TTS_WORKERS=1` on both the primary VM and the overflow sidecar
 
 Latest verified production state:
 - 2026-03-17: `articlepod.com` was redeployed in fresh-start low-cost mode with Azure Table primary metadata, Azure Blob artifact storage, and local auxiliary SQLite.
 - 2026-03-17: managed PostgreSQL was stopped after live feed/media contract checks passed (`HEAD 200`, media `206`).
+- 2026-04-10: eastus blue/green prestage created `rg-articlepod-prod-eastus`, `articlepod-eastus-vm`, `articlepod-aca-env`, and `articlepodacrdvlolaz43j6be` with no PostgreSQL resources.
 
 ## Prerequisites (local)
 From repo root:
@@ -36,9 +41,34 @@ The preflight script verifies:
 - active Azure login
 - SSH key at `~/.ssh/articlepod_azure(.pub)` (creates if missing)
 
-VM bootstrap now also provisions swap by default on Azure hosts. Current low-cost guidance for `Standard_B2s` is to keep a `4 GiB` swapfile enabled so `python-tts` does not get OOM-killed under real synthesis load.
+VM bootstrap now also provisions swap by default on Azure hosts. Keep swap enabled on the primary VM so local `python-tts` stays resilient during long synthesis runs.
 
-## Infrastructure provisioning (IaC)
+## Eastus blue/green provisioning
+Use the dedicated eastus template and helper for this rollout. Do not use `infra/main.bicep` as-is for the cutover, because it still models the older PostgreSQL-backed topology.
+
+Provision the new resource group, VM, ACR, Log Analytics workspace, and ACA environment:
+```bash
+./scripts/azure/provision-eastus-bluegreen.sh
+```
+
+Defaults:
+- resource group: `rg-articlepod-prod-eastus`
+- VM: `articlepod-eastus-vm`
+- public IP: `articlepod-eastus-pip`
+- NIC: `articlepod-eastus-nic`
+- VNet: `articlepod-eastus-vnet`
+- NSG: `articlepod-eastus-nsg`
+- ACR: `articlepodacrdvlolaz43j6be`
+- Log Analytics: `articlepod-aca-logs`
+- ACA environment: `articlepod-aca-env`
+
+Capture the new VM IP/FQDN after the helper completes:
+```bash
+az vm show -d -g rg-articlepod-prod-eastus -n articlepod-eastus-vm \
+  --query '{ip:publicIps,fqdn:fqdns}' -o json
+```
+
+## Historical single-VM provisioning (legacy)
 Template inputs:
 - `infra/main.bicep`
 - `azure.yaml`
@@ -98,7 +128,7 @@ This exports:
 - `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
 
 Notes:
-- The Azure OpenAI account is intentionally placed in `eastus` even though the VM/resource group stay in `centralus`.
+- The production Azure OpenAI account already lives in `eastus`, which is also the target region for the blue/green VM and ACA overflow lane.
 - The provisioning helper attempts `gpt-5-nano` and `gpt-5-mini` first, then falls back to `gpt-4.1-nano` and `gpt-4.1-mini` if deployment creation fails.
 
 ## Domain + DNS (production)
@@ -117,6 +147,21 @@ dig +short articlepod.com
 dig +short www.articlepod.com
 ```
 Both should resolve to your VM endpoint before TLS automation.
+
+## First cutover state clone
+For the first eastus cutover, clone the live runtime state instead of rendering a fresh env file:
+```bash
+./scripts/azure/clone-vm-state.sh --target-host "<NEW_VM_IP>"
+```
+
+This copies:
+- `/etc/articlepod/articlepod.env`
+- `/var/lib/articlepod/`
+- `/etc/letsencrypt/live/articlepod.com`
+- `/etc/letsencrypt/archive/articlepod.com`
+- `/etc/letsencrypt/renewal/articlepod.com.conf`
+
+Use the copied `/etc/articlepod/articlepod.env` as the source of truth for the first eastus start so no app secrets, signing keys, or queue/storage settings rotate accidentally.
 
 ## Sync code to VM (staging path)
 Sync local repo to VM user-writable path:
@@ -211,6 +256,11 @@ Defaults now include VM-safe runtime paths:
 - `PINNED_FETCH_IPV6_ENABLED=0` on Azure unless explicitly overridden, because the current Azure VM runtime is effectively IPv4-only for outbound pinned fetches and IPv6 candidates can crash Node 22 before request-level recovery logic runs.
 - `WORKER_STALE_PROCESSING_MS=900000`, `WORKER_MAX_STALE_RETRIES=1`, and `WORKER_MAX_PROCESSING_MS=2700000` on Azure unless explicitly overridden, so stalled jobs get one bounded recovery attempt and then fail cleanly instead of blocking the queue forever.
 
+First eastus cutover note:
+- skip this render step on the first blue/green bring-up
+- reuse the copied `/etc/articlepod/articlepod.env`
+- only go back to `render-env.sh` after the new primary is stable and you intentionally want config-as-code to replace the cloned file
+
 ## Deploy runtime + systemd services
 On VM:
 ```bash
@@ -233,6 +283,25 @@ Notes:
 - `promote-runtime.sh` preserves `services/python-tts/.venv` so model assets are not dropped on every code sync.
 - `promote-runtime.sh` preserves `.runtime/` and strips synced app-local `.env` files to avoid config/path drift across promotions.
 - `install-systemd.sh` now enables `articlepod-maintenance.timer`, which runs `/opt/articlepod/scripts/azure/cleanup-vm-disk.sh` every 6 hours to vacuum journald, prune staging-only artifacts, and pressure-clean caches.
+
+## ACA overflow deploy
+Build and deploy the overflow burst lane after the eastus ACA environment exists:
+```bash
+./scripts/azure/deploy-aca-overflow.sh --env-file <copied-prod-env>
+```
+
+Default overflow settings:
+- app name: `articlepod-overflow`
+- no public ingress
+- queue wake-up threshold: `1`
+- worker policy thresholds:
+  - `WORKER_OVERFLOW_ACTIVATE_QUEUE_DEPTH=3`
+  - `WORKER_OVERFLOW_DEACTIVATE_QUEUE_DEPTH=1`
+  - `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS=120000`
+  - `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS=60000`
+  - `WORKER_OVERFLOW_MIN_ACTIVE_MS=1200000`
+
+The overflow app reuses the live Blob/Table/OpenAI data plane and uses a local sidecar `python-tts` endpoint at `http://127.0.0.1:8010`.
 
 ## Configure ingress and TLS
 On VM:

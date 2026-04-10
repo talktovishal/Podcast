@@ -38,7 +38,7 @@ Recommended:
 ### `azure`
 - `DATABASE_URL`
   - use a local SQLite path such as `file:/var/lib/articlepod/db.sqlite` when `METADATA_PRIMARY_BACKEND=azure_table`
-  - use an Azure PostgreSQL URL only when Prisma/PostgreSQL remains the primary metadata backend or you are running rollback/canary flows
+  - use an Azure PostgreSQL URL only for legacy parity or explicit rollback/canary flows; the eastus blue/green target does not provision PostgreSQL
 - `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
 - `AZURE_STORAGE_CONTAINER`
@@ -48,8 +48,8 @@ Recommended:
   - `AZURE_STORAGE_CONNECTION_STRING`
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
-- `PYTHON_TTS_TIMEOUT_MS` (Azure deploy helper defaults to `300000` on the cost-optimized B2s VM profile)
-- `TTS_WORKERS` (set to `1` for the cost-optimized B2s baseline)
+- `PYTHON_TTS_TIMEOUT_MS` (Azure deploy helper defaults to `300000` for the primary VM and overflow sidecar Kokoro lanes)
+- `TTS_WORKERS` (set to `1` for the primary VM and for the overflow sidecar)
 - If `DIGEST_SUMMARY_PROVIDER=azure_openai`:
   - `AZURE_OPENAI_BASE_URL`
   - `AZURE_OPENAI_API_KEY`
@@ -185,6 +185,19 @@ Recommended low-cost Azure setting:
 - `ITEM_DISPATCH_BACKEND=azure_queue`
 - `WORKER_QUEUE_PRESSURE_SOURCE=prisma`
 - `METADATA_MIRROR_BACKEND=none` unless you are actively dual-writing for rollback certification
+
+Recommended eastus blue/green burst setting:
+- primary VM: `Standard_D2as_v5` in `eastus`
+- overflow compute: Azure Container Apps in `eastus` with private `worker` + `python-tts` sidecar replicas
+- `WORKER_ROLE=primary` on the VM, `WORKER_ROLE=overflow` in ACA
+- `WORKER_OVERFLOW_ENABLED=0` on the VM, `WORKER_OVERFLOW_ENABLED=1` in ACA
+- `OVERFLOW_PYTHON_TTS_URL=http://127.0.0.1:8010`
+- `WORKER_OVERFLOW_ACTIVATE_QUEUE_DEPTH=3`
+- `WORKER_OVERFLOW_DEACTIVATE_QUEUE_DEPTH=1`
+- `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS=120000`
+- `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS=60000`
+- `WORKER_OVERFLOW_MIN_ACTIVE_MS=1200000`
+- no PostgreSQL in the new eastus resource group
 
 Parity note:
 - When you point `AZURE_STORAGE_CONNECTION_STRING` at Azurite for parity tests, include both `BlobEndpoint=...` and `QueueEndpoint=...` so the item dispatch queue and blob artifacts share the same emulator account.

@@ -254,14 +254,14 @@ Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/
 
 ## Durable Azure target (M35-M46)
 Locked target architecture:
-- Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
-- Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
+- Primary compute: `eastus` Linux VM running `web`, primary `worker`, and local `python-tts` as `systemd` services (`Standard_D2as_v5`, `TTS_WORKERS=1`)
+- Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, and no public ingress
 - Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
 - Durable item dispatch: Azure Queue Storage in the same storage account when `ITEM_DISPATCH_BACKEND=azure_queue`
 - Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)
-- Rollback/canary metadata path: optional Prisma/PostgreSQL when explicitly enabled
+- No PostgreSQL is provisioned in the active blue/green target; Prisma/PostgreSQL remains legacy-only for parity or historical rollback research
 - Durable artifacts: Azure Blob Storage
-- Auxiliary local data: SQLite on VM for low-signal/admin-only state that does not need to sit in Azure Table
+- Auxiliary local data: SQLite on the primary VM for low-signal/admin-only state that does not need to sit in Azure Table
 - Migration track: queue/item/digest metadata can still be dual-written to Azure Table mirror for canary comparison and phased cutover
 - Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state, but compact per-item extraction-selection scorecards are first-class operational metadata.
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)

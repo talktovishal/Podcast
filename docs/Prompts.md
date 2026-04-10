@@ -225,11 +225,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 ### Next Milestones
 
 - Current core milestone set (`M00`-`M114`, excluding reserved gaps) is complete per `docs/plans.md`.
-- Cost optimization track (`C01`-`C07`) is now deployed in Azure low-cost mode:
-  - always-on `B2s` compute baseline (`TTS_WORKERS=1`) with local-first TTS.
-  - overflow worker lane is implemented but disabled by default until queue pressure warrants external overflow routing.
+- Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
+  - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
+  - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.
+  - overflow worker lane is implemented and now targets an eastus Azure Container Apps burst app with a colocated `python-tts` sidecar.
   - operational metadata now runs from Azure Table + Azure Blob with local auxiliary SQLite on the VM.
   - exploratory PostgreSQL data was intentionally not migrated during the fresh-start cutover.
+  - the new eastus blue/green resource group does not provision PostgreSQL.
 - Billing hardening track (`B01`-`B08`) is implemented in repo:
   - server-side plan catalog now supports `Starter` free plus `Pro monthly` and `Pro annual` self-serve cadences, with raw Stripe price ids never accepted from clients
   - webhook handling now covers checkout completion, subscription lifecycle events, `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`, with duplicate and stale-event protection
@@ -272,9 +274,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - each processed HTML item now persists a compact extraction-selection scorecard (`selectedEngine`, `selectionMode`, `scoreMargin`, compact JSON summary, recordedAt) on the durable `Item` row in both Prisma and Azure Table primary modes
   - `pnpm --filter @articlepod/web run ops:extraction-selection-report -- --limit 200` exports recent extraction-selection winners from either backend for local or production review
 - Live Azure cutover completed on 2026-03-17:
-  - `articlepod.com` is serving from the Azure `Standard_B2s` VM in low-cost mode.
+  - `articlepod.com` is serving from the Azure Table primary + Blob runtime with no PostgreSQL in the hot path.
   - PostgreSQL has been stopped after the fresh-start Azure Table cutover.
   - live feed/media contract verification passed (`HEAD 200`, media `206`) after PostgreSQL was disabled.
+- Eastus blue/green prestage started on 2026-04-10:
+  - `rg-articlepod-prod-eastus`, `articlepod-eastus-vm`, `articlepod-aca-env`, and `articlepodacrdvlolaz43j6be` are provisioned.
+  - overflow burst deployment is being moved to ACA before the final DNS cutover.
 - Cost optimization boundary: Azure Table should hold operational product state only; verbose logs, job-event firehose, and demo/analytics diagnostics should remain local or explicitly opt-in, while compact per-item extraction-selection scorecards are allowed as operational metadata.
 - New work should be added as new dated milestones before implementation starts.
 

@@ -427,6 +427,7 @@ Milestone metadata contract:
 | C06       | Done        | 2026-04-11    | 2026-03-17   | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass      |
 | C07       | Done        | 2026-04-18    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
 | C08       | Done        | 2026-04-25    | 2026-03-29   | queue-backed item dispatch + durable leases + single-worker-ready rollout validation (2026-03-29)       |
+| C09       | In Progress | 2026-04-17    | —            | eastus blue/green D2as_v5 primary + ACA overflow cutover with cloned prod config and no PostgreSQL      |
 | B01       | Done        | 2026-04-18    | 2026-03-28   | local docs sync + billing milestone expansion pass (2026-03-28)                                         |
 | B02       | Done        | 2026-04-25    | 2026-03-28   | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28)                  |
 | B03       | Done        | 2026-05-02    | 2026-03-28   | server-side plan catalog + checkout hardening + targeted validation (2026-03-28)                        |
@@ -4733,3 +4734,44 @@ Milestone metadata contract:
 - Verification commands:
   - `npm run check:env:azure`
   - `npm run costs:build`
+
+### C09 - Eastus Blue/Green Primary Rebuild and ACA Overflow Cutover
+
+- status: In Progress
+- target_finish: 2026-04-17
+- completed_on: —
+- evidence: eastus resource group + VM + ACR + ACA environment provisioned, live prod env cloned, and overflow deployment wiring added (2026-04-10)
+- Scope:
+  - Rebuild the primary runtime in `eastus` on `Standard_D2as_v5`.
+  - Reuse the live Blob/Table/OpenAI data plane exactly as-is, with no PostgreSQL in the new resource group.
+  - Clone `/etc/articlepod/articlepod.env`, `/var/lib/articlepod`, and current TLS material from the live VM before first start.
+  - Deploy a private Azure Container Apps overflow app with `worker` + `python-tts` sidecar and queue-based wake-up.
+  - Validate the new primary and overflow lanes before the final Squarespace DNS flip.
+- Key files/modules:
+  - `infra/eastus-bluegreen.bicep`
+  - `scripts/azure/provision-eastus-bluegreen.sh`
+  - `scripts/azure/clone-vm-state.sh`
+  - `scripts/azure/deploy-aca-overflow.sh`
+  - `Dockerfile.worker`
+  - `services/python-tts/Dockerfile`
+  - `services/python-tts/bootstrap_assets.py`
+  - `docs/azure-deploy.md`
+  - `docs/architecture.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - New eastus primary VM runs the same production env/settings as the live VM without rotating secrets or signing keys.
+  - ACA overflow app can scale from zero, process item-generation overflow work, and stand back down when backlog clears.
+  - No PostgreSQL resources are provisioned or required in the new eastus cutover path.
+  - Final DNS cutover only requires updating the apex `A` record and `www` CNAME in Squarespace after prestage validation succeeds.
+- Migration/backfill plan:
+  - Keep the existing `centralus` VM live and unchanged during prestage and early cutover.
+  - Clone live runtime state forward to the eastus VM; do not render a fresh env file for the first bring-up.
+  - Reuse the existing Azure Storage account, Azure Table data, Azure Queue dispatch lane, and Azure OpenAI account.
+  - Rollback is DNS-first: point `articlepod.com` back to the old VM while leaving data plane resources untouched.
+- Verification commands:
+  - `bash -n scripts/azure/provision-eastus-bluegreen.sh`
+  - `bash -n scripts/azure/clone-vm-state.sh`
+  - `bash -n scripts/azure/deploy-aca-overflow.sh`
+  - `python3 -m py_compile services/python-tts/bootstrap_assets.py`
+  - `curl -k --resolve articlepod.com:443:<new-eastus-ip> https://articlepod.com/api/health`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
