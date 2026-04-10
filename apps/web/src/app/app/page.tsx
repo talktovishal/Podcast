@@ -8,7 +8,6 @@ import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { getBillingSettingsState, isBillingPlanCheckoutConfigured } from "@/lib/billing";
 import { getDashboardItems, getDemoExtractionDiagnostics, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
-import { paidPlanConfig } from "@/lib/paid-plan-config";
 import { getSubmissionQuotaSnapshot } from "@/lib/submission-quota";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
@@ -39,7 +38,6 @@ export default async function AppDashboardPage({
   const monthlyCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_MONTHLY");
   const annualCheckoutConfigured = isBillingPlanCheckoutConfigured("PRO_ANNUAL");
   const billingConfigured = monthlyCheckoutConfigured || annualCheckoutConfigured;
-  const annualPlan = paidPlanConfig("PRO_ANNUAL");
   const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
   const billing = billingState.liveBilling;
   const normalizedSelection = normalizeTtsSelection({
@@ -60,10 +58,6 @@ export default async function AppDashboardPage({
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
               <WorkspaceBillingSummary
                 activationHint={billingSearchParam === "success"}
-                annualPitch={{
-                  dailyPodcastLimit: annualPlan.dailyPodcastLimit,
-                  weeklySummaryLimit: annualPlan.weeklySummaryLimit
-                }}
                 billingConfigured={billingConfigured}
                 initialBilling={billing}
                 sandboxModeActive={billingState.mode.effectiveLane === "SANDBOX"}

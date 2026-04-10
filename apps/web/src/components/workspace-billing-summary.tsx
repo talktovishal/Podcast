@@ -10,10 +10,6 @@ type Props = {
   billingConfigured: boolean;
   activationHint?: boolean;
   sandboxModeActive?: boolean;
-  annualPitch: {
-    dailyPodcastLimit: number;
-    weeklySummaryLimit: number;
-  };
 };
 
 function toneClasses(input: BillingAccountSnapshot) {
@@ -86,8 +82,7 @@ export function WorkspaceBillingSummary({
   initialBilling,
   billingConfigured,
   activationHint = false,
-  sandboxModeActive = false,
-  annualPitch
+  sandboxModeActive = false
 }: Props) {
   const { billing, pollMessage } = useBillingStatus(initialBilling, activationHint);
   const showPortalAction = Boolean(
@@ -113,7 +108,7 @@ export function WorkspaceBillingSummary({
           />
         ) : billingConfigured ? (
           <Link
-            className="inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold text-[var(--ink)] transition hover:border-slate-300 hover:bg-slate-50"
+            className="inline-flex items-center rounded-lg border border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)] px-3 py-1.5 text-xs font-semibold text-[rgba(25,55,43,0.96)] transition hover:border-[rgba(31,122,90,0.28)] hover:bg-[rgba(223,243,236,0.3)]"
             href="/app/settings#billing"
           >
             Upgrade to Pro
@@ -124,12 +119,6 @@ export function WorkspaceBillingSummary({
       </div>
 
       {message ? <p className={`rounded-lg border px-3 py-2 text-sm ${tone.message}`}>{message}</p> : null}
-      {!showPortalAction && billingConfigured && billing.planCode === "STARTER" && !billing.accessReason ? (
-        <p className="text-xs text-[var(--muted)]">
-          Pro Annual is the best value: save nearly 30%, unlock {annualPitch.dailyPodcastLimit} episodes per 24 hours, and
-          get {annualPitch.weeklySummaryLimit} manual summaries every 7 days.
-        </p>
-      ) : null}
       {sandboxModeActive ? (
         <p className="text-xs text-[var(--muted)]">Sandbox billing mode is active in Settings. Live access is shown here.</p>
       ) : null}

@@ -45,9 +45,14 @@ test("workspace billing summary stays compact inside the header", () => {
   assert.equal(source.includes("Upgrade to Pro"), true);
   assert.equal(source.includes('href="/app/settings#billing"'), true);
   assert.equal(source.includes("Billing ·"), true);
+  assert.equal(source.includes("Pro Annual is the best value"), false);
   assert.equal(source.includes("Choose Pro Monthly"), false);
   assert.equal(source.includes("Choose Pro Annual"), false);
   assert.equal(source.includes("Starter · Free"), false);
+  assert.equal(
+    source.includes("border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)]"),
+    true,
+  );
 });
 
 test("app shell nav keeps dedicated pages and icon logout", () => {
@@ -77,7 +82,12 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes("justify-start"), true);
   assert.equal(source.includes("md:flex-nowrap"), true);
   assert.equal(source.includes("md:justify-end"), true);
-  assert.equal(source.includes("bg-[rgba(223,243,236,0.38)]"), true);
+  assert.equal(
+    source.includes(
+      "border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)]",
+    ),
+    true,
+  );
   assert.equal(source.includes('variant="icon"'), true);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });
