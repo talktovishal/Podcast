@@ -1,8 +1,19 @@
 import Link from "next/link";
+import {
+  appShellAccentItemClass,
+  appShellNeutralItemClass,
+} from "@/components/app-shell-button-styles";
 import { LogoutButton } from "@/components/logout-button";
 import { hasSnippetsForUser } from "@/lib/snippets";
 
-type AppShellNavKey = "workspace" | "podcast-apps" | "chrome-extension" | "snippets" | "summary" | "feedback" | "settings";
+type AppShellNavKey =
+  | "workspace"
+  | "podcast-apps"
+  | "chrome-extension"
+  | "snippets"
+  | "summary"
+  | "feedback"
+  | "settings";
 
 const NAV_ITEMS: ReadonlyArray<{
   key: AppShellNavKey;
@@ -11,22 +22,50 @@ const NAV_ITEMS: ReadonlyArray<{
   title: string;
 }> = [
   { key: "workspace", href: "/app", label: "Episodes", title: "Episodes" },
-  { key: "podcast-apps", href: "/app/podcast-apps", label: "Podcast Apps", title: "Podcast Apps" },
-  { key: "chrome-extension", href: "/app/chrome-extension", label: "Chrome Extension", title: "Chrome Extension" },
-  { key: "snippets", href: "/app/snippets", label: "Snippets", title: "Snippets" },
-  { key: "summary", href: "/app/summary", label: "Summaries", title: "Summaries" },
-  { key: "feedback", href: "/app/feedback", label: "Feedback", title: "Feedback" },
-  { key: "settings", href: "/app/settings", label: "Settings", title: "Settings" }
+  {
+    key: "podcast-apps",
+    href: "/app/podcast-apps",
+    label: "Podcast Apps",
+    title: "Podcast Apps",
+  },
+  {
+    key: "chrome-extension",
+    href: "/app/chrome-extension",
+    label: "Chrome Extension",
+    title: "Chrome Extension",
+  },
+  {
+    key: "snippets",
+    href: "/app/snippets",
+    label: "Snippets",
+    title: "Snippets",
+  },
+  {
+    key: "summary",
+    href: "/app/summary",
+    label: "Summaries",
+    title: "Summaries",
+  },
+  {
+    key: "feedback",
+    href: "/app/feedback",
+    label: "Feedback",
+    title: "Feedback",
+  },
+  {
+    key: "settings",
+    href: "/app/settings",
+    label: "Settings",
+    title: "Settings",
+  },
 ];
 
-const baseItemClass =
-  "shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35";
-const neutralItemClass = `${baseItemClass} border-[rgba(31,42,31,0.12)] bg-white text-[var(--ink)] hover:border-slate-300 hover:bg-slate-50`;
-const highlightedItemClass = `${baseItemClass} border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)] text-[rgba(25,55,43,0.96)] hover:border-[rgba(31,122,90,0.28)] hover:bg-[rgba(223,243,236,0.3)]`;
+const neutralItemClass = appShellNeutralItemClass;
+const highlightedItemClass = appShellAccentItemClass;
 export async function AppShellNav({
   current,
   userId,
-  showSnippets
+  showSnippets,
 }: {
   current: AppShellNavKey;
   userId: string;
@@ -37,8 +76,13 @@ export async function AppShellNav({
   return (
     <nav aria-label="Workspace navigation" className="w-full max-w-full">
       <div className="flex flex-wrap items-center justify-start gap-2 md:flex-nowrap md:justify-end md:overflow-x-auto md:pb-1 lg:overflow-visible lg:pb-0">
-        {NAV_ITEMS.filter((item) => item.key !== current && (item.key !== "snippets" || showSnippetsLink)).map((item) => {
-          const className = item.key === "feedback" ? highlightedItemClass : neutralItemClass;
+        {NAV_ITEMS.filter(
+          (item) =>
+            item.key !== current &&
+            (item.key !== "snippets" || showSnippetsLink),
+        ).map((item) => {
+          const className =
+            item.key === "feedback" ? highlightedItemClass : neutralItemClass;
 
           return (
             <Link

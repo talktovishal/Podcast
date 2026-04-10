@@ -2,11 +2,16 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { SnippetsWorkspaceClient } from "@/components/snippets-workspace-client";
+import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import { getAuthUserFromCookies } from "@/lib/auth";
+import {
+  getBillingSettingsState,
+  isBillingPlanCheckoutConfigured,
+} from "@/lib/billing";
 import { listSnippetsForUser } from "@/lib/snippets";
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: false }
+  robots: { index: false, follow: false },
 };
 
 export default async function SnippetsPage() {
@@ -19,6 +24,10 @@ export default async function SnippetsPage() {
   if (snippets.length === 0) {
     redirect("/app");
   }
+  const billingState = await getBillingSettingsState(user.id);
+  const billingConfigured =
+    isBillingPlanCheckoutConfigured("PRO_MONTHLY") ||
+    isBillingPlanCheckoutConfigured("PRO_ANNUAL");
 
   return (
     <main className="py-5 sm:py-8">
@@ -26,14 +35,21 @@ export default async function SnippetsPage() {
         <header className="card p-4 sm:p-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <p className="text-sm text-[var(--muted)]">Selection workspace</p>
+              <WorkspaceBillingSummary
+                billingConfigured={billingConfigured}
+                initialBilling={billingState.liveBilling}
+                sandboxModeActive={
+                  billingState.mode.effectiveLane === "SANDBOX"
+                }
+              />
               <AppShellNav current="snippets" userId={user.id} showSnippets />
             </div>
             <div className="space-y-1">
               <h1 className="font-bold text-2xl">Snippets</h1>
               <p className="text-sm text-[var(--muted)]">
-                Save highlights from the Chrome extension now, then review and annotate them before you decide what deserves a
-                deeper summary later.
+                Save highlights from the Chrome extension now, then review and
+                annotate them before you decide what deserves a deeper summary
+                later.
               </p>
             </div>
           </div>
@@ -52,7 +68,7 @@ export default async function SnippetsPage() {
             pageMetadata: snippet.pageMetadata,
             comment: snippet.comment,
             createdAt: snippet.createdAt.toISOString(),
-            updatedAt: snippet.updatedAt.toISOString()
+            updatedAt: snippet.updatedAt.toISOString(),
           }))}
         />
       </div>

@@ -27,7 +27,7 @@ test("app dashboard uses direct navigation links and logout icon", () => {
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);
   assert.equal(
-    source.includes("keep an eye on processing and playback below"),
+    source.includes("keep an eye on processing"),
     true,
   );
   assert.equal(source.includes("py-4 sm:py-6"), true);
@@ -40,19 +40,14 @@ test("workspace billing summary stays compact inside the header", () => {
     "utf8",
   );
 
-  assert.equal(source.includes("Billing"), true);
-  assert.equal(source.includes("Manage billing"), false);
+  assert.equal(source.includes("Pro user"), true);
   assert.equal(source.includes("Upgrade to Pro"), true);
+  assert.equal(source.includes("Billing issue"), true);
+  assert.equal(source.includes("Activating Pro"), true);
   assert.equal(source.includes('href="/app/settings#billing"'), true);
-  assert.equal(source.includes("Billing ·"), true);
+  assert.equal(source.includes("Billing ·"), false);
   assert.equal(source.includes("Pro Annual is the best value"), false);
-  assert.equal(source.includes("Choose Pro Monthly"), false);
-  assert.equal(source.includes("Choose Pro Annual"), false);
-  assert.equal(source.includes("Starter · Free"), false);
-  assert.equal(
-    source.includes("border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)]"),
-    true,
-  );
+  assert.equal(source.includes("appShellAccentItemClass"), true);
 });
 
 test("app shell nav keeps dedicated pages and icon logout", () => {
@@ -82,12 +77,7 @@ test("app shell nav keeps dedicated pages and icon logout", () => {
   assert.equal(source.includes("justify-start"), true);
   assert.equal(source.includes("md:flex-nowrap"), true);
   assert.equal(source.includes("md:justify-end"), true);
-  assert.equal(
-    source.includes(
-      "border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.18)]",
-    ),
-    true,
-  );
+  assert.equal(source.includes("appShellAccentItemClass"), true);
   assert.equal(source.includes('variant="icon"'), true);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });
@@ -245,10 +235,7 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   );
   assert.equal(extensionPageSource.includes("DashboardClient"), false);
   assert.equal(snippetsPageSource.includes("Snippets"), true);
-  assert.equal(
-    snippetsPageSource.includes("SnippetsWorkspaceClient"),
-    true,
-  );
+  assert.equal(snippetsPageSource.includes("SnippetsWorkspaceClient"), true);
   assert.equal(snippetsPageSource.includes('current="snippets"'), true);
   assert.equal(snippetsPageSource.includes("if (snippets.length === 0)"), true);
   assert.equal(snippetsPageSource.includes('redirect("/app")'), true);
@@ -345,6 +332,41 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     ),
     false,
   );
+  assert.equal(podcastPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(extensionPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(summaryPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(podcastPageSource.includes("Private feed setup"), false);
+  assert.equal(extensionPageSource.includes("Capture setup"), false);
+  assert.equal(summaryPageSource.includes("Manual editorial workspace"), false);
+  assert.equal(snippetsPageSource.includes("Selection workspace"), false);
+});
+
+test("feedback and settings headers use the billing status chip instead of helper labels", () => {
+  const feedbackPageSource = readFileSync(
+    new URL("../src/app/app/feedback/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const settingsPageSource = readFileSync(
+    new URL("../src/app/app/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(feedbackPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(settingsPageSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(feedbackPageSource.includes("Product feedback"), false);
+  assert.equal(
+    feedbackPageSource.includes(
+      '<h1 className="font-bold text-2xl">Feedback</h1>',
+    ),
+    true,
+  );
+  assert.equal(
+    settingsPageSource.includes(
+      '<h1 className="font-bold text-2xl">Account settings</h1>',
+    ),
+    true,
+  );
 });
 
 test("youtube music walkthrough includes the updated help steps and animation", () => {
@@ -404,10 +426,7 @@ test("apple podcasts walkthrough includes the updated help steps and animation",
     walkthroughSource.includes("Tap <Ui>Follow a Show by URL</Ui>."),
     true,
   );
-  assert.equal(
-    walkthroughSource.includes("Paste the RSS/XML feed URL."),
-    true,
-  );
+  assert.equal(walkthroughSource.includes("Paste the RSS/XML feed URL."), true);
   assert.equal(existsSync(gifPath), true);
 });
 
@@ -429,7 +448,9 @@ test("pocket casts walkthrough includes the support article flow and video link"
   );
   assert.equal(walkthroughSource.includes("Open Pocket Casts."), true);
   assert.equal(
-    walkthroughSource.includes("Tap <Ui>Discover</Ui> at the bottom of the screen."),
+    walkthroughSource.includes(
+      "Tap <Ui>Discover</Ui> at the bottom of the screen.",
+    ),
     true,
   );
   assert.equal(
@@ -439,7 +460,9 @@ test("pocket casts walkthrough includes the support article flow and video link"
     true,
   );
   assert.equal(
-    walkthroughSource.includes("When the show appears, tap <Ui>Subscribe</Ui>."),
+    walkthroughSource.includes(
+      "When the show appears, tap <Ui>Subscribe</Ui>.",
+    ),
     true,
   );
 });
@@ -459,7 +482,9 @@ test("overcast walkthrough includes the updated steps and animation", () => {
     true,
   );
   assert.equal(
-    walkthroughSource.includes("Tap <Ui>Add URL</Ui> in the upper-right corner."),
+    walkthroughSource.includes(
+      "Tap <Ui>Add URL</Ui> in the upper-right corner.",
+    ),
     true,
   );
   assert.equal(
@@ -493,12 +518,12 @@ test("antennapod walkthrough includes the updated steps and animation", () => {
   );
   assert.equal(
     walkthroughSource.includes(
-      'Open the side bar on the left and select <Ui>Add Podcast</Ui>.',
+      "Open the side bar on the left and select <Ui>Add Podcast</Ui>.",
     ),
     true,
   );
   assert.equal(
-    walkthroughSource.includes('Select <Ui>Add by RSS address</Ui>.'),
+    walkthroughSource.includes("Select <Ui>Add by RSS address</Ui>."),
     true,
   );
   assert.equal(
@@ -522,10 +547,7 @@ test("castro walkthrough includes the updated steps and animation", () => {
     import.meta.url,
   );
 
-  assert.equal(
-    walkthroughSource.includes("Open Castro on your device."),
-    true,
-  );
+  assert.equal(walkthroughSource.includes("Open Castro on your device."), true);
   assert.equal(
     walkthroughSource.includes("Tap the search icon in the top-right corner."),
     true,
@@ -535,9 +557,7 @@ test("castro walkthrough includes the updated steps and animation", () => {
     true,
   );
   assert.equal(
-    walkthroughSource.includes(
-      'Tap the show and click <Ui>Subscribe</Ui>.',
-    ),
+    walkthroughSource.includes("Tap the show and click <Ui>Subscribe</Ui>."),
     true,
   );
   assert.equal(
