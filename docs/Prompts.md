@@ -73,6 +73,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - HTML-to-markdown conversion still flattens extraction-side table-heavy page shells into readable markdown, while narration normalization also flattens legacy stored HTML/markdown table markup into speakable text.
   - Cleanup still unescapes leaked markdown punctuation so backslashes from escaped headings, emphasis, numbering, and punctuation are not spoken aloud.
   - Cleanup now also strips ISO/display timestamp lines, read-time pills, Business Insider-style subscriber promos, and short trailing tag-list blocks while preserving normal article prose that merely mentions words like `privacy`.
+  - Narration cleanup now also strips inline image-wrapper residue such as Smithsonian-style `:focal(...)` fragments before episode-description derivation, while extraction-quality audits no longer treat normal host-like company names in prose as raw-URL cleanup failures.
   - Narration input, episode descriptions, and `textHash` are derived from cleaned markdown normalization with deterministic chunking preserved.
   - Markdown diagnostics/review surfaces are available in dashboard and API.
   - Backfill + cleanup + purge scripts enforce dual-save transition, canonical markdown cleanup, and raw artifact retention policy.

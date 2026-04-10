@@ -27,7 +27,7 @@ const MARKDOWN_TABLE_ROW_PATTERN = /^\s*\|(.+?)\|\s*$/gm;
 const MARKDOWN_TABLE_LINE_PATTERN = /^\s*\|.*\|\s*$/m;
 const HOST_LIKE_PATTERN = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\b/i;
 const HOST_WITH_OPTIONAL_PATH_PATTERN = /[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)(?:\/[^\s)]+)?/i;
-const RESIDUAL_HOST_LIKE_PATTERN = /\b[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)(?:\/[^\s)]+)?\b(?!['’]s)/i;
+const HOST_WITH_PATH_PATTERN = /[a-z0-9.-]+\.(?:com|org|net|co|io|gov|edu|uk|us|ai|tv)\/[^\s)]+/i;
 const PARENTHETICAL_HOST_SUFFIX_PATTERN = new RegExp(`\\(\\s*${HOST_WITH_OPTIONAL_PATH_PATTERN.source}\\s*\\)$`, "i");
 const STANDALONE_HOST_LINE_PATTERN = new RegExp(`^\\s*${HOST_WITH_OPTIONAL_PATH_PATTERN.source}\\s*$`, "i");
 const LEADING_METADATA_DATE_PATTERNS = [
@@ -267,6 +267,40 @@ function stripStandaloneImageAssetLines(input: string): string {
     .join("\n");
 }
 
+function stripInlineImageWrapperArtifactsFromLine(line: string): string {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return line;
+  }
+
+  const focalMatch = trimmed.match(/:focal\([^)]*\)\s*\/\s*(.+)$/i);
+  if (focalMatch) {
+    const suffix = focalMatch[1]?.trim() ?? "";
+    if (wordCount(paragraphToPlainText(suffix)) >= 6) {
+      return suffix;
+    }
+  }
+
+  const urlMatches = Array.from(trimmed.matchAll(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi")));
+  if (urlMatches.length > 0) {
+    const lastMatch = urlMatches[urlMatches.length - 1];
+    const afterLastUrl = trimmed
+      .slice((lastMatch.index ?? 0) + lastMatch[0].length)
+      .replace(/^[\s)\]\/:.,_-]+/g, "")
+      .trim();
+    if (wordCount(paragraphToPlainText(afterLastUrl)) >= 6) {
+      return afterLastUrl;
+    }
+  }
+
+  return trimmed
+    .replace(new RegExp(IMAGE_ASSET_URL_PATTERN.source, "gi"), " ")
+    .replace(/:focal\([^)]*\)\s*\/?/gi, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function looksLikeCitationSourceLine(input: string): boolean {
   const plain = paragraphToPlainText(input.replace(/^>\s?/, "").trim());
   if (!plain) {
@@ -358,6 +392,7 @@ function normalizeNarrationTransport(markdown: string): string {
       .replace(FOOTNOTE_REF_PATTERN, " ")
   )
     .split("\n")
+    .map((line) => stripInlineImageWrapperArtifactsFromLine(line))
     .map((line) => stripRawUrlArtifactsFromLine(line))
     .join("\n")
     .replace(/[ \t]+\n/g, "\n")
@@ -885,7 +920,12 @@ function narrationContainsResidualUrl(input: string): string | null {
     if (!trimmed) {
       continue;
     }
-    if (/https?:\/\/|www\./i.test(trimmed) || RESIDUAL_HOST_LIKE_PATTERN.test(trimmed)) {
+    if (
+      /https?:\/\/|www\./i.test(trimmed) ||
+      STANDALONE_HOST_LINE_PATTERN.test(trimmed) ||
+      PARENTHETICAL_HOST_SUFFIX_PATTERN.test(trimmed) ||
+      HOST_WITH_PATH_PATTERN.test(trimmed)
+    ) {
       return trimmed;
     }
   }

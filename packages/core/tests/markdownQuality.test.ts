@@ -59,6 +59,19 @@ The article body adds enough detail to prove that saved markdown can stay rich w
   assert.ok(!analysis.narrationText.includes("https://example.com/reference-deck"));
 });
 
+test("analyzeMarkdownQuality does not flag host-like company names in prose as residual urls", () => {
+  const analysis = analyzeMarkdownQuality(`
+Many artificial intelligence startup ideas are still little more than superficial wrappers built on top of existing models.
+
+- Dodge.ai, which develops autonomous agents for enterprise ERP systems;
+
+The follow-up paragraph keeps the sample narratable and confirms the audit should not treat a company name as leftover raw URL residue.
+`);
+
+  assert.equal(analysis.issueCounts.residual_url, 0);
+  assert.ok(analysis.narrationText.includes("Dodge.ai, which develops autonomous agents for enterprise ERP systems"));
+});
+
 test("analyzeMarkdownQuality does not flag normal article prose about privacy as footer legal noise", () => {
   const analysis = analyzeMarkdownQuality(`
 WASHINGTON (AP) — Communities across the country have seen a backlash against data centers over fears about rising electricity prices and concerns about pollution and water consumption.

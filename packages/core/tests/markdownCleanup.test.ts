@@ -145,6 +145,19 @@ The article opens by explaining how eclipse data changed the way researchers com
   assert.ok(!narration.includes(".jpg"));
 });
 
+test("markdownToNarrationText strips production-style inline focal wrappers and leading image metadata", () => {
+  const narration = markdownToNarrationText(`
+## Virginia teenager Mia Heller’s filtration system harnesses the power of ferrofluid, a magnetic oil that binds to microplastics in flowing water
+
+Virginia teenager Mia Heller’s filtration system harnesses the power of ferrofluid, a magnetic oil that binds to microplastics in flowing water / Ramsha Waseem - Freelance writer March 20, 2026 :focal(512x336:513x337)/ A few years ago, teenager Mia Heller came across an article in her local newspaper about ongoing water quality issues in her neighborhood in Warrenton, Virginia.
+`);
+
+  assert.ok(narration.includes("A few years ago, teenager Mia Heller came across an article"));
+  assert.ok(!narration.includes(":focal("));
+  assert.ok(!narration.includes("Ramsha Waseem"));
+  assert.ok(!narration.includes("March 20, 2026"));
+});
+
 test("markdownToNarrationText flattens html and markdown tables into speakable text", () => {
   const narration = markdownToNarrationText(`
 The final test scores are below, and this intentionally long lead paragraph keeps the narration flow anchored in article prose before the table so the cleanup step treats the table as content instead of as front-matter metadata.

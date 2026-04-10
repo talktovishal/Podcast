@@ -44,7 +44,7 @@
   - summary/digest artifact audits now evaluate stored summary markdown against the summary narration contract, so source appendices and other reusable stored context are allowed while narration-side residue still gets flagged.
   - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
   - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
-  - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, and snapshot blocking still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+  - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, strips inline image-wrapper residue such as `:focal(...)` fragments before episode-description derivation, avoids host-like company-name false positives in narration cleanup audits, and still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
 - Hybrid runtime HTML extraction selection (`M110`) is implemented:
   - backend HTML extraction now runs both the existing `Readability` path and `defuddle` on the same fetched or captured HTML before shared cleanup/narration stages continue.
   - candidate scoring now rewards narratable body text while penalizing image-only blocks, caption-like residue, and presentational clutter so the richer lane only wins when it is meaningfully cleaner.
