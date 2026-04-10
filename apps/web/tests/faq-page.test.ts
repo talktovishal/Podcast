@@ -33,6 +33,8 @@ test("faq page keeps the refreshed hero copy and delegates interactive rendering
   assert.equal(faqPageSource.includes("FaqExplorer"), true);
   assert.equal(faqPageSource.includes("buildFaqPageContent"), true);
   assert.equal(faqPageSource.includes("flattenFaqQuestionsForSchema"), true);
+  assert.equal(faqPageSource.includes("lg:grid-cols-4"), true);
+  assert.equal(faqPageSource.includes("item.helperText"), true);
 });
 
 test("faq content uses conversion-focused questions, topic chips, and richer answer blocks", () => {

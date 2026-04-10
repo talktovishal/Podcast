@@ -113,7 +113,7 @@
   - the FAQ keeps question-level deep links that auto-open the matching answer on load.
   - pricing, privacy, capture, digest, and podcast-app questions now surface faster without changing the shared public marketing shell.
 - Public marketing FAQ control-density trim (`M114`) is implemented:
-  - `/faq` keeps compact `Quick answers` so visitors reach the answer list faster.
+  - `/faq` keeps compact four-card `Quick answers`, with a small section label above each main summary line so visitors reach the answer list faster.
   - the page drops the separate FAQ search box for now, relying on grouped sections, quick-answer anchors, and question-level permalinks to keep discovery easy without crowding the top of the page.
 - Public marketing FAQ navigation simplification (`M115`) is implemented:
   - `/faq` removes `Browse by topic` and the per-question `Link` button so the page stays focused on the questions themselves.

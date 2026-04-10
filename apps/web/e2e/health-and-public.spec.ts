@@ -142,10 +142,17 @@ test.describe("Health & Public Pages", () => {
   test("/faq keeps quick answers while removing extra FAQ chrome", async ({ page }) => {
     await page.goto("/faq");
     await page.waitForLoadState("networkidle");
+    const quickAnswers = page.locator('section[aria-labelledby="faq-quick-answers"]');
 
     await expect(
       page.getByRole("heading", { level: 2, name: "Quick answers" })
     ).toBeVisible();
+    await expect(quickAnswers.getByText(/^Getting started$/)).toBeVisible();
+    await expect(quickAnswers.getByText(/^Inputs & capture$/)).toBeVisible();
+    await expect(quickAnswers.getByText(/^Privacy & feed$/)).toBeVisible();
+    await expect(quickAnswers.getByText(/^Podcast apps$/)).toBeVisible();
+    await expect(quickAnswers.getByText("One save becomes one episode")).toBeVisible();
+    await expect(quickAnswers.getByText("Private feed URL you control")).toBeVisible();
     await expect(
       page.getByRole("heading", { level: 2, name: "Getting started" })
     ).toBeVisible();

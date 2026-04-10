@@ -221,7 +221,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - question-level deep links help visitors jump straight to pricing, privacy, PDF, Chrome, digest, and podcast-app questions without changing the richer shared content model.
   - question-level deep links auto-open the matching answer while FAQ JSON-LD stays flattened from the same shared content model.
 - Public marketing FAQ control-density trim (`M114`) is implemented:
-  - `/faq` keeps compact `Quick answers` so the actual answers stay closer to the fold.
+  - `/faq` keeps compact four-card `Quick answers`, with each card showing a small section label above the main summary line so the actual answers stay closer to the fold.
   - the separate FAQ search box is removed for now, relying on grouped sections, quick-answer anchors, and question permalinks to keep the page easy to scan.
 - Public marketing FAQ navigation simplification (`M115`) is implemented:
   - `/faq` removes `Browse by topic` and the per-question `Link` button, keeping the page focused on the questions and richer in-answer links.
