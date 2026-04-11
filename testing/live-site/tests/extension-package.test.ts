@@ -23,6 +23,10 @@ test("packaged extension includes popup runtime dependencies", () => {
 
   execFileSync(resolve(REPO_ROOT, "scripts/package-extension.sh"), {
     cwd: REPO_ROOT,
+    env: {
+      ...process.env,
+      ARTICLEPOD_DISABLE_SIPS: "1",
+    },
     stdio: "pipe"
   });
 

@@ -21,7 +21,7 @@ A Manifest V3 Chrome extension that captures the current browser tab, safely rev
 | Requirement               | Notes                                                                                                |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Node.js ≥ 18 + npm        | For the packaging and validation scripts                                                             |
-| Python 3                  | For icon generation (`generate-extension-icons.py`)                                                  |
+| Python 3                  | For icon generation (`generate-extension-icons.py`); non-macOS packaging reuses checked-in assets when `sips` is unavailable |
 | Chrome browser            | Developer mode for local unpacked loading                                                            |
 | ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` |
 

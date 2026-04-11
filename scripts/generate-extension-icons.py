@@ -14,6 +14,8 @@ Outputs:
 
 from __future__ import annotations
 
+import os
+import shutil
 import struct
 import subprocess
 import tempfile
@@ -32,6 +34,10 @@ FAVICON_SIZES = (16, 32, 48)
 WEB_MARK_SIZES = (192, 512)
 APPLE_ICON_SIZE = 180
 PODCAST_COVER_SIZE = 1400
+
+
+def _use_sips() -> bool:
+    return os.environ.get("ARTICLEPOD_DISABLE_SIPS") != "1" and shutil.which("sips") is not None
 
 
 def _run_sips_resize(source: Path, size: int, out_path: Path) -> None:
@@ -90,6 +96,35 @@ def _write_ico_from_pngs(png_paths: list[Path], ico_path: Path) -> None:
     ico_path.write_bytes(data)
 
 
+def _expected_outputs() -> list[Path]:
+    outputs = [EXT_ICON_DIR / f"icon{size}.png" for size in EXT_SIZES]
+    outputs.append(WEB_APP_DIR / "apple-icon.png")
+    outputs.extend(WEB_BRAND_DIR / f"brain-mark-{size}.png" for size in WEB_MARK_SIZES)
+    outputs.append(WEB_BRAND_DIR / "podcast-cover-1400.png")
+    outputs.append(WEB_APP_DIR / "favicon.ico")
+    return outputs
+
+
+def _reuse_existing_outputs_if_fresh() -> bool:
+    if _use_sips():
+        return False
+
+    source_mtime = SOURCE_ICON.stat().st_mtime
+    stale_or_missing = [
+        path for path in _expected_outputs() if not path.exists() or path.stat().st_mtime < source_mtime
+    ]
+    if stale_or_missing:
+        missing_text = "\n".join(f"- {path}" for path in stale_or_missing)
+        raise SystemExit(
+            "sips is unavailable and generated icon assets are missing or stale:\n"
+            f"{missing_text}\n"
+            "Run scripts/generate-extension-icons.py on a machine with sips and commit the refreshed outputs."
+        )
+
+    print("sips unavailable; reusing checked-in generated icon assets.")
+    return True
+
+
 def main() -> None:
     if not SOURCE_ICON.exists():
         raise SystemExit(f"Source icon not found: {SOURCE_ICON}")
@@ -97,6 +132,9 @@ def main() -> None:
     EXT_ICON_DIR.mkdir(parents=True, exist_ok=True)
     WEB_APP_DIR.mkdir(parents=True, exist_ok=True)
     WEB_BRAND_DIR.mkdir(parents=True, exist_ok=True)
+
+    if _reuse_existing_outputs_if_fresh():
+        return
 
     for size in EXT_SIZES:
         _run_sips_resize(SOURCE_ICON, size, EXT_ICON_DIR / f"icon{size}.png")
