@@ -1,4 +1,5 @@
 # Paths where legacy listenlater references are intentionally retained for compatibility/history.
+apps/extension/connection-state.mjs
 apps/extension/popup.js
 apps/web/src/lib/auth.ts
 config/naming-legacy-allowlist.txt

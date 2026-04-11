@@ -92,6 +92,22 @@ jobs:
           } > ~/.ssh/config
           chmod 600 ~/.ssh/config
 
+      - name: Probe SSH connectivity
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "$HOME/.ssh/articlepod_azure" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=4 \
+            "$TARGET_USER@$TARGET_HOST" \
+            'echo "[deploy-workflow] ssh ok on $(hostname)"'
+
       - name: Deploy to Azure VM
         env:
           TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}

@@ -50,7 +50,8 @@ Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
   HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_WARN_FREE_MB, DEPLOY_FAIL_FREE_MB, DEPLOY_FORCE_FULL,
   DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE, CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL,
-  DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES, ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP
+  DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES, ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP,
+  DEPLOY_SSH_CONNECT_TIMEOUT, DEPLOY_SSH_SERVER_ALIVE_INTERVAL, DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
@@ -113,6 +114,9 @@ HOST_ALIASES="${HOST_ALIASES:-${APP_DOMAIN_ALIASES:-}}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 DEPLOY_CONFIGURE_INGRESS="${DEPLOY_CONFIGURE_INGRESS:-1}"
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
+DEPLOY_SSH_CONNECT_TIMEOUT="${DEPLOY_SSH_CONNECT_TIMEOUT:-${PUSH_TO_VM_SSH_CONNECT_TIMEOUT:-15}}"
+DEPLOY_SSH_SERVER_ALIVE_INTERVAL="${DEPLOY_SSH_SERVER_ALIVE_INTERVAL:-${PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL:-15}}"
+DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX="${DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX:-${PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX:-4}}"
 
 is_ip_host() {
   local host="$1"
@@ -155,6 +159,19 @@ check_health_with_retries() {
     fi
   done
 
+  return 1
+}
+
+probe_remote_ssh() {
+  local remote="$1"
+
+  echo "[deploy-changes] probing SSH access to ${remote}"
+  if ssh "${SSH_ARGS[@]}" "$remote" "echo '[deploy-changes] ssh ok on '\"\$(hostname)\""; then
+    return 0
+  fi
+
+  echo "[deploy-changes] unable to establish SSH access to ${remote}" >&2
+  echo "[deploy-changes] verify the VM host, SSH key, and port 22 reachability before retrying" >&2
   return 1
 }
 
@@ -424,6 +441,21 @@ if ! [[ "$HEALTH_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
+if ! [[ "$DEPLOY_SSH_CONNECT_TIMEOUT" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_SSH_CONNECT_TIMEOUT" -lt 1 ]]; then
+  echo "Invalid DEPLOY_SSH_CONNECT_TIMEOUT: $DEPLOY_SSH_CONNECT_TIMEOUT (expected positive integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_SSH_SERVER_ALIVE_INTERVAL" =~ ^[0-9]+$ ]]; then
+  echo "Invalid DEPLOY_SSH_SERVER_ALIVE_INTERVAL: $DEPLOY_SSH_SERVER_ALIVE_INTERVAL (expected non-negative integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX" -lt 1 ]]; then
+  echo "Invalid DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX: $DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX (expected positive integer)"
+  exit 2
+fi
+
 if [[ -z "$DEPLOY_WARN_FREE_MB" ]]; then
   if [[ "$DEPLOY_FORCE_FULL" == "1" ]]; then
     DEPLOY_WARN_FREE_MB=8192
@@ -502,6 +534,12 @@ if [[ -n "$TARGET_SSH_KEY" ]]; then
   SSH_ARGS+=(-i "$TARGET_SSH_KEY")
 fi
 SSH_ARGS+=(-p "$TARGET_PORT")
+SSH_ARGS+=(
+  -o BatchMode=yes
+  -o ConnectTimeout="$DEPLOY_SSH_CONNECT_TIMEOUT"
+  -o ServerAliveInterval="$DEPLOY_SSH_SERVER_ALIVE_INTERVAL"
+  -o ServerAliveCountMax="$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
+)
 
 # SCP args mirror
 SCP_ARGS=()
@@ -509,9 +547,16 @@ if [[ -n "$TARGET_SSH_KEY" ]]; then
   SCP_ARGS+=(-i "$TARGET_SSH_KEY")
 fi
 SCP_ARGS+=(-P "$TARGET_PORT")
+SCP_ARGS+=(
+  -o BatchMode=yes
+  -o ConnectTimeout="$DEPLOY_SSH_CONNECT_TIMEOUT"
+  -o ServerAliveInterval="$DEPLOY_SSH_SERVER_ALIVE_INTERVAL"
+  -o ServerAliveCountMax="$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
+)
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
+probe_remote_ssh "$REMOTE"
 run_remote_disk_guard "pre-sync" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
 
 echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"

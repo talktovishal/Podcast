@@ -63,15 +63,9 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
 ### Automatic Deployment
 
 The workflow deploys automatically when:
-- You push to `main` branch
-- The commit message contains `[deploy]`
-- Changes are not documentation-only
+- A `main` branch push completes the `CI` workflow successfully
 
-Example:
-```bash
-git commit -m "Add new feature [deploy]"
-git push origin main
-```
+No `[deploy]` tag is required. The deploy workflow is gated by a successful `validate-simple` CI pass first, then runs as a follow-up `workflow_run`.
 
 ### Manual Deployment
 
@@ -92,21 +86,22 @@ The workflow performs:
 1. ✅ Checks out your code
 2. ✅ Validates `main` branch + required deploy settings
 3. ✅ Sets up SSH credentials for CI deploy access
-4. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
+4. ✅ Probes SSH connectivity before any sync/promote work begins, so stale host/key settings fail early with a clear error
+5. ✅ Syncs code to VM staging directory (`/home/azureuser/articlepod`)
    - shared exclusion list now skips local `exports/`, worktrees, `.runtime`, test reports, and other non-runtime artifacts
    - remote disk guard runs before sync and auto-cleans safe junk before deciding whether there is enough headroom
-5. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
-6. ✅ Promotes code to runtime directory (`/opt/articlepod`)
-7. ✅ Runs incremental runtime deploy on VM:
+6. ✅ Auto-bootstraps VM only when runtime user is missing (first-run guard)
+7. ✅ Promotes code to runtime directory (`/opt/articlepod`)
+8. ✅ Runs incremental runtime deploy on VM:
    - `pnpm install` only when `pnpm-lock.yaml` changed
    - python-tts setup only when requirements/assets changed
    - demo seed once by default (`auto` mode)
    - recurring maintenance timer + journald caps are installed/updated during runtime setup
-8. ✅ Configures nginx ingress for canonical host + alias redirects
+9. ✅ Configures nginx ingress for canonical host + alias redirects
    - auto-tunes `server_names_hash_*` in `/etc/nginx/nginx.conf` only when nginx reports hash-size insufficiency
-9. ✅ Provisions/renews Let’s Encrypt certificates (SAN cert includes canonical + aliases)
-10. ✅ Restarts systemd services
-11. ✅ Runs health check against canonical host (unless skipped)
+10. ✅ Provisions/renews Let’s Encrypt certificates (SAN cert includes canonical + aliases)
+11. ✅ Restarts systemd services
+12. ✅ Runs health check against canonical host (unless skipped)
 
 ## Monitoring Deployments
 
@@ -171,8 +166,10 @@ After each deployment, check the workflow summary for:
 #### SSH connection failures
 - **Solution**: 
   - Verify VM is running: `az vm get-instance-view`
-  - Check firewall allows SSH from GitHub IPs
-  - Verify SSH key matches the one used during VM setup
+  - Refresh `AZURE_VM_HOST` to the VM's current public FQDN or IP
+  - Refresh `AZURE_SSH_KEY` with the current contents of `~/.ssh/articlepod_azure`
+  - Check firewall allows SSH from GitHub-hosted runners
+  - The deploy workflow now runs an explicit SSH probe before sync, and `deploy-changes.sh` uses SSH connect/keepalive guards for all remote steps
 
 #### "Missing runtime user 'articlepod'. Run bootstrap first."
 - **Current behavior**: this is auto-handled in `deploy-changes.sh` by running bootstrap once.
