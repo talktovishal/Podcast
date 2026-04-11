@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SeoJsonLd } from "@/components/seo-json-ld";
@@ -32,15 +31,15 @@ const productFlowSteps = [
 const productTrustPoints = [
   {
     title: "Private RSS feed",
-    body: "Your episodes live in a private feed designed for personal listening, not a public stream.",
+    body: "Your episodes live in a private feed for personal listening, not public sharing.",
   },
   {
     title: "Standard podcast apps",
-    body: "Apple Podcasts, Pocket Casts, Overcast, and other familiar players can stay part of the same routine.",
+    body: "Keep using Apple Podcasts, Pocket Casts, Overcast, and other familiar players.",
   },
   {
     title: "Your feed, your control",
-    body: "If you ever need to change access, you can rotate the feed without changing the basic listening workflow.",
+    body: "If access ever needs to change, you can rotate your feed without disrupting your routine.",
   },
 ] as const;
 
@@ -115,74 +114,6 @@ export default function ProductPage() {
         </div>
       </section>
 
-      <section className="mt-10 card p-5 sm:p-6">
-        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
-                Workflow demo
-              </p>
-              <h2 className="max-w-2xl text-2xl font-semibold leading-tight">
-                See the capture flow once, then let it stay out of the way.
-              </h2>
-              <p className="max-w-2xl text-sm leading-6 text-[var(--muted)] sm:text-base">
-                This is the lightest version of the workflow: connect the
-                extension once, save the page you are already reading, and let
-                ArticlePod turn it into a private episode later.
-              </p>
-            </div>
-
-            <ul className="space-y-3 text-sm leading-6 text-[var(--muted)]">
-              <li className="flex items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
-                />
-                <span>
-                  Connect once and keep setup out of your daily routine.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
-                />
-                <span>
-                  Save directly from the article you already have open.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-2 h-2 w-2 shrink-0 rounded-full bg-[var(--accent)]"
-                />
-                <span>
-                  Let the finished episode show up in your private feed later.
-                </span>
-              </li>
-            </ul>
-          </div>
-
-          <div className="rounded-2xl border border-[rgba(31,122,90,0.15)] bg-white p-3">
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              <Image
-                alt="Animated walkthrough of the ArticlePod Chrome extension connect and capture flow."
-                className="h-auto w-full"
-                height={1027}
-                priority={false}
-                src="/resources/articlepod-extension-flow.gif"
-                unoptimized
-                width={800}
-              />
-            </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              One quick connection, then saving from the page you are already
-              reading feels almost invisible.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.92))] p-5 sm:p-6">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
@@ -220,17 +151,15 @@ export default function ProductPage() {
             Start with one article and let the system grow from there.
           </h2>
           <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-            You do not need a new reading ritual. Just save something worth
-            keeping and let ArticlePod turn it into a calmer listening flow.
-          </p>
-          <div className="pt-1">
             <Link
-              className="inline-flex items-center justify-center rounded-lg bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-white"
+              className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
               href="/"
             >
               Start your knowledge feed
-            </Link>
-          </div>
+            </Link>{" "}
+            with something worth keeping, and let ArticlePod turn it into a
+            calmer listening flow.
+          </p>
         </div>
       </section>
     </>
