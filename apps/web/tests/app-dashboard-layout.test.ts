@@ -124,6 +124,18 @@ test("wiki route redirects back to the workspace when no wiki is published", () 
   assert.equal(source.includes("No personal wiki has been published"), false);
 });
 
+test("wiki browser keeps supporting source notes behind a collapsed highlight section", () => {
+  const source = readFileSync(
+    new URL("../src/components/wiki-browser-client.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("splitWikiMarkdownForDisplay"), true);
+  assert.equal(source.includes("Source highlights"), true);
+  assert.equal(source.includes("Show all ${supportingNotes.length} source highlights"), true);
+  assert.equal(source.includes("supportingNotes.length === 0 && visibleReferenceLinks.length > 0"), true);
+});
+
 test("feed url actions use a tappable copy box with inline feedback", () => {
   const source = readFileSync(
     new URL("../src/components/feed-url-actions.tsx", import.meta.url),

@@ -256,7 +256,7 @@ Policy guardrails:
 4. Codex then operates locally inside the prepared workspace, reading `raw/` and updating only `wiki/` according to the Karpathy prompt pattern (`index.md`, `log.md`, concepts, entities, sources, outputs).
 5. `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the copied prompt, required wrapper files, required wiki pages, and internal wiki link hygiene without introducing a second schema.
 6. `pnpm wiki:publish --run <runId>` rewrites internal wiki links to canonical `/app/wiki/...` routes, derives backlinks and lightweight search text, uploads changed markdown pages only, deletes removed pages, writes `manifest.json`, and replaces the current build-state blob.
-7. Signed-in `/app/wiki` loads the manifest and current page directly from artifact storage, hides source/log pages from the primary tree, strips internal markdown plumbing from the rendered article view, and routes source references back to the original URLs instead of exposing raw blob/page paths.
+7. Signed-in `/app/wiki` loads the manifest and current page directly from artifact storage, hides source/log pages from the primary tree, strips internal markdown plumbing from the rendered article view, keeps synthesis content in the main article while collapsing long source-note sections behind an expand control, and routes source references back to the original URLs instead of exposing raw blob/page paths.
 
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts

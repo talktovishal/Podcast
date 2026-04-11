@@ -8,6 +8,7 @@ import {
   parseSimpleFrontmatter,
   resolveWikiTargetToPagePath,
   rewriteWikiLinksForApp,
+  splitWikiMarkdownForDisplay,
   wikiPagePathToRoutePath,
   wikiPagePathToSlug,
   wikiSlugToPagePath
@@ -70,4 +71,14 @@ test("wiki link extraction and rewrite handle wikilinks and markdown links", () 
     }),
     "See [Topic](/app/wiki/concepts/topic) and [Item](/app/wiki/sources/items/item-1)."
   );
+});
+
+test("wiki display splitter separates supporting notes from the main article", () => {
+  const split = splitWikiMarkdownForDisplay(`# Concept\n\nWorking synthesis.\n\n## Source pages\n\n[One](https://example.com/one) - Note one.\n\n[Two](https://example.com/two) - Note two.`);
+
+  assert.equal(split.articleMarkdown, "# Concept\n\nWorking synthesis.");
+  assert.deepEqual(split.supportingNotes, [
+    "[One](https://example.com/one) - Note one.",
+    "[Two](https://example.com/two) - Note two.",
+  ]);
 });

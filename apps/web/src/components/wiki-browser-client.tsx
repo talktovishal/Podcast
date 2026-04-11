@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 import type { WikiManifest, WikiPageMeta } from "@articlepod/core";
+import { splitWikiMarkdownForDisplay } from "@/lib/wiki-display";
 
 type WikiBrowserClientProps = {
   manifest: WikiManifest;
@@ -22,6 +23,7 @@ type WikiReferenceLink = {
 
 const GROUP_ORDER = ["root", "concepts", "entities", "outputs"];
 const REFERENCE_PREVIEW_LIMIT = 6;
+const SUPPORTING_NOTE_PREVIEW_LIMIT = 3;
 const UPDATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -170,6 +172,7 @@ function TagPill({ children }: { children: ReactNode }) {
 
 export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowserClientProps) {
   const [query, setQuery] = useState("");
+  const [showAllSupportingNotes, setShowAllSupportingNotes] = useState(false);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const browsePages = manifest.pages.filter(isReaderFacingPage);
   const filteredPages = browsePages.filter((page) => {
@@ -193,6 +196,13 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
   const referenceLinks = relatedSourceReferences(manifest, activePage);
   const activeTypeLabel = humanizeTypeLabel(activePage.type);
   const visibleReferenceLinks = referenceLinks.slice(0, REFERENCE_PREVIEW_LIMIT);
+  const { articleMarkdown, supportingNotes } = splitWikiMarkdownForDisplay(content);
+  const renderedArticleMarkdown =
+    articleMarkdown || (supportingNotes.length === 0 ? content : activePage.summary || "");
+  const visibleSupportingNotes = showAllSupportingNotes
+    ? supportingNotes
+    : supportingNotes.slice(0, SUPPORTING_NOTE_PREVIEW_LIMIT);
+  const showReferenceLinks = supportingNotes.length === 0 && visibleReferenceLinks.length > 0;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
@@ -331,12 +341,84 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                 }
               }}
             >
-              {content}
+              {renderedArticleMarkdown}
             </ReactMarkdown>
           </article>
         </section>
 
-        {visibleReferenceLinks.length > 0 ? (
+        {supportingNotes.length > 0 ? (
+          <section className="card p-4 sm:p-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-lg">Source highlights</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Supporting notes are collapsed by default so the synthesis stays readable.
+                </p>
+              </div>
+              <p className="text-xs text-[var(--muted)]">
+                Showing {visibleSupportingNotes.length} of {supportingNotes.length}
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {visibleSupportingNotes.map((note, index) => (
+                <article
+                  key={`${activePage.path}-supporting-note-${index}`}
+                  className="rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3"
+                >
+                  <div className="prose prose-sm max-w-none prose-a:text-[rgba(31,122,90,1)] prose-p:text-[var(--foreground)]">
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeSanitize]}
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children, ...props }) => {
+                          const targetHref = href || "";
+                          const resolved = resolveRenderedLink(manifest, targetHref);
+
+                          if (!resolved.external && resolved.href.startsWith("/app/wiki")) {
+                            return (
+                              <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
+                                {children}
+                              </Link>
+                            );
+                          }
+
+                          return (
+                            <a
+                              {...props}
+                              className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
+                              href={resolved.href}
+                              rel="noreferrer"
+                              target={resolved.href.startsWith("http") ? "_blank" : undefined}
+                            >
+                              {children}
+                            </a>
+                          );
+                        }
+                      }}
+                    >
+                      {note}
+                    </ReactMarkdown>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {supportingNotes.length > SUPPORTING_NOTE_PREVIEW_LIMIT ? (
+              <button
+                className="mt-4 inline-flex rounded-full border border-[rgba(31,122,90,0.2)] px-3 py-1.5 text-sm font-medium text-[rgba(31,122,90,1)] transition hover:bg-[rgba(31,122,90,0.08)]"
+                onClick={() => setShowAllSupportingNotes((current) => !current)}
+                type="button"
+              >
+                {showAllSupportingNotes
+                  ? "Show fewer source highlights"
+                  : `Show all ${supportingNotes.length} source highlights`}
+              </button>
+            ) : null}
+          </section>
+        ) : null}
+
+        {showReferenceLinks ? (
           <section className="card p-4 sm:p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="font-semibold text-lg">References</h2>
