@@ -67,6 +67,27 @@ This verifies:
 Notes:
 - in `METADATA_PRIMARY_BACKEND=azure_table` mode, local/demo diagnostic counts are informational only and are excluded from restore regression gating.
 
+## Production user -> local mirror
+For local end-to-end debugging with a real test account, you can mirror one production user's Azure Table/blob state into the local `simple` profile (SQLite + local files) without resetting the whole local environment.
+
+Required source env:
+- `MIRROR_SOURCE_AZURE_TABLE_CONNECTION_STRING`
+- `MIRROR_SOURCE_AZURE_STORAGE_CONNECTION_STRING`
+- optional: `MIRROR_SOURCE_AZURE_TABLE_PREFIX`
+- optional: `MIRROR_SOURCE_AZURE_STORAGE_CONTAINER`
+
+Command:
+```bash
+npx pnpm --filter @articlepod/web run user:mirror-from-azure -- --email talktovishal@gmail.com
+```
+
+Behavior:
+- finds the production user by email in Azure Table primary
+- copies user-scoped auth rows, items/snippets, digest + summary state, feedback, and billing webhook rows tied to that user
+- copies referenced blob artifacts/audio plus the current published wiki manifest/pages/build-state blobs when present
+- replaces only the matching local user and that user's local files; other local users stay untouched
+- prints counts plus the mirrored item/digest feed token values for quick local RSS verification
+
 ## Signed durability drill report (template)
 - Drill date:
 - Operators:

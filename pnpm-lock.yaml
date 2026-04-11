@@ -26,6 +26,12 @@ importers:
       '@articlepod/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@azure/data-tables':
+        specifier: ^13.3.1
+        version: 13.3.2
+      '@azure/storage-blob':
+        specifier: ^12.28.0
+        version: 12.30.0
       '@prisma/client':
         specifier: 6.2.1
         version: 6.2.1(prisma@6.2.1)

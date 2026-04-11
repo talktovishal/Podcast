@@ -18,6 +18,7 @@
     "db:bootstrap": "npm run prisma:generate:ensure && tsx scripts/bootstrap-db.ts",
     "db:export-json": "tsx scripts/db-export-json.ts",
     "db:import-json": "tsx scripts/db-import-json.ts",
+    "user:mirror-from-azure": "tsx scripts/mirror-user-from-azure.ts",
     "ops:snapshot": "tsx scripts/ops-snapshot.ts",
     "ops:extraction-selection-report": "tsx scripts/extraction-selection-report.ts",
     "ops:verify-restore": "tsx scripts/ops-verify-restore.ts",
@@ -39,6 +40,8 @@
     "prisma:migrate": "prisma migrate dev --name init"
   },
   "dependencies": {
+    "@azure/data-tables": "^13.3.1",
+    "@azure/storage-blob": "^12.28.0",
     "@articlepod/core": "workspace:*",
     "@prisma/client": "6.2.1",
     "bcryptjs": "^2.4.3",
