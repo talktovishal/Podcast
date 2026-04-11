@@ -104,6 +104,7 @@
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
   - `/about` now opens with `Listen to your reading list and finally catch up on what matters`.
   - `/about` now inserts an additive founder-story block below the existing hero so visitors can compare the original product framing with a personal co-founder story without removing the original cards.
+  - `/about` now expands that founder-story block with Smita Busar's co-founder intro, a branded portrait placeholder, life-improvement bullets, and a longer privacy-centered founder perspective while leaving the existing mission/live/product cards in place below it.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
@@ -3519,6 +3520,7 @@ Milestone metadata contract:
   - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
   - The signed-out auth landing page no longer renders its own page-local header.
   - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
+  - `/about` can extend its founder-story section with portrait and founder narrative content without removing the original mission/live/product proof cards lower on the page.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run test`

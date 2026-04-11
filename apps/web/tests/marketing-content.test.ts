@@ -123,11 +123,11 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     ),
     true,
   );
+  assert.equal(source.includes("new podcast episodes per day"), true);
   assert.equal(
-    source.includes("new podcast episodes per day"),
-    true,
+    source.includes("new private podcast episodes per 24 hours"),
+    false,
   );
-  assert.equal(source.includes("new private podcast episodes per 24 hours"), false);
   assert.equal(source.includes("manual summaries per 7 days"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
   assert.equal(
@@ -232,6 +232,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     new URL(`${marketingAppRoot}/about/page.tsx`, import.meta.url),
     "utf8",
   );
+  const normalizedAboutSource = aboutSource.replace(/\s+/g, " ");
   const productSource = readFileSync(
     new URL(`${marketingAppRoot}/product/page.tsx`, import.meta.url),
     "utf8",
@@ -407,7 +408,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     true,
   );
   assert.equal(
-    aboutSource.includes("weekly digest podcast or email summaries"),
+    normalizedAboutSource.includes("weekly digest podcast or email summaries"),
     true,
   );
   assert.equal(aboutSource.includes("Live today"), true);
@@ -429,33 +430,67 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   );
   assert.equal(aboutSource.includes("Easy feed URL rotation"), true);
   assert.equal(
-    aboutSource.includes(
+    normalizedAboutSource.includes(
       "ArticlePod turns article URLs and text-based PDFs into private podcast episodes you can hear in your favorite podcast apps,",
     ),
     true,
   );
-  assert.equal(aboutSource.includes("even offline."), true);
+  assert.equal(normalizedAboutSource.includes("even offline."), true);
   assert.equal(
-    aboutSource.includes(
+    normalizedAboutSource.includes(
       "For easy recaps, add a weekly digest podcast or email summaries.",
     ),
     true,
   );
   assert.equal(
-    aboutSource.includes(
+    normalizedAboutSource.includes(
       "Make your reading list effortless—listen anywhere, anytime, and retain more",
     ),
     true,
   );
   assert.equal(
-    aboutSource.includes(
+    normalizedAboutSource.includes(
       "The product is designed for people who love to read and save thoughtful articles, but need a more practical way to keep",
     ),
     true,
   );
   assert.equal(
-    aboutSource.includes(
+    normalizedAboutSource.includes(
       "track of them. It enhances reading and learning by making the most valuable pieces easier to organize, finish, retain, and",
+    ),
+    true,
+  );
+  assert.equal(aboutSource.includes("From the co-founder"), true);
+  assert.equal(aboutSource.includes("Founder intro"), true);
+  assert.equal(aboutSource.includes("Smita Busar, Co-founder"), true);
+  assert.equal(
+    aboutSource.includes("/brand/founder-portrait-placeholder.svg"),
+    true,
+  );
+  assert.equal(aboutSource.includes("Why I built ArticlePod"), true);
+  assert.equal(aboutSource.includes("How it has improved my life"), true);
+  assert.equal(aboutSource.includes("Thoughts as co-founder"), true);
+  assert.equal(
+    normalizedAboutSource.includes(
+      "I kept saving thoughtful articles and text-based PDFs, but the backlog always grew faster than the time I had to sit",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "The biggest change is that saved reading now has a realistic path back into my week.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "I finish more of the articles and PDFs I actually care about instead of letting them pile up unread.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "Private RSS matters because the listening habit works best when it fits into your existing podcast routine",
     ),
     true,
   );
