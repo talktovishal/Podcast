@@ -53,6 +53,23 @@ export default function AboutPage() {
               solutions that make life better. That curiosity shaped my path
               from full-stack engineer to AI product thinker.
             </p>
+            <div className="rounded-[22px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.9),rgba(239,247,244,0.9))] p-4 sm:p-5">
+              <div className="max-w-2xl space-y-3">
+                <h2 className="text-xl font-semibold leading-tight sm:text-2xl">
+                  Why I build ArticlePod
+                </h2>
+                <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                  Today, innovation is moving quickly across every field,
+                  especially in software engineering, where tools and
+                  technologies keep changing. Like many people, I subscribed to
+                  newsletters, saved articles for later, and left too many tabs
+                  open across too many devices. As a mom juggling daily routines
+                  and a busy life, I often had to stop reading halfway through
+                  an article and rarely made it back. That gap between wanting
+                  to learn and actually keeping up is what inspired me.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="mx-auto w-full max-w-sm">
@@ -73,24 +90,6 @@ export default function AboutPage() {
       </section>
 
       <section className="mt-8 space-y-5 sm:space-y-6">
-        <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.94),rgba(239,247,244,0.94))] p-5 sm:p-6">
-          <div className="max-w-3xl space-y-3">
-            <h2 className="text-2xl font-semibold leading-tight">
-              Why I build ArticlePod
-            </h2>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Today, innovation is moving quickly across every field, especially
-              in software engineering, where tools and technologies keep
-              changing. Like many people, I subscribed to newsletters, saved
-              articles for later, and left too many tabs open across too many
-              devices. As a mom juggling daily routines and a busy life, I often
-              had to stop reading halfway through an article and rarely made it
-              back. That gap between wanting to learn and actually keeping up is
-              what inspired me.
-            </p>
-          </div>
-        </article>
-
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 shadow-[0_14px_34px_rgba(24,38,32,0.05)] sm:p-6">
           <div className="max-w-3xl space-y-4">
             <h2 className="text-2xl font-semibold leading-tight">
