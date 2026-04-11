@@ -30,13 +30,16 @@ test("marketing layout owns the shared header and footer CTA", () => {
   );
   assert.equal(layoutSource.includes("MarketingHeader"), true);
   assert.equal(layoutSource.includes("MarketingCta"), true);
-  assert.equal(layoutSource.includes("h-[100dvh]"), true);
+  assert.equal(layoutSource.includes("fixed inset-0"), true);
+  assert.equal(layoutSource.includes("w-full"), true);
   assert.equal(layoutSource.includes("overflow-hidden"), true);
   assert.equal(layoutSource.includes("overflow-y-auto"), true);
+  assert.equal(layoutSource.includes("overscroll-y-contain"), true);
   assert.equal(layoutSource.includes("py-2 sm:py-4"), true);
   assert.equal(layoutSource.includes("py-4 sm:py-8"), true);
   assert.equal(ctaSource.includes("Footer call to action"), true);
-  assert.equal(ctaSource.includes("grid grid-cols-2"), true);
+  assert.equal(ctaSource.includes("grid grid-cols-2 items-center gap-2"), true);
+  assert.equal(ctaSource.includes("sm:flex sm:flex-wrap sm:gap-3"), true);
   assert.equal(ctaSource.includes('href="/pricing"'), true);
 });
 

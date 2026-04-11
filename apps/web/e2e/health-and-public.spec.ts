@@ -139,6 +139,40 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
+  test("/pricing keeps the marketing shell pinned while only the main pane scrolls", async ({ page }) => {
+    await page.goto("/pricing");
+    await page.waitForLoadState("networkidle");
+
+    const header = page.getByRole("banner");
+    const footer = page.getByRole("contentinfo", { name: "Footer call to action" });
+    const main = page.locator("main");
+
+    const headerBefore = await header.boundingBox();
+    const footerBefore = await footer.boundingBox();
+
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+
+    await main.evaluate((element) => {
+      element.scrollTo({ top: 320, behavior: "instant" });
+    });
+    await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+
+    await expect(header).toBeVisible();
+    await expect(footer).toBeVisible();
+
+    const headerAfter = await header.boundingBox();
+    const footerAfter = await footer.boundingBox();
+
+    expect(headerBefore).not.toBeNull();
+    expect(headerAfter).not.toBeNull();
+    expect(footerBefore).not.toBeNull();
+    expect(footerAfter).not.toBeNull();
+
+    expect(Math.abs((headerAfter?.y ?? 0) - (headerBefore?.y ?? 0))).toBeLessThan(1);
+    expect(Math.abs((footerAfter?.y ?? 0) - (footerBefore?.y ?? 0))).toBeLessThan(1);
+  });
+
   test("mobile marketing chrome keeps nav items and footer actions on single rows", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/product");
