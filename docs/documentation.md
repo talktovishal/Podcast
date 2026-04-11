@@ -186,7 +186,7 @@ Available in `/app/wiki` after an operator publishes a wiki for that user:
 
 - reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
 - markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render
-- concept/entity pages keep the main synthesis in the primary article and move long source-note dumps into a separate `Source highlights` section with a show-all toggle
+- concept/entity pages keep the main synthesis in the primary article and move long source-note dumps behind a simple expandable `Sources` section
 - client-side title, summary, and tag filter
 - backlinks between reader-facing pages and reference links back to original source URLs
 - `/app/wiki` only appears in the signed-in nav after a manifest exists for that user; direct visits redirect back to `/app` when no wiki has been published yet

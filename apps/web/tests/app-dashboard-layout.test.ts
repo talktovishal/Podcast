@@ -131,9 +131,14 @@ test("wiki browser keeps supporting source notes behind a collapsed highlight se
   );
 
   assert.equal(source.includes("splitWikiMarkdownForDisplay"), true);
-  assert.equal(source.includes("Source highlights"), true);
-  assert.equal(source.includes("Show all ${supportingNotes.length} source highlights"), true);
-  assert.equal(source.includes("supportingNotes.length === 0 && visibleReferenceLinks.length > 0"), true);
+  assert.equal(source.includes(">Sources<"), true);
+  assert.equal(source.includes("Supporting notes are collapsed by default"), false);
+  assert.equal(source.includes("Showing {visibleSupportingNotes.length} of {supportingNotes.length}"), false);
+  assert.equal(source.includes("<details"), true);
+  assert.equal(source.includes("group-open:hidden"), true);
+  assert.equal(source.includes("splitSupportingNotesIntoEntries"), true);
+  assert.equal(source.includes("index + 1"), true);
+  assert.equal(source.includes("rounded-full border"), true);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {
