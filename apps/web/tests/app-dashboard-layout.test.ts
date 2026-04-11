@@ -84,10 +84,8 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes('label: "Podcast Apps"'), true);
   assert.equal(source.includes('label: "Chrome Extension"'), true);
   assert.equal(source.includes('label: "Snippets"'), true);
-  assert.equal(source.includes('label: "Summaries"'), true);
   assert.equal(source.includes('label: "Wiki"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
-  assert.equal(source.includes('title: "Summaries"'), true);
   assert.equal(source.includes("usePathname"), true);
   assert.equal(source.includes("aria-current"), true);
   assert.equal(source.includes("showSnippets = false"), true);
@@ -112,6 +110,21 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
   assert.equal(source.includes("item.key !== current"), false);
   assert.equal(source.includes("AccountOverflowMenu"), false);
+});
+
+test("summary route redirects away so the summary workspace is not surfaced", () => {
+  const source = readFileSync(
+    new URL("../src/app/app/summary/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("getUserWikiManifestForApp"), true);
+  assert.equal(source.includes('redirect(wikiManifest ? "/app/wiki" : "/app")'), true);
+  assert.equal(source.includes("SummaryStudioClient"), false);
+  assert.equal(source.includes("listSelectableSummaryItems"), false);
+  assert.equal(source.includes("listSummaryRunsForUser"), false);
+  assert.equal(source.includes("getSummaryUsageSnapshot"), false);
+  assert.equal(source.includes("<h1"), false);
 });
 
 test("wiki route redirects back to the workspace when no wiki is published", () => {
@@ -268,10 +281,6 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     ),
     "utf8",
   );
-  const summaryPageSource = readFileSync(
-    new URL("../src/app/app/summary/page.tsx", import.meta.url),
-    "utf8",
-  );
   const snippetsPageSource = readFileSync(
     new URL("../src/app/app/snippets/page.tsx", import.meta.url),
     "utf8",
@@ -394,21 +403,16 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
     "utf8",
   );
   assert.equal(snippetsClientSource.includes('router.replace("/app")'), true);
-  assert.equal(summaryPageSource.includes("Summaries"), true);
-  assert.equal(
-    summaryPageSource.includes(
-      '<h1 className=\"font-bold text-2xl\">Summary Studio</h1>',
-    ),
-    false,
-  );
   assert.equal(podcastPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(extensionPageSource.includes("WorkspaceBillingSummary"), false);
-  assert.equal(summaryPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), false);
   assert.equal(podcastPageSource.includes("Private feed setup"), false);
   assert.equal(extensionPageSource.includes("Capture setup"), false);
-  assert.equal(summaryPageSource.includes("Manual editorial workspace"), false);
   assert.equal(snippetsPageSource.includes("Selection workspace"), false);
+  assert.equal(
+    snippetsClientSource.includes("to fold these into your personal wiki."),
+    true,
+  );
 });
 
 test("feedback and settings pages keep their headings below the shared header", () => {

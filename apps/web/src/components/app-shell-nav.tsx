@@ -15,7 +15,6 @@ type AppShellNavKey =
   | "podcast-apps"
   | "chrome-extension"
   | "snippets"
-  | "summary"
   | "wiki"
   | "feedback"
   | "settings";
@@ -55,13 +54,6 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
     href: "/app/snippets",
     label: "Snippets",
     title: "Snippets",
-    kind: "primary",
-  },
-  {
-    key: "summary",
-    href: "/app/summary",
-    label: "Summaries",
-    title: "Summaries",
     kind: "primary",
   },
   {

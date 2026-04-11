@@ -235,7 +235,7 @@ export function SnippetsWorkspaceClient({ initialSnippets }: Props) {
             <h2 className="text-lg font-semibold">Saved snippets</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
               Review text you saved from the Chrome extension, keep quick context in comments, and come back later when you want
-              to turn these into summaries.
+              to fold these into your personal wiki.
             </p>
           </div>
           <p className="text-sm text-[var(--muted)]">
