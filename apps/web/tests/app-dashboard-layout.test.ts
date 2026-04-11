@@ -95,6 +95,8 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("appShellSelectedItemClass"), true);
   assert.equal(source.includes('variant="responsive"'), true);
   assert.equal(source.includes("md:sr-only"), true);
+  assert.equal(source.includes("M16.8617 4.48667L18.5492 2.79917"), true);
+  assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
   assert.equal(source.includes("item.key !== current"), false);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });
