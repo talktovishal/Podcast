@@ -57,14 +57,14 @@ export default function AboutPage() {
 
           <div className="mx-auto w-full max-w-sm">
             <div className="overflow-hidden rounded-[30px] border border-[rgba(31,122,90,0.16)] bg-[linear-gradient(180deg,rgba(248,252,251,0.98),rgba(228,243,237,0.94))] p-3 shadow-[0_24px_50px_rgba(24,38,32,0.08)]">
-              <div className="overflow-hidden rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white">
                 <Image
-                  alt="ArticlePod founder portrait placeholder."
-                  className="h-auto w-full"
-                  height={960}
-                  priority={false}
-                  src="/brand/founder-portrait-placeholder.svg"
-                  width={800}
+                  alt="Portrait of Smita Busar, founder of ArticlePod."
+                  className="object-cover object-[56%_18%]"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 22rem, (min-width: 640px) 20rem, 100vw"
+                  src="/brand/founder-portrait.jpg"
                 />
               </div>
             </div>

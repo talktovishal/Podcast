@@ -463,7 +463,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     true,
   );
   assert.equal(
-    aboutSource.includes("/brand/founder-portrait-placeholder.svg"),
+    aboutSource.includes("/brand/founder-portrait.jpg"),
     true,
   );
   assert.equal(aboutSource.includes("Why I build ArticlePod"), true);
