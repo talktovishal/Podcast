@@ -236,6 +236,36 @@ test.describe("Health & Public Pages", () => {
     expect(Math.max(...ctaTops) - Math.min(...ctaTops)).toBeLessThan(4);
   });
 
+  test("/resources keeps the Chrome extension walkthrough aligned and compact on desktop", async ({
+    page,
+  }) => {
+    await page.goto("/resources");
+    await page.waitForLoadState("networkidle");
+
+    const chromeSection = page.locator("#chrome-extension");
+    const label = chromeSection.getByText("Chrome extension", { exact: true });
+    const image = chromeSection.getByAltText(
+      "Animated walkthrough of the ArticlePod Chrome extension connect and capture flow.",
+    );
+    const [sectionBox, labelBox, imageBox] = await Promise.all([
+      chromeSection.boundingBox(),
+      label.boundingBox(),
+      image.boundingBox(),
+    ]);
+
+    expect(sectionBox).not.toBeNull();
+    expect(labelBox).not.toBeNull();
+    expect(imageBox).not.toBeNull();
+
+    const sectionWidth = sectionBox?.width ?? 0;
+    const labelTop = labelBox?.y ?? 0;
+    const imageTop = imageBox?.y ?? 0;
+    const imageWidth = imageBox?.width ?? 0;
+
+    expect(Math.abs(labelTop - imageTop)).toBeLessThan(48);
+    expect(imageWidth).toBeLessThan(sectionWidth * 0.45);
+  });
+
   test("/faq keeps quick answers while removing extra FAQ chrome", async ({
     page,
   }) => {

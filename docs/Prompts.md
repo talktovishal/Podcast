@@ -237,10 +237,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public marketing pages now use standard browser page scrolling with a sticky shared header instead of a nested main-content scroll pane.
   - unknown public URLs now render a branded `Page not found` screen instead of redirecting to `/`.
   - the root email auth form now shows validation feedback beside the relevant field and highlights invalid inputs for login/signup issues.
+- Resources Chrome walkthrough balance pass (`M118`) is implemented:
+  - `/resources` now keeps the Chrome extension section top-aligned on desktop so the copy does not float in the middle of a tall media block.
+  - the extension GIF now sits in one cleaner presentation card with a slightly tighter max width, reducing the extra white space and double-box feel.
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M117`, excluding reserved gaps) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M118`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
   - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
   - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.

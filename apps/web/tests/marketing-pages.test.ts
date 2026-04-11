@@ -88,6 +88,34 @@ test("secondary marketing pages stay content-only while the layout supplies shar
   }
 });
 
+test("resources page keeps the Chrome extension walkthrough compact on desktop", () => {
+  const source = readFileSync(
+    new URL(`${marketingAppRoot}/resources/page.tsx`, import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    source.includes(
+      "lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.85fr)] lg:items-start lg:gap-8",
+    ),
+    true,
+  );
+  assert.equal(source.includes("lg:max-w-[34rem]"), true);
+  assert.equal(source.includes("lg:max-w-[25rem]"), true);
+  assert.equal(
+    source.includes(
+      "rounded-[1.75rem] border border-[rgba(31,122,90,0.16)]",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "overflow-hidden rounded-xl border border-slate-200 bg-slate-50",
+    ),
+    false,
+  );
+});
+
 test("login nav has no placeholder links", () => {
   const source = readFileSync(
     new URL("../src/components/auth-landing-page.tsx", import.meta.url),

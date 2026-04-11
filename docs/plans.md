@@ -127,6 +127,9 @@
   - the shared public marketing shell now uses standard browser page scrolling with a sticky header instead of a nested main-content scroll region.
   - unknown public paths now render a branded `404` page instead of redirecting to `/`.
   - the root email auth form now keeps validation feedback inline beside the relevant field and highlights invalid inputs.
+- Resources Chrome walkthrough balance pass (`M118`) is implemented:
+  - `/resources` now top-aligns the Chrome extension section on desktop so the copy and media start together instead of leaving a large vertical void.
+  - the extension walkthrough GIF now uses one tighter presentation card with a smaller desktop max width, reducing extra white space and the double-frame feel.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -261,6 +264,7 @@
 | Public marketing chrome cleanup (remove duplicate footer nav)                                  | M108                                             |
 | Persistent public marketing header + footer layout                                             | M109                                             |
 | Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
+| Resources Chrome walkthrough balance pass                                                      | M118                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -424,6 +428,7 @@ Milestone metadata contract:
 | M115      | Done        | 2026-04-25    | 2026-04-10   | local validation + FAQ quick-answers-only navigation pass (2026-04-10)                                  |
 | M116      | Done        | 2026-04-26    | 2026-04-10   | local validation + compact mobile marketing/workspace header pass (2026-04-10)                          |
 | M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
+| M118      | Done        | 2026-04-29    | 2026-04-11   | local validation + compact resources Chrome walkthrough layout pass (2026-04-11)                        |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3822,6 +3827,34 @@ Milestone metadata contract:
   - `corepack pnpm --filter @articlepod/web run lint`
   - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/middleware-auth.test.ts tests/form-submit-affordances.test.ts`
   - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts e2e/auth.spec.ts --config=playwright.config.ts --project=chromium --grep "standard page scrolling|proper not-found page|wrong password shows error" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M118 - Resources Chrome Walkthrough Balance Pass
+
+- status: Done
+- target_finish: 2026-04-29
+- completed_on: 2026-04-11
+- evidence: local validation + compact resources Chrome walkthrough layout pass (2026-04-11)
+- Scope:
+  - Rebalance the `/resources` Chrome extension section so the copy and walkthrough start together on desktop instead of centering against a tall media panel.
+  - Reduce the perceived white space by slightly tightening the desktop GIF presentation and simplifying the layered framing around it.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - The `/resources` Chrome extension copy column and GIF panel align from the top on desktop.
+  - The extension walkthrough GIF presents inside one cleaner card instead of a visibly nested double-box treatment.
+  - The desktop GIF footprint is slightly smaller so the section feels denser without hurting mobile readability.
+  - Existing CTA behavior, supported app content, and signed-in vs signed-out links remain unchanged.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts tests/app-dashboard-layout.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "Chrome extension walkthrough aligned and compact" --no-deps`
   - `corepack pnpm --filter @articlepod/web run build`
 
 ---

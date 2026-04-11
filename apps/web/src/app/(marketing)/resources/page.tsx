@@ -167,8 +167,8 @@ export default async function ResourcesPage() {
       </header>
 
       <section className="mt-6 card p-5 sm:p-6" id="chrome-extension">
-        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
-          <div className="space-y-4">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.85fr)] lg:items-start lg:gap-8">
+          <div className="space-y-4 lg:max-w-[34rem]">
             <div className="space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
                 Chrome extension
@@ -204,22 +204,22 @@ export default async function ResourcesPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[rgba(31,122,90,0.15)] bg-white p-3">
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          <div className="mx-auto w-full max-w-[32rem] lg:mx-0 lg:justify-self-end lg:max-w-[25rem]">
+            <div className="rounded-[1.75rem] border border-[rgba(31,122,90,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(241,250,247,0.96)_100%)] p-2.5 shadow-[0_18px_40px_rgba(18,49,38,0.08)]">
               <Image
                 alt="Animated walkthrough of the ArticlePod Chrome extension connect and capture flow."
-                className="h-auto w-full"
+                className="h-auto w-full rounded-[1.2rem] border border-white/80 bg-slate-50"
                 height={1027}
                 priority={false}
                 src="/resources/articlepod-extension-flow.gif"
                 unoptimized
                 width={800}
               />
-            </div>
-            <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+              <p className="mt-3.5 text-sm leading-6 text-[var(--muted)]">
               One quick connection, then you can capture the current page in
               a click.
-            </p>
+              </p>
+            </div>
           </div>
         </div>
       </section>

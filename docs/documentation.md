@@ -365,6 +365,8 @@ Unknown public URLs now render a branded `Page not found` screen with links back
 
 On the root email auth form, validation feedback now appears inline beside the relevant field and invalid inputs get an error highlight, making messages like `Invalid email or password.` harder to miss.
 
+On `/resources`, the Chrome extension walkthrough now starts level with the copy on desktop and the GIF sits in a single tighter presentation card, which cuts down the extra white space and removes the stacked-box look around the animation.
+
 On mobile, that shared public chrome is denser: the primary nav stays on one compact horizontal row, the footer CTA keeps `Start your knowledge feed` and `See pricing` side by side, and the shell trims header/footer padding so the reading area begins sooner.
 
 ## Known boundaries
