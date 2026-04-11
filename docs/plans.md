@@ -136,6 +136,10 @@
 - Public marketing chrome persistence restore (`M119`) is implemented:
   - public marketing pages now keep the shared header pinned to the top of the viewport and the shared footer CTA pinned to the bottom again while preserving standard browser page scrolling.
   - the public shell now adds matching top and bottom content insets so the fixed chrome does not cover page content.
+- Per-user Karpathy-core LLM wiki flow (`M120`) is implemented:
+  - operators can now run a local wiki prepare/lint/verify/publish loop that copies the Karpathy prompt verbatim into each workspace, compiles against downloaded item markdown plus normalized snippets, and publishes the resulting wiki back to blob storage.
+  - the published wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, `state/builds/<runId>.json`), avoiding new schema/migration pressure in Prisma or Azure Table primary.
+  - signed-in users now get a browse-first `/app/wiki` surface with manifest-driven tree navigation, markdown rendering, backlinks, source-page navigation, and title/tag/summary filtering.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -272,6 +276,7 @@
 | Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
 | Resources Chrome walkthrough balance pass                                                      | M118                                             |
 | Public marketing chrome persistence restore                                                    | M119                                             |
+| Per-user Karpathy-core LLM wiki prepare/publish workflow + `/app/wiki` browser                | M120                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -437,6 +442,7 @@ Milestone metadata contract:
 | M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
 | M118      | Done        | 2026-04-29    | 2026-04-11   | local validation + compact resources Chrome walkthrough layout pass (2026-04-11)                        |
 | M119      | Done        | 2026-04-30    | 2026-04-11   | local validation + restored persistent public header/footer chrome pass (2026-04-11)                    |
+| M120      | Done        | 2026-05-01    | 2026-04-11   | local validation + wiki prepare/publish/browser integration pass (2026-04-11)                          |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3938,6 +3944,46 @@ Milestone metadata contract:
   - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts`
   - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "header and footer stay pinned during page scroll|persistent footer CTA on desktop" --no-deps`
   - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M120 - Per-User Karpathy-Core LLM Wiki
+
+- status: Done
+- target_finish: 2026-05-01
+- completed_on: 2026-04-11
+- evidence: local validation + wiki prepare/publish/browser integration pass (2026-04-11)
+- Scope:
+  - Add an operator-run local wiki workflow that copies Andrej Karpathy's original `llm-wiki.md` prompt verbatim into each prepared user workspace and keeps all app-specific binding instructions in generated wrapper docs.
+  - Build the v1 corpus from existing READY item markdown artifacts plus saved snippets, with incremental rebuild decisions based on prompt hash, source hashes, deleted sources, and corpus churn.
+  - Publish the resulting wiki back into blob storage and expose it through a signed-in `/app/wiki` browse-first surface.
+- Key files/modules:
+  - `apps/web/src/lib/wiki.ts`
+  - `apps/web/scripts/wiki-prepare.ts`
+  - `apps/web/scripts/wiki-lint.ts`
+  - `apps/web/scripts/wiki-verify.ts`
+  - `apps/web/scripts/wiki-publish.ts`
+  - `apps/web/src/app/app/wiki/[[...slug]]/page.tsx`
+  - `apps/web/src/components/wiki-browser-client.tsx`
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/app/api/account/delete/route.ts`
+  - `packages/core/src/wiki/*`
+  - `apps/web/tests/wiki-tools.test.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` creates `.runtime/wiki-builds/<runId>/<userId>/` with the copied Karpathy prompt, wrapper docs, raw item/snippet markdown, and a restored incremental `wiki/` tree when a prior publish exists.
+  - `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the workspace without introducing a second wiki schema.
+  - `pnpm wiki:publish --run <runId>` publishes changed wiki pages plus `manifest.json` and the current build-state blob under `users/<userId>/wiki/...`, deleting removed pages and replacing older build-state blobs.
+  - Signed-in `/app/wiki` renders the published wiki with tree navigation, markdown reading, title/tag/summary filtering, backlinks, and source-page navigation.
+  - Wiki storage remains upgrade-in-place and blob-only for v1; no new Prisma or Azure Table primary schema is required.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts tests/wiki-markdown.test.ts`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/wiki-tools.test.ts`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
 
 ---
 

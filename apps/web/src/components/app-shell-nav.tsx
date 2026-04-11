@@ -16,6 +16,7 @@ type AppShellNavKey =
   | "chrome-extension"
   | "snippets"
   | "summary"
+  | "wiki"
   | "feedback"
   | "settings";
 
@@ -61,6 +62,13 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
     href: "/app/summary",
     label: "Summaries",
     title: "Summaries",
+    kind: "primary",
+  },
+  {
+    key: "wiki",
+    href: "/app/wiki",
+    label: "Wiki",
+    title: "Wiki",
     kind: "primary",
   },
   {

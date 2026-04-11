@@ -45,3 +45,5 @@ export * from "./utils/title";
 export * from "./config/brand";
 export * from "./config/naming";
 export * from "./analytics/types";
+export * from "./wiki/types";
+export * from "./wiki/markdown";

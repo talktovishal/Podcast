@@ -40,3 +40,19 @@ export function buildUserDigestEmailStorageKey(userId: string, cadence: string, 
 export function buildUserSummaryRunStorageKey(userId: string, summaryRunId: string): string {
   return normalizedJoin(buildUserMarkdownRootStorageKey(userId), "summaries", summaryRunId, "summary.md");
 }
+
+export function buildUserWikiRootStorageKey(userId: string): string {
+  return normalizedJoin("users", userId, "wiki");
+}
+
+export function buildUserWikiManifestStorageKey(userId: string): string {
+  return normalizedJoin(buildUserWikiRootStorageKey(userId), "manifest.json");
+}
+
+export function buildUserWikiPageStorageKey(userId: string, pagePath: string): string {
+  return normalizedJoin(buildUserWikiRootStorageKey(userId), "pages", pagePath);
+}
+
+export function buildUserWikiBuildStateStorageKey(userId: string, runId: string): string {
+  return normalizedJoin(buildUserWikiRootStorageKey(userId), "state", "builds", `${runId}.json`);
+}

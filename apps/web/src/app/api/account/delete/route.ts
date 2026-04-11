@@ -1,9 +1,11 @@
 import { rm } from "node:fs/promises";
+import { buildUserWikiBuildStateStorageKey, buildUserWikiManifestStorageKey } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { clearSessionCookie, getAuthUserFromRequest } from "@/lib/auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
+import { getUserWikiManifestForApp } from "@/lib/wiki";
 
 export async function DELETE(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
@@ -20,6 +22,8 @@ export async function DELETE(request: NextRequest) {
       { status: 403 }
     );
   }
+
+  const wikiManifest = await getUserWikiManifestForApp(user.id);
 
   const [items, snippets, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
     webUsesAzureTablePrimary() && webPrimaryStore
@@ -152,6 +156,14 @@ export async function DELETE(request: NextRequest) {
 
   for (const episode of summaryEpisodes) {
     await storage.deleteObject(episode.audioPath).catch(() => undefined);
+  }
+
+  if (wikiManifest) {
+    for (const page of wikiManifest.pages) {
+      await storage.deleteObject(page.storageKey).catch(() => undefined);
+    }
+    await storage.deleteObject(buildUserWikiManifestStorageKey(user.id)).catch(() => undefined);
+    await storage.deleteObject(buildUserWikiBuildStateStorageKey(user.id, wikiManifest.buildRunId)).catch(() => undefined);
   }
 
   const response = NextResponse.json({ ok: true });

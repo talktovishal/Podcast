@@ -27,6 +27,7 @@ Primary entities:
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
 - `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
 - `Item` also carries an optional compact HTML extraction-selection scorecard (`extractionEngine`, `extractionSelectionMode`, `extractionScoreMargin`, `extractionSummaryJson`, `extractionSelectionRecordedAt`) so production trends can be queried from the primary metadata store without persisting verbose logs there.
+- Published personal wiki artifacts are blob-only in v1, keyed per user under `users/<userId>/wiki/...`; no new Prisma or Azure Table primary entities are required for the wiki workflow.
 
 Auth profile metadata on `User`:
 - coarse geo snapshots from trusted proxy headers:
@@ -176,6 +177,10 @@ Critical artifacts in object storage:
 - raw-source snapshots/artifacts (`RAW_HTML`, `RAW_PDF`) with retention policy
 - markdown artifacts (`MARKDOWN`) for diagnostics/reuse
 - manual summary markdown/audio artifacts for Summary Studio runs
+- personal wiki artifacts:
+  - `users/<userId>/wiki/manifest.json`
+  - `users/<userId>/wiki/pages/<pagePath>.md`
+  - `users/<userId>/wiki/state/builds/<runId>.json` (current build-state blob; older published state blobs are deleted on replacement)
 
 ## Media delivery contract
 `/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
@@ -243,6 +248,15 @@ Policy guardrails:
    - `captureMarkdown` (default structured template combining metadata + selected passage + surrounding context)
 4. The snippet is stored in Prisma or Azure Table primary metadata without creating an `Item`, `Job`, or `Episode`.
 5. `/app/snippets` renders the saved excerpt, metadata, and structured context for later review.
+
+## Personal wiki pipeline (`M120`)
+1. An operator runs `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` locally with real blob credentials.
+2. The prepare step loads the user's READY item markdown artifacts plus all saved snippets, normalizes them into a local `raw/` workspace, copies the Karpathy `llm-wiki.md` prompt verbatim into `KARPATHY_LLM_WIKI.md`, and writes a minimal wrapper `AGENTS.md` plus `WIKI_RUNTIME.md`.
+3. If a published wiki already exists for that user, the prepare step restores the current `wiki/` tree for incremental runs; full rebuilds keep any previous wiki in a side reference folder instead of mutating the prompt itself.
+4. Codex then operates locally inside the prepared workspace, reading `raw/` and updating only `wiki/` according to the Karpathy prompt pattern (`index.md`, `log.md`, concepts, entities, sources, outputs).
+5. `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the copied prompt, required wrapper files, required wiki pages, and internal wiki link hygiene without introducing a second schema.
+6. `pnpm wiki:publish --run <runId>` rewrites internal wiki links to canonical `/app/wiki/...` routes, derives backlinks and lightweight search text, uploads changed markdown pages only, deletes removed pages, writes `manifest.json`, and replaces the current build-state blob.
+7. Signed-in `/app/wiki` loads the manifest and current page directly from artifact storage and renders the published markdown as a browse-first knowledge base.
 
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts

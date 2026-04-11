@@ -19,6 +19,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 6. Logged-in users can open Summaries at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
 7. Logged-in users can submit message-first product feedback at `/app/feedback`.
 8. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
+9. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
 
 ## Accounts
 
@@ -85,8 +86,8 @@ Connect flow:
   - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, summary creation, and admin search/save flows
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
-  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
-  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, and `Summaries` stay on the second row
+  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, and `Wiki` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
+  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, `Summaries`, and `Wiki` stay on the second row
   - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
@@ -178,6 +179,37 @@ Summaries APIs:
 - `GET /api/summary/items`
 - `POST /api/summary/runs`
 - `GET /api/summary/runs/[id]/markdown`
+
+## Personal wiki
+
+Available in `/app/wiki` after an operator publishes a wiki for that user:
+
+- browse-first manifest-driven page tree
+- markdown page reader with rewritten internal wiki links
+- client-side title, summary, tag, and path filter
+- backlinks and source-page navigation
+- original-source link on source pages when the source URL is known
+
+Operator commands:
+
+- `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>`
+- `pnpm wiki:lint --run <runId>`
+- `pnpm wiki:verify --run <runId>`
+- `pnpm wiki:publish --run <runId>`
+
+Published storage contract:
+
+- `users/<userId>/wiki/manifest.json`
+- `users/<userId>/wiki/pages/<pagePath>.md`
+- `users/<userId>/wiki/state/builds/<runId>.json`
+
+Workspace contract for `wiki:prepare`:
+
+- exact copy of the Karpathy prompt in `KARPATHY_LLM_WIKI.md`
+- minimal wrapper docs in `AGENTS.md` and `WIKI_RUNTIME.md`
+- `raw/items/*.md` from existing READY item markdown artifacts
+- `raw/snippets/*.md` from normalized snippet captures
+- `wiki/` restored from the current published wiki for incremental runs
 
 ## Runtime profiles
 

@@ -97,6 +97,12 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
   - `GEO_HEADER_REGION`
   - `GEO_HEADER_CITY`
 
+## Local wiki operator workflow
+- `KARPATHY_LLM_WIKI_PATH` (optional absolute path override for `pnpm wiki:prepare`; defaults to `/Users/vishalchowdhary/Downloads/llm-wiki.md`)
+- `pnpm wiki:prepare --users ...` accepts either internal user ids or user email addresses and resolves emails against the configured metadata store before reading source artifacts.
+- The local wiki prepare/publish scripts use the same artifact storage credentials as the web app runtime.
+- For Azure-backed wiki runs, provide real blob data-plane credentials through the normal storage env vars (`AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`) before running the wiki commands locally.
+
 ## Feedback mirror (optional)
 - `GITHUB_FEEDBACK_MIRROR_ENABLED` (`1` to mirror feedback into private GitHub issues; default `0`)
 - `GITHUB_FEEDBACK_OWNER`

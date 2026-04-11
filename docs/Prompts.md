@@ -35,6 +35,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - the extension now also supports right-click selection capture into a dedicated `Snippets` workspace, with both instant-save and save-with-comment flows backed by the same long-lived paired extension token.
   - saved snippets persist in a first-class `Snippet` record separate from episode `Item`s, so selection capture does not enqueue podcast jobs or alter RSS/feed behavior.
   - snippet capture now stores a richer, Obsidian-inspired bundle by default: selected text plus sanitized selection HTML, derived selection/context markdown, normalized page metadata, and a reusable structured markdown template for later review or summarization.
+- Per-user LLM wiki browsing is implemented as an operator-run local workflow:
+  - `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` prepares a per-user workspace under `.runtime/wiki-builds/<runId>/<userId>/` with the exact copied Karpathy prompt in `KARPATHY_LLM_WIKI.md`, a minimal wrapper `AGENTS.md`, runtime guidance in `WIKI_RUNTIME.md`, downloaded item markdown, normalized snippet markdown, and the current persistent `wiki/` tree restored for incremental runs.
+  - `pnpm wiki:lint --run <runId>`, `pnpm wiki:verify --run <runId>`, and `pnpm wiki:publish --run <runId>` validate and publish the wiki back into blob storage under `users/<userId>/wiki/...`.
+  - the current corpus is `items + snippets` only, and the durable wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, and one current `state/builds/<runId>.json` blob per user).
+  - signed-in users can browse the published wiki at `/app/wiki`, with manifest-driven tree navigation, markdown rendering, title/tag/summary filtering, backlinks, and source-page navigation.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
@@ -248,7 +253,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M119`, excluding reserved gaps) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M120`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
   - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
   - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.

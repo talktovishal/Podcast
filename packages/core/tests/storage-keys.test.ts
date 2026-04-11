@@ -8,7 +8,11 @@ import {
   buildUserDigestEmailStorageKey,
   buildUserDigestSummaryStorageKey,
   buildUserItemMarkdownStorageKey,
-  buildUserSummaryRunStorageKey
+  buildUserSummaryRunStorageKey,
+  buildUserWikiBuildStateStorageKey,
+  buildUserWikiManifestStorageKey,
+  buildUserWikiPageStorageKey,
+  buildUserWikiRootStorageKey
 } from "../src/storage/keys";
 
 test("markdown storage key builders emit stable user-centric paths", () => {
@@ -16,6 +20,10 @@ test("markdown storage key builders emit stable user-centric paths", () => {
   assert.equal(buildUserDigestSummaryStorageKey("user-1", "WEEKLY", "2026-03-08"), "users/user-1/markdown/digests/weekly/2026-03-08/summary.md");
   assert.equal(buildUserDigestEmailStorageKey("user-1", "DAILY", "2026-03-08"), "users/user-1/markdown/digests/daily/2026-03-08/email.md");
   assert.equal(buildUserSummaryRunStorageKey("user-1", "summary-1"), "users/user-1/markdown/summaries/summary-1/summary.md");
+  assert.equal(buildUserWikiRootStorageKey("user-1"), "users/user-1/wiki");
+  assert.equal(buildUserWikiManifestStorageKey("user-1"), "users/user-1/wiki/manifest.json");
+  assert.equal(buildUserWikiPageStorageKey("user-1", "concepts/index.md"), "users/user-1/wiki/pages/concepts/index.md");
+  assert.equal(buildUserWikiBuildStateStorageKey("user-1", "run-1"), "users/user-1/wiki/state/builds/run-1.json");
 });
 
 test("legacy markdown storage key builders preserve existing paths", () => {
