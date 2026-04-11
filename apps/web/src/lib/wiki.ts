@@ -30,14 +30,17 @@ import { hasPrismaDatabase, prisma } from "./prisma";
 import { getArtifactStorage } from "./storage";
 
 const DEFAULT_KARPATHY_PROMPT_PATH = "/Users/vishalchowdhary/Downloads/llm-wiki.md";
-const WIKI_WRAPPER_VERSION = "2026-04-11-v1";
-const WIKI_RUNTIME_VERSION = "2026-04-11-v1";
+const WIKI_WRAPPER_VERSION = "2026-04-11-v2";
+const WIKI_RUNTIME_VERSION = "2026-04-11-v2";
 const WIKI_PREPARE_RUN_FILENAME = "prepare-run.json";
 const WIKI_WORKSPACE_STATE_FILENAME = "workspace-state.json";
 const WIKI_SOURCE_CATALOG_FILENAME = "SOURCE_CATALOG.md";
 const WIKI_SOURCE_CATALOG_JSON_FILENAME = "source-catalog.json";
+const WIKI_CONVENTIONS_FILENAME = "WIKI_CONVENTIONS.md";
 const REQUIRED_WIKI_PAGE_PATHS = ["index.md", "log.md"];
 const SUPPORTED_WIKI_ITEM_SOURCE_TYPES = new Set(["URL", "PDF", "HTML_SNAPSHOT"]);
+const CONCEPT_SYNTHESIS_TARGET_MIN_WORDS = 1500;
+const CONCEPT_SYNTHESIS_TARGET_MAX_WORDS = 3000;
 
 type WikiCorpusSource = {
   sourceKey: string;
@@ -113,6 +116,10 @@ function toIso(value: Date): string {
 
 function sha256(input: string | Buffer): string {
   return createHash("sha256").update(input).digest("hex");
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeMarkdownText(input: string): string {
@@ -644,6 +651,7 @@ function buildWorkspaceAgentsMd(buildMode: WikiBuildMode): string {
     "# AGENTS.md",
     "",
     "Read `KARPATHY_LLM_WIKI.md` first. It is the primary prompt and operating philosophy for this workspace.",
+    "Then read `WIKI_CONVENTIONS.md` for page-shape and writing standards specific to this app.",
     "",
     "Runtime bindings:",
     "- Raw source material lives under `raw/`.",
@@ -652,7 +660,49 @@ function buildWorkspaceAgentsMd(buildMode: WikiBuildMode): string {
     `- This run is in \`${buildMode}\` mode.`,
     "- Treat the current `wiki/` tree as the artifact to maintain for this run.",
     "- Do not rewrite `KARPATHY_LLM_WIKI.md`; use it as-is.",
-    "- Do not edit generated runtime helper files except `wiki/` content."
+    "- Do not edit generated runtime helper files except `wiki/` content.",
+    "- For concept pages, follow the long-form synthesis structure from `WIKI_CONVENTIONS.md`."
+  ].join("\n");
+}
+
+function buildWorkspaceConventionsMd(): string {
+  return [
+    "# WIKI_CONVENTIONS.md",
+    "",
+    "This file adds local page-shape and writing conventions on top of the original Karpathy LLM wiki prompt.",
+    "Do not treat it as a replacement for `KARPATHY_LLM_WIKI.md`; treat it as the implementation-specific schema document that Karpathy's note leaves open.",
+    "",
+    "## Concept pages",
+    "",
+    "Files under `wiki/concepts/` are reader-first synthesis pages. They should feel like substantial standalone essays that a user can read or listen to without needing to open every source page.",
+    "",
+    "Required structure for every concept page:",
+    "- `## Executive summary` with 5 concise bullets covering the most important takeaways.",
+    `- \`## Working synthesis\` as the main deliverable, targeting ${CONCEPT_SYNTHESIS_TARGET_MIN_WORDS}-${CONCEPT_SYNTHESIS_TARGET_MAX_WORDS} words.`,
+    "- Optional supporting sections such as `## Key tensions`, `## Why this matters`, `## Open questions`, and `## Source highlights` when they make the page clearer.",
+    "",
+    "Writing standards for `## Working synthesis`:",
+    "- Write a long-form synthesis, not a stub and not a source-by-source list.",
+    "- The section should stand on its own for a user who never opens the underlying sources.",
+    "- Use substantial paragraphs and a clear narrative arc; it is fine to mix in bullets where they genuinely improve clarity.",
+    "- Favor synthesis over repetition: collapse overlapping source ideas into a single interpreted argument.",
+    "- Surface the strongest themes, disagreements, implications, and what changed the current thesis.",
+    "- Optimize for material that would also make a strong spoken or podcast-style listening experience.",
+    "",
+    "Source handling for concept pages:",
+    "- Keep source sections selective.",
+    "- Highlight only the most decision-useful sources instead of dumping every source note verbatim.",
+    "- Do not let source excerpts dominate the page length; the synthesis should be the primary content.",
+    "",
+    "## Entity pages",
+    "",
+    "Entity pages can be shorter than concept pages, but they should still prioritize synthesis over raw source dumping.",
+    "",
+    "## General guidance",
+    "",
+    "- Prefer clear section headings and navigable structure.",
+    "- When a page is meant to be read end-to-end, write for flow, not just for reference lookup.",
+    "- Use wiki links generously across concepts, entities, outputs, and source pages."
   ].join("\n");
 }
 
@@ -677,6 +727,7 @@ function buildWorkspaceRuntimeMd(input: {
     "- `raw/` is immutable input for this run.",
     "- `wiki/` is the only tree Codex should maintain.",
     "- `index.md` and `log.md` are required.",
+    `- Follow \`${WIKI_CONVENTIONS_FILENAME}\` for page structure and long-form writing expectations, especially for concept pages.`,
     "- Use incremental updates where possible; rebuild or prune aggressively only when the current mode demands it."
   ];
 
@@ -693,6 +744,30 @@ function buildWorkspaceRuntimeMd(input: {
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+function extractMarkdownSection(content: string, heading: string): string | null {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const headingPattern = new RegExp(`^##\\s+${escapeRegExp(heading)}\\s*$`, "m");
+  const startMatch = headingPattern.exec(normalized);
+  if (!startMatch) {
+    return null;
+  }
+
+  const sectionStart = startMatch.index + startMatch[0].length;
+  const remainder = normalized.slice(sectionStart);
+  const nextHeadingMatch = /^##\s+.+$/m.exec(remainder);
+  const sectionBody = nextHeadingMatch ? remainder.slice(0, nextHeadingMatch.index) : remainder;
+  const trimmed = sectionBody.trim();
+  return trimmed ? trimmed : null;
+}
+
+function countWordsInMarkdown(content: string): number {
+  return content
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    .replace(/[`*_>#~\-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
 }
 
 async function restorePublishedWikiToDirectory(userId: string, manifest: WikiManifest, targetDir: string): Promise<void> {
@@ -1127,6 +1202,7 @@ export async function prepareUserWikiBuild(input: WikiPrepareOptions): Promise<W
     await ensureWikiSkeleton(wikiDir, buildDecision.mode, buildDecision.reason);
     await writeUtf8File(join(workspaceDir, "KARPATHY_LLM_WIKI.md"), prompt.content);
     await writeUtf8File(join(workspaceDir, "AGENTS.md"), `${buildWorkspaceAgentsMd(buildDecision.mode)}\n`);
+    await writeUtf8File(join(workspaceDir, WIKI_CONVENTIONS_FILENAME), `${buildWorkspaceConventionsMd()}\n`);
     await writeUtf8File(
       join(workspaceDir, "WIKI_RUNTIME.md"),
       buildWorkspaceRuntimeMd({
@@ -1173,7 +1249,7 @@ async function lintWikiWorkspace(workspace: WikiPrepareWorkspaceState): Promise<
   const issues: string[] = [];
   const warnings: string[] = [];
 
-  for (const requiredFile of ["KARPATHY_LLM_WIKI.md", "AGENTS.md", "WIKI_RUNTIME.md", `raw/${WIKI_SOURCE_CATALOG_FILENAME}`]) {
+  for (const requiredFile of ["KARPATHY_LLM_WIKI.md", "AGENTS.md", WIKI_CONVENTIONS_FILENAME, "WIKI_RUNTIME.md", `raw/${WIKI_SOURCE_CATALOG_FILENAME}`]) {
     if (!(await fileExists(join(workspace.workspaceDir, requiredFile)))) {
       issues.push(`Missing required workspace file: ${requiredFile}`);
     }
@@ -1201,6 +1277,26 @@ async function lintWikiWorkspace(workspace: WikiPrepareWorkspaceState): Promise<
       });
       if (!resolved && !target.startsWith("http://") && !target.startsWith("https://") && !target.startsWith("mailto:")) {
         warnings.push(`Unresolved wiki link in ${pagePath}: ${target}`);
+      }
+    }
+
+    if (pagePath.startsWith("concepts/")) {
+      const executiveSummary = extractMarkdownSection(content, "Executive summary");
+      const workingSynthesis = extractMarkdownSection(content, "Working synthesis");
+
+      if (!executiveSummary) {
+        issues.push(`Concept page ${pagePath} is missing a \`## Executive summary\` section.`);
+      }
+
+      if (!workingSynthesis) {
+        issues.push(`Concept page ${pagePath} is missing a \`## Working synthesis\` section.`);
+      } else {
+        const wordCount = countWordsInMarkdown(workingSynthesis);
+        if (wordCount < CONCEPT_SYNTHESIS_TARGET_MIN_WORDS || wordCount > CONCEPT_SYNTHESIS_TARGET_MAX_WORDS) {
+          warnings.push(
+            `Concept page ${pagePath} has ${wordCount} words in \`## Working synthesis\`; target ${CONCEPT_SYNTHESIS_TARGET_MIN_WORDS}-${CONCEPT_SYNTHESIS_TARGET_MAX_WORDS} words.`
+          );
+        }
       }
     }
   }
@@ -1235,6 +1331,7 @@ export async function verifyPreparedWikiRun(input: WikiLintOptions): Promise<Wik
     ) as WikiPrepareWorkspaceState;
     const karpathyPrompt = await readUtf8File(join(result.workspaceDir, "KARPATHY_LLM_WIKI.md"));
     const agentsMd = await readUtf8File(join(result.workspaceDir, "AGENTS.md"));
+    const conventionsMd = await readUtf8File(join(result.workspaceDir, WIKI_CONVENTIONS_FILENAME));
 
     if (sha256(karpathyPrompt) !== workspaceState.promptHash) {
       result.ok = false;
@@ -1249,6 +1346,16 @@ export async function verifyPreparedWikiRun(input: WikiLintOptions): Promise<Wik
     if (!agentsMd.includes("Maintain only files under `wiki/`.")) {
       result.ok = false;
       result.issues.push("AGENTS.md does not enforce the wiki-only write scope.");
+    }
+
+    if (!agentsMd.includes("Then read `WIKI_CONVENTIONS.md`")) {
+      result.ok = false;
+      result.issues.push("AGENTS.md does not point Codex to the local wiki conventions file.");
+    }
+
+    if (!conventionsMd.includes("## Executive summary") || !conventionsMd.includes("1500-3000 words")) {
+      result.ok = false;
+      result.issues.push("WIKI_CONVENTIONS.md does not contain the expected long-form concept page contract.");
     }
   }
 

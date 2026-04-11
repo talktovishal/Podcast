@@ -187,6 +187,7 @@ Available in `/app/wiki` after an operator publishes a wiki for that user:
 - reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
 - denser one-card browse rail with clamped page summaries so the left column behaves more like a compact table of contents than a stack of cards
 - markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render
+- concept pages are generated as long-form reader-first essays with a 5-bullet executive summary and a `## Working synthesis` that targets 1500-3000 words for stronger read/listen value
 - concept/entity pages keep the main synthesis in the primary article and place a compact inline `Sources` list underneath it, showing five short previews by default with a `Show all` control for the rest
 - client-side title, summary, and tag filter
 - backlinks between reader-facing pages and reference links back to original source URLs
@@ -209,6 +210,7 @@ Workspace contract for `wiki:prepare`:
 
 - exact copy of the Karpathy prompt in `KARPATHY_LLM_WIKI.md`
 - minimal wrapper docs in `AGENTS.md` and `WIKI_RUNTIME.md`
+- local schema companion in `WIKI_CONVENTIONS.md` that defines the long-form concept page contract without rewriting the Karpathy prompt
 - `raw/items/*.md` from existing READY item markdown artifacts
 - `raw/snippets/*.md` from normalized snippet captures
 - `wiki/` restored from the current published wiki for incremental runs

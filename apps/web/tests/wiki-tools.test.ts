@@ -161,7 +161,18 @@ test("wiki prepare/publish supports a Karpathy prompt copy, manifest publishing,
 
     const workspaceOne = runOne.workspaces[0]!;
     assert.equal(await readFile(join(workspaceOne.workspaceDir, "KARPATHY_LLM_WIKI.md"), "utf8"), "# Karpathy prompt\n\nMaintain a local wiki.\n");
-    assert.equal(await readFile(join(workspaceOne.workspaceDir, "AGENTS.md"), "utf8").then((value) => value.includes("Read `KARPATHY_LLM_WIKI.md` first.")), true);
+    assert.equal(
+      await readFile(join(workspaceOne.workspaceDir, "AGENTS.md"), "utf8").then((value) =>
+        value.includes("Read `KARPATHY_LLM_WIKI.md` first.") && value.includes("Then read `WIKI_CONVENTIONS.md`")
+      ),
+      true
+    );
+    assert.equal(
+      await readFile(join(workspaceOne.workspaceDir, "WIKI_CONVENTIONS.md"), "utf8").then((value) =>
+        value.includes("## Executive summary") && value.includes("1500-3000 words")
+      ),
+      true
+    );
     assert.equal(await readFile(join(workspaceOne.rawDir, "items", `${items[0]!.id}.md`), "utf8").then((value) => value.includes("Body 1.")), true);
     assert.equal(await readFile(join(workspaceOne.rawDir, "snippets", `${snippet.id}.md`), "utf8").then((value) => value.includes("remember this")), true);
 
@@ -184,6 +195,18 @@ tags: [knowledge]
 source_ids: [${items[0]!.id}]
 ---
 # Topic
+
+## Executive summary
+
+- Durable takeaway one.
+- Durable takeaway two.
+- Durable takeaway three.
+- Durable takeaway four.
+- Durable takeaway five.
+
+## Working synthesis
+
+${Array.from({ length: 260 }, (_, index) => `Synthesis paragraph word${index + 1}.`).join(" ")}
 
 Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
 `,
