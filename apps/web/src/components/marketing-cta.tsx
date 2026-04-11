@@ -9,7 +9,7 @@ export function MarketingCta() {
     >
       <Link
         href="/"
-        className="inline-flex w-full justify-center rounded-lg bg-[var(--ink)] px-3 py-2 text-center text-xs font-semibold leading-tight text-white sm:px-4 sm:text-sm sm:whitespace-nowrap"
+        className="inline-flex w-full justify-center rounded-lg bg-[var(--ink)] px-3 py-2 text-center text-xs font-semibold leading-tight text-white sm:w-auto sm:px-4 sm:text-sm sm:whitespace-nowrap"
       >
         {marketingCopy.ctaPrimary}
       </Link>

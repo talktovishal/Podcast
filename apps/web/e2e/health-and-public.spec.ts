@@ -216,6 +216,26 @@ test.describe("Health & Public Pages", () => {
     expect(Math.max(...ctaTops) - Math.min(...ctaTops)).toBeLessThan(4);
   });
 
+  test("desktop marketing footer keeps CTA actions side by side", async ({
+    page,
+  }) => {
+    await page.goto("/about");
+    await page.waitForLoadState("networkidle");
+
+    const cta = page.getByRole("contentinfo", {
+      name: "Footer call to action",
+    });
+    const ctaLinks = await Promise.all([
+      cta
+        .getByRole("link", { name: "Start your knowledge feed" })
+        .boundingBox(),
+      cta.getByRole("link", { name: "See pricing" }).boundingBox(),
+    ]);
+
+    const ctaTops = ctaLinks.map((box) => box?.y ?? -1);
+    expect(Math.max(...ctaTops) - Math.min(...ctaTops)).toBeLessThan(4);
+  });
+
   test("/faq keeps quick answers while removing extra FAQ chrome", async ({
     page,
   }) => {
