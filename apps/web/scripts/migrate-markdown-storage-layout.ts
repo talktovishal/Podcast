@@ -1,5 +1,5 @@
 import { migrateMarkdownStorageLayout } from "../src/lib/markdown-storage-layout";
-import { prisma } from "../src/lib/prisma";
+import { hasPrismaDatabase, prisma } from "../src/lib/prisma";
 
 function parseArgs(argv: string[]): {
   dryRun: boolean;
@@ -55,5 +55,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    if (hasPrismaDatabase()) {
+      await prisma.$disconnect();
+    }
   });
