@@ -23,6 +23,7 @@
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - GitHub Actions now keeps CI automatic on `main`, while Azure production deploys require an explicit manual `Deploy to Azure` workflow dispatch instead of auto-running after every successful CI completion.
+- CI is now scope-aware for pull requests and `main` pushes, with shared local `pnpm preflight` coverage and auto-cancelled superseded runs to reduce unnecessary GitHub Actions time.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
 - Azure deploy helper now auto-bootstraps first-run VMs when runtime user provisioning is missing during CI/CD rollout.
 - Azure runtime deploy now auto-recovers canonical env file from legacy `/etc/listenlater/listenlater.env` when present.
@@ -945,7 +946,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
-- evidence: 1e69fda (2026-02-08)
+- evidence: 1e69fda (2026-02-08) + scope-aware CI/preflight refinement (2026-04-11)
 - Scope:
   - Add CI workflow for lint, typecheck, tests, build, snapshots.
   - Add dependency license gate to block AGPL/SSPL/NC.
@@ -1563,7 +1564,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
-- evidence: 1e69fda (2026-02-08)
+- evidence: 1e69fda (2026-02-08) + scope-aware parity trigger refinement (2026-04-11)
 - Scope:
   - Add CI matrix for `simple` and `parity` profiles.
   - Add pre-deploy gate requiring parity pass, podcast contract pass, and smoke pass evidence.

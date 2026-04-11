@@ -1,13 +1,11 @@
 name: CI
 
-# validate-simple  — runs on every push and PR (fast: ~10-15 min)
-#   typecheck, lint, unit tests, build, license gate
+# validate-simple  — scope-aware PR/push validation (typical: ~2-8 min)
+#   skips irrelevant work for docs-only and narrow web/worker changes
 #
-# validate-parity  — full integration check (slow: ~30-45 min, includes Docker
-#   build of python-tts with ML packages). Runs only when needed:
-#     • every push to main
-#     • workflow_dispatch with run_parity: true
-#     • any PR that carries the "full-ci" label
+# validate-parity  — integration check (recent green runs: ~10 min)
+#   runs only for runtime/parity-sensitive changes, manual dispatch, or PRs
+#   labelled "full-ci"
 
 on:
   push:
@@ -21,9 +19,60 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      changed_file_count: ${{ steps.scope.outputs.changed_file_count }}
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+      run_simple: ${{ steps.scope.outputs.run_simple }}
+      run_env_simple: ${{ steps.scope.outputs.run_env_simple }}
+      run_naming: ${{ steps.scope.outputs.run_naming }}
+      run_core: ${{ steps.scope.outputs.run_core }}
+      run_web: ${{ steps.scope.outputs.run_web }}
+      run_worker: ${{ steps.scope.outputs.run_worker }}
+      run_testing: ${{ steps.scope.outputs.run_testing }}
+      run_observability: ${{ steps.scope.outputs.run_observability }}
+      run_export: ${{ steps.scope.outputs.run_export }}
+      run_license: ${{ steps.scope.outputs.run_license }}
+      run_parity: ${{ steps.scope.outputs.run_parity }}
+      summary: ${{ steps.scope.outputs.summary }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute CI scope
+        id: scope
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/ci-scope.mjs --format github-output >> "$GITHUB_OUTPUT"
+
+      - name: Scope summary
+        run: |
+          echo "summary: ${{ steps.scope.outputs.summary }}"
+          echo "changed files: ${{ steps.scope.outputs.changed_file_count }}"
+
+  docs-only:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_simple != 'true'
+    steps:
+      - name: Docs-only summary
+        run: echo "${{ needs.plan.outputs.summary }}"
+
   validate-simple:
     runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_simple == 'true'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -33,48 +82,106 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Prepare simple profile env
         run: cp .env.simple.example .env
 
       - name: Install dependencies
-        run: npx pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: CI scope unit tests
+        run: node --test scripts/ci-scope.test.mjs
 
       - name: Environment check (simple)
+        if: needs.plan.outputs.run_env_simple == 'true'
         run: npm run check:env:simple
 
       - name: Naming check
+        if: needs.plan.outputs.run_naming == 'true'
         run: npm run naming:check
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Core typecheck
+        if: needs.plan.outputs.run_core == 'true'
+        run: corepack pnpm --filter @articlepod/core run typecheck
 
-      - name: Lint
-        run: npm run lint
+      - name: Core test
+        if: needs.plan.outputs.run_core == 'true'
+        run: corepack pnpm --filter @articlepod/core run test
 
-      - name: Test
-        run: npm run test
+      - name: Core build
+        if: needs.plan.outputs.run_core == 'true'
+        run: corepack pnpm --filter @articlepod/core run build
+
+      - name: Web typecheck
+        if: needs.plan.outputs.run_web == 'true'
+        run: corepack pnpm --filter @articlepod/web run typecheck
+
+      - name: Web lint
+        if: needs.plan.outputs.run_web == 'true'
+        run: corepack pnpm --filter @articlepod/web run lint
+
+      - name: Web test
+        if: needs.plan.outputs.run_web == 'true'
+        run: corepack pnpm --filter @articlepod/web run test
+
+      - name: Web build
+        if: needs.plan.outputs.run_web == 'true'
+        run: corepack pnpm --filter @articlepod/web run build
+
+      - name: Worker typecheck
+        if: needs.plan.outputs.run_worker == 'true'
+        run: corepack pnpm --filter @articlepod/worker run typecheck
+
+      - name: Worker test
+        if: needs.plan.outputs.run_worker == 'true'
+        run: corepack pnpm --filter @articlepod/worker run test
+
+      - name: Worker build
+        if: needs.plan.outputs.run_worker == 'true'
+        run: corepack pnpm --filter @articlepod/worker run build
+
+      - name: Live-site typecheck
+        if: needs.plan.outputs.run_testing == 'true'
+        run: corepack pnpm --filter @articlepod/live-site run typecheck
+
+      - name: Live-site test
+        if: needs.plan.outputs.run_testing == 'true'
+        run: corepack pnpm --filter @articlepod/live-site run test
+
+      - name: Extraction-quality typecheck
+        if: needs.plan.outputs.run_testing == 'true'
+        run: corepack pnpm --filter @articlepod/extraction-quality run typecheck
+
+      - name: Extraction-quality test
+        if: needs.plan.outputs.run_testing == 'true'
+        run: corepack pnpm --filter @articlepod/extraction-quality run test
 
       - name: Observability verify
+        if: needs.plan.outputs.run_observability == 'true'
         run: npm run observability:verify
 
-      - name: Build
-        run: npm run build
-
       - name: Export
+        if: needs.plan.outputs.run_export == 'true'
         run: npm run export
 
       - name: License gate
+        if: needs.plan.outputs.run_license == 'true'
         run: npm run license:check
 
   validate-parity:
     runs-on: ubuntu-latest
-    needs: validate-simple
+    needs: [plan, validate-simple]
     timeout-minutes: 45
-    # Run on main, manual dispatch (opt-in), or PRs labelled "full-ci"
     if: |
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'workflow_dispatch' && inputs.run_parity == true) ||
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+      needs.plan.outputs.run_simple == 'true' &&
+      needs.validate-simple.result == 'success' &&
+      (
+        needs.plan.outputs.run_parity == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_parity == true) ||
+        (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
+      )
     steps:
       - uses: actions/checkout@v6
 
@@ -89,11 +196,14 @@ jobs:
         with:
           node-version: 22
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Prepare parity profile env
         run: cp .env.parity.example .env
 
       - name: Install dependencies
-        run: npx pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Environment check (parity)
         run: npm run check:env:parity

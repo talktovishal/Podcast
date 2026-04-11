@@ -95,7 +95,7 @@ The ingress automation self-heals nginx server-name hash sizing issues and prese
 
 Automated CI/CD deployment:
 - Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `APP_URL`, `APP_DOMAIN_ALIASES`, `LETSENCRYPT_EMAIL`)
-- Push with `[deploy]` tag or use workflow dispatch
+- Run the `Deploy to Azure` workflow manually from `main`
 - See `docs/azure-ci-cd.md` for setup instructions
 
 Script/catalog indexes:
@@ -110,6 +110,8 @@ Script/catalog indexes:
   - `npm run naming:check`
 
 ## Validation gates
+- `pnpm preflight`
+- `pnpm preflight --parity` for runtime-sensitive changes
 - `npm run typecheck`
 - `npm run lint`
 - `npm run test`

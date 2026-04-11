@@ -44,6 +44,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Bicep + azd infra baseline and VM deployment automation scripts.
   - VM rollout runbook/scripts include staging sync -> runtime promotion and nginx/TLS automation.
   - GitHub Actions keeps CI automatic, while the production `Deploy to Azure` workflow is an explicit manual dispatch instead of auto-running after every successful `main` CI pass.
+  - CI is now scope-aware on pull requests and `main` pushes: docs-only changes short-circuit, narrow web/worker changes skip unrelated checks, superseded runs cancel automatically, and a shared `pnpm preflight` command mirrors the same scope logic locally.
   - Deploy helper auto-runs VM bootstrap on first deploy when runtime user is missing.
   - VM runtime deploy auto-recovers legacy env path (`/etc/listenlater/listenlater.env`) into canonical `/etc/articlepod/articlepod.env`.
   - VM python-tts provisioning enforces CPU-only torch wheels with no pip cache to avoid disk exhaustion on standard VM sizes.

@@ -72,7 +72,15 @@ You can trigger deployment manually from GitHub:
 6. Optionally check "Force full runtime setup" if you changed dependencies or python-tts requirements
 7. Click **Run workflow** button
 
-CI still runs automatically on pushes to `main` and pull requests. Deployment is now a separate explicit step.
+CI now uses a scope-aware plan step on pull requests and `main` pushes so docs-only and narrow changes skip irrelevant validation work. Deployment remains a separate explicit step.
+
+Recommended daily flow:
+
+1. Create a short-lived branch
+2. Run `pnpm preflight` locally
+3. Open a PR and wait for `CI`
+4. Merge only after `validate-simple` is green
+5. Use `full-ci` or manual dispatch when you want parity before merge
 
 ## Deployment Process
 
@@ -106,6 +114,13 @@ The workflow performs:
 - Each deployment creates a workflow run with detailed logs
 - Successful deployments show ✅ in commit history
 - Failed deployments show ❌ with error details
+
+## CI cost control
+
+- `CI` now cancels superseded runs on the same branch or PR automatically.
+- Docs-only changes short-circuit instead of installing dependencies and running app checks.
+- Narrow web-only and worker-only changes run only the checks relevant to that surface.
+- Parity runs only for runtime-sensitive changes, manual dispatch, or PRs explicitly labelled `full-ci`.
 
 ### Deployment Summary
 
