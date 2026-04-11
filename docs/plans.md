@@ -102,9 +102,9 @@
   - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
   - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
-  - `/about` now opens with `Listen to your reading list and finally catch up on what matters`.
-  - `/about` now inserts an additive founder-story block below the existing hero so visitors can compare the original product framing with a personal co-founder story without removing the original cards.
-  - `/about` now expands that founder-story block with Smita Busar's co-founder intro, a branded portrait placeholder, life-improvement bullets, and a longer privacy-centered founder perspective while leaving the existing mission/live/product cards in place below it.
+  - `/about` now opens with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait treatment.
+  - `/about` now flows from that hero into the founder story sections while keeping the existing Mission, Live today, Why private RSS feed, and audience sections below.
+  - `/about` now expands that founder-story block with Smita Busar's founder intro, a branded portrait placeholder, longer life-improvement reflections, and a longer privacy-centered founder perspective while leaving the existing mission/live/product cards in place below it.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.

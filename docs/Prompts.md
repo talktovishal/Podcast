@@ -210,9 +210,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page, while staying visible as page content scrolls.
   - the public marketing shell now uses a fixed-height viewport layout so only the middle content pane scrolls.
   - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
-  - `/about` now leads with `Listen to your reading list and finally catch up on what matters`.
-  - `/about` now adds an additive founder-story block beneath the existing hero so the page can compare product framing with a more personal co-founder perspective without removing the original proof sections.
-  - `/about` now expands that founder-story block with Smita Busar's co-founder intro, a branded portrait placeholder, life-improvement bullets, and a longer privacy-focused co-founder perspective while keeping the existing mission/live/product cards lower on the page.
+  - `/about` now leads with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait.
+  - `/about` keeps the original proof sections while continuing beneath the hero into personal story sections about why the product was built, how it changed the founder's routine, and what matters most as the product grows.
+  - `/about` now expands that founder-story block with Smita Busar's founder intro, a branded portrait placeholder, longer life-improvement reflections, and a privacy-focused founder perspective while keeping the existing mission/live/product cards lower on the page.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.

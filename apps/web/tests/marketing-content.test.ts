@@ -407,6 +407,10 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     true,
   );
+  assert.equal(aboutSource.includes("From the co-founder"), false);
+  assert.equal(aboutSource.includes("Section 1"), false);
+  assert.equal(aboutSource.includes("Section 2"), false);
+  assert.equal(aboutSource.includes("Section 3"), false);
   assert.equal(
     normalizedAboutSource.includes("weekly digest podcast or email summaries"),
     true,
@@ -431,20 +435,13 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Easy feed URL rotation"), true);
   assert.equal(
     normalizedAboutSource.includes(
-      "ArticlePod turns article URLs and text-based PDFs into private podcast episodes you can hear in your favorite podcast apps,",
-    ),
-    true,
-  );
-  assert.equal(normalizedAboutSource.includes("even offline."), true);
-  assert.equal(
-    normalizedAboutSource.includes(
-      "For easy recaps, add a weekly digest podcast or email summaries.",
+      "Growing up in a family of doctors and professors, I developed an early respect for knowledge and lifelong learning.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+      "That curiosity shaped my path from full-stack engineer to AI product thinker.",
     ),
     true,
   );
@@ -460,40 +457,66 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     true,
   );
-  assert.equal(aboutSource.includes("From the co-founder"), true);
-  assert.equal(aboutSource.includes("Founder intro"), true);
-  assert.equal(aboutSource.includes("Smita Busar, Co-founder"), true);
+  assert.equal(
+    aboutSource.includes("Smita Busar, Founder, engineer, and builder"),
+    true,
+  );
   assert.equal(
     aboutSource.includes("/brand/founder-portrait-placeholder.svg"),
     true,
   );
-  assert.equal(aboutSource.includes("Why I built ArticlePod"), true);
-  assert.equal(aboutSource.includes("How it has improved my life"), true);
-  assert.equal(aboutSource.includes("Thoughts as co-founder"), true);
+  assert.equal(aboutSource.includes("1 - Why I build ArticlePod"), true);
+  assert.equal(aboutSource.includes("2 - How it has improved my life"), true);
+  assert.equal(aboutSource.includes("3 - Why I care?"), true);
   assert.equal(
     normalizedAboutSource.includes(
-      "I kept saving thoughtful articles and text-based PDFs, but the backlog always grew faster than the time I had to sit",
+      "Like many people, I subscribed to newsletters, saved articles for later, and left too many tabs open across too many devices.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "The biggest change is that saved reading now has a realistic path back into my week.",
+      "As a mom juggling daily routines and a busy life, I often had to stop reading halfway through an article and rarely made it back.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "I finish more of the articles and PDFs I actually care about instead of letting them pile up unread.",
+      "I built ArticlePod to solve a problem I knew well. It turns article URLs and text-based PDFs into private podcast episodes I can listen to in my favorite podcast apps, even offline.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Private RSS matters because the listening habit works best when it fits into your existing podcast routine",
+      "Within a few weeks, I was finishing more of the articles and PDFs I actually cared about, and my open tabs dropped from more than 50 to fewer than 10 across all my devices.",
     ),
     true,
   );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "Most importantly, I felt more current, more informed, and happier.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "Honestly, I believe better technology leads to better habits. ArticlePod is a live example.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "Above all, I want ArticlePod to feel personal, calm, and genuinely useful long after the novelty fades.",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
+      "The journey continues. For me, this is not just about fitting reading into a busy life.",
+    ),
+    true,
+  );
+  assert.equal(normalizedAboutSource.includes("Stay tuned."), true);
   assert.equal(
     aboutSource.includes("Chrome captures into private podcast episodes"),
     false,
