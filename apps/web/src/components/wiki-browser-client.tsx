@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
@@ -21,13 +21,23 @@ type WikiReferenceLink = {
   updated: string | null;
 };
 
+type WikiSourcePreview = {
+  key: string;
+  title: string;
+  href: string | null;
+  snippet: string;
+};
+
 const GROUP_ORDER = ["root", "concepts", "entities", "outputs"];
+const SOURCE_PREVIEW_LIMIT = 5;
+const SOURCE_SNIPPET_CHAR_LIMIT = 220;
 const UPDATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
   year: "numeric",
 });
 const SUPPORTING_SOURCE_ENTRY_RE = /^\s*(?:[-*+]\s+|\d+\.\s+|\(\d+\)\s+)?\[[^\]]+\]\([^)]+\)/;
+const MARKDOWN_LINK_RE = /\[([^\]]+)\]\(([^)]+)\)/;
 
 function isSourcePage(page: Pick<WikiPageMeta, "path" | "type">): boolean {
   return (
@@ -161,6 +171,21 @@ function resolveRenderedLink(manifest: WikiManifest, href: string): { external: 
   return { external: href.startsWith("http"), href };
 }
 
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    .replace(/[`*_>#~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateSourceSnippet(text: string): string {
+  if (text.length <= SOURCE_SNIPPET_CHAR_LIMIT) {
+    return text;
+  }
+  return `${text.slice(0, SOURCE_SNIPPET_CHAR_LIMIT - 3).trimEnd()}...`;
+}
+
 function splitSupportingNotesIntoEntries(supportingNotes: string[]): string[] {
   const entries: string[] = [];
 
@@ -201,6 +226,35 @@ function splitSupportingNotesIntoEntries(supportingNotes: string[]): string[] {
   return entries.filter(Boolean);
 }
 
+function buildSupportingSourcePreviews(entries: string[]): WikiSourcePreview[] {
+  return entries.map((entry, index) => {
+    const withoutPrefix = entry.replace(/^\s*(?:[-*+]\s+|\d+\.\s+|\(\d+\)\s+)?/, "");
+    const linkMatch = MARKDOWN_LINK_RE.exec(withoutPrefix);
+    const rawTitle = linkMatch?.[1]?.trim() || `Source ${index + 1}`;
+    const href = linkMatch?.[2]?.trim() || null;
+    const afterLink = linkMatch
+      ? withoutPrefix.slice((linkMatch.index || 0) + linkMatch[0].length).replace(/^[-:–—\s]+/, "")
+      : withoutPrefix;
+    const snippet = truncateSourceSnippet(stripInlineMarkdown(afterLink || withoutPrefix.replace(rawTitle, "")));
+
+    return {
+      key: `${index}-${rawTitle}`,
+      title: rawTitle,
+      href,
+      snippet,
+    };
+  });
+}
+
+function buildReferenceSourcePreviews(referenceLinks: WikiReferenceLink[]): WikiSourcePreview[] {
+  return referenceLinks.map((reference) => ({
+    key: reference.key,
+    title: reference.title,
+    href: reference.url,
+    snippet: reference.updated ? `Updated ${formatUpdatedDate(reference.updated)}` : "",
+  }));
+}
+
 function TagPill({ children }: { children: ReactNode }) {
   return (
     <span className="rounded-full border border-[rgba(31,122,90,0.14)] bg-[rgba(31,122,90,0.08)] px-2.5 py-1 text-xs font-medium text-[var(--foreground)]">
@@ -211,6 +265,10 @@ function TagPill({ children }: { children: ReactNode }) {
 
 export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowserClientProps) {
   const [query, setQuery] = useState("");
+  const [showAllSources, setShowAllSources] = useState(false);
+  useEffect(() => {
+    setShowAllSources(false);
+  }, [activePage.path]);
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
   const browsePages = manifest.pages.filter(isReaderFacingPage);
   const filteredPages = browsePages.filter((page) => {
@@ -237,6 +295,13 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
   const renderedArticleMarkdown =
     articleMarkdown || (supportingNotes.length === 0 ? content : activePage.summary || "");
   const supportingEntries = splitSupportingNotesIntoEntries(supportingNotes);
+  const sourcePreviews =
+    supportingEntries.length > 0
+      ? buildSupportingSourcePreviews(supportingEntries)
+      : buildReferenceSourcePreviews(referenceLinks);
+  const visibleSourcePreviews = showAllSources
+    ? sourcePreviews
+    : sourcePreviews.slice(0, SOURCE_PREVIEW_LIMIT);
   const hasExpandableSources = supportingNotes.length > 0 || referenceLinks.length > 0;
 
   return (
@@ -390,74 +455,55 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                 <span className="hidden text-xs text-[var(--muted)] group-open:inline">Hide</span>
               </summary>
 
-              {supportingEntries.length > 0 ? (
-                <ol className="mt-4 space-y-3">
-                  {supportingEntries.map((note, index) => (
-                    <li key={`${activePage.path}-supporting-note-${index}`} className="flex items-start gap-3">
-                      <span className="mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[rgba(31,122,90,0.18)] bg-[rgba(31,122,90,0.08)] text-xs font-semibold text-[rgba(31,122,90,1)]">
-                        {index + 1}
-                      </span>
-                      <article className="min-w-0 flex-1 rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3">
-                        <div className="prose prose-sm max-w-none prose-a:text-[rgba(31,122,90,1)] prose-p:text-[var(--foreground)]">
-                          <ReactMarkdown
-                            rehypePlugins={[rehypeSanitize]}
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              a: ({ href, children, ...props }) => {
-                                const targetHref = href || "";
-                                const resolved = resolveRenderedLink(manifest, targetHref);
-
-                                if (!resolved.external && resolved.href.startsWith("/app/wiki")) {
-                                  return (
-                                    <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
-                                      {children}
-                                    </Link>
-                                  );
-                                }
-
-                                return (
-                                  <a
-                                    {...props}
-                                    className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
-                                    href={resolved.href}
-                                    rel="noreferrer"
-                                    target={resolved.href.startsWith("http") ? "_blank" : undefined}
-                                  >
-                                    {children}
-                                  </a>
-                                );
-                              }
-                            }}
+              <ol className="mt-3 list-decimal space-y-2 pl-6 marker:font-medium marker:text-[rgba(31,122,90,1)]">
+                {visibleSourcePreviews.map((source) => {
+                  const resolved = source.href ? resolveRenderedLink(manifest, source.href) : null;
+                  const previewBody = (
+                    <>
+                      {resolved ? (
+                        resolved.external ? (
+                          <a
+                            className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
+                            href={resolved.href}
+                            rel="noreferrer"
+                            target={resolved.href.startsWith("http") ? "_blank" : undefined}
                           >
-                            {note}
-                          </ReactMarkdown>
-                        </div>
-                      </article>
+                            {source.title}
+                          </a>
+                        ) : (
+                          <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
+                            {source.title}
+                          </Link>
+                        )
+                      ) : (
+                        <span className="font-medium text-[var(--foreground)]">{source.title}</span>
+                      )}
+                      {source.snippet ? (
+                        <p className="mt-0.5 text-sm leading-6 text-[var(--muted)]">{source.snippet}</p>
+                      ) : null}
+                    </>
+                  );
+
+                  return (
+                    <li
+                      key={source.key}
+                      className="border-b border-[rgba(31,122,90,0.12)] pb-2 last:border-b-0 last:pb-0"
+                    >
+                      {previewBody}
                     </li>
-                  ))}
-                </ol>
-              ) : (
-                <ol className="mt-4 space-y-3">
-                  {referenceLinks.map((reference, index) => (
-                    <li key={reference.key} className="flex items-start gap-3">
-                      <span className="mt-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[rgba(31,122,90,0.18)] bg-[rgba(31,122,90,0.08)] text-xs font-semibold text-[rgba(31,122,90,1)]">
-                        {index + 1}
-                      </span>
-                      <a
-                        className="min-w-0 flex-1 rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3 transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
-                        href={reference.url}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        <div className="text-sm font-medium text-[var(--foreground)]">{reference.title}</div>
-                        {reference.updated ? (
-                          <div className="mt-1 text-xs text-[var(--muted)]">Updated {formatUpdatedDate(reference.updated)}</div>
-                        ) : null}
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-              )}
+                  );
+                })}
+              </ol>
+
+              {sourcePreviews.length > SOURCE_PREVIEW_LIMIT ? (
+                <button
+                  className="mt-3 inline-flex text-sm font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
+                  onClick={() => setShowAllSources((current) => !current)}
+                  type="button"
+                >
+                  {showAllSources ? "Show fewer" : `Show all ${sourcePreviews.length} sources`}
+                </button>
+              ) : null}
             </details>
           </section>
         ) : null}

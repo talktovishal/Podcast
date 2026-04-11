@@ -137,8 +137,10 @@ test("wiki browser keeps supporting source notes behind a collapsed highlight se
   assert.equal(source.includes("<details"), true);
   assert.equal(source.includes("group-open:hidden"), true);
   assert.equal(source.includes("splitSupportingNotesIntoEntries"), true);
-  assert.equal(source.includes("index + 1"), true);
-  assert.equal(source.includes("rounded-full border"), true);
+  assert.equal(source.includes("SOURCE_PREVIEW_LIMIT = 5"), true);
+  assert.equal(source.includes("list-decimal"), true);
+  assert.equal(source.includes("Show all ${sourcePreviews.length} sources"), true);
+  assert.equal(source.includes("inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"), false);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {
