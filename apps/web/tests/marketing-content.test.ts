@@ -411,6 +411,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Section 1"), false);
   assert.equal(aboutSource.includes("Section 2"), false);
   assert.equal(aboutSource.includes("Section 3"), false);
+  assert.equal(aboutSource.includes("Mission"), false);
   assert.equal(
     normalizedAboutSource.includes("weekly digest podcast or email summaries"),
     true,
@@ -465,9 +466,12 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     aboutSource.includes("/brand/founder-portrait-placeholder.svg"),
     true,
   );
-  assert.equal(aboutSource.includes("1 - Why I build ArticlePod"), true);
-  assert.equal(aboutSource.includes("2 - How it has improved my life"), true);
-  assert.equal(aboutSource.includes("3 - Why I care?"), true);
+  assert.equal(aboutSource.includes("Why I build ArticlePod"), true);
+  assert.equal(aboutSource.includes("How it has improved my life"), true);
+  assert.equal(aboutSource.includes("Why I care?"), true);
+  assert.equal(aboutSource.includes("1 - Why I build ArticlePod"), false);
+  assert.equal(aboutSource.includes("2 - How it has improved my life"), false);
+  assert.equal(aboutSource.includes("3 - Why I care?"), false);
   assert.equal(
     normalizedAboutSource.includes(
       "Like many people, I subscribed to newsletters, saved articles for later, and left too many tabs open across too many devices.",
@@ -512,6 +516,12 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   );
   assert.equal(
     normalizedAboutSource.includes(
+      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+    ),
+    true,
+  );
+  assert.equal(
+    normalizedAboutSource.includes(
       "The journey continues. For me, this is not just about fitting reading into a busy life.",
     ),
     true,
@@ -533,6 +543,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     false,
   );
+  assert.equal(aboutSource.includes("Who ArticlePod is for"), true);
   assert.equal(
     aboutSource.includes(
       "Your listening queue works in standard podcast apps, stays personal by default, and can be rotated if a feed URL ever",

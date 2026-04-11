@@ -76,7 +76,7 @@ export default function AboutPage() {
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.94),rgba(239,247,244,0.94))] p-5 sm:p-6">
           <div className="max-w-3xl space-y-3">
             <h2 className="text-2xl font-semibold leading-tight">
-              1 - Why I build ArticlePod
+              Why I build ArticlePod
             </h2>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Today, innovation is moving quickly across every field, especially
@@ -94,7 +94,7 @@ export default function AboutPage() {
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 shadow-[0_14px_34px_rgba(24,38,32,0.05)] sm:p-6">
           <div className="max-w-3xl space-y-4">
             <h2 className="text-2xl font-semibold leading-tight">
-              2 - How it has improved my life
+              How it has improved my life
             </h2>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               I built ArticlePod to solve a problem I knew well. It turns
@@ -127,7 +127,7 @@ export default function AboutPage() {
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[rgba(247,251,250,0.92)] p-5 sm:p-6">
           <div className="max-w-3xl space-y-4">
             <h2 className="text-2xl font-semibold leading-tight">
-              3 - Why I care?
+              Why I care?
             </h2>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Above all, I want ArticlePod to feel personal, calm, and genuinely
@@ -137,6 +137,10 @@ export default function AboutPage() {
               want to keep building this for people who save thoughtful reading,
               want to learn deeply, and value a product that respects both their
               attention and their privacy.
+            </p>
+            <p className="inline-flex max-w-fit rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[#0f5b42]">
+              Make your reading list effortless—listen anywhere, anytime, and
+              retain more
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               The journey continues. For me, this is not just about fitting
@@ -149,13 +153,6 @@ export default function AboutPage() {
       </section>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        <article className="card p-5">
-          <h2 className="text-lg font-semibold">Mission</h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Make your reading list effortless—listen anywhere, anytime, and
-            retain more
-          </p>
-        </article>
         <article className="card p-5">
           <div className="flex items-center gap-2">
             <span
@@ -235,16 +232,15 @@ export default function AboutPage() {
             </li>
           </ul>
         </article>
-      </section>
-
-      <section className="mt-8 card p-5">
-        <h2 className="text-lg font-semibold">Who ArticlePod is for</h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-          The product is designed for people who love to read and save
-          thoughtful articles, but need a more practical way to keep track of
-          them. It enhances reading and learning by making the most valuable
-          pieces easier to organize, finish, retain, and revisit.
-        </p>
+        <article className="card p-5">
+          <h2 className="text-lg font-semibold">Who ArticlePod is for</h2>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+            The product is designed for people who love to read and save
+            thoughtful articles, but need a more practical way to keep track of
+            them. It enhances reading and learning by making the most valuable
+            pieces easier to organize, finish, retain, and revisit.
+          </p>
+        </article>
       </section>
     </>
   );
