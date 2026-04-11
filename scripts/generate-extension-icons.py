@@ -105,18 +105,15 @@ def _expected_outputs() -> list[Path]:
     return outputs
 
 
-def _reuse_existing_outputs_if_fresh() -> bool:
+def _reuse_existing_outputs_if_present() -> bool:
     if _use_sips():
         return False
 
-    source_mtime = SOURCE_ICON.stat().st_mtime
-    stale_or_missing = [
-        path for path in _expected_outputs() if not path.exists() or path.stat().st_mtime < source_mtime
-    ]
-    if stale_or_missing:
-        missing_text = "\n".join(f"- {path}" for path in stale_or_missing)
+    missing_outputs = [path for path in _expected_outputs() if not path.exists()]
+    if missing_outputs:
+        missing_text = "\n".join(f"- {path}" for path in missing_outputs)
         raise SystemExit(
-            "sips is unavailable and generated icon assets are missing or stale:\n"
+            "sips is unavailable and generated icon assets are missing:\n"
             f"{missing_text}\n"
             "Run scripts/generate-extension-icons.py on a machine with sips and commit the refreshed outputs."
         )
@@ -133,7 +130,7 @@ def main() -> None:
     WEB_APP_DIR.mkdir(parents=True, exist_ok=True)
     WEB_BRAND_DIR.mkdir(parents=True, exist_ok=True)
 
-    if _reuse_existing_outputs_if_fresh():
+    if _reuse_existing_outputs_if_present():
         return
 
     for size in EXT_SIZES:
