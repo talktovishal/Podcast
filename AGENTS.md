@@ -189,7 +189,10 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
 - Avoid scope creep.
 - Primary-checkout edits (default):
   - Edit from the primary checkout by default.
-  - Commit and push directly from the active branch (`main` unless the user requests a feature branch).
+  - Commit locally by default.
+  - Do not push by default.
+  - Any push to `main` must be an explicit user request.
+  - Prefer a short-lived feature branch or worktree when a change should be shared remotely before merge.
   - Worktrees are optional and should only be used when explicitly requested by the user.
   - If a worktree/branch setup is attempted but blocked by environment or sandbox restrictions, continue in the primary checkout and note the fallback in the final update.
 - Task-level execution directives (user prompt hints):
@@ -206,7 +209,8 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
   - Recommended prompt snippet:
     - `WORKTREE FLOW: fix-media-auth`
     - `WORKTREE FALLBACK OK` (optional)
-- After validation passes, commit changes and push to `origin/<current-branch>` before marking work as complete (unless the user explicitly says not to push).
+- After validation passes, commit changes locally before marking work as complete unless the user explicitly asks for a push.
+- When a push is requested, prefer pushing a non-`main` branch first and only push `main` when the user explicitly confirms that intent.
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):
   - If runtime behavior, API contracts, milestones, or architecture changes, update these in the same change set:
@@ -270,8 +274,9 @@ Otherwise run:
 3) Implement the smallest change that satisfies the requirement.
 4) Run tests/lint; fix failures.
 5) Run Podcast compatibility gates.
-6) Commit and push validated changes to `origin/<current-branch>`.
-7) Provide a short “what changed + how to verify” note.
+6) Commit validated changes locally.
+7) Push only when explicitly requested; treat pushes to `main` as an explicit confirmation step.
+8) Provide a short “what changed + how to verify” note.
 
 ---
 

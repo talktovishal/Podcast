@@ -78,9 +78,11 @@ Recommended daily flow:
 
 1. Create a short-lived branch
 2. Run `pnpm preflight` locally
-3. Open a PR and wait for `CI`
-4. Merge only after `validate-simple` is green
-5. Use `full-ci` or manual dispatch when you want parity before merge
+3. Commit locally
+4. Push only when you explicitly want remote CI or a PR
+5. Open a PR and wait for `CI`
+6. Merge only after `validate-simple` is green
+7. Use `full-ci` or manual dispatch when you want parity before merge
 
 ## Deployment Process
 

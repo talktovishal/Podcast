@@ -42,8 +42,9 @@ This checklist is mandatory for every change.
 
 ## Git requirements (default)
 - Commit all validated changes.
-- Push to `origin/main`.
-- Do not leave local-only work unless explicitly requested.
+- Keep commits local by default.
+- Do not push unless explicitly requested by the user.
+- Treat pushes to `origin/main` as a separate explicit confirmation step.
 - Never commit runtime logs (`.runtime/logs/` and diagnostics artifacts).
 
 ## Response requirements
