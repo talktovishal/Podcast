@@ -187,7 +187,6 @@ jobs:
             --user "$TARGET_USER"
             --ssh-key "$TARGET_SSH_KEY"
             --render-env
-            --seed-mode always
             --configure-ingress
             --canonical-host "$CANONICAL_HOST"
             --host-aliases "$APP_DOMAIN_ALIASES"

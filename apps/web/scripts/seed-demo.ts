@@ -11,7 +11,7 @@ import { env } from "../src/lib/env";
 import { ensureDataDirs } from "../src/lib/fs";
 import { createPrimaryUser, findPrimaryUserByEmail, updatePrimaryUser } from "../src/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "../src/lib/metadata-primary-store";
-import { prisma } from "../src/lib/prisma";
+import { hasPrismaDatabase, prisma } from "../src/lib/prisma";
 import { getArtifactStorage, normalizeStorageKey } from "../src/lib/storage";
 import { ensureAdminUser } from "../src/lib/user-bootstrap";
 
@@ -343,5 +343,7 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    if (hasPrismaDatabase()) {
+      await prisma.$disconnect();
+    }
   });

@@ -44,6 +44,14 @@ test("seed script can provision a dedicated Chrome Web Store reviewer without lo
   assert.doesNotMatch(source, /Feed URL:/);
 });
 
+test("seed script skips prisma disconnect when DATABASE_URL is unset", () => {
+  const seedScriptPath = resolve(process.cwd(), "scripts/seed-demo.ts");
+  const source = readFileSync(seedScriptPath, "utf8");
+
+  assert.match(source, /import \{ hasPrismaDatabase, prisma \} from "\.\.\/src\/lib\/prisma";/);
+  assert.match(source, /if \(hasPrismaDatabase\(\)\) \{\n\s+await prisma\.\$disconnect\(\);\n\s+\}/m);
+});
+
 test("parity compose gives the web healthcheck a startup grace period", () => {
   const composePath = resolve(process.cwd(), "../..", "docker-compose.parity.yml");
   const source = readFileSync(composePath, "utf8");
@@ -138,6 +146,7 @@ test("azure deploy forwards optional reviewer secrets into the VM env render", (
 
   assert.match(workflowSource, /WEBSTORE_REVIEWER_EMAIL: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_EMAIL \}\}/);
   assert.match(workflowSource, /WEBSTORE_REVIEWER_PASSWORD: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_PASSWORD \}\}/);
+  assert.doesNotMatch(workflowSource, /--seed-mode always/);
   assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_EMAIL=\$\{WEBSTORE_REVIEWER_EMAIL:-chrome-reviewer@articlepod\.com\}$/m);
   assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_PASSWORD=\$\{WEBSTORE_REVIEWER_PASSWORD:-\}$/m);
 });
