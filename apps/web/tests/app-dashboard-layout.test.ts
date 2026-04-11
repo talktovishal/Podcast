@@ -124,7 +124,7 @@ test("wiki route redirects back to the workspace when no wiki is published", () 
   assert.equal(source.includes("No personal wiki has been published"), false);
 });
 
-test("wiki browser keeps supporting source notes behind a collapsed highlight section", () => {
+test("wiki browser keeps the wiki layout compact on both the rail and article body", () => {
   const source = readFileSync(
     new URL("../src/components/wiki-browser-client.tsx", import.meta.url),
     "utf8",
@@ -132,15 +132,20 @@ test("wiki browser keeps supporting source notes behind a collapsed highlight se
 
   assert.equal(source.includes("splitWikiMarkdownForDisplay"), true);
   assert.equal(source.includes(">Sources<"), true);
-  assert.equal(source.includes("Supporting notes are collapsed by default"), false);
-  assert.equal(source.includes("Showing {visibleSupportingNotes.length} of {supportingNotes.length}"), false);
-  assert.equal(source.includes("<details"), true);
-  assert.equal(source.includes("group-open:hidden"), true);
+  assert.equal(source.includes("<details"), false);
+  assert.equal(source.includes("group-open:hidden"), false);
   assert.equal(source.includes("splitSupportingNotesIntoEntries"), true);
   assert.equal(source.includes("SOURCE_PREVIEW_LIMIT = 5"), true);
   assert.equal(source.includes("list-decimal"), true);
   assert.equal(source.includes("Show all ${sourcePreviews.length} sources"), true);
   assert.equal(source.includes("inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"), false);
+  assert.equal(source.includes("Search by page title, summary, or topic."), false);
+  assert.equal(source.includes("reader-friendly pages"), false);
+  assert.equal(source.includes("{browsePages.length} pages"), true);
+  assert.equal(source.includes("rounded-xl px-2.5 py-2 transition"), true);
+  assert.equal(source.includes("hover:bg-[rgba(247,251,250,0.9)]"), true);
+  assert.equal(source.includes("WebkitLineClamp: 2"), true);
+  assert.equal(source.includes("border-t border-[rgba(31,122,90,0.12)] pt-3"), true);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {

@@ -31,6 +31,12 @@ type WikiSourcePreview = {
 const GROUP_ORDER = ["root", "concepts", "entities", "outputs"];
 const SOURCE_PREVIEW_LIMIT = 5;
 const SOURCE_SNIPPET_CHAR_LIMIT = 220;
+const CLAMPED_PREVIEW_STYLE = {
+  display: "-webkit-box",
+  overflow: "hidden",
+  WebkitBoxOrient: "vertical" as const,
+  WebkitLineClamp: 2,
+};
 const UPDATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
@@ -302,80 +308,80 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
   const visibleSourcePreviews = showAllSources
     ? sourcePreviews
     : sourcePreviews.slice(0, SOURCE_PREVIEW_LIMIT);
-  const hasExpandableSources = supportingNotes.length > 0 || referenceLinks.length > 0;
+  const hasSources = supportingNotes.length > 0 || referenceLinks.length > 0;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
-      <aside className="space-y-4">
-        <section className="card p-4 sm:p-5">
+    <div className="grid gap-5 lg:grid-cols-[minmax(16rem,19rem)_minmax(0,1fr)]">
+      <aside>
+        <section className="card p-3 sm:p-3.5">
           <div className="space-y-3">
-            <div>
-              <h2 className="font-semibold text-lg">Explore wiki</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Search by page title, summary, or topic.
-              </p>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold text-lg">Explore wiki</h2>
+                <span className="rounded-full border border-[rgba(31,122,90,0.14)] bg-[rgba(31,122,90,0.08)] px-2 py-0.5 text-[11px] font-medium text-[var(--muted)]">
+                  {browsePages.length} pages
+                </span>
+              </div>
+              <input
+                className="w-full rounded-xl border border-[rgba(31,122,90,0.18)] bg-white px-3 py-2 text-sm outline-none transition focus:border-[rgba(31,122,90,0.42)] focus:ring-2 focus:ring-[rgba(31,122,90,0.12)]"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search this wiki"
+                type="search"
+                value={query}
+              />
             </div>
 
-            <input
-              className="w-full rounded-2xl border border-[rgba(31,122,90,0.18)] bg-white px-3 py-2 text-sm outline-none transition focus:border-[rgba(31,122,90,0.42)] focus:ring-2 focus:ring-[rgba(31,122,90,0.12)]"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search this wiki"
-              type="search"
-              value={query}
-            />
-
-            <p className="text-xs text-[var(--muted)]">
-              {browsePages.length} reader-friendly pages
-            </p>
-          </div>
-        </section>
-
-        <section className="card p-4 sm:p-5">
-          <div className="space-y-4">
-            {groups.size === 0 ? (
-              <p className="text-sm text-[var(--muted)]">No wiki pages match the current filter.</p>
-            ) : (
-              [...groups.entries()]
-                .sort(([left], [right]) => {
-                  const groupDiff = groupSortValue(left) - groupSortValue(right);
-                  return groupDiff !== 0 ? groupDiff : left.localeCompare(right);
-                })
-                .map(([groupKey, pages]) => (
-                  <div key={groupKey} className="space-y-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-                      {groupLabel(groupKey)}
-                    </h3>
-                    <div className="space-y-1.5">
-                      {pages
-                        .sort((left, right) => pageSortValue(left).localeCompare(pageSortValue(right)))
-                        .map((page) => {
-                          const active = page.path === activePage.path;
-                          return (
-                            <Link
-                              key={page.path}
-                              className={`block rounded-2xl border px-3 py-3 transition ${
-                                active
-                                  ? "border-[rgba(31,122,90,0.24)] bg-[rgba(31,122,90,0.08)]"
-                                  : "border-transparent bg-[rgba(247,251,250,0.8)] hover:border-[rgba(31,122,90,0.14)] hover:bg-white"
-                              }`}
-                              href={page.routePath}
-                            >
-                              <div className="text-sm font-medium text-[var(--foreground)]">{page.title}</div>
-                              {page.summary ? (
-                                <div className="mt-1 text-xs leading-5 text-[var(--muted)]">{page.summary}</div>
-                              ) : null}
-                            </Link>
-                          );
-                        })}
+            <div className="space-y-2.5">
+              {groups.size === 0 ? (
+                <p className="text-sm text-[var(--muted)]">No wiki pages match the current filter.</p>
+              ) : (
+                [...groups.entries()]
+                  .sort(([left], [right]) => {
+                    const groupDiff = groupSortValue(left) - groupSortValue(right);
+                    return groupDiff !== 0 ? groupDiff : left.localeCompare(right);
+                  })
+                  .map(([groupKey, pages]) => (
+                    <div key={groupKey} className="space-y-1.5">
+                      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
+                        {groupLabel(groupKey)}
+                      </h3>
+                      <div className="space-y-0.5">
+                        {pages
+                          .sort((left, right) => pageSortValue(left).localeCompare(pageSortValue(right)))
+                          .map((page) => {
+                            const active = page.path === activePage.path;
+                            return (
+                              <Link
+                                key={page.path}
+                                className={`block rounded-xl px-2.5 py-2 transition ${
+                                  active
+                                    ? "bg-[rgba(31,122,90,0.08)] ring-1 ring-[rgba(31,122,90,0.22)]"
+                                    : "bg-transparent hover:bg-[rgba(247,251,250,0.9)]"
+                                }`}
+                                href={page.routePath}
+                              >
+                                <div className="text-sm font-medium text-[var(--foreground)]">{page.title}</div>
+                                {page.summary ? (
+                                  <div
+                                    className="mt-0.5 text-xs leading-5 text-[var(--muted)]"
+                                    style={CLAMPED_PREVIEW_STYLE}
+                                  >
+                                    {page.summary}
+                                  </div>
+                                ) : null}
+                              </Link>
+                            );
+                          })}
+                      </div>
                     </div>
-                  </div>
-                ))
-            )}
+                  ))
+              )}
+            </div>
           </div>
         </section>
       </aside>
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         <section className="card p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-3">
@@ -409,7 +415,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
           </div>
         </section>
 
-        <section className="card p-4 sm:p-6">
+        <section className="card p-4 sm:p-5">
           <article className="prose prose-sm max-w-none prose-a:text-[rgba(31,122,90,1)] prose-headings:text-[var(--foreground)] prose-p:text-[var(--foreground)] sm:prose-base">
             <ReactMarkdown
               rehypePlugins={[rehypeSanitize]}
@@ -444,18 +450,10 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
               {renderedArticleMarkdown}
             </ReactMarkdown>
           </article>
-        </section>
-
-        {hasExpandableSources ? (
-          <section className="card p-4 sm:p-5">
-            <details className="group">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3 text-left transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white">
-                <span className="font-semibold text-lg text-[var(--foreground)]">Sources</span>
-                <span className="text-xs text-[var(--muted)] group-open:hidden">Show</span>
-                <span className="hidden text-xs text-[var(--muted)] group-open:inline">Hide</span>
-              </summary>
-
-              <ol className="mt-3 list-decimal space-y-2 pl-6 marker:font-medium marker:text-[rgba(31,122,90,1)]">
+          {hasSources ? (
+            <div className="mt-5 border-t border-[rgba(31,122,90,0.12)] pt-3">
+              <h2 className="text-base font-semibold text-[var(--foreground)]">Sources</h2>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-6 marker:font-medium marker:text-[rgba(31,122,90,1)]">
                 {visibleSourcePreviews.map((source) => {
                   const resolved = source.href ? resolveRenderedLink(manifest, source.href) : null;
                   const previewBody = (
@@ -479,7 +477,12 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                         <span className="font-medium text-[var(--foreground)]">{source.title}</span>
                       )}
                       {source.snippet ? (
-                        <p className="mt-0.5 text-sm leading-6 text-[var(--muted)]">{source.snippet}</p>
+                        <p
+                          className="mt-0.5 text-sm leading-5 text-[var(--muted)]"
+                          style={CLAMPED_PREVIEW_STYLE}
+                        >
+                          {source.snippet}
+                        </p>
                       ) : null}
                     </>
                   );
@@ -487,7 +490,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                   return (
                     <li
                       key={source.key}
-                      className="border-b border-[rgba(31,122,90,0.12)] pb-2 last:border-b-0 last:pb-0"
+                      className="border-b border-[rgba(31,122,90,0.12)] pb-1.5 last:border-b-0 last:pb-0"
                     >
                       {previewBody}
                     </li>
@@ -504,22 +507,29 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                   {showAllSources ? "Show fewer" : `Show all ${sourcePreviews.length} sources`}
                 </button>
               ) : null}
-            </details>
-          </section>
-        ) : null}
+            </div>
+          ) : null}
+        </section>
 
         {activeBacklinks.length > 0 ? (
           <section className="card p-4 sm:p-5">
             <h2 className="font-semibold text-lg">Related pages</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
               {activeBacklinks.map((page) => (
                 <Link
                   key={page.path}
-                  className="rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3 transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
+                  className="rounded-xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-3 py-2.5 transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
                   href={page.routePath}
                 >
                   <div className="text-sm font-medium">{page.title}</div>
-                  {page.summary ? <div className="mt-1 text-sm text-[var(--muted)]">{page.summary}</div> : null}
+                  {page.summary ? (
+                    <div
+                      className="mt-0.5 text-xs leading-5 text-[var(--muted)]"
+                      style={CLAMPED_PREVIEW_STYLE}
+                    >
+                      {page.summary}
+                    </div>
+                  ) : null}
                 </Link>
               ))}
             </div>

@@ -185,8 +185,9 @@ Summaries APIs:
 Available in `/app/wiki` after an operator publishes a wiki for that user:
 
 - reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
+- denser one-card browse rail with clamped page summaries so the left column behaves more like a compact table of contents than a stack of cards
 - markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render
-- concept/entity pages keep the main synthesis in the primary article and move long source-note dumps behind a simple expandable `Sources` section that opens to five compact previews with a `Show all` control
+- concept/entity pages keep the main synthesis in the primary article and place a compact inline `Sources` list underneath it, showing five short previews by default with a `Show all` control for the rest
 - client-side title, summary, and tag filter
 - backlinks between reader-facing pages and reference links back to original source URLs
 - `/app/wiki` only appears in the signed-in nav after a manifest exists for that user; direct visits redirect back to `/app` when no wiki has been published yet
