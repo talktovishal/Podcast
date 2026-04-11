@@ -185,6 +185,41 @@ test.describe("Health & Public Pages", () => {
     expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
   });
 
+  test("public marketing header and footer stay pinned during page scroll", async ({
+    page,
+  }) => {
+    await page.goto("/about");
+    await page.waitForLoadState("networkidle");
+
+    const header = page.getByRole("banner");
+    const footer = page.getByRole("contentinfo", {
+      name: "Footer call to action",
+    });
+    const before = await Promise.all([
+      header.boundingBox(),
+      footer.boundingBox(),
+    ]);
+
+    await page.evaluate(() => window.scrollTo(0, 800));
+    await page.waitForTimeout(150);
+
+    const after = await Promise.all([
+      header.boundingBox(),
+      footer.boundingBox(),
+    ]);
+
+    const [headerBefore, footerBefore] = before;
+    const [headerAfter, footerAfter] = after;
+
+    expect(headerBefore).not.toBeNull();
+    expect(footerBefore).not.toBeNull();
+    expect(headerAfter).not.toBeNull();
+    expect(footerAfter).not.toBeNull();
+
+    expect(Math.abs((headerAfter?.y ?? 0) - (headerBefore?.y ?? 0))).toBeLessThan(4);
+    expect(Math.abs((footerAfter?.y ?? 0) - (footerBefore?.y ?? 0))).toBeLessThan(4);
+  });
+
   test("mobile marketing chrome keeps nav items and footer actions on single rows", async ({
     page,
   }) => {

@@ -5,14 +5,14 @@ import { MarketingHeader } from "@/components/marketing-header";
 export default function NotFound() {
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <div className="sticky top-0 z-20 shrink-0 border-b border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.94)] backdrop-blur">
+      <div className="fixed inset-x-0 top-0 z-30 shrink-0 border-b border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.94)] backdrop-blur">
         <div className="container-shell py-2 sm:py-4">
           <MarketingHeader />
         </div>
       </div>
 
       <main className="flex-1">
-        <div className="container-shell py-6 sm:py-10">
+        <div className="container-shell pb-20 pt-24 sm:pb-24 sm:pt-24">
           <section className="card max-w-3xl border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-6 sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               404
@@ -42,7 +42,7 @@ export default function NotFound() {
         </div>
       </main>
 
-      <div className="shrink-0 border-t border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.96)]">
+      <div className="fixed inset-x-0 bottom-0 z-30 shrink-0 border-t border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.96)] backdrop-blur">
         <div className="container-shell py-2 sm:py-4">
           <MarketingCta />
         </div>

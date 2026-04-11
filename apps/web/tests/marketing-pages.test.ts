@@ -24,6 +24,10 @@ test("marketing layout owns the shared header and footer CTA", () => {
     new URL(`${marketingAppRoot}/layout.tsx`, import.meta.url),
     "utf8",
   );
+  const notFoundSource = readFileSync(
+    new URL("../src/app/not-found.tsx", import.meta.url),
+    "utf8",
+  );
   const ctaSource = readFileSync(
     new URL("../src/components/marketing-cta.tsx", import.meta.url),
     "utf8",
@@ -32,12 +36,15 @@ test("marketing layout owns the shared header and footer CTA", () => {
   assert.equal(layoutSource.includes("MarketingCta"), true);
   assert.equal(layoutSource.includes("min-h-screen"), true);
   assert.equal(layoutSource.includes("w-full"), true);
-  assert.equal(layoutSource.includes("sticky top-0"), true);
+  assert.equal(layoutSource.includes("fixed inset-x-0 top-0 z-30"), true);
+  assert.equal(layoutSource.includes("fixed inset-x-0 bottom-0 z-30"), true);
+  assert.equal(layoutSource.includes("pb-20 pt-24 sm:pb-24 sm:pt-24"), true);
   assert.equal(layoutSource.includes("overflow-hidden"), false);
   assert.equal(layoutSource.includes("overflow-y-auto"), false);
   assert.equal(layoutSource.includes("overscroll-y-contain"), false);
   assert.equal(layoutSource.includes("py-2 sm:py-4"), true);
-  assert.equal(layoutSource.includes("py-4 sm:py-8"), true);
+  assert.equal(notFoundSource.includes("fixed inset-x-0 top-0 z-30"), true);
+  assert.equal(notFoundSource.includes("fixed inset-x-0 bottom-0 z-30"), true);
   assert.equal(ctaSource.includes("Footer call to action"), true);
   assert.equal(ctaSource.includes("grid grid-cols-2 items-center gap-2"), true);
   assert.equal(ctaSource.includes("sm:flex sm:flex-wrap sm:gap-3"), true);
@@ -52,6 +59,7 @@ test("site-wide not-found page uses shared marketing chrome and clear recovery l
 
   assert.equal(source.includes("MarketingHeader"), true);
   assert.equal(source.includes("MarketingCta"), true);
+  assert.equal(source.includes("pb-20 pt-24 sm:pb-24 sm:pt-24"), true);
   assert.equal(source.includes("Page not found"), true);
   assert.equal(source.includes('href="/"'), true);
   assert.equal(source.includes('href="/pricing"'), true);

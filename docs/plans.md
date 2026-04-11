@@ -130,6 +130,9 @@
 - Resources Chrome walkthrough balance pass (`M118`) is implemented:
   - `/resources` now top-aligns the Chrome extension section on desktop so the copy and media start together instead of leaving a large vertical void.
   - the extension walkthrough GIF now uses one tighter presentation card with a smaller desktop max width, reducing extra white space and the double-frame feel.
+- Public marketing chrome persistence restore (`M119`) is implemented:
+  - public marketing pages now keep the shared header pinned to the top of the viewport and the shared footer CTA pinned to the bottom again while preserving standard browser page scrolling.
+  - the public shell now adds matching top and bottom content insets so the fixed chrome does not cover page content.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -265,6 +268,7 @@
 | Persistent public marketing header + footer layout                                             | M109                                             |
 | Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
 | Resources Chrome walkthrough balance pass                                                      | M118                                             |
+| Public marketing chrome persistence restore                                                    | M119                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -429,6 +433,7 @@ Milestone metadata contract:
 | M116      | Done        | 2026-04-26    | 2026-04-10   | local validation + compact mobile marketing/workspace header pass (2026-04-10)                          |
 | M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
 | M118      | Done        | 2026-04-29    | 2026-04-11   | local validation + compact resources Chrome walkthrough layout pass (2026-04-11)                        |
+| M119      | Done        | 2026-04-30    | 2026-04-11   | local validation + restored persistent public header/footer chrome pass (2026-04-11)                    |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3855,6 +3860,35 @@ Milestone metadata contract:
 - Verification commands:
   - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts tests/app-dashboard-layout.test.ts`
   - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "Chrome extension walkthrough aligned and compact" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M119 - Public Marketing Chrome Persistence Restore
+
+- status: Done
+- target_finish: 2026-04-30
+- completed_on: 2026-04-11
+- evidence: local validation + restored persistent public header/footer chrome pass (2026-04-11)
+- Scope:
+  - Restore the shared public marketing header and footer CTA so they stay visible while visitors scroll long marketing pages.
+  - Preserve standard browser page scrolling and add enough content inset so the fixed chrome does not overlap the first or last content blocks.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/not-found.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing pages keep the shared header pinned to the top of the viewport during scroll.
+  - Public marketing pages keep the shared footer CTA pinned to the bottom of the viewport during scroll.
+  - Content remains readable and is not covered by the fixed shared chrome.
+  - Standard browser page scrolling, 404 recovery links, and mobile one-row CTA/menu behavior remain intact.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "header and footer stay pinned during page scroll|persistent footer CTA on desktop" --no-deps`
   - `corepack pnpm --filter @articlepod/web run build`
 
 ---

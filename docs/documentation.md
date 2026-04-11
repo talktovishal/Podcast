@@ -359,7 +359,7 @@ The root page now acts as the public homepage surface: it keeps the auth card pr
 
 The secondary public marketing pages (`/product`, `/pricing`, `/resources`, `/faq`, `/about`) now follow the same chrome principle: keep the shared top navigation plus the bottom CTA, but do not repeat the site links or ArticlePod summary again in a footer.
 
-Those public marketing pages now use standard browser page scrolling with a sticky shared header, so visitors only deal with the browser scrollbar instead of a nested content pane.
+Those public marketing pages now use standard browser page scrolling while keeping the shared header pinned at the top of the viewport and the shared footer CTA pinned at the bottom, so visitors only deal with the browser scrollbar instead of a nested content pane and still keep the public chrome in view.
 
 Unknown public URLs now render a branded `Page not found` screen with links back to `/` and `/pricing` instead of silently redirecting to the homepage.
 
