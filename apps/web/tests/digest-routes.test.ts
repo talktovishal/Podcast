@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createSecretToken } from "@articlepod/core";
+import { buildUserDigestSummaryStorageKey, buildUserSummaryRunStorageKey, createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { POST as rotateDigestFeedTokenPost } from "../src/app/api/digest-feed-token/rotate/route";
 import { GET as digestRunsGet } from "../src/app/api/digest/runs/route";
@@ -219,7 +219,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
         status: "SUCCEEDED",
         targetLengthMinutes: 15,
         sourceItemCount: 3,
-        summaryStorageKey: `digests/${user.id}/weekly/2026-02-27/summary.md`,
+        summaryStorageKey: buildUserDigestSummaryStorageKey(user.id, "WEEKLY", "2026-02-27"),
         summaryBytes: 1200,
         emailEnabled: true,
         emailStatus: "STUB_STORED",
@@ -441,7 +441,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
         status: "SUCCEEDED",
         targetLengthMinutes: 15,
         sourceItemCount: 1,
-        summaryStorageKey: `digests/${user.id}/weekly/${uniq}/summary.md`,
+        summaryStorageKey: buildUserDigestSummaryStorageKey(user.id, "WEEKLY", uniq),
         summaryBytes: 120,
         emailEnabled: false,
         emailStatus: "SKIPPED",
@@ -513,7 +513,7 @@ test("digest rss excludes manual summary episodes now that summary podcasts publ
         selectedItemCount: 2,
         podcastEnabled: true,
         podcastStatus: "SUCCEEDED",
-        summaryStorageKey: `summaries/${user.id}/summary-run-${uniq}/summary.md`,
+        summaryStorageKey: buildUserSummaryRunStorageKey(user.id, `summary-run-${uniq}`),
         summaryBytes: 400,
         completedAt: new Date("2026-02-27T16:05:00.000Z")
       }

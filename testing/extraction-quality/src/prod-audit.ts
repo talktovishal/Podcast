@@ -6,6 +6,7 @@ import {
   AzureBlobObjectStorage,
   analyzeMarkdownQuality,
   analyzeSummaryMarkdownQuality,
+  buildUserItemMarkdownStorageKey,
   type MarkdownQualityAnalysis,
   type MarkdownQualityIssue
 } from "@articlepod/core";
@@ -374,11 +375,12 @@ export async function runProductionAudit(
 
   const itemSourceMarkdownEntries = await runWithConcurrency(itemEpisodes, BLOB_READ_CONCURRENCY, async (row) => {
     const itemId = parseRequiredString(row, "itemId");
+    const userId = parseString(row.userId);
     const entry = baseEntry({
       kind: "item_source_markdown",
-      path: `item/${itemId}/artifacts/source.md`,
+      path: userId ? buildUserItemMarkdownStorageKey(userId, itemId) : `item/${itemId}/markdown`,
       id: itemId,
-      userId: parseString(row.userId),
+      userId,
       title: parseString(row.title),
       storageKey: null,
       createdAt: parseDateIso(row, "createdAt"),

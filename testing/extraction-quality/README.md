@@ -206,7 +206,8 @@ Then rerun the full corpus when the focused subset looks good.
 
 ## Notes
 
-- Artifact audit scope is intentionally narrow: generated item `source.md` plus digest `summary.md` and `email.md`
+- Artifact audit scope is intentionally narrow: generated item markdown plus digest `summary.md` and `email.md`
+- The audit understands both the legacy item path (`items/<itemId>/artifacts/source.md`) and the user-centric markdown layout (`users/<userId>/markdown/items/<itemId>/canonical.md`, `users/<userId>/markdown/digests/...`) during migration
 - Production audit scope is read-only and uses Azure Table + Blob from the configured resource group to review:
   - successful manual summary markdown from the rolling lookback window
   - item episode source markdown for episodes published in that window

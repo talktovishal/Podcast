@@ -95,6 +95,13 @@ Backfill markdown artifacts for existing ready items:
 npm run artifacts:backfill
 ```
 
+Migrate canonical markdown blobs to the user-centric layout and update metadata pointers:
+```bash
+npm run artifacts:migrate-layout -- --dry-run
+npm run artifacts:migrate-layout -- --user-id <userId>
+npm run artifacts:migrate-layout -- --delete-legacy
+```
+
 Purge expired raw artifacts and stale extension auth artifacts:
 ```bash
 npm run artifacts:purge
@@ -114,8 +121,8 @@ curl -X POST "$APP_URL/api/internal/digests/tick" \
 ```
 
 Digest outputs:
-- summary artifact key: `digests/<userId>/<cadence>/<periodKey>/summary.md`
-- stub email artifact key: `digests/<userId>/<cadence>/<periodKey>/email.md`
+- summary artifact key: `users/<userId>/markdown/digests/<cadence>/<periodKey>/summary.md`
+- stub email artifact key: `users/<userId>/markdown/digests/<cadence>/<periodKey>/email.md`
 - digest audio key: `digests/<userId>/<cadence>/<periodKey>/episode.<ext>`
 
 Digest compatibility checks:

@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { AUTH_COOKIE_NAMES, HTML_SNAPSHOT_MAX_BYTES, createSecretToken } from "@articlepod/core";
+import { AUTH_COOKIE_NAMES, HTML_SNAPSHOT_MAX_BYTES, buildUserItemMarkdownStorageKey, createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as appleStartGet } from "../src/app/api/auth/apple/start/route";
 import { POST as connectCodePost } from "../src/app/api/auth/extension/connect-code/route";
@@ -894,12 +894,6 @@ test("item markdown route requires admin role", async () => {
   });
 
   try {
-    const markdown = `# Fixture ${uniq}\n\nThis is a markdown artifact fixture.`;
-    const storageKey = `items/${uniq}/artifacts/source.md`;
-    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
-      contentType: "text/markdown; charset=utf-8"
-    });
-
     const item = await prisma.item.create({
       data: {
         userId: user.id,
@@ -907,6 +901,11 @@ test("item markdown route requires admin role", async () => {
         sourceUrl: `https://example.com/${uniq}`,
         status: "READY"
       }
+    });
+    const markdown = `# Fixture ${uniq}\n\nThis is a markdown artifact fixture.`;
+    const storageKey = buildUserItemMarkdownStorageKey(user.id, item.id);
+    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
     });
 
     await prisma.itemArtifact.create({
@@ -959,12 +958,6 @@ test("item markdown route returns markdown for admin", async () => {
   });
 
   try {
-    const markdown = `# Admin fixture ${uniq}\n\nThis markdown should be visible to admins.`;
-    const storageKey = `items/${uniq}/artifacts/source.md`;
-    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
-      contentType: "text/markdown; charset=utf-8"
-    });
-
     const item = await prisma.item.create({
       data: {
         userId: owner.id,
@@ -972,6 +965,11 @@ test("item markdown route returns markdown for admin", async () => {
         sourceUrl: `https://example.com/${uniq}`,
         status: "READY"
       }
+    });
+    const markdown = `# Admin fixture ${uniq}\n\nThis markdown should be visible to admins.`;
+    const storageKey = buildUserItemMarkdownStorageKey(owner.id, item.id);
+    const stored = await storage.putObject(storageKey, Buffer.from(markdown, "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
     });
 
     await prisma.itemArtifact.create({

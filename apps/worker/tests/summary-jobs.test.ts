@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildUserItemMarkdownStorageKey, buildUserSummaryRunStorageKey } from "@articlepod/core";
 import { workerEnv } from "../src/lib/env.js";
 import { prisma } from "../src/lib/prisma.js";
 import { resetSummaryProviderForTests } from "../src/lib/summary.js";
@@ -65,7 +66,7 @@ test("processSummaryRun succeeds with selected markdown sources and stores summa
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const stored = await storage.putObject(markdownKey, Buffer.from(`# Saved item ${uniq}\n\nFresh summary notes.`, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
@@ -104,7 +105,7 @@ test("processSummaryRun succeeds with selected markdown sources and stores summa
     const refreshed = await prisma.summaryRun.findUnique({ where: { id: run.id } });
     assert.equal(refreshed?.status, "SUCCEEDED");
     assert.equal(refreshed?.selectedItemCount, 1);
-    assert.ok(refreshed?.summaryStorageKey);
+    assert.equal(refreshed?.summaryStorageKey, buildUserSummaryRunStorageKey(user.id, run.id));
     assert.ok(refreshed?.summaryBytes && refreshed.summaryBytes > 0);
     assert.equal(refreshed?.summaryProvider, "stub");
     assert.equal(refreshed?.summaryModel, "stub-deterministic-v1");
@@ -149,7 +150,7 @@ test("processSummaryRun stores a friendly failure message when the summary provi
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const stored = await storage.putObject(markdownKey, Buffer.from(`# Saved item ${uniq}\n\nFresh summary notes.`, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });

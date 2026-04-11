@@ -67,8 +67,9 @@ Current behavior (`M57`-`M64` implemented):
 - extraction emits both narration text and markdown from HTML/PDF/snapshot sources.
 - worker persists dual artifacts in object storage:
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
-  - cleaned extracted markdown artifact (`MARKDOWN`) retained for downstream workflows
-  - summary markdown artifacts (`summaries/<user>/<run>/summary.md`) for manual summary publishing and reuse
+  - cleaned extracted item markdown artifacts retained under `users/<userId>/markdown/items/<itemId>/canonical.md`
+  - digest summary/email markdown retained under `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`
+  - manual summary markdown retained under `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`
   - generated item/digest/summary episode audio retained for 60 days from `publishedAt` before purge removes the blob/object and episode row
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
@@ -116,7 +117,7 @@ Current behavior (`M57`-`M64` implemented):
 3. Scheduler enqueues idempotent `DigestRun` rows keyed by `(userId, cadence, periodKey)`.
 4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
 5. Summary provider adapter generates digest markdown/text (stub, proxy, or Azure OpenAI depending on runtime env), while persisting provider/model/deployment/token usage metadata.
-6. Processor persists summary/email artifacts to object storage; email sender adapter records stub delivery status.
+6. Processor persists digest summary/email markdown under deterministic `users/<userId>/markdown/digests/...` keys; email sender adapter records stub delivery status.
 7. When enabled, processor derives narration text from stored digest markdown with the shared summary cleanup pass, then synthesizes audio and upserts `DigestEpisode`.
 8. Digest RSS route renders separate digest feed using `DigestFeedToken`; media served via digest media range route.
 
@@ -126,7 +127,7 @@ Current behavior (`M57`-`M64` implemented):
 3. User optionally refines selection, title, target length (`5 / 15 / 30`), and podcast toggle, then creates a `SummaryRun`.
 4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
 5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
-6. Worker stores `summary.md` under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
+6. Worker stores summary markdown under deterministic `users/<userId>/markdown/summaries/<summaryRunId>/summary.md` keys and records provider/model/deployment/token usage metadata.
 7. When podcast generation is enabled, worker derives narration text from stored summary markdown with the shared summary cleanup pass, publishes `SummaryEpisode` audio, and surfaces it in the main private RSS/media feed alongside regular episodes.
 
 ## Admin analytics pipeline (`M66`-`M70`)

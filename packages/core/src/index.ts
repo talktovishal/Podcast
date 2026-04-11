@@ -19,6 +19,7 @@ export * from "./extract/pdf";
 export * from "./snippets/richCapture";
 export * from "./storage/localStorage";
 export * from "./storage/types";
+export * from "./storage/keys";
 export * from "./storage/localObjectStorage";
 export * from "./storage/azureBlobStorage";
 export * from "./logging/jobEvent";

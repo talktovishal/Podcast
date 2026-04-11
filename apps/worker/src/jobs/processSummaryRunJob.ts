@@ -2,6 +2,7 @@ import { join } from "node:path";
 import {
   AppError,
   buildEpisodeDescription,
+  buildUserSummaryRunStorageKey,
   chunkText,
   digestTargetWords,
   episodeAudioExpiryDate,
@@ -306,7 +307,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
     });
 
     const summaryDir = normalizeStorageKey(join("summaries", claimResult.userId, claimResult.id));
-    const summaryStorageKey = normalizeStorageKey(join(summaryDir, "summary.md"));
+    const summaryStorageKey = buildUserSummaryRunStorageKey(claimResult.userId, claimResult.id);
     const storedSummary = await storage.putObject(summaryStorageKey, Buffer.from(summary.markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });

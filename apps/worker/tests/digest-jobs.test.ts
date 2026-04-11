@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildUserDigestSummaryStorageKey, buildUserItemMarkdownStorageKey } from "@articlepod/core";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
@@ -148,7 +149,7 @@ test("processDigestRun succeeds with markdown sources and stores summary + stub 
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const markdown = `# Summary ${uniq}\n\nThis is deterministic markdown content for digest tests.`;
     const stored = await storage.putObject(markdownKey, Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
@@ -185,7 +186,7 @@ test("processDigestRun succeeds with markdown sources and stores summary + stub 
     assert.equal(refreshed?.status, "SUCCEEDED");
     assert.equal(refreshed?.sourceItemCount, 1);
     assert.equal(refreshed?.emailStatus, "STUB_STORED");
-    assert.ok(refreshed?.summaryStorageKey);
+    assert.equal(refreshed?.summaryStorageKey, buildUserDigestSummaryStorageKey(user.id, "DAILY", `success-${uniq}`));
     assert.ok(refreshed?.summaryBytes && refreshed.summaryBytes > 0);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
@@ -220,7 +221,7 @@ test("processDigestRun marks FAILED and schedules retry when summary provider fa
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const stored = await storage.putObject(markdownKey, Buffer.from("# Fail case", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });

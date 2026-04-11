@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildUserItemMarkdownStorageKey, buildUserSummaryRunStorageKey } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as summaryItemsGet } from "../src/app/api/summary/items/route";
 import { GET as summaryMarkdownGet } from "../src/app/api/summary/runs/[id]/markdown/route";
@@ -76,7 +77,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     });
 
     for (const item of [recentItem, oldItem]) {
-      const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(`# ${item.title}\n\nBody`, "utf8"), {
+      const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(`# ${item.title}\n\nBody`, "utf8"), {
         contentType: "text/markdown; charset=utf-8"
       });
       await prisma.itemArtifact.create({
@@ -153,7 +154,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     assert.equal(runsPayload.ok, true);
     assert.equal(runsPayload.runs.some((run) => run.id === createPayload.run.id), true);
 
-    const storedSummary = await storage.putObject(`summaries/${user.id}/${createPayload.run.id}/summary.md`, Buffer.from("# Manual studio run", "utf8"), {
+    const storedSummary = await storage.putObject(buildUserSummaryRunStorageKey(user.id, createPayload.run.id), Buffer.from("# Manual studio run", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.summaryRun.update({
@@ -273,7 +274,7 @@ test("paid users are capped at five manual summaries per 7 days", async () => {
         createdAt: new Date()
       }
     });
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from("# Summary source\n\nBody", "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from("# Summary source\n\nBody", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({
@@ -362,7 +363,7 @@ test("paid annual users are capped at ten manual summaries per 7 days", async ()
         createdAt: new Date()
       }
     });
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from("# Summary source\n\nBody", "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from("# Summary source\n\nBody", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({

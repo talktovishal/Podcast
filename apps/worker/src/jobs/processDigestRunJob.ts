@@ -3,6 +3,8 @@ import {
   AppError,
   buildEpisodeDescription,
   buildDigestGuid,
+  buildUserDigestEmailStorageKey,
+  buildUserDigestSummaryStorageKey,
   chunkText,
   digestTargetWords,
   episodeAudioExpiryDate,
@@ -343,7 +345,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     });
 
     const digestDir = normalizeStorageKey(join("digests", claimResult.userId, claimResult.cadence.toLowerCase(), claimResult.periodKey));
-    const summaryStorageKey = normalizeStorageKey(join(digestDir, "summary.md"));
+    const summaryStorageKey = buildUserDigestSummaryStorageKey(claimResult.userId, claimResult.cadence, claimResult.periodKey);
     const summaryStored = await storage.putObject(summaryStorageKey, Buffer.from(summary.markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
@@ -355,7 +357,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
 
     if (claimResult.emailEnabled) {
       emailSubject = `${summary.title}`;
-      emailStorageKey = normalizeStorageKey(join(digestDir, "email.md"));
+      emailStorageKey = buildUserDigestEmailStorageKey(claimResult.userId, claimResult.cadence, claimResult.periodKey);
       await storage.putObject(emailStorageKey, Buffer.from(summary.markdown, "utf8"), {
         contentType: "text/markdown; charset=utf-8"
       });

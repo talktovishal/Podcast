@@ -3103,7 +3103,7 @@ Milestone metadata contract:
   - Add shared rule-based cleanup for extracted source markdown before canonical `MARKDOWN` persistence and before TTS narration derivation.
   - Keep persistence cleanup conservative so stored `MARKDOWN` preserves useful source context such as links, raw URLs, bylines, dates, captions, and table structure while still removing wrapper/footer/navigation junk.
   - Move aggressive URL/image/table/metadata stripping into the narration step that feeds TTS, chunk hashes, and episode descriptions.
-  - Add idempotent backfill tooling that rewrites existing stored `source.md` artifacts, queues regeneration when narration hashes change, and preserves already-published low-signal episodes for feed stability.
+  - Add idempotent backfill tooling that rewrites existing stored item markdown artifacts, queues regeneration when narration hashes change, and preserves already-published low-signal episodes for feed stability.
 - Key files/modules:
   - `packages/core/src/extract/markdownCleanup.ts`
   - `packages/core/src/extract/html.ts`
@@ -3226,7 +3226,52 @@ Milestone metadata contract:
   - Stored markdown keeps useful links, URLs, captions, metadata, and table structure, while narration no longer speaks standalone raw image-asset URL lines, citation/source-attribution URL tails, or escaped markdown backslashes.
   - Table-heavy/list-heavy extracted pages no longer persist raw `href` blobs from extraction, and narration no longer leaks legacy HTML/markdown table markup into spoken text.
   - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
-  - `npm run extraction-quality:audit` scans stored `source.md` plus digest markdown and writes grouped issue reports.
+  - `npm run extraction-quality:audit` scans stored item markdown plus digest markdown and writes grouped issue reports.
+
+### M108 - User-Centric Markdown Storage Layout
+
+- status: Done
+- target_finish: 2026-04-14
+- completed_on: 2026-04-11
+- evidence: local typecheck + markdown layout migration validation + doc/runbook sync pass (2026-04-11)
+- Scope:
+  - Move canonical item, digest, and manual-summary markdown blobs into a user-centric namespace rooted at `users/<userId>/markdown/...`.
+  - Leave uploads, raw source artifacts, and all audio/MP3 blob paths unchanged so feed and media behavior stay stable.
+  - Add shared key builders plus an idempotent migration script that copies markdown blobs, updates metadata pointers, and optionally removes legacy markdown blobs after verification.
+  - Update audit/runbook tooling so local and production markdown checks understand the new layout during and after migration.
+- Key files/modules:
+  - `packages/core/src/storage/keys.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/jobs/processSummaryRunJob.ts`
+  - `apps/web/src/lib/markdown-storage-layout.ts`
+  - `apps/web/scripts/migrate-markdown-storage-layout.ts`
+  - `testing/extraction-quality/src/audit.ts`
+  - `testing/extraction-quality/src/prod-audit.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/operations.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - New item markdown writes land at `users/<userId>/markdown/items/<itemId>/canonical.md`.
+  - New digest summary/email markdown writes land at `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`.
+  - New manual summary markdown writes land at `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`.
+  - Existing metadata readers continue to work because migration updates `ItemArtifact.storageKey`, `DigestRun.summaryStorageKey`, `DigestRun.emailStorageKey`, and `SummaryRun.summaryStorageKey` in place.
+  - Audio/media/RSS paths remain unchanged.
+- Migration/backfill plan:
+  - Ship the new key builders and markdown write paths first.
+  - Run `npm run artifacts:migrate-layout -- --dry-run` to inspect the pending move set.
+  - Run `npm run artifacts:migrate-layout -- --user-id <userId>` for targeted verification or `npm run artifacts:migrate-layout` for the full backfill.
+  - After verification, run `npm run artifacts:migrate-layout -- --delete-legacy` to remove old markdown blobs whose metadata now points at the user-centric keys.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/markdown-storage-layout.test.ts tests/markdown-artifact-backfill.test.ts tests/digest-routes.test.ts tests/summary-routes.test.ts tests/auth-routes.test.ts`
+  - `DATABASE_URL=file:/tmp/articlepod-worker-markdown-layout.sqlite corepack pnpm --filter @articlepod/web run db:bootstrap`
+  - `DATABASE_URL=file:/tmp/articlepod-worker-markdown-layout.sqlite ARTICLEPOD_TEST_DB_READY=1 corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/digest-jobs.test.ts tests/summary-jobs.test.ts`
+  - `corepack pnpm --filter @articlepod/core exec tsc --noEmit`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
   - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.
   - The harness supports `--input`, `--site`, `--limit`, `--concurrency-url`, `--concurrency-extension`, and `--headed`.
 - Verification commands:

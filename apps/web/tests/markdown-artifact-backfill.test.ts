@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, cleanExtractedMarkdown, markdownToNarrationText, normalizeTtsSelection, sha256 } from "@articlepod/core";
+import { buildUserItemMarkdownStorageKey, chunkText, cleanExtractedMarkdown, markdownToNarrationText, normalizeTtsSelection, sha256 } from "@articlepod/core";
 import { backfillCleanedMarkdownArtifacts } from "../src/lib/markdown-artifact-backfill";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
@@ -72,7 +72,7 @@ The second paragraph adds more narratable detail so the cleaned narration text c
       }
     });
 
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(markdown, "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({
@@ -139,7 +139,7 @@ Another paragraph explains why the building matters, how the author framed the s
       }
     });
 
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(markdown, "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({
@@ -231,7 +231,7 @@ Agent &amp; Phase summary stays useful for narration after cleanup.
       }
     });
 
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(markdown, "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({
@@ -301,7 +301,7 @@ test("backfill reports published low-signal items without deleting live episodes
       }
     });
 
-    const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(markdown, "utf8"), {
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.itemArtifact.create({

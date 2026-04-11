@@ -326,6 +326,7 @@ Current (`M57`-`M64` implemented):
 - URL/PDF/HTML snapshot extraction persists raw source artifacts and cleaned extracted markdown artifacts in object storage.
 - URL HTML extraction now runs both the existing `Readability` path and `defuddle` against the same HTML, scores both candidates, and logs the winning engine plus per-engine diagnostics before persistence.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
+- canonical item, digest, and summary markdown now lives under `users/<userId>/markdown/...`; raw source artifacts, uploads, and audio continue to use their existing namespaces.
 - source-item persistence cleanup is now conservative: it removes obvious wrapper junk plus footer/legal/navigation/share noise while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in `MARKDOWN`.
 - malformed leaked image wrapper fragments are normalized into URL-bearing stored content instead of being dropped outright, so the durable artifact keeps useful references while narration still suppresses them.
 - cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.
@@ -342,6 +343,10 @@ Current (`M57`-`M64` implemented):
   - `npm run audio:backfill-retention`
 - migration helper to backfill markdown artifacts for ready legacy items:
   - `npm run artifacts:backfill`
+- migration helper to copy existing markdown blobs into the user-centric markdown layout and update metadata pointers:
+  - `npm run artifacts:migrate-layout -- --dry-run`
+  - `npm run artifacts:migrate-layout -- --user-id <userId>`
+  - `npm run artifacts:migrate-layout -- --delete-legacy`
 - migration helper to clean existing stored markdown artifacts in place and queue regeneration when hashes change:
   - `npm run artifacts:cleanup-markdown`
 - on-demand extraction quality tooling:

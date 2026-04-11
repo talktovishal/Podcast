@@ -9,6 +9,7 @@ import {
   BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   type HtmlExtractionSelectionDiagnostics,
   type ReservedDispatchQueueMessage,
+  buildUserItemMarkdownStorageKey,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
@@ -1704,7 +1705,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       });
     }
 
-    const markdownStorageKey = normalizeStorageKey(join("items", item.id, "artifacts", "source.md"));
+    const markdownStorageKey = buildUserItemMarkdownStorageKey(item.userId, item.id);
     const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(cleanedMarkdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });

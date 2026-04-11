@@ -189,7 +189,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
   - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, title-first article cards, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
   - podcast publish controls are kept below the primary summary setup so the main desktop/mobile composition stays focused on selection and markdown options first.
-  - manual summary runs persist polished markdown artifacts plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
+  - manual summary runs persist polished markdown artifacts under the user-centric `users/<userId>/markdown/summaries/...` namespace plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - podcast-enabled manual summaries now publish into the main private RSS/media feed alongside regular episodes instead of a separate summary-only feed surface.
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
@@ -287,7 +287,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - timestamped report bundles under `exports/live-site-validation/`
 - Extraction-quality audit tooling is implemented:
   - top-level `testing/extraction-quality/` workspace with a checked-in sample corpus plus `--input` override support for large URL lists
-  - artifact audit command for stored `source.md` and digest markdown under `apps/web/.data/media/`
+  - artifact audit command for stored item markdown plus digest markdown under `apps/web/.data/media/`, covering both legacy item keys and the user-centric markdown layout during migration
   - extraction-only URL vs. extension comparison runner that stores raw + cleaned markdown outputs without generating audio
   - normalized-diff reporting, rerun ID lists, and timestamped bundles under `exports/extraction-quality/`
 - Hybrid runtime HTML extraction selection is implemented:
@@ -506,6 +506,7 @@ I) Extraction artifacts (near-term track)
 - Current (`M57`-`M64` implemented):
   - persist raw source artifacts and cleaned extracted markdown artifacts in object storage.
   - keep cleaned extracted markdown as the durable reusable artifact for downstream workflows.
+  - store canonical item/digest/summary markdown under `users/<userId>/markdown/...`, while raw source artifacts, uploads, and audio stay under their existing namespaces.
   - apply conservative artifact-safe cleanup to extracted source markdown before persistence, while keeping richer source context such as links, raw URLs, metadata, captions, and tables available in `MARKDOWN`.
   - derive narration text, chunk hashes, and episode descriptions from cleaned extracted markdown, with raw HTML tags, legacy table remnants, raw source URL tails, image assets/wrappers, and leading metadata/caption noise stripped at the narration step before TTS.
   - fail low-signal pages with `EXTRACTION_EMPTY` when too little narratable text remains after cleanup.

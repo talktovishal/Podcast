@@ -39,6 +39,7 @@
     "ops:cost-baseline": "./scripts/ops/cost-baseline-snapshot.sh",
     "ops:azure-cost-report": "python3 scripts/azure/cost-report.py",
     "artifacts:backfill": "npx pnpm --filter @articlepod/web run artifacts:backfill",
+    "artifacts:migrate-layout": "npx pnpm --filter @articlepod/web run artifacts:migrate-layout",
     "artifacts:cleanup-markdown": "npx pnpm --filter @articlepod/web run artifacts:cleanup-markdown",
     "artifacts:purge": "npx pnpm --filter @articlepod/web run artifacts:purge",
     "audio:backfill-mp3": "npx pnpm --filter @articlepod/web run audio:backfill-mp3",
