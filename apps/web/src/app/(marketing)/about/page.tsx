@@ -9,7 +9,7 @@ import {
 } from "@/lib/seo";
 
 const aboutDescription =
-  "Learn how ArticlePod turns saved reading into a private podcast feed and a Karpathy-inspired personal wiki.";
+  "Learn how ArticlePod turns article URLs and text-based PDFs into private podcast episodes you can hear in your favorite podcast apps, even offline.";
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "About ArticlePod",
@@ -115,8 +115,8 @@ export default function AboutPage() {
               I built ArticlePod to solve a problem I knew well. It turns
               article URLs and text-based PDFs into private podcast episodes I
               can listen to in my favorite podcast apps, even offline. Save one
-              item, get one episode. But the deeper goal is to keep the ideas,
-              cross-links, and synthesis in a personal wiki I can come back to.
+              item, get one episode. Over time, the personal wiki keeps the
+              ideas I want to retain connected in one place.
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Within a few weeks, I was finishing more of the articles and PDFs
@@ -161,9 +161,7 @@ export default function AboutPage() {
               The journey continues. For me, this is not just about fitting
               reading into a busy life. It is also about building a personal
               knowledge base over time, one that can grow into a personal wiki I
-              can return to, learn from, and keep expanding. Rebuilding that
-              Karpathy-style workflow into a real product is a big part of why I
-              care so much about where ArticlePod goes next.
+              can return to, learn from, and keep expanding. Stay tuned.
             </p>
           </div>
         </article>
@@ -212,14 +210,14 @@ export default function AboutPage() {
                 aria-hidden="true"
                 className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]"
               />
-              <span>Karpathy-inspired personal wiki</span>
+              <span>Weekly digest podcast</span>
             </li>
             <li className="flex items-start gap-2">
               <span
                 aria-hidden="true"
                 className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]"
               />
-              <span>Snippet capture with reusable context</span>
+              <span>Personal wiki</span>
             </li>
           </ul>
         </article>

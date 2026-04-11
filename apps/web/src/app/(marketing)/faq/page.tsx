@@ -53,9 +53,8 @@ export default function FaqPage() {
       <section className="space-y-4">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">Common questions, answered</h1>
         <p className="max-w-3xl text-base text-[var(--muted)] sm:text-lg">
-          ArticlePod is built around private per-article podcast episodes and a
-          Karpathy-inspired personal wiki that keeps getting richer as you save
-          more.
+          ArticlePod is built around private per-article podcast episodes, with
+          a personal wiki layer for the ideas you want to keep.
         </p>
       </section>
 

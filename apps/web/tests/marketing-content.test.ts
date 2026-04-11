@@ -32,15 +32,15 @@ test("marketing nav items follow canonical order and routes", () => {
 test("marketing copy keeps concise busy-reader framing", () => {
   assert.equal(
     marketingCopy.heroHeadline,
-    "A private podcast feed that compounds into a personal wiki.",
+    "The intellectual sanctuary for busy readers.",
   );
   assert.equal(
     marketingCopy.heroSubheading,
-    "Save URLs, PDFs, and Chrome captures, listen in your regular podcast app, and build a Karpathy-inspired wiki that keeps accumulating synthesis instead of starting from scratch.",
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
-    ["Private RSS feed", "Persistent wiki", "Snippets + sources"],
+    ["Curated archive", "Private RSS feed", "Podcast + email digests"],
   );
   assert.equal(
     marketingCopy.securityIntro,
@@ -108,7 +108,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
     source.includes(
-      "Start free and upgrade when you need more daily episodes, stronger",
+      "Start free and upgrade when you need more daily episodes and digest",
     ),
     true,
   );
@@ -130,10 +130,10 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     false,
   );
   assert.equal(source.includes("manual summaries per 7 days"), false);
-  assert.equal(source.includes("Karpathy-inspired personal wiki browsing"), true);
+  assert.equal(source.includes("Personal wiki access"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
   assert.equal(
-    source.indexOf('feature: "Personal wiki browsing"') <
+    source.indexOf('feature: "Personal wiki"') <
       source.indexOf('feature: "Weekly digest podcast + email"'),
     true,
   );
@@ -258,23 +258,23 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
 
   assert.equal(
     marketingSource.includes(
-      "A private podcast feed that compounds into a personal wiki.",
+      "The intellectual sanctuary for busy readers.",
     ),
     true,
   );
   assert.equal(
     marketingSource.includes(
-      "Save URLs, PDFs, and Chrome captures, listen in your regular podcast app, and build a Karpathy-inspired wiki that keeps accumulating synthesis instead of starting from scratch.",
+      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
     ),
     true,
   );
-  assert.equal(marketingSource.includes("Podcast + email digests"), false);
+  assert.equal(marketingSource.includes("Podcast + email digests"), true);
   assert.equal(
     marketingSource.includes("monthly and yearly trend recaps"),
     false,
   );
   assert.equal(marketingSource.includes("daily recap podcast"), false);
-  assert.equal(marketingSource.includes("Curated archive"), false);
+  assert.equal(marketingSource.includes("Curated archive"), true);
   assert.equal(marketingSource.includes("Listening now"), false);
 
   assert.equal(loginSource.includes("MarketingFooter"), false);
@@ -308,7 +308,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(faqSource.includes("buildFaqPageContent"), true);
   assert.equal(
     faqContent.quickAnswers.some(
-      (item) => item.label === "Personal wiki that keeps growing",
+      (item) => item.label === "Integrates with standard podcast apps",
     ),
     true,
   );
@@ -429,11 +429,9 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(aboutSource.includes("Per-article narrated episodes"), true);
   assert.equal(aboutSource.includes("Chrome extension capture"), true);
   assert.equal(aboutSource.includes("Private RSS feed delivery"), true);
-  assert.equal(aboutSource.includes("Karpathy-inspired personal wiki"), true);
-  assert.equal(
-    aboutSource.includes("Snippet capture with reusable context"),
-    true,
-  );
+  assert.equal(aboutSource.includes("Karpathy-inspired personal wiki"), false);
+  assert.equal(aboutSource.includes("Personal wiki"), true);
+  assert.equal(aboutSource.includes("Snippet capture with reusable context"), false);
   assert.equal(
     aboutSource.includes("Integrates with your favorite podcast apps"),
     true,
@@ -536,10 +534,10 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
     ),
     true,
   );
-  assert.equal(normalizedAboutSource.includes("Stay tuned."), false);
+  assert.equal(normalizedAboutSource.includes("Stay tuned."), true);
   assert.equal(
     normalizedAboutSource.includes(
-      "Rebuilding that Karpathy-style workflow into a real product is a big part of why I care so much about where ArticlePod goes next.",
+      "Andrej Karpathy described the LLM Wiki pattern",
     ),
     true,
   );
@@ -580,6 +578,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
     true,
   );
   assert.equal(productSource.includes("Save. Listen. Compile."), true);
+  assert.equal(productSource.includes("Build the throughline"), true);
   assert.equal(
     productSource.includes("Persistent knowledge, not one-off answers."),
     true,
@@ -589,8 +588,8 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 
-  assert.equal(layoutSource.includes("Karpathy-inspired personal wiki"), true);
-  assert.equal(layoutSource.includes("weekly digest summary options"), false);
+  assert.equal(layoutSource.includes("Karpathy-inspired personal wiki"), false);
+  assert.equal(layoutSource.includes("weekly digest summary options"), true);
   assert.equal(layoutSource.includes("daily and weekly briefings"), false);
   assert.equal(marketingLayoutSource.includes("MarketingHeader"), true);
   assert.equal(marketingLayoutSource.includes("MarketingCta"), true);

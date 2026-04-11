@@ -60,7 +60,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
     annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
   {
-    feature: "Personal wiki browsing",
+    feature: "Personal wiki",
     starter: { kind: "included" },
     monthly: { kind: "included" },
     annual: { kind: "included" }
@@ -109,7 +109,7 @@ const trustPoints = [
 ] as const;
 
 const pricingDescription =
-  `Simple pricing for a private article podcast feed and Karpathy-inspired personal wiki. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} daily episodes, or go annual for ${annualPlan.dailyPodcastLimit} daily episodes and nearly 30% savings.`;
+  `Simple pricing for personal article podcasts. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} private podcast episodes per day, or go annual for ${annualPlan.dailyPodcastLimit} per day and nearly 30% savings.`;
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "Pricing for private article podcasts",
@@ -229,16 +229,15 @@ export default async function PricingPage({
           Choose the ArticlePod plan that fits how you save and learn.
         </h1>
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-          Start free and upgrade when you need more daily episodes, stronger
-          listening capacity, and the best long-run value. Pro Annual offers the
-          strongest fit for regular use.
+          Start free and upgrade when you need more daily episodes and digest
+          workflows. Pro Annual offers the best value for regular use.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
             Save nearly 30% on annual
           </span>
           <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
-            {annualPlan.dailyPodcastLimit} episodes/day + personal wiki workflow
+            {annualPlan.dailyPodcastLimit} episodes/day + personal wiki access
           </span>
         </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
@@ -263,7 +262,7 @@ export default async function PricingPage({
             <PlanFeatureItem label="Limited monthly episodes" />
             <PlanFeatureItem label="URL and PDF ingestion" />
             <PlanFeatureItem label="Private RSS feed access" />
-            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
+            <PlanFeatureItem label="Personal wiki access" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">No subscription required.</p>
           <div className="mt-auto pt-6 text-sm text-[var(--muted)]">
@@ -297,7 +296,7 @@ export default async function PricingPage({
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${monthlyPlan.dailyPodcastLimit} new podcast episodes per day`} />
             <PlanFeatureItem label="Chrome extension capture" />
-            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
+            <PlanFeatureItem label="Personal wiki access" />
             <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
@@ -355,7 +354,7 @@ export default async function PricingPage({
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
             <PlanFeatureItem label="Chrome extension capture" />
-            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
+            <PlanFeatureItem label="Personal wiki access" />
             <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>

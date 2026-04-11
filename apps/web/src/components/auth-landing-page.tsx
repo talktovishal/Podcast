@@ -514,8 +514,8 @@ export function AuthLandingPage() {
             >
               Andrej Karpathy&apos;s LLM Wiki idea
             </a>
-            , ArticlePod turns saved reading into a private podcast feed plus a
-            living wiki that keeps accumulating synthesis over time.
+            , ArticlePod is adding a personal wiki layer alongside the private
+            feed so the ideas you save become easier to revisit over time.
           </p>
           <WikiSnapshotPreview />
         </div>

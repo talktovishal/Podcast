@@ -12,7 +12,7 @@ import {
 
 const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 const siteDescription =
-  "Turn saved articles and PDFs into a private podcast feed and a Karpathy-inspired personal wiki with instant episodes, Chrome capture, and persistent synthesis.";
+  "Turn saved articles and PDFs into a private podcast feed with instant episodes, Chrome capture, and weekly digest summary options.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),

@@ -10,7 +10,7 @@ import {
 } from "@/lib/seo";
 
 const productDescription =
-  "See how ArticlePod turns articles, PDFs, and Chrome captures into a private podcast feed and a Karpathy-inspired personal wiki.";
+  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with a personal wiki layer that keeps important ideas connected over time.";
 
 const productFlowSteps = [
   {
@@ -25,8 +25,8 @@ const productFlowSteps = [
   },
   {
     step: "03",
-    title: "Compile a living wiki",
-    body: "The system keeps folding saved reading and snippets into durable, interlinked pages so the synthesis builds over time.",
+    title: "Build the throughline",
+    body: "The personal wiki keeps folding saved reading and snippets into durable, interlinked pages you can return to later.",
   },
 ] as const;
 
@@ -76,9 +76,9 @@ export default function ProductPage() {
         </h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns saved reading into ongoing learning. Each article or
-          PDF becomes a private podcast episode, and the knowledge behind it can
-          accumulate into a persistent personal wiki instead of vanishing into
-          one-off chats or recap outputs.
+          PDF becomes a private podcast episode, and the personal wiki keeps
+          important ideas connected over time. It&apos;s a calmer, more
+          practical way to stay current on the topics you care about.
         </p>
       </section>
 
@@ -92,7 +92,7 @@ export default function ProductPage() {
           </h2>
           <p className="max-w-3xl text-sm leading-6 text-[var(--muted)] sm:text-base">
             One calm rhythm for turning saved reading into something you
-            actually finish and revisit.
+            actually finish.
           </p>
         </div>
 
@@ -134,10 +134,8 @@ export default function ProductPage() {
             >
               Andrej Karpathy&apos;s LLM Wiki gist
             </a>
-            , ArticlePod compiles saved reading into a durable, interlinked
-            artifact. The difference from typical RAG is simple: the wiki keeps
-            the cross-links, contradictions, and synthesis around instead of
-            rebuilding them from scratch at every query.
+            , ArticlePod adds a durable, interlinked wiki layer on top of the
+            private feed so the ideas you save are easier to revisit later.
           </p>
         </div>
 
@@ -188,7 +186,7 @@ export default function ProductPage() {
               Start your knowledge feed
             </Link>{" "}
             with something worth keeping, and let ArticlePod turn it into a
-            calmer listening flow plus a wiki you can keep growing.
+            calmer listening flow.
           </p>
         </div>
       </section>
