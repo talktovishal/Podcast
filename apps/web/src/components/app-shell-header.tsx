@@ -5,6 +5,7 @@ import { AppShellNav } from "@/components/app-shell-nav";
 import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import type { BillingAccountSnapshot } from "@/lib/billing-contract";
 import { hasSnippetsForUser } from "@/lib/snippets";
+import { hasWikiForUser } from "@/lib/wiki";
 
 export async function AppShellHeader({
   billingConfigured,
@@ -17,7 +18,10 @@ export async function AppShellHeader({
   sandboxModeActive?: boolean;
   userId: string;
 }) {
-  const showSnippets = await hasSnippetsForUser(userId);
+  const [showSnippets, showWiki] = await Promise.all([
+    hasSnippetsForUser(userId),
+    hasWikiForUser(userId),
+  ]);
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-[rgba(31,122,90,0.16)] bg-[rgba(247,251,250,0.88)] backdrop-blur">
@@ -58,6 +62,7 @@ export async function AppShellHeader({
                 />
               }
               showSnippets={showSnippets}
+              showWiki={showWiki}
             />
           </div>
         </div>

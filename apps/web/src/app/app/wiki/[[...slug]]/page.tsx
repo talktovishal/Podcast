@@ -20,19 +20,7 @@ export default async function WikiPage({
 
   const manifest = await getUserWikiManifestForApp(user.id);
   if (!manifest) {
-    return (
-      <main className="py-5 sm:py-8">
-        <div className="container-shell">
-          <section className="card p-5 sm:p-6">
-            <h1 className="font-bold text-2xl">Wiki</h1>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              No personal wiki has been published for this account yet. Run the local
-              wiki prepare and publish flow first, then refresh this page.
-            </p>
-          </section>
-        </div>
-      </main>
-    );
+    redirect("/app");
   }
 
   const page = await getUserWikiPageForApp(user.id, { slug: params.slug });
@@ -47,8 +35,8 @@ export default async function WikiPage({
           <div>
             <h1 className="font-bold text-2xl">Wiki</h1>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Browse the current Karpathy-style LLM wiki built from your saved items
-              and snippets.
+              Browse your personal reading wiki, starting with the main themes and
+              pages instead of the raw source plumbing underneath.
             </p>
           </div>
         </section>

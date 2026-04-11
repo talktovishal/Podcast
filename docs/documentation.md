@@ -86,8 +86,8 @@ Connect flow:
   - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, summary creation, and admin search/save flows
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
-  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, and `Wiki` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
-  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, `Summaries`, and `Wiki` stay on the second row
+  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, conditional `Wiki`, and `Summaries` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
+  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, `Summaries`, and conditional `Wiki` stay on the second row
   - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
@@ -184,11 +184,11 @@ Summaries APIs:
 
 Available in `/app/wiki` after an operator publishes a wiki for that user:
 
-- browse-first manifest-driven page tree
-- markdown page reader with rewritten internal wiki links
-- client-side title, summary, tag, and path filter
-- backlinks and source-page navigation
-- original-source link on source pages when the source URL is known
+- reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
+- markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render
+- client-side title, summary, and tag filter
+- backlinks between reader-facing pages and reference links back to original source URLs
+- `/app/wiki` only appears in the signed-in nav after a manifest exists for that user; direct visits redirect back to `/app` when no wiki has been published yet
 
 Operator commands:
 

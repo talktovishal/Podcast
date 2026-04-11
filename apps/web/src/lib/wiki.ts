@@ -870,6 +870,111 @@ function stripMarkdownForSearch(markdown: string): string {
     .trim();
 }
 
+const WIKI_TOP_METADATA_LINE_RE = /^(title|summary|tags|source_ids|source_id|updated|type)\s*:/i;
+const WIKI_INTERNAL_METADATA_LINE_RE =
+  /^(source ids?|source url|original url|canonical url|raw file|updated|type)\s*:/i;
+const WIKI_INTERNAL_PAGE_PATH_LINE_RE =
+  /^(?:\.{1,2}\/)*(?:sources\/(?:items|snippets)|concepts|entities|outputs)\/[^\s]+\.md$/i;
+
+function trimMarkdownLines(lines: string[]): string[] {
+  let start = 0;
+  let end = lines.length;
+
+  while (start < end && !lines[start]?.trim()) {
+    start += 1;
+  }
+  while (end > start && !lines[end - 1]?.trim()) {
+    end -= 1;
+  }
+
+  return lines.slice(start, end);
+}
+
+function normalizeDisplayedHeading(line: string): string {
+  return line.replace(/^#+\s*/, "").trim().replace(/^['"]|['"]$/g, "");
+}
+
+function isWikiSourcePage(page: Pick<WikiPageMeta, "type" | "path">): boolean {
+  return (
+    page.type === "source_item" ||
+    page.type === "source_snippet" ||
+    page.path.startsWith("sources/items/") ||
+    page.path.startsWith("sources/snippets/")
+  );
+}
+
+export function sanitizeWikiMarkdownForDisplay(
+  markdown: string,
+  page: Pick<WikiPageMeta, "path" | "summary" | "title" | "type">
+): string {
+  const { body } = parseSimpleFrontmatter(markdown);
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  let cursor = 0;
+
+  while (cursor < lines.length && !lines[cursor]?.trim()) {
+    cursor += 1;
+  }
+  while (cursor < lines.length && WIKI_TOP_METADATA_LINE_RE.test(lines[cursor]?.trim() || "")) {
+    cursor += 1;
+  }
+  while (cursor < lines.length && !lines[cursor]?.trim()) {
+    cursor += 1;
+  }
+
+  const normalizedTitle = page.title.trim().toLowerCase();
+  if (cursor < lines.length) {
+    const maybeDuplicateTitle = normalizeDisplayedHeading(lines[cursor] || "").toLowerCase();
+    if (maybeDuplicateTitle === normalizedTitle) {
+      cursor += 1;
+      while (cursor < lines.length && !lines[cursor]?.trim()) {
+        cursor += 1;
+      }
+    }
+  }
+
+  if (isWikiSourcePage(page)) {
+    while (cursor < lines.length) {
+      const normalized = normalizeDisplayedHeading(lines[cursor] || "").toLowerCase();
+      if (normalized === "snapshot" || normalized === "source" || normalized === "reference") {
+        cursor += 1;
+        while (cursor < lines.length && !lines[cursor]?.trim()) {
+          cursor += 1;
+        }
+        continue;
+      }
+      break;
+    }
+  }
+
+  const cleaned = trimMarkdownLines(
+    lines.slice(cursor).filter((line, index) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return true;
+      }
+      if (WIKI_INTERNAL_PAGE_PATH_LINE_RE.test(trimmed)) {
+        return false;
+      }
+      if (index < 16 && WIKI_INTERNAL_METADATA_LINE_RE.test(trimmed)) {
+        return false;
+      }
+      if (index < 16 && /^source id:\s*/i.test(trimmed)) {
+        return false;
+      }
+      return true;
+    })
+  ).join("\n");
+
+  if (cleaned) {
+    return `${cleaned}\n`;
+  }
+  if (page.summary?.trim()) {
+    return `${page.summary.trim()}\n`;
+  }
+
+  return "";
+}
+
 async function readSourceCatalogJson(workspaceDir: string): Promise<WikiCorpusSource[]> {
   const path = join(workspaceDir, "raw", WIKI_SOURCE_CATALOG_JSON_FILENAME);
   return JSON.parse(await readUtf8File(path)) as WikiCorpusSource[];
@@ -1249,6 +1354,10 @@ export async function getUserWikiManifestForApp(userId: string): Promise<WikiMan
   return loadUserWikiManifest(userId);
 }
 
+export async function hasWikiForUser(userId: string): Promise<boolean> {
+  return Boolean(await loadUserWikiManifest(userId));
+}
+
 export async function getUserWikiPageForApp(userId: string, input?: {
   slug?: string[];
   pagePath?: string;
@@ -1276,7 +1385,7 @@ export async function getUserWikiPageForApp(userId: string, input?: {
   return {
     manifest,
     page,
-    content
+    content: sanitizeWikiMarkdownForDisplay(content, page)
   };
 }
 

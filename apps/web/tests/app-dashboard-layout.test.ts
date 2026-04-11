@@ -43,6 +43,7 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(headerSource.includes('variant="mobile-header"'), true);
   assert.equal(headerSource.includes("AppShellNav"), true);
   assert.equal(headerSource.includes("hasSnippetsForUser"), true);
+  assert.equal(headerSource.includes("hasWikiForUser"), true);
   assert.equal(headerSource.includes("lg:inline-flex"), true);
   assert.equal(layoutSource.includes("pt-28 sm:pt-32 lg:pt-24"), true);
 });
@@ -84,15 +85,18 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes('label: "Chrome Extension"'), true);
   assert.equal(source.includes('label: "Snippets"'), true);
   assert.equal(source.includes('label: "Summaries"'), true);
+  assert.equal(source.includes('label: "Wiki"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
   assert.equal(source.includes('title: "Summaries"'), true);
   assert.equal(source.includes("usePathname"), true);
   assert.equal(source.includes("aria-current"), true);
   assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("showWiki = false"), true);
   assert.equal(source.includes("mobileLeading"), true);
   assert.equal(source.includes("mobilePrimaryItems"), true);
   assert.equal(source.includes('item.key !== "chrome-extension"'), true);
   assert.equal(source.includes('item.key !== "snippets"'), true);
+  assert.equal(source.includes('item.key !== "wiki" || showWiki'), true);
   assert.equal(source.includes('variant="icon"'), true);
   assert.equal(source.includes("compact = false"), true);
   assert.equal(source.includes('kind: "utility"'), true);
@@ -108,6 +112,16 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
   assert.equal(source.includes("item.key !== current"), false);
   assert.equal(source.includes("AccountOverflowMenu"), false);
+});
+
+test("wiki route redirects back to the workspace when no wiki is published", () => {
+  const source = readFileSync(
+    new URL("../src/app/app/wiki/[[...slug]]/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes('redirect("/app")'), true);
+  assert.equal(source.includes("No personal wiki has been published"), false);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {

@@ -177,14 +177,18 @@ function UtilityLink({
 
 export function AppShellNav({
   showSnippets = false,
+  showWiki = false,
   mobileLeading,
 }: {
   showSnippets?: boolean;
+  showWiki?: boolean;
   mobileLeading?: ReactNode;
 }) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter(
-    (item) => item.key !== "snippets" || showSnippets,
+    (item) =>
+      (item.key !== "snippets" || showSnippets) &&
+      (item.key !== "wiki" || showWiki),
   );
 
   const primaryItems = items.filter((item) => item.kind === "primary");

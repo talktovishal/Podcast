@@ -20,6 +20,7 @@ import {
   lintPreparedWikiRun,
   prepareUserWikiBuild,
   publishPreparedWikiRun,
+  sanitizeWikiMarkdownForDisplay,
   verifyPreparedWikiRun
 } from "../src/lib/wiki";
 
@@ -49,6 +50,37 @@ function repoRootFromHere(): string {
   const here = fileURLToPath(new URL(".", import.meta.url));
   return resolve(here, "../../..");
 }
+
+test("wiki display sanitizer removes internal metadata and source plumbing", () => {
+  const cleaned = sanitizeWikiMarkdownForDisplay(
+    `title: "Busy people are the biggest losers. | LinkedIn"
+summary: "TLDR"
+tags: ["ai"]
+source_ids: ["abc-123"]
+updated: "2026-03-30"
+
+Busy people are the biggest losers. | LinkedIn
+Snapshot
+Source id: abc-123
+sources/items/abc-123.md
+
+Useful body copy.
+`,
+    {
+      path: "sources/items/abc-123.md",
+      summary: "TLDR",
+      title: "Busy people are the biggest losers. | LinkedIn",
+      type: "source_item"
+    }
+  );
+
+  assert.equal(cleaned.includes("title:"), false);
+  assert.equal(cleaned.includes("source_ids"), false);
+  assert.equal(cleaned.includes("Source id:"), false);
+  assert.equal(cleaned.includes("sources/items/abc-123.md"), false);
+  assert.equal(cleaned.includes("Snapshot"), false);
+  assert.equal(cleaned.includes("Useful body copy."), true);
+});
 
 test("wiki prepare/publish supports a Karpathy prompt copy, manifest publishing, and incremental prepare", async () => {
   ensureDbBootstrap();
@@ -172,6 +204,8 @@ Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
     assert.ok(topicPage);
     assert.equal(topicPage?.content.includes(`/app/wiki/sources/items/${items[0]!.id}`), true);
     assert.equal(topicPage?.page.backlinks.includes("index.md"), true);
+    assert.equal(topicPage?.content.includes("tags:"), false);
+    assert.equal(topicPage?.content.includes("# Topic"), false);
 
     const itemArtifact = await prisma.itemArtifact.findFirst({
       where: {

@@ -13,44 +13,151 @@ type WikiBrowserClientProps = {
   content: string;
 };
 
+type WikiReferenceLink = {
+  key: string;
+  title: string;
+  url: string;
+  updated: string | null;
+};
+
+const GROUP_ORDER = ["root", "concepts", "entities", "outputs"];
+const REFERENCE_PREVIEW_LIMIT = 6;
+const UPDATED_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function isSourcePage(page: Pick<WikiPageMeta, "path" | "type">): boolean {
+  return (
+    page.type === "source_item" ||
+    page.type === "source_snippet" ||
+    page.path.startsWith("sources/items/") ||
+    page.path.startsWith("sources/snippets/")
+  );
+}
+
+function isReaderFacingPage(page: WikiPageMeta): boolean {
+  return !isSourcePage(page) && page.type !== "log";
+}
+
+function groupKeyForPage(page: WikiPageMeta): string {
+  const segments = page.path.split("/");
+  return segments.length > 1 ? segments[0] || "root" : "root";
+}
+
 function groupLabel(groupKey: string): string {
   switch (groupKey) {
     case "root":
-      return "Top level";
+      return "Main pages";
     case "concepts":
       return "Concepts";
     case "entities":
       return "Entities";
     case "outputs":
-      return "Outputs";
-    case "sources":
-      return "Sources";
+      return "Collections";
     default:
       return groupKey.charAt(0).toUpperCase() + groupKey.slice(1);
   }
 }
 
-function pageDepth(page: WikiPageMeta): number {
-  return Math.max(0, page.path.split("/").length - 1);
+function groupSortValue(groupKey: string): number {
+  const index = GROUP_ORDER.indexOf(groupKey);
+  return index === -1 ? GROUP_ORDER.length : index;
+}
+
+function pageSortValue(page: WikiPageMeta): string {
+  if (page.path === "index.md") {
+    return "0-index";
+  }
+  if (page.path === "overview.md") {
+    return "1-overview";
+  }
+  return `9-${page.title.toLowerCase()}`;
+}
+
+function humanizeTypeLabel(type: string): string | null {
+  switch (type) {
+    case "concept":
+      return "Concept";
+    case "entity":
+      return "Entity";
+    case "output":
+      return "Collection";
+    case "overview":
+      return "Overview";
+    case "source_item":
+    case "source_snippet":
+      return "Reference";
+    default:
+      return null;
+  }
 }
 
 function backlinkPages(manifest: WikiManifest, activePage: WikiPageMeta): WikiPageMeta[] {
   return activePage.backlinks
     .map((path) => manifest.pages.find((page) => page.path === path) || null)
-    .filter((page): page is WikiPageMeta => Boolean(page));
+    .filter((page): page is WikiPageMeta => Boolean(page))
+    .filter(isReaderFacingPage);
 }
 
-function sourcePages(manifest: WikiManifest, activePage: WikiPageMeta): WikiPageMeta[] {
+function relatedSourceReferences(manifest: WikiManifest, activePage: WikiPageMeta): WikiReferenceLink[] {
   if (activePage.sourceIds.length === 0) {
     return [];
   }
 
-  return manifest.pages.filter(
-    (page) =>
-      page.path !== activePage.path &&
-      (page.type === "source_item" || page.type === "source_snippet") &&
-      page.sourceIds.some((sourceId) => activePage.sourceIds.includes(sourceId))
-  );
+  const seen = new Set<string>();
+  return manifest.pages
+    .filter(
+      (page) =>
+        page.path !== activePage.path &&
+        isSourcePage(page) &&
+        page.sourceIds.some((sourceId) => activePage.sourceIds.includes(sourceId)) &&
+        Boolean(page.sourceUrl)
+    )
+    .map((page) => ({
+      key: page.path,
+      title: page.sourceTitle || page.title,
+      url: page.sourceUrl || "",
+      updated: page.updated,
+    }))
+    .filter((reference) => {
+      const dedupeKey = `${reference.title}::${reference.url}`;
+      if (!reference.url || seen.has(dedupeKey)) {
+        return false;
+      }
+      seen.add(dedupeKey);
+      return true;
+    })
+    .sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function formatUpdatedDate(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return UPDATED_DATE_FORMAT.format(date);
+}
+
+function resolveRenderedLink(manifest: WikiManifest, href: string): { external: boolean; href: string } {
+  const routeHref = href.split("#", 1)[0] || href;
+  const targetPage = manifest.pages.find((page) => page.routePath === routeHref) || null;
+
+  if (targetPage && isSourcePage(targetPage) && targetPage.sourceUrl) {
+    return { external: true, href: targetPage.sourceUrl };
+  }
+
+  if (href.startsWith("/app/wiki")) {
+    return { external: false, href };
+  }
+
+  return { external: href.startsWith("http"), href };
 }
 
 function TagPill({ children }: { children: ReactNode }) {
@@ -64,36 +171,38 @@ function TagPill({ children }: { children: ReactNode }) {
 export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowserClientProps) {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query.trim().toLowerCase());
-  const filteredPages = manifest.pages.filter((page) => {
+  const browsePages = manifest.pages.filter(isReaderFacingPage);
+  const filteredPages = browsePages.filter((page) => {
     if (!deferredQuery) {
       return true;
     }
-    return [page.title, page.summary || "", page.tags.join(" "), page.path].some((value) =>
+    return [page.title, page.summary || "", page.tags.join(" "), page.sourceTitle || ""].some((value) =>
       value.toLowerCase().includes(deferredQuery)
     );
   });
   const groups = new Map<string, WikiPageMeta[]>();
 
   for (const page of filteredPages) {
-    const segments = page.path.split("/");
-    const groupKey = segments.length > 1 ? segments[0] || "root" : "root";
+    const groupKey = groupKeyForPage(page);
     const current = groups.get(groupKey) ?? [];
     current.push(page);
     groups.set(groupKey, current);
   }
 
   const activeBacklinks = backlinkPages(manifest, activePage);
-  const relatedSources = sourcePages(manifest, activePage);
+  const referenceLinks = relatedSourceReferences(manifest, activePage);
+  const activeTypeLabel = humanizeTypeLabel(activePage.type);
+  const visibleReferenceLinks = referenceLinks.slice(0, REFERENCE_PREVIEW_LIMIT);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(17rem,20rem)_minmax(0,1fr)]">
       <aside className="space-y-4">
         <section className="card p-4 sm:p-5">
           <div className="space-y-3">
             <div>
-              <h2 className="font-semibold text-lg">Browse wiki</h2>
+              <h2 className="font-semibold text-lg">Explore wiki</h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Filter by title, tags, summary, or page path.
+                Search by page title, summary, or topic.
               </p>
             </div>
 
@@ -105,11 +214,9 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
               value={query}
             />
 
-            <div className="flex flex-wrap gap-2 text-xs text-[var(--muted)]">
-              <span>{manifest.pages.length} pages</span>
-              <span>{manifest.sourceState.counts.items} item sources</span>
-              <span>{manifest.sourceState.counts.snippets} snippets</span>
-            </div>
+            <p className="text-xs text-[var(--muted)]">
+              {browsePages.length} reader-friendly pages
+            </p>
           </div>
         </section>
 
@@ -119,7 +226,10 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
               <p className="text-sm text-[var(--muted)]">No wiki pages match the current filter.</p>
             ) : (
               [...groups.entries()]
-                .sort(([left], [right]) => left.localeCompare(right))
+                .sort(([left], [right]) => {
+                  const groupDiff = groupSortValue(left) - groupSortValue(right);
+                  return groupDiff !== 0 ? groupDiff : left.localeCompare(right);
+                })
                 .map(([groupKey, pages]) => (
                   <div key={groupKey} className="space-y-2">
                     <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
@@ -127,22 +237,23 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                     </h3>
                     <div className="space-y-1.5">
                       {pages
-                        .sort((left, right) => left.path.localeCompare(right.path))
+                        .sort((left, right) => pageSortValue(left).localeCompare(pageSortValue(right)))
                         .map((page) => {
                           const active = page.path === activePage.path;
                           return (
                             <Link
                               key={page.path}
-                              className={`block rounded-2xl border px-3 py-2 transition ${
+                              className={`block rounded-2xl border px-3 py-3 transition ${
                                 active
                                   ? "border-[rgba(31,122,90,0.24)] bg-[rgba(31,122,90,0.08)]"
                                   : "border-transparent bg-[rgba(247,251,250,0.8)] hover:border-[rgba(31,122,90,0.14)] hover:bg-white"
                               }`}
                               href={page.routePath}
-                              style={{ marginLeft: `${pageDepth(page) * 10}px` }}
                             >
                               <div className="text-sm font-medium text-[var(--foreground)]">{page.title}</div>
-                              <div className="mt-0.5 truncate font-mono text-[11px] text-[var(--muted)]">{page.path}</div>
+                              {page.summary ? (
+                                <div className="mt-1 text-xs leading-5 text-[var(--muted)]">{page.summary}</div>
+                              ) : null}
                             </Link>
                           );
                         })}
@@ -157,22 +268,23 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
       <div className="space-y-6">
         <section className="card p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-bold text-2xl">{activePage.title}</h1>
-                <TagPill>{activePage.type}</TagPill>
+                {activeTypeLabel ? <TagPill>{activeTypeLabel}</TagPill> : null}
               </div>
-              {activePage.summary ? <p className="text-sm text-[var(--muted)]">{activePage.summary}</p> : null}
-              <div className="flex flex-wrap gap-2">
-                {activePage.tags.map((tag) => (
-                  <TagPill key={tag}>{tag}</TagPill>
-                ))}
-              </div>
+              {activePage.summary ? <p className="max-w-3xl text-sm text-[var(--muted)]">{activePage.summary}</p> : null}
+              {activePage.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {activePage.tags.map((tag) => (
+                    <TagPill key={tag}>{tag}</TagPill>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-1 text-right text-xs text-[var(--muted)]">
-              <div className="font-mono">{activePage.path}</div>
-              {activePage.updated ? <div>Updated {activePage.updated}</div> : null}
+              {activePage.updated ? <div>Updated {formatUpdatedDate(activePage.updated)}</div> : null}
               {activePage.sourceUrl ? (
                 <a
                   className="inline-flex text-[rgba(31,122,90,1)] underline underline-offset-2"
@@ -195,9 +307,11 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
               components={{
                 a: ({ href, children, ...props }) => {
                   const targetHref = href || "";
-                  if (targetHref.startsWith("/app/wiki")) {
+                  const resolved = resolveRenderedLink(manifest, targetHref);
+
+                  if (!resolved.external && resolved.href.startsWith("/app/wiki")) {
                     return (
-                      <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={targetHref}>
+                      <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
                         {children}
                       </Link>
                     );
@@ -207,9 +321,9 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                     <a
                       {...props}
                       className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
-                      href={targetHref}
+                      href={resolved.href}
                       rel="noreferrer"
-                      target={targetHref.startsWith("http") ? "_blank" : undefined}
+                      target={resolved.href.startsWith("http") ? "_blank" : undefined}
                     >
                       {children}
                     </a>
@@ -222,18 +336,30 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
           </article>
         </section>
 
-        {relatedSources.length > 0 ? (
+        {visibleReferenceLinks.length > 0 ? (
           <section className="card p-4 sm:p-5">
-            <h2 className="font-semibold text-lg">Source pages</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {relatedSources.map((page) => (
-                <Link
-                  key={page.path}
-                  className="rounded-full border border-[rgba(31,122,90,0.16)] px-3 py-1.5 text-sm text-[rgba(31,122,90,1)] transition hover:bg-[rgba(31,122,90,0.08)]"
-                  href={page.routePath}
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="font-semibold text-lg">References</h2>
+              {referenceLinks.length > visibleReferenceLinks.length ? (
+                <p className="text-xs text-[var(--muted)]">
+                  Showing {visibleReferenceLinks.length} of {referenceLinks.length} source links.
+                </p>
+              ) : null}
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {visibleReferenceLinks.map((reference) => (
+                <a
+                  key={reference.key}
+                  className="rounded-2xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-4 py-3 transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
+                  href={reference.url}
+                  rel="noreferrer"
+                  target="_blank"
                 >
-                  {page.title}
-                </Link>
+                  <div className="text-sm font-medium text-[var(--foreground)]">{reference.title}</div>
+                  {reference.updated ? (
+                    <div className="mt-1 text-xs text-[var(--muted)]">Updated {formatUpdatedDate(reference.updated)}</div>
+                  ) : null}
+                </a>
               ))}
             </div>
           </section>
@@ -241,7 +367,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
 
         {activeBacklinks.length > 0 ? (
           <section className="card p-4 sm:p-5">
-            <h2 className="font-semibold text-lg">Backlinks</h2>
+            <h2 className="font-semibold text-lg">Related pages</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {activeBacklinks.map((page) => (
                 <Link

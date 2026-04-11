@@ -139,7 +139,7 @@
 - Per-user Karpathy-core LLM wiki flow (`M120`) is implemented:
   - operators can now run a local wiki prepare/lint/verify/publish loop that copies the Karpathy prompt verbatim into each workspace, compiles against downloaded item markdown plus normalized snippets, and publishes the resulting wiki back to blob storage.
   - the published wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, `state/builds/<runId>.json`), avoiding new schema/migration pressure in Prisma or Azure Table primary.
-  - signed-in users now get a browse-first `/app/wiki` surface with manifest-driven tree navigation, markdown rendering, backlinks, source-page navigation, and title/tag/summary filtering.
+  - signed-in users now get a cleaner `/app/wiki` surface with reader-first navigation, markdown cleanup that hides internal source/file metadata, backlinks between reader-facing pages, conditional wiki nav visibility, and reference links back to original source URLs.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -3978,7 +3978,7 @@ Milestone metadata contract:
   - `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` creates `.runtime/wiki-builds/<runId>/<userId>/` with the copied Karpathy prompt, wrapper docs, raw item/snippet markdown, and a restored incremental `wiki/` tree when a prior publish exists.
   - `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the workspace without introducing a second wiki schema.
   - `pnpm wiki:publish --run <runId>` publishes changed wiki pages plus `manifest.json` and the current build-state blob under `users/<userId>/wiki/...`, deleting removed pages and replacing older build-state blobs.
-  - Signed-in `/app/wiki` renders the published wiki with tree navigation, markdown reading, title/tag/summary filtering, backlinks, and source-page navigation.
+  - Signed-in `/app/wiki` renders the published wiki with reader-first navigation, cleaned markdown display, title/tag/summary filtering, backlinks between visible pages, and externalized reference links instead of raw source file paths.
   - Wiki storage remains upgrade-in-place and blob-only for v1; no new Prisma or Azure Table primary schema is required.
 - Verification commands:
   - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts tests/wiki-markdown.test.ts`
