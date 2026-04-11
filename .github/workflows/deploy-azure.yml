@@ -4,19 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       skip_healthcheck:
-        description: 'Skip health check after deployment'
+        description: "Skip health check after deployment"
         required: false
         type: boolean
         default: false
       full_deploy:
-        description: 'Force full runtime setup (deps + python-tts + demo seed)'
+        description: "Force full runtime setup (deps + python-tts + demo seed)"
         required: false
         type: boolean
         default: false
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
 
 permissions:
   contents: read
@@ -30,18 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
-    # For workflow_run events: only deploy when the CI validate-simple job passed.
-    # For workflow_dispatch: always run (manual trigger).
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
-        with:
-          # When triggered by workflow_run, check out the commit that triggered CI
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Validate deploy target
         env:

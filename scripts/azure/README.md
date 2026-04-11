@@ -1,6 +1,7 @@
 # Azure Scripts
 
 ## First-Time Setup (Per Environment)
+
 1. Preflight local machine:
    - `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/preflight.sh`
 2. Provision infra.
@@ -30,7 +31,9 @@
 See runbook: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-deploy.md`
 
 ## Daily Deploy (Code Changes Only)
+
 Single command:
+
 ```bash
 TARGET_HOST=<vm-ip-or-fqdn> \
 CANONICAL_HOST=articlepod.com \
@@ -41,11 +44,13 @@ AZURE_RESOURCE_GROUP=rg-articlepod-prod \
 /Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-changes.sh --render-env --resource-group rg-articlepod-prod
 ```
 
-GitHub Actions production deploys now run automatically on every push to `main` (not only commits with `[deploy]`), plus a mandatory post-deploy smoke gate.
+GitHub Actions production deploys are manual-only via the `Deploy to Azure` workflow, and that workflow still enforces a mandatory post-deploy smoke gate.
 Required repo secret for that gate:
+
 - `APP_SMOKE_FEED_TOKEN` (valid RSS feed token used to verify media HEAD/range and legacy `feed_token` compatibility)
 
 Production deploy workflow env assumptions:
+
 - metadata primary is `azure_table`, using `APP_AZURE_STORAGE_CONNECTION_STRING` for both Blob and Table access
 - `DATABASE_URL` is intentionally omitted in Azure Table mode; production runtime should not depend on a local SQLite file
 - Azure OpenAI summary settings come from production environment secrets:
@@ -55,6 +60,7 @@ Production deploy workflow env assumptions:
   - `APP_AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
 
 Default deploy mode is incremental:
+
 - skips `pnpm install` when `pnpm-lock.yaml` is unchanged
 - skips python-tts package/model provisioning when requirements/assets are unchanged
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
@@ -70,6 +76,7 @@ Default deploy mode is incremental:
 - keeps overflow worker service disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`)
 
 Force a full runtime refresh:
+
 ```bash
 TARGET_HOST=<vm-ip-or-fqdn> \
 CANONICAL_HOST=articlepod.com \
@@ -80,6 +87,7 @@ APP_URL=https://articlepod.com \
 ```
 
 What it runs:
+
 1. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/push-to-vm.sh`
 2. Bootstrap guard (runs `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/bootstrap-vm.sh` only if runtime user is missing on VM)
 3. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/promote-runtime.sh`
@@ -88,37 +96,44 @@ What it runs:
 6. `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/configure-tls.sh`
 
 When `--render-env --resource-group <RG>` is used, `deploy-changes.sh` can auto-provision Azure OpenAI and forward:
+
 - `AZURE_OPENAI_BASE_URL`
 - `AZURE_OPENAI_API_KEY`
 - `AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT`
 - `AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT`
 
 ### Domain/TLS deploy variables
+
 - `CANONICAL_HOST`: required when ingress automation is enabled (defaults from `APP_URL` host if present).
 - `HOST_ALIASES`: optional comma-separated aliases redirected to canonical host.
 - `LETSENCRYPT_EMAIL`: required when ingress automation is enabled.
 - `DEPLOY_CONFIGURE_INGRESS`: set `0` to skip nginx/TLS automation for a deploy.
 
 ## Production URL Extraction Probe (Safe Diagnostics)
+
 Use the GitHub Actions workflow **Probe URL Extraction (VM)** to test extraction for a specific URL from the production VM network path without exposing new public endpoints.
 
 Requirements:
+
 - GitHub repository secrets already used by deploy workflow:
   - `AZURE_VM_HOST`
   - `AZURE_VM_USER` (optional; defaults to `azureuser`)
   - `AZURE_SSH_KEY`
 
 What it does:
+
 1. Copies `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/probe-url-extract.ts` to the VM.
 2. Runs DNS + HTTP HEAD checks from the VM.
 3. Runs core extraction (`validateFetchableUrl` + `extractHtmlFromUrlWithDiagnostics`) on the target URL.
 4. Outputs structured JSON with extraction metrics or actionable error details plus fetch diagnostics (`pinnedStatuses`, `fallbackAttempted`, `fallbackStatus`, `finalFetchStrategy`).
 
 Security notes:
+
 - Uses existing SSH key auth and VM host secrets; no inbound port changes or debug routes.
 - Runs on demand (`workflow_dispatch`) and does not persist source content.
 
 ## Individual Building Blocks
+
 - Eastus blue/green infra provisioning: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/provision-eastus-bluegreen.sh`
 - Blue/green state clone from current VM: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/clone-vm-state.sh`
 - ACA overflow deploy (worker + python-tts sidecar): `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/deploy-aca-overflow.sh`
@@ -134,11 +149,13 @@ Security notes:
 - Overflow guardrail validation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/validate-overflow-guardrails.sh`
 
 Example:
+
 ```bash
 npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-monthly
 ```
 
 Detailed service/resource breakdown example:
+
 ```bash
 npm run ops:azure-cost-report -- --resource-group rg-articlepod-prod --include-breakdown --breakdown-top 8
 ```

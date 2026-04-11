@@ -43,6 +43,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - SQLite export/import migration scripts for PostgreSQL transition
   - Bicep + azd infra baseline and VM deployment automation scripts.
   - VM rollout runbook/scripts include staging sync -> runtime promotion and nginx/TLS automation.
+  - GitHub Actions keeps CI automatic, while the production `Deploy to Azure` workflow is an explicit manual dispatch instead of auto-running after every successful `main` CI pass.
   - Deploy helper auto-runs VM bootstrap on first deploy when runtime user is missing.
   - VM runtime deploy auto-recovers legacy env path (`/etc/listenlater/listenlater.env`) into canonical `/etc/articlepod/articlepod.env`.
   - VM python-tts provisioning enforces CPU-only torch wheels with no pip cache to avoid disk exhaustion on standard VM sizes.

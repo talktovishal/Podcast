@@ -22,6 +22,7 @@
 - Chrome extension release tooling now treats the packaged artifact as a first-class test surface: `extension:package` runs extension-specific regression gates before building, and the live-site smoke harness can target `dist/extension/package` for release-candidate checks.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
+- GitHub Actions now keeps CI automatic on `main`, while Azure production deploys require an explicit manual `Deploy to Azure` workflow dispatch instead of auto-running after every successful CI completion.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
 - Azure deploy helper now auto-bootstraps first-run VMs when runtime user provisioning is missing during CI/CD rollout.
 - Azure runtime deploy now auto-recovers canonical env file from legacy `/etc/listenlater/listenlater.env` when present.

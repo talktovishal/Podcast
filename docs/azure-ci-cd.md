@@ -1,6 +1,6 @@
 # Azure CI/CD Deployment
 
-This document explains how to set up automated deployments to Azure using GitHub Actions.
+This document explains how to run Azure deployments from GitHub Actions without auto-deploying every successful `main` push.
 
 ## Overview
 
@@ -60,13 +60,6 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
 
 ## Deployment Triggers
 
-### Automatic Deployment
-
-The workflow deploys automatically when:
-- A `main` branch push completes the `CI` workflow successfully
-
-No `[deploy]` tag is required. The deploy workflow is gated by a successful `validate-simple` CI pass first, then runs as a follow-up `workflow_run`.
-
 ### Manual Deployment
 
 You can trigger deployment manually from GitHub:
@@ -78,6 +71,8 @@ You can trigger deployment manually from GitHub:
 5. Optionally check "Skip health check" if needed
 6. Optionally check "Force full runtime setup" if you changed dependencies or python-tts requirements
 7. Click **Run workflow** button
+
+CI still runs automatically on pushes to `main` and pull requests. Deployment is now a separate explicit step.
 
 ## Deployment Process
 
@@ -115,6 +110,7 @@ The workflow performs:
 ### Deployment Summary
 
 After each deployment, check the workflow summary for:
+
 - Deployment status
 - VM host deployed to
 - Commit SHA
@@ -125,22 +121,27 @@ After each deployment, check the workflow summary for:
 ### Common Issues
 
 #### "AZURE_SSH_KEY secret is not configured"
+
 - **Solution**: Add the `AZURE_SSH_KEY` secret to the `production` environment secrets
 
 #### "AZURE_VM_HOST secret is not configured"
+
 - **Solution**: Add the `AZURE_VM_HOST` secret to the `production` environment secrets
 
 #### "APP_URL must be set to https://articlepod.com"
+
 - **Solution**: Set `APP_URL` environment secret to exactly:
   ```text
   https://articlepod.com
   ```
 
 #### "Missing LETSENCRYPT_EMAIL while ingress automation is enabled"
+
 - **Solution**: Add `LETSENCRYPT_EMAIL` as an environment secret.
 - Ensure DNS for `articlepod.com` and `www.articlepod.com` already points to the VM before deploy.
 
 #### "could not build server_names_hash, you should increase server_names_hash_bucket_size"
+
 - **Current behavior**: `configure-nginx.sh` auto-applies idempotent hash-size tuning in `/etc/nginx/nginx.conf` and retries nginx validation.
 - **If it still appears**:
   - Check for custom nginx snippets overriding `http` block settings.
@@ -150,6 +151,7 @@ After each deployment, check the workflow summary for:
     ```
 
 #### "`server_names_hash_bucket_size` directive is duplicate"
+
 - **Current behavior**: deploy automation removes legacy `/etc/nginx/conf.d/<site>-server-names.conf` during reconfigure.
 - **If it still appears**:
   - Remove stale managed file and reload:
@@ -161,10 +163,12 @@ After each deployment, check the workflow summary for:
   - Re-run deployment workflow.
 
 #### "Deploy workflow must run from main branch"
+
 - **Solution**: Run the workflow for `main` only.
 
 #### SSH connection failures
-- **Solution**: 
+
+- **Solution**:
   - Verify VM is running: `az vm get-instance-view`
   - Refresh `AZURE_VM_HOST` to the VM's current public FQDN or IP
   - Refresh `AZURE_SSH_KEY` with the current contents of `~/.ssh/articlepod_azure`
@@ -172,12 +176,14 @@ After each deployment, check the workflow summary for:
   - The deploy workflow now runs an explicit SSH probe before sync, and `deploy-changes.sh` uses SSH connect/keepalive guards for all remote steps
 
 #### "Missing runtime user 'articlepod'. Run bootstrap first."
+
 - **Current behavior**: this is auto-handled in `deploy-changes.sh` by running bootstrap once.
 - **If it still appears**:
   - Ensure `sudo` works non-interactively for your VM user (`azureuser`)
   - Ensure staging path contains bootstrap script (`/home/azureuser/articlepod/scripts/azure/bootstrap-vm.sh`)
 
-#### "Failed to enable unit: ... listenlater-*.service already exists"
+#### "Failed to enable unit: ... listenlater-\*.service already exists"
+
 - **Current behavior**: `install-systemd.sh` now removes stale legacy unit files before enabling canonical `articlepod-*` units.
 - **If it still appears**:
   - SSH to VM and remove stale units manually:
@@ -188,6 +194,7 @@ After each deployment, check the workflow summary for:
   - Re-run deployment workflow.
 
 #### "Missing env file: /etc/articlepod/articlepod.env"
+
 - **Current behavior**: deploy auto-copies from legacy `/etc/listenlater/listenlater.env` when present.
 - **If it still appears**:
   - Render canonical env on VM:
@@ -200,6 +207,7 @@ After each deployment, check the workflow summary for:
     ```
 
 #### Health check failures
+
 - **Solution**:
   - Deploy helper already retries health checks (default: 15 attempts, 2s delay)
   - Check service status: `sudo systemctl status articlepod-web`
@@ -208,6 +216,7 @@ After each deployment, check the workflow summary for:
   - Fix issues on VM, then redeploy
 
 #### Build failures
+
 - **Solution**:
   - Check Node.js version on VM matches development
   - Verify disk space: `df -h`
@@ -215,6 +224,7 @@ After each deployment, check the workflow summary for:
   - If you changed dependencies, rerun workflow with **Force full runtime setup**
 
 #### "No space left on device" during python-tts setup
+
 - **Current behavior**:
   - deploy preflight now refuses to continue when free space stays below the configured floor after safe cleanup
   - runtime deploy installs CPU-only torch wheels and disables pip cache to reduce disk usage
@@ -230,6 +240,7 @@ After each deployment, check the workflow summary for:
   - Re-run deployment workflow.
 
 #### Remote disk guard thresholds
+
 - `deploy-changes.sh` warns below `4096 MB` free and fails below `2048 MB` by default.
 - `--full-deploy` raises the defaults to `8192 MB` warn / `4096 MB` fail.
 - Override when needed with:
@@ -251,6 +262,7 @@ npm run azure:deploy:changes
 ```
 
 Or with all options:
+
 ```bash
 TARGET_HOST="<vm-ip>" \
 TARGET_USER="azureuser" \
@@ -263,6 +275,7 @@ APP_URL="https://articlepod.com" \
 ```
 
 Force a full runtime refresh from local:
+
 ```bash
 TARGET_HOST="<vm-ip>" \
 TARGET_USER="azureuser" \
@@ -285,14 +298,9 @@ APP_URL="https://articlepod.com" \
 
 ## Deployment Workflow Customization
 
-### Deploy on Every Push (Not Recommended for Production)
+### Re-enable Auto Deploys Later
 
-To deploy on every push to main without requiring `[deploy]` tag:
-
-Edit `.github/workflows/deploy-azure.yml`:
-```yaml
-if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-```
+If you ever want to bring automatic deploys back, you can reintroduce a `workflow_run` trigger in `.github/workflows/deploy-azure.yml` that listens for successful `CI` runs on `main`.
 
 ### Add Deployment Approval
 
@@ -314,8 +322,8 @@ After setting up CI/CD:
 1. Test with a manual workflow dispatch
 2. Verify deployment completes successfully
 3. Check application health endpoint
-4. Make a code change with `[deploy]` tag
-5. Verify automatic deployment works
+4. Run one manual deploy from `main`
+5. Verify deployment completes successfully
 
 ## Related Documentation
 
