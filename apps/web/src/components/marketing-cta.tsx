@@ -9,13 +9,13 @@ export function MarketingCta() {
     >
       <Link
         href="/"
-        className="inline-flex w-full justify-center whitespace-nowrap rounded-lg bg-[var(--ink)] px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm"
+        className="inline-flex w-full justify-center rounded-lg bg-[var(--ink)] px-3 py-2 text-center text-xs font-semibold leading-tight text-white sm:px-4 sm:text-sm sm:whitespace-nowrap"
       >
         {marketingCopy.ctaPrimary}
       </Link>
       <Link
         href="/pricing"
-        className="inline-flex w-[78%] justify-self-end justify-center whitespace-nowrap rounded-lg border border-[#bfded4] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] sm:w-auto sm:px-4 sm:text-sm"
+        className="inline-flex w-[78%] justify-self-end justify-center rounded-lg border border-[#bfded4] bg-white px-3 py-2 text-center text-xs font-semibold leading-tight text-[var(--ink)] sm:w-auto sm:px-4 sm:text-sm sm:whitespace-nowrap"
       >
         {marketingCopy.ctaSecondary}
       </Link>
