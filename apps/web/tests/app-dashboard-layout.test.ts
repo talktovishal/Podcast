@@ -43,9 +43,11 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(headerSource.includes("ArticlePod home"), true);
   assert.equal(headerSource.includes("WorkspaceBillingSummary"), true);
   assert.equal(headerSource.includes('variant="header"'), true);
+  assert.equal(headerSource.includes('variant="mobile-header"'), true);
   assert.equal(headerSource.includes("AppShellNav"), true);
   assert.equal(headerSource.includes("hasSnippetsForUser"), true);
-  assert.equal(layoutSource.includes("pt-36 sm:pt-40 xl:pt-24"), true);
+  assert.equal(headerSource.includes("lg:inline-flex"), true);
+  assert.equal(layoutSource.includes("pt-28 sm:pt-32 lg:pt-24"), true);
 });
 
 test("workspace billing summary stays compact inside the sticky header", () => {
@@ -58,8 +60,9 @@ test("workspace billing summary stays compact inside the sticky header", () => {
   assert.equal(source.includes("Upgrade to Pro"), true);
   assert.equal(source.includes("Billing issue"), true);
   assert.equal(source.includes("Activating Pro"), true);
+  assert.equal(source.includes('variant?: "default" | "header" | "mobile-header"'), true);
+  assert.equal(source.includes('variant === "mobile-header"'), true);
   assert.equal(source.includes('href="/app/settings#billing"'), true);
-  assert.equal(source.includes('variant?: "default" | "header"'), true);
   assert.equal(source.includes("useSearchParams"), true);
   assert.equal(source.includes("Billing ·"), false);
   assert.equal(source.includes("Pro Annual is the best value"), false);
@@ -86,15 +89,21 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("usePathname"), true);
   assert.equal(source.includes("aria-current"), true);
   assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("mobileLeading"), true);
+  assert.equal(source.includes("mobilePrimaryItems"), true);
+  assert.equal(source.includes('item.key !== "chrome-extension"'), true);
+  assert.equal(source.includes('item.key !== "snippets"'), true);
+  assert.equal(source.includes('variant="icon"'), true);
+  assert.equal(source.includes("compact = false"), true);
   assert.equal(source.includes("kind: \"utility\""), true);
-  assert.equal(source.includes("flex-wrap"), true);
-  assert.equal(source.includes("justify-start"), true);
+  assert.equal(source.includes("overflow-x-auto"), true);
   assert.equal(source.includes("lg:flex-row"), true);
   assert.equal(source.includes("lg:flex-nowrap"), true);
   assert.equal(source.includes("lg:justify-end"), true);
   assert.equal(source.includes("appShellSelectedItemClass"), true);
   assert.equal(source.includes('variant="responsive"'), true);
   assert.equal(source.includes("md:sr-only"), true);
+  assert.equal(source.includes("compact ? \"sr-only\""), true);
   assert.equal(source.includes("M16.8617 4.48667L18.5492 2.79917"), true);
   assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
   assert.equal(source.includes("item.key !== current"), false);

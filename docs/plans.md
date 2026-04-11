@@ -119,6 +119,10 @@
 - Public marketing FAQ navigation simplification (`M115`) is implemented:
   - `/faq` removes `Browse by topic` and the per-question `Link` button so the page stays focused on the questions themselves.
   - quick-answer anchors, richer answer links, and `#question-*` auto-open behavior still cover the useful navigation paths without adding extra visible UI chrome.
+- Mobile header density pass (`M116`) is implemented:
+  - public marketing pages now keep the mobile menu on one horizontal row, keep the footer CTA buttons on one row, and trim shell padding to maximize reading area.
+  - signed-in mobile workspace chrome now uses a compact two-row header with `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second.
+  - mobile workspace chrome hides `Chrome Extension` and `Snippets`, while desktop keeps the full signed-in nav unchanged.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -413,6 +417,7 @@ Milestone metadata contract:
 | M112      | Done        | 2026-04-20    | 2026-04-05   | local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)                               |
 | M114      | Done        | 2026-04-21    | 2026-04-06   | local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)                        |
 | M115      | Done        | 2026-04-25    | 2026-04-10   | local validation + FAQ quick-answers-only navigation pass (2026-04-10)                                  |
+| M116      | Done        | 2026-04-26    | 2026-04-10   | local validation + compact mobile marketing/workspace header pass (2026-04-10)                          |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3734,6 +3739,49 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
   - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq keeps quick answers while removing extra FAQ chrome" --no-deps`
   - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M116 - Mobile Header Density Pass
+
+- status: Done
+- target_finish: 2026-04-26
+- completed_on: 2026-04-10
+- evidence: local validation + compact mobile marketing/workspace header pass (2026-04-10)
+- Scope:
+  - Keep the public marketing menu on one compact mobile row and keep the shared footer CTA buttons on one row.
+  - Trim mobile header/footer/main shell padding on public pages so more reading content appears above the fold.
+  - Rebuild the signed-in mobile workspace header into two compact rows without changing the desktop header contract.
+  - Hide `Chrome Extension` and `Snippets` from the signed-in mobile header so the core workspace destinations remain readable on one row.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/app/layout.tsx`
+  - `apps/web/src/components/brand-logo.tsx`
+  - `apps/web/src/components/marketing-header.tsx`
+  - `apps/web/src/components/marketing-cta.tsx`
+  - `apps/web/src/components/app-shell-header.tsx`
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/components/workspace-billing-summary.tsx`
+  - `apps/web/tests/app-dashboard-layout.test.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/dashboard.spec.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing nav items stay on one mobile row instead of wrapping.
+  - `Start your knowledge feed` and `See pricing` stay side by side on one mobile row.
+  - Public mobile shell padding is smaller so the scrollable reading area starts sooner.
+  - Signed-in mobile header shows `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row.
+  - Signed-in mobile header shows `Episodes`, `Podcast Apps`, and `Summaries` on the second row, while hiding `Chrome Extension` and `Snippets`.
+  - Desktop marketing and workspace header behavior remains unchanged.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web run lint`
+  - `corepack pnpm --filter @articlepod/web run test`
+  - `corepack pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile marketing chrome keeps nav items and footer actions on single rows" --no-deps`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile workspace header keeps the compact two-row navigation" --no-deps`
 
 ---
 

@@ -21,11 +21,11 @@ export async function AppShellHeader({
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-[rgba(31,122,90,0.16)] bg-[rgba(247,251,250,0.88)] backdrop-blur">
-      <div className="container-shell py-3 sm:py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+      <div className="container-shell py-2.5 sm:py-3 lg:py-4">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
           <Link
             aria-label="ArticlePod home"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(31,122,90,0.16)] bg-white/92 shadow-sm transition hover:border-[rgba(31,122,90,0.28)] hover:bg-white"
+            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(31,122,90,0.16)] bg-white/92 shadow-sm transition hover:border-[rgba(31,122,90,0.28)] hover:bg-white lg:inline-flex"
             href="/app"
             title="ArticlePod"
           >
@@ -38,7 +38,7 @@ export async function AppShellHeader({
             />
           </Link>
 
-          <div className="shrink-0">
+          <div className="hidden shrink-0 lg:block">
             <WorkspaceBillingSummary
               billingConfigured={billingConfigured}
               initialBilling={initialBilling}
@@ -48,7 +48,17 @@ export async function AppShellHeader({
           </div>
 
           <div className="min-w-0 flex-1">
-            <AppShellNav showSnippets={showSnippets} />
+            <AppShellNav
+              mobileLeading={
+                <WorkspaceBillingSummary
+                  billingConfigured={billingConfigured}
+                  initialBilling={initialBilling}
+                  sandboxModeActive={sandboxModeActive}
+                  variant="mobile-header"
+                />
+              }
+              showSnippets={showSnippets}
+            />
           </div>
         </div>
       </div>

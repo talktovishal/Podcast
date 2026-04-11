@@ -139,6 +139,31 @@ test.describe("Health & Public Pages", () => {
     }
   });
 
+  test("mobile marketing chrome keeps nav items and footer actions on single rows", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/product");
+    await page.waitForLoadState("networkidle");
+
+    const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    const cta = page.getByRole("contentinfo", { name: "Footer call to action" });
+    const navLinks = await Promise.all([
+      nav.getByRole("link", { name: "Product", exact: true }).boundingBox(),
+      nav.getByRole("link", { name: "Pricing", exact: true }).boundingBox(),
+      nav.getByRole("link", { name: "Resources", exact: true }).boundingBox(),
+      nav.getByRole("link", { name: "FAQ", exact: true }).boundingBox(),
+      nav.getByRole("link", { name: "About", exact: true }).boundingBox(),
+    ]);
+    const ctaLinks = await Promise.all([
+      cta.getByRole("link", { name: "Start your knowledge feed" }).boundingBox(),
+      cta.getByRole("link", { name: "See pricing" }).boundingBox(),
+    ]);
+
+    const navTops = navLinks.map((box) => box?.y ?? -1);
+    const ctaTops = ctaLinks.map((box) => box?.y ?? -1);
+    expect(Math.max(...navTops) - Math.min(...navTops)).toBeLessThan(4);
+    expect(Math.max(...ctaTops) - Math.min(...ctaTops)).toBeLessThan(4);
+  });
+
   test("/faq keeps quick answers while removing extra FAQ chrome", async ({ page }) => {
     await page.goto("/faq");
     await page.waitForLoadState("networkidle");

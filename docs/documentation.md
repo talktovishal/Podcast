@@ -86,7 +86,8 @@ Connect flow:
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
   - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
-  - mobile/smaller screens wrap the nav instead of hiding destinations offscreen
+  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, and `Summaries` stay on the second row
+  - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
   - setup notes and future walkthrough/video space below the live tools
@@ -357,6 +358,8 @@ Only configured OAuth buttons are shown on the root auth landing page (`/`); unc
 The root page now acts as the public homepage surface: it keeps the auth card primary, uses concise busy-reader/private-feed marketing copy on the adjacent panel, and avoids a duplicate bottom footer so the page stays tight on desktop. `/login` remains available only as a compatibility redirect back to `/`.
 
 The secondary public marketing pages (`/product`, `/pricing`, `/resources`, `/faq`, `/about`) now follow the same chrome principle: keep the shared top navigation plus the bottom CTA, but do not repeat the site links or ArticlePod summary again in a footer.
+
+On mobile, that shared public chrome is denser: the primary nav stays on one compact horizontal row, the footer CTA keeps `Start your knowledge feed` and `See pricing` side by side, and the shell trims header/footer padding so the reading area begins sooner.
 
 ## Known boundaries
 

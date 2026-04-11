@@ -207,7 +207,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public marketing shared chrome persistence (`M109`) is implemented:
   - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the public-site header and footer CTA cannot drift page by page.
   - the persistent header always shows the logo, `ArticlePod`, and the main menu entries `Product`, `Pricing`, `Resources`, `FAQ`, and `About`, while staying visible as page content scrolls.
+  - on mobile, that public nav stays on one compact horizontal row instead of wrapping to multiple lines.
   - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page, while staying visible as page content scrolls.
+  - on mobile, those two CTA actions stay side by side on one row so the reading area starts sooner.
   - the public marketing shell now uses a fixed-height viewport layout so only the middle content pane scrolls.
   - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
   - `/about` now leads with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait.
@@ -227,10 +229,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public marketing FAQ navigation simplification (`M115`) is implemented:
   - `/faq` removes `Browse by topic` and the per-question `Link` button, keeping the page focused on the questions and richer in-answer links.
   - question hashes still auto-open matching answers, so direct `#question-*` links continue to work without adding extra visible UI chrome.
+- Mobile header density pass (`M116`) is implemented:
+  - public marketing pages now trim mobile header/footer padding so more reading content stays above the fold.
+  - the signed-in mobile header now uses two compact rows: `Upgrade to Pro` plus `Feedback`, `Settings`, and `Logout` utilities on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second row.
+  - mobile signed-in nav hides `Chrome Extension` and `Snippets`, while desktop keeps the full workspace nav unchanged.
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M115`, excluding reserved gaps) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M116`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
   - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
   - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.
@@ -421,7 +427,8 @@ E) Web UI (polished)
 - `/app` episodes workspace:
   - compact signed-in header stays visible while the workspace scrolls, with the ArticlePod icon first and the compact billing pill immediately beside it
   - dedicated top-nav links for `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
-  - signed-in nav stays on one row on desktop and wraps cleanly on smaller screens so no destination disappears off-canvas
+  - signed-in nav stays on one row on desktop; on mobile it compacts into two rows with `Upgrade to Pro` plus the utility icons on top and `Episodes`, `Podcast Apps`, plus `Summaries` beneath
+  - mobile signed-in nav hides `Chrome Extension` and `Snippets` to keep the workspace chrome dense and preserve more reading area
   - compact workspace billing control inside the header itself: free users see a single subtly highlighted `Upgrade to Pro` action that jumps straight to the billing section of `/app/settings` without extra upsell copy underneath it, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace
   - non-blocking trial quota or capacity copy should sit below the primary submit control with clearly secondary treatment; only blocking states should escalate visually

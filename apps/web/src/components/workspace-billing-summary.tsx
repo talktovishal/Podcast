@@ -17,7 +17,7 @@ type Props = {
   billingConfigured: boolean;
   activationHint?: boolean;
   sandboxModeActive?: boolean;
-  variant?: "default" | "header";
+  variant?: "default" | "header" | "mobile-header";
 };
 
 function toneClasses(input: BillingAccountSnapshot) {
@@ -91,6 +91,17 @@ export function WorkspaceBillingSummary({
   const tone = toneClasses(billing);
   const message = pollMessage ?? billing.billingIssueMessage;
   const actionLabel = billingActionLabel(billing);
+
+  if (variant === "mobile-header") {
+    return (
+      <Link
+        className={`${appShellAccentItemClass} h-9 min-w-0 max-w-full justify-center px-3 text-sm`}
+        href="/app/settings#billing"
+      >
+        Upgrade to Pro
+      </Link>
+    );
+  }
 
   if (variant === "header") {
     const compactActionClass = tone.action;

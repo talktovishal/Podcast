@@ -30,7 +30,7 @@ export default async function AppLayout({
         sandboxModeActive={billingState.mode.effectiveLane === "SANDBOX"}
         userId={user.id}
       />
-      <div className="pt-36 sm:pt-40 xl:pt-24">{children}</div>
+      <div className="pt-28 sm:pt-32 lg:pt-24">{children}</div>
     </div>
   );
 }

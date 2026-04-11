@@ -137,12 +137,14 @@ function SettingsIcon() {
 
 function UtilityLink({
   active,
+  compact = false,
   href,
   icon,
   label,
   title,
 }: {
   active: boolean;
+  compact?: boolean;
   href: string;
   icon: ReactNode;
   label: string;
@@ -151,20 +153,26 @@ function UtilityLink({
   return (
     <Link
       aria-current={active ? "page" : undefined}
-      className={utilityItemClass(active)}
+      className={
+        compact
+          ? `${utilityItemClass(active)} h-9 w-9 px-0`
+          : utilityItemClass(active)
+      }
       href={href}
       title={title}
     >
       {icon}
-      <span className="text-sm md:sr-only">{label}</span>
+      <span className={compact ? "sr-only" : "text-sm md:sr-only"}>{label}</span>
     </Link>
   );
 }
 
 export function AppShellNav({
   showSnippets = false,
+  mobileLeading,
 }: {
   showSnippets?: boolean;
+  mobileLeading?: ReactNode;
 }) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter(
@@ -172,14 +180,69 @@ export function AppShellNav({
   );
 
   const primaryItems = items.filter((item) => item.kind === "primary");
+  const mobilePrimaryItems = primaryItems.filter(
+    (item) =>
+      item.key !== "chrome-extension" &&
+      item.key !== "snippets",
+  );
   const utilityItems = items.filter((item) => item.kind === "utility");
 
   return (
-    <nav
-      aria-label="Workspace navigation"
-      className="flex w-full flex-col items-start gap-2 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end"
-    >
-      <div className="flex w-full flex-wrap items-center justify-start gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+    <nav aria-label="Workspace navigation" className="w-full">
+      <div className="flex flex-col gap-2 lg:hidden">
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            {mobileLeading}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {utilityItems.map((item) => {
+              const active = matchesPath(pathname, item.href);
+              const icon =
+                item.key === "feedback" ? <FeedbackIcon /> : <SettingsIcon />;
+
+              return (
+                <UtilityLink
+                  key={item.key}
+                  active={active}
+                  compact
+                  href={item.href}
+                  icon={icon}
+                  label={item.label}
+                  title={item.title}
+                />
+              );
+            })}
+            <LogoutButton
+              ariaLabel="Log out"
+              className={`${utilityItemClass(false)} h-9 w-9 px-0`}
+              title="Log out"
+              variant="icon"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {mobilePrimaryItems.map((item) => {
+            const active = matchesPath(pathname, item.href);
+
+            return (
+              <Link
+                key={item.key}
+                aria-current={active ? "page" : undefined}
+                className={`h-9 shrink-0 px-2.5 text-xs sm:px-3 sm:text-sm ${
+                  active ? appShellSelectedItemClass : appShellNeutralItemClass
+                }`}
+                href={item.href}
+                title={item.title}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="hidden w-full lg:flex lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end lg:gap-2">
         {primaryItems.map((item) => {
           const active = matchesPath(pathname, item.href);
 
@@ -197,9 +260,6 @@ export function AppShellNav({
             </Link>
           );
         })}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
         {utilityItems.map((item) => {
           const active = matchesPath(pathname, item.href);
           const icon =

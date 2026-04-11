@@ -125,6 +125,39 @@ test.describe("Dashboard & Item Submission", () => {
     await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
   });
 
+  test("mobile workspace header keeps the compact two-row navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/app");
+    await page.waitForURL(/\/app/);
+
+    await expect(page.getByRole("link", { name: "Upgrade to Pro" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feedback" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Snippets" })).toHaveCount(0);
+
+    const topRow = await Promise.all([
+      page.getByRole("link", { name: "Upgrade to Pro" }).boundingBox(),
+      page.getByRole("link", { name: "Feedback" }).boundingBox(),
+      page.getByRole("link", { name: "Settings" }).boundingBox(),
+      page.getByRole("button", { name: "Log out" }).boundingBox(),
+    ]);
+    const secondRow = await Promise.all([
+      page.getByRole("link", { name: "Episodes" }).boundingBox(),
+      page.getByRole("link", { name: "Podcast Apps" }).boundingBox(),
+      page.getByRole("link", { name: "Summaries" }).boundingBox(),
+    ]);
+
+    const topRowTops = topRow.map((box) => box?.y ?? -1);
+    const secondRowTops = secondRow.map((box) => box?.y ?? -1);
+    expect(Math.max(...topRowTops) - Math.min(...topRowTops)).toBeLessThan(4);
+    expect(Math.max(...secondRowTops) - Math.min(...secondRowTops)).toBeLessThan(4);
+  });
+
   test("workspace header stays visible after scrolling", async ({ page }) => {
     await page.goto("/app");
     await page.waitForURL(/\/app/);
