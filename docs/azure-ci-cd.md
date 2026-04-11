@@ -72,7 +72,7 @@ You can trigger deployment manually from GitHub:
 6. Optionally check "Force full runtime setup" if you changed dependencies or python-tts requirements
 7. Click **Run workflow** button
 
-CI now uses a scope-aware plan step on pull requests and `main` pushes so docs-only and narrow changes skip irrelevant validation work. Deployment remains a separate explicit step.
+CI now uses a quick pull-request workflow for everyday changes and a separate nightly full validation workflow for expensive checks. Deployment remains a separate explicit step.
 
 Recommended daily flow:
 
@@ -81,8 +81,9 @@ Recommended daily flow:
 3. Commit locally
 4. Push only when you explicitly want remote CI or a PR
 5. Open a PR and wait for `CI`
-6. Merge only after `validate-simple` is green
+6. Merge only after `validate-quick` is green
 7. Use `full-ci` or manual dispatch when you want parity before merge
+8. Let `Nightly Full CI` catch deep build/export/observability/parity regressions on `main`
 
 ## Deployment Process
 
@@ -122,7 +123,9 @@ The workflow performs:
 - `CI` now cancels superseded runs on the same branch or PR automatically.
 - Docs-only changes short-circuit instead of installing dependencies and running app checks.
 - Narrow web-only and worker-only changes run only the checks relevant to that surface.
-- Parity runs only for runtime-sensitive changes, manual dispatch, or PRs explicitly labelled `full-ci`.
+- Quick pull-request CI avoids routine build/export/observability work.
+- `Nightly Full CI` runs the expensive full-suite and parity checks once per night on `main`.
+- Parity runs in PRs only for runtime-sensitive changes, manual dispatch, or PRs explicitly labelled `full-ci`.
 
 ### Deployment Summary
 

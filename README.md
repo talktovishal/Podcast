@@ -112,6 +112,7 @@ Script/catalog indexes:
 ## Validation gates
 - `pnpm preflight`
 - `pnpm preflight --parity` for runtime-sensitive changes
+- GitHub `CI` runs the quick PR gate; `Nightly Full CI` runs the expensive full suite on `main`
 - `npm run typecheck`
 - `npm run lint`
 - `npm run test`

@@ -25,6 +25,7 @@ services/python-tts/.venv
 __pycache__/
 .pytest_cache/
 .runtime/
+.cache/
 
 # Codex worktrees
 .worktrees/

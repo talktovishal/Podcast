@@ -4,14 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npm run prisma:generate && tsx watch src/index.ts",
+    "dev": "npm run prisma:generate:ensure && tsx watch src/index.ts",
     "dev:fast": "tsx watch src/index.ts",
-    "build": "npm run prisma:generate && tsc -p tsconfig.build.json",
-    "start": "npm run prisma:generate && tsx src/index.ts",
-    "lint": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
-    "typecheck": "npm run prisma:generate && tsc --noEmit -p tsconfig.json",
-    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate && DATABASE_URL=file:${PWD}/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/**/*.test.ts",
-    "prisma:generate": "node ../../scripts/prisma-profile.mjs generate"
+    "build": "npm run prisma:generate:ensure && tsc -p tsconfig.build.json",
+    "start": "npm run prisma:generate:ensure && tsx src/index.ts",
+    "lint": "npm run prisma:generate:ensure && tsc --noEmit -p tsconfig.json",
+    "typecheck": "npm run prisma:generate:ensure && tsc --noEmit -p tsconfig.json",
+    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/**/*.test.ts",
+    "test:observability": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/queue-resilience.test.ts",
+    "prisma:generate": "node ../../scripts/prisma-profile.mjs generate",
+    "prisma:generate:ensure": "node ../../scripts/ensure-prisma-generated.mjs"
   },
   "dependencies": {
     "@articlepod/core": "workspace:*",

@@ -1,20 +1,15 @@
 name: CI
 
-# validate-simple  — scope-aware PR/push validation (typical: ~2-8 min)
-#   skips irrelevant work for docs-only and narrow web/worker changes
-#
-# validate-parity  — integration check (recent green runs: ~10 min)
-#   runs only for runtime/parity-sensitive changes, manual dispatch, or PRs
-#   labelled "full-ci"
+# Quick pull-request CI.
+# Keeps per-update validation small and defers expensive build/export/observability
+# and parity checks to the nightly workflow or explicit/manual runs.
 
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
       run_parity:
-        description: "Run full parity check (Docker stack incl. python-tts)"
+        description: "Run parity check for this branch"
         required: false
         type: boolean
         default: false
@@ -36,8 +31,6 @@ jobs:
       run_web: ${{ steps.scope.outputs.run_web }}
       run_worker: ${{ steps.scope.outputs.run_worker }}
       run_testing: ${{ steps.scope.outputs.run_testing }}
-      run_observability: ${{ steps.scope.outputs.run_observability }}
-      run_export: ${{ steps.scope.outputs.run_export }}
       run_license: ${{ steps.scope.outputs.run_license }}
       run_parity: ${{ steps.scope.outputs.run_parity }}
       summary: ${{ steps.scope.outputs.summary }}
@@ -69,11 +62,11 @@ jobs:
       - name: Docs-only summary
         run: echo "${{ needs.plan.outputs.summary }}"
 
-  validate-simple:
+  validate-quick:
     runs-on: ubuntu-latest
     needs: plan
     if: needs.plan.outputs.run_simple == 'true'
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -94,6 +87,9 @@ jobs:
       - name: CI scope unit tests
         run: node --test scripts/ci-scope.test.mjs
 
+      - name: Prime Prisma client
+        run: node scripts/ensure-prisma-generated.mjs
+
       - name: Environment check (simple)
         if: needs.plan.outputs.run_env_simple == 'true'
         run: npm run check:env:simple
@@ -110,10 +106,6 @@ jobs:
         if: needs.plan.outputs.run_core == 'true'
         run: corepack pnpm --filter @articlepod/core run test
 
-      - name: Core build
-        if: needs.plan.outputs.run_core == 'true'
-        run: corepack pnpm --filter @articlepod/core run build
-
       - name: Web typecheck
         if: needs.plan.outputs.run_web == 'true'
         run: corepack pnpm --filter @articlepod/web run typecheck
@@ -126,10 +118,6 @@ jobs:
         if: needs.plan.outputs.run_web == 'true'
         run: corepack pnpm --filter @articlepod/web run test
 
-      - name: Web build
-        if: needs.plan.outputs.run_web == 'true'
-        run: corepack pnpm --filter @articlepod/web run build
-
       - name: Worker typecheck
         if: needs.plan.outputs.run_worker == 'true'
         run: corepack pnpm --filter @articlepod/worker run typecheck
@@ -137,10 +125,6 @@ jobs:
       - name: Worker test
         if: needs.plan.outputs.run_worker == 'true'
         run: corepack pnpm --filter @articlepod/worker run test
-
-      - name: Worker build
-        if: needs.plan.outputs.run_worker == 'true'
-        run: corepack pnpm --filter @articlepod/worker run build
 
       - name: Live-site typecheck
         if: needs.plan.outputs.run_testing == 'true'
@@ -158,30 +142,22 @@ jobs:
         if: needs.plan.outputs.run_testing == 'true'
         run: corepack pnpm --filter @articlepod/extraction-quality run test
 
-      - name: Observability verify
-        if: needs.plan.outputs.run_observability == 'true'
-        run: npm run observability:verify
-
-      - name: Export
-        if: needs.plan.outputs.run_export == 'true'
-        run: npm run export
-
       - name: License gate
         if: needs.plan.outputs.run_license == 'true'
         run: npm run license:check
 
   validate-parity:
     runs-on: ubuntu-latest
-    needs: [plan, validate-simple]
+    needs: [plan, validate-quick]
     timeout-minutes: 45
     if: |
       needs.plan.outputs.run_simple == 'true' &&
-      needs.validate-simple.result == 'success' &&
+      needs.validate-quick.result == 'success' &&
       (
-        needs.plan.outputs.run_parity == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.run_parity == true) ||
         (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci'))
-      )
+      ) &&
+      needs.plan.outputs.run_parity == 'true'
     steps:
       - uses: actions/checkout@v6
 
@@ -204,6 +180,9 @@ jobs:
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
+
+      - name: Prime Prisma client
+        run: RUNTIME_PROFILE=parity node scripts/ensure-prisma-generated.mjs
 
       - name: Environment check (parity)
         run: npm run check:env:parity
