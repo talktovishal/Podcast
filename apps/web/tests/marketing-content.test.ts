@@ -108,7 +108,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
     source.includes(
-      "Start free and upgrade when you need more daily episodes and digest",
+      "Pro Annual is where the personal wiki becomes a real",
     ),
     true,
   );
@@ -131,10 +131,24 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   );
   assert.equal(source.includes("manual summaries per 7 days"), false);
   assert.equal(source.includes("Personal wiki access"), true);
+  assert.equal(source.includes("Daily wiki rebuilds"), true);
+  assert.equal(source.includes("Wiki plan"), true);
+  assert.equal(
+    source.includes("annual-only personal wiki rebuilt every day"),
+    true,
+  );
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
   assert.equal(
     source.indexOf('feature: "Personal wiki"') <
       source.indexOf('feature: "Weekly digest podcast + email"'),
+    true,
+  );
+  assert.equal(
+    source.includes('starter: { kind: "upgrade", value: "Upgrade to Pro Annual" }'),
+    true,
+  );
+  assert.equal(
+    source.includes('monthly: { kind: "upgrade", value: "Upgrade to Pro Annual" }'),
     true,
   );
   assert.equal(
@@ -300,8 +314,13 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(loginSource.includes("MarketingHeader"), false);
   assert.equal(loginSource.includes("MarketingCta"), false);
-  assert.equal(loginSource.includes("WikiSnapshotPreview"), true);
+  assert.equal(loginSource.includes("WikiSnapshotPreview"), false);
   assert.equal(loginSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
+  assert.equal(loginSource.includes("Pro Annual"), true);
+  assert.equal(loginSource.includes("links and"), true);
+  assert.equal(loginSource.includes("snippets you curate"), true);
+  assert.equal(loginSource.includes("rebuilt weekly"), true);
+  assert.equal(loginSource.includes("rebuilt daily"), false);
 
   assert.equal(faqSource.includes("Quick answers"), true);
   assert.equal(faqSource.includes("FaqExplorer"), true);
@@ -359,6 +378,10 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
         (question) =>
           question.question === "What's included in Starter vs Pro?",
       ),
+    true,
+  );
+  assert.equal(
+    faqContent.description.includes("annual-plan personal wiki access"),
     true,
   );
   assert.equal(
@@ -579,6 +602,8 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(productSource.includes("Save. Listen. Compile."), true);
   assert.equal(productSource.includes("Build the throughline"), true);
+  assert.equal(productSource.includes("Pro Annual"), true);
+  assert.equal(productSource.includes("rebuilt daily"), true);
   assert.equal(
     productSource.includes("Persistent knowledge, not one-off answers."),
     true,

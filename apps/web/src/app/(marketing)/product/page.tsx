@@ -10,7 +10,7 @@ import {
 } from "@/lib/seo";
 
 const productDescription =
-  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with a personal wiki layer that keeps important ideas connected over time.";
+  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with an annual-plan personal wiki that is rebuilt daily.";
 
 const productFlowSteps = [
   {
@@ -26,7 +26,7 @@ const productFlowSteps = [
   {
     step: "03",
     title: "Build the throughline",
-    body: "The personal wiki keeps folding saved reading and snippets into durable, interlinked pages you can return to later.",
+    body: "On Pro Annual, the personal wiki is rebuilt daily so saved reading and snippets keep folding into durable, interlinked pages you can return to later.",
   },
 ] as const;
 
@@ -76,9 +76,10 @@ export default function ProductPage() {
         </h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns saved reading into ongoing learning. Each article or
-          PDF becomes a private podcast episode, and the personal wiki keeps
-          important ideas connected over time. It&apos;s a calmer, more
-          practical way to stay current on the topics you care about.
+          PDF becomes a private podcast episode. On Pro Annual, the personal
+          wiki is rebuilt daily so important ideas stay connected over time.
+          It&apos;s a calmer, more practical way to stay current on the topics
+          you care about.
         </p>
       </section>
 
@@ -135,7 +136,8 @@ export default function ProductPage() {
               Andrej Karpathy&apos;s LLM Wiki gist
             </a>
             , ArticlePod adds a durable, interlinked wiki layer on top of the
-            private feed so the ideas you save are easier to revisit later.
+            private feed. It is available on Pro Annual and rebuilt daily so
+            the ideas you save are easier to revisit later.
           </p>
         </div>
 

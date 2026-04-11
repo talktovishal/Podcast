@@ -16,7 +16,6 @@ import {
   KARPATHY_LLM_WIKI_GIST_URL,
   marketingCopy,
 } from "@/lib/marketing-content";
-import { WikiSnapshotPreview } from "@/components/wiki-snapshot-preview";
 import {
   oauthProviders as oauthProviderDefinitions,
   type OAuthProviderStatus,
@@ -478,7 +477,7 @@ export function AuthLandingPage() {
         </div>
       </section>
 
-      <section className="space-y-5 lg:pt-2">
+      <section className="max-w-[34rem] space-y-4 lg:pt-2">
         <h2 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
           {marketingCopy.heroHeadline}
         </h2>
@@ -487,7 +486,7 @@ export function AuthLandingPage() {
           {marketingCopy.heroSubheading}
         </p>
 
-        <div className="grid gap-2.5 sm:grid-cols-3">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
           {marketingCopy.heroHighlights.map((item) => (
             <article
               key={item.title}
@@ -503,25 +502,22 @@ export function AuthLandingPage() {
           ))}
         </div>
 
-        <div className="space-y-3">
-          <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
-            Inspired by{" "}
-            <a
-              className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
-              href={KARPATHY_LLM_WIKI_GIST_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              Andrej Karpathy&apos;s LLM Wiki idea
-            </a>
-            , ArticlePod is adding a personal wiki layer alongside the private
-            feed so the ideas you save become easier to revisit over time.
-          </p>
-          <WikiSnapshotPreview />
-        </div>
-
-        <section className="max-w-2xl border-t border-[rgba(31,122,90,0.14)] pt-4">
-          <div className="space-y-1.5">
+        <section className="border-t border-[rgba(31,122,90,0.14)] pt-3">
+          <div className="space-y-2">
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              Inspired by{" "}
+              <a
+                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+                href={KARPATHY_LLM_WIKI_GIST_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Andrej Karpathy&apos;s LLM Wiki idea
+              </a>
+              , Pro Annual includes a personal wiki based on the links and
+              snippets you curate. It is rebuilt weekly so the ideas you keep
+              can compound over time.
+            </p>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               Security
             </p>
@@ -533,7 +529,7 @@ export function AuthLandingPage() {
             </p>
           </div>
 
-          <ul className="mt-3 space-y-3">
+          <ul className="mt-3 space-y-2.5">
             {marketingCopy.securityBullets.map((bullet) => (
               <li
                 key={bullet}

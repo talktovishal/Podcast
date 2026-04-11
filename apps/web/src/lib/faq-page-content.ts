@@ -62,7 +62,7 @@ export function buildFaqPageContent(input: {
 }): FaqPageContent {
   return {
     description:
-      "Common questions about private article podcasts, personal wiki access, Starter and Pro pricing, private feed access, Chrome capture, PDFs, weekly digests, and podcast app support.",
+      "Common questions about private article podcasts, annual-plan personal wiki access, Starter and Pro pricing, private feed access, Chrome capture, PDFs, weekly digests, and podcast app support.",
     quickAnswers: [
       {
         label: "One save becomes one episode",
@@ -186,17 +186,18 @@ export function buildFaqPageContent(input: {
             question: "Does ArticlePod build a personal wiki too?",
             chips: ["getting-started"],
             schemaAnswer:
-              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
             blocks: [
               {
                 type: "paragraph",
-                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
               },
               {
                 type: "bullets",
                 items: [
                   "Articles, PDFs, and snippets can all contribute to the same evolving knowledge base.",
-                  "The wiki is meant to become a durable artifact you can browse later, not just a transient answer surface.",
+                  "The wiki is available on Pro Annual rather than Starter or Pro Monthly.",
+                  "The wiki is rebuilt daily so the durable artifact keeps compounding instead of going stale.",
                   "That makes the product feel closer to a living reading system than a one-time conversion tool.",
                 ],
               },
@@ -464,14 +465,14 @@ export function buildFaqPageContent(input: {
             blocks: [
               {
                 type: "paragraph",
-                text: "Starter is for trying the workflow. Pro is for regular listening with more daily capacity and digest options.",
+                text: "Starter is for trying the workflow. Pro is for regular listening with more daily capacity and digest options, while the personal wiki is reserved for Pro Annual.",
               },
               {
                 type: "bullets",
                 items: [
                   `Starter: ${input.freeTrialSubmissionLimit} free submissions, URL and PDF ingestion, and a private RSS feed.`,
                   `Pro Monthly: ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, Chrome capture, and weekly digest podcast plus email options.`,
-                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, with the strongest value for habitual use.`,
+                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, personal wiki access, daily wiki rebuilds, and the strongest value for habitual use.`,
                 ],
               },
               {
