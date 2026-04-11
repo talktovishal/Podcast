@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState, type ReactNode } from "react";
+import { isValidElement, useDeferredValue, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
@@ -29,6 +29,7 @@ type WikiSourcePreview = {
 };
 
 const GROUP_ORDER = ["root", "concepts", "entities", "outputs"];
+const EMPHASIZED_SECTION_HEADINGS = new Set(["executive summary", "working synthesis"]);
 const SOURCE_PREVIEW_LIMIT = 5;
 const SOURCE_SNIPPET_CHAR_LIMIT = 220;
 const CLAMPED_PREVIEW_STYLE = {
@@ -190,6 +191,41 @@ function truncateSourceSnippet(text: string): string {
     return text;
   }
   return `${text.slice(0, SOURCE_SNIPPET_CHAR_LIMIT - 3).trimEnd()}...`;
+}
+
+function flattenTextContent(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+  if (Array.isArray(node)) {
+    return node.map((child) => flattenTextContent(child)).join("");
+  }
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return flattenTextContent(node.props.children);
+  }
+  return "";
+}
+
+function WikiSectionHeading({ children, level }: { children: ReactNode; level: 2 | 3 }) {
+  const label = flattenTextContent(children).trim().toLowerCase();
+  const emphasized = EMPHASIZED_SECTION_HEADINGS.has(label);
+  const Tag = level === 2 ? "h2" : "h3";
+  const baseClassName =
+    level === 2
+      ? "mb-2 mt-6 text-base font-semibold leading-tight text-[var(--foreground)] first:mt-0 sm:text-[1.08rem]"
+      : "mb-2 mt-5 text-sm font-semibold leading-tight text-[var(--foreground)] sm:text-base";
+
+  return (
+    <Tag className={baseClassName}>
+      {emphasized ? (
+        <span className="border-b border-[rgba(31,122,90,0.24)] pb-0.5 font-semibold text-[rgba(20,78,58,1)]">
+          {children}
+        </span>
+      ) : (
+        children
+      )}
+    </Tag>
+  );
 }
 
 function splitSupportingNotesIntoEntries(supportingNotes: string[]): string[] {
@@ -444,7 +480,9 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                       {children}
                     </a>
                   );
-                }
+                },
+                h2: ({ children }) => <WikiSectionHeading level={2}>{children}</WikiSectionHeading>,
+                h3: ({ children }) => <WikiSectionHeading level={3}>{children}</WikiSectionHeading>,
               }}
             >
               {renderedArticleMarkdown}

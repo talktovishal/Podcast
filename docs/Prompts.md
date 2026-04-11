@@ -40,7 +40,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `pnpm wiki:lint --run <runId>`, `pnpm wiki:verify --run <runId>`, and `pnpm wiki:publish --run <runId>` validate and publish the wiki back into blob storage under `users/<userId>/wiki/...`.
   - the current corpus is `items + snippets` only, and the durable wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, and one current `state/builds/<runId>.json` blob per user).
   - concept pages are now explicitly long-form: `WIKI_CONVENTIONS.md` asks for a 5-bullet `## Executive summary` followed by a `## Working synthesis` that targets 1500-3000 words and reads well as standalone, podcast-worthy material.
-  - signed-in users can browse the published wiki at `/app/wiki`, with a denser one-card page rail, markdown cleanup that hides internal source/file plumbing, synthesis-first article rendering, and a compact inline `Sources` list that shows the first five references by default with a `Show all` control for the rest.
+  - signed-in users can browse the published wiki at `/app/wiki`, with a denser one-card page rail, markdown cleanup that hides internal source/file plumbing, synthesis-first article rendering with visually emphasized `Executive summary` and `Working synthesis` section headers, and a compact inline `Sources` list that shows the first five references by default with a `Show all` control for the rest.
   - the `Wiki` nav item is conditional like `Snippets`: only users with a published wiki manifest see it, and direct `/app/wiki` visits redirect back to `/app` when no wiki exists yet.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)

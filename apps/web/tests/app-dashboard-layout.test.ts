@@ -136,6 +136,7 @@ test("wiki browser keeps the wiki layout compact on both the rail and article bo
   assert.equal(source.includes("group-open:hidden"), false);
   assert.equal(source.includes("splitSupportingNotesIntoEntries"), true);
   assert.equal(source.includes("SOURCE_PREVIEW_LIMIT = 5"), true);
+  assert.equal(source.includes('EMPHASIZED_SECTION_HEADINGS = new Set(["executive summary", "working synthesis"])'), true);
   assert.equal(source.includes("list-decimal"), true);
   assert.equal(source.includes("Show all ${sourcePreviews.length} sources"), true);
   assert.equal(source.includes("inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"), false);
@@ -146,6 +147,7 @@ test("wiki browser keeps the wiki layout compact on both the rail and article bo
   assert.equal(source.includes("hover:bg-[rgba(247,251,250,0.9)]"), true);
   assert.equal(source.includes("WebkitLineClamp: 2"), true);
   assert.equal(source.includes("border-t border-[rgba(31,122,90,0.12)] pt-3"), true);
+  assert.equal(source.includes("border-b border-[rgba(31,122,90,0.24)] pb-0.5 font-semibold text-[rgba(20,78,58,1)]"), true);
 });
 
 test("feed url actions use a tappable copy box with inline feedback", () => {
