@@ -210,7 +210,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - on mobile, that public nav stays on one compact horizontal row instead of wrapping to multiple lines.
   - the persistent footer always shows `Start your knowledge feed` and `See pricing`, linking to `/` and `/pricing` on every public marketing page, while staying visible as page content scrolls.
   - on mobile, those two CTA actions stay side by side on one row so the reading area starts sooner.
-  - the public marketing shell now uses a fixed-height viewport layout so only the middle content pane scrolls.
+  - the public marketing shell now keeps one shared page structure across the public routes while leaving room for later UX refinements.
   - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
   - `/about` now leads with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait.
   - `/about` keeps the original proof sections while continuing beneath the hero into personal story sections about why the product was built, how it changed the founder's routine, and what matters most as the product grows.
@@ -233,10 +233,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public marketing pages now trim mobile header/footer padding so more reading content stays above the fold.
   - the signed-in mobile header now uses two compact rows: `Upgrade to Pro` plus `Feedback`, `Settings`, and `Logout` utilities on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second row.
   - mobile signed-in nav hides `Chrome Extension` and `Snippets`, while desktop keeps the full workspace nav unchanged.
+- Public marketing usability polish (`M117`) is implemented:
+  - public marketing pages now use standard browser page scrolling with a sticky shared header instead of a nested main-content scroll pane.
+  - unknown public URLs now render a branded `Page not found` screen instead of redirecting to `/`.
+  - the root email auth form now shows validation feedback beside the relevant field and highlights invalid inputs for login/signup issues.
 
 ### Next Milestones
 
-- Current core milestone set (`M00`-`M116`, excluding reserved gaps) is complete per `docs/plans.md`.
+- Current core milestone set (`M00`-`M117`, excluding reserved gaps) is complete per `docs/plans.md`.
 - Cost optimization track (`C01`-`C08`) is implemented, and the next production cutover step is `C09`:
   - Azure Queue-backed item dispatch plus durable leases are live in the codebase.
   - local-first TTS remains the baseline (`TTS_WORKERS=1`) on the primary host.

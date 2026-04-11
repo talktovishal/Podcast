@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { buildOAuthStartHref, normalizePostAuthRedirect } from "@/lib/auth-redirect";
+import {
+  buildOAuthStartHref,
+  normalizePostAuthRedirect,
+} from "@/lib/auth-redirect";
 import { marketingCopy } from "@/lib/marketing-content";
 import {
   oauthProviders as oauthProviderDefinitions,
-  type OAuthProviderStatus
+  type OAuthProviderStatus,
 } from "@/lib/oauth-providers";
 
 type Mode = "login" | "signup";
+type AuthField = "name" | "email" | "password";
+type AuthFieldErrors = Partial<Record<AuthField, string>>;
 
 const oauthErrorMessages: Record<string, string> = {
   google_not_configured:
@@ -30,21 +41,79 @@ const oauthErrorMessages: Record<string, string> = {
   apple_token: "Apple sign-in could not be completed. Please try again.",
   apple_id_token: "Apple sign-in did not return an ID token.",
   apple_id_token_invalid: "Apple sign-in returned an invalid ID token.",
-  apple_sub: "Apple sign-in did not return a usable account identifier."
+  apple_sub: "Apple sign-in did not return a usable account identifier.",
 };
 const noSocialProvidersMessage =
   "No social sign-in providers are configured here yet. Use email below.";
+const fieldErrorIds: Record<AuthField, string> = {
+  name: "auth-name-error",
+  email: "auth-email-error",
+  password: "auth-password-error",
+};
 
 function buildEmptyProviderStatus(): OAuthProviderStatus {
   return oauthProviderDefinitions.reduce<OAuthProviderStatus>(
     (acc, provider) => {
       acc[provider.id] = {
-        configured: false
+        configured: false,
       };
       return acc;
     },
-    {} as OAuthProviderStatus
+    {} as OAuthProviderStatus,
   );
+}
+
+function resolveAuthErrorState(
+  message: string,
+  mode: Mode,
+): {
+  fieldErrors: AuthFieldErrors;
+  formError: string | null;
+  invalidFields: AuthField[];
+} {
+  const trimmed = message.trim();
+  const fieldMatch = trimmed.match(/^(name|email|password):\s*(.+)$/i);
+
+  if (fieldMatch) {
+    const field = fieldMatch[1].toLowerCase() as AuthField;
+    return {
+      fieldErrors: {
+        [field]: fieldMatch[2],
+      },
+      formError: null,
+      invalidFields: [field],
+    };
+  }
+
+  if (trimmed === "Invalid email or password.") {
+    return {
+      fieldErrors: {
+        password: trimmed,
+      },
+      formError: null,
+      invalidFields: ["email", "password"],
+    };
+  }
+
+  if (
+    mode === "signup" &&
+    trimmed ===
+      "Unable to create account. Please check your details or try logging in."
+  ) {
+    return {
+      fieldErrors: {
+        email: trimmed,
+      },
+      formError: null,
+      invalidFields: ["email"],
+    };
+  }
+
+  return {
+    fieldErrors: {},
+    formError: trimmed,
+    invalidFields: [],
+  };
 }
 
 export function AuthLandingPage() {
@@ -55,17 +124,19 @@ export function AuthLandingPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [invalidFields, setInvalidFields] = useState<AuthField[]>([]);
   const [oauthProviders, setOauthProviders] =
     useState<OAuthProviderStatus | null>(null);
 
   const oauthError = useMemo(
     () => searchParams.get("oauth_error"),
-    [searchParams]
+    [searchParams],
   );
   const nextPath = useMemo(
     () => normalizePostAuthRedirect(searchParams.get("next")),
-    [searchParams]
+    [searchParams],
   );
   const oauthErrorMessage = oauthError
     ? (oauthErrorMessages[oauthError] ??
@@ -76,15 +147,41 @@ export function AuthLandingPage() {
       return [];
     }
     return oauthProviderDefinitions.filter(
-      (provider) => oauthProviders[provider.id]?.configured
+      (provider) => oauthProviders[provider.id]?.configured,
     );
   }, [oauthProviders]);
   const primaryAuthActionClass =
     "w-full rounded-xl bg-[var(--accent)] px-4 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:opacity-60";
-  const inputClass =
+  const inputBaseClass =
     "w-full rounded-xl border border-[rgba(31,122,90,0.16)] bg-white px-3 py-2.5 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-4 focus:ring-[rgba(31,122,90,0.12)]";
   const emailSubmitLabel =
     mode === "login" ? "Log in with email" : "Create account with email";
+
+  function clearEmailAuthErrors() {
+    setFieldErrors({});
+    setFormError(null);
+    setInvalidFields([]);
+  }
+
+  function handleModeChange(nextMode: Mode) {
+    if (nextMode === mode) {
+      return;
+    }
+    setMode(nextMode);
+    clearEmailAuthErrors();
+  }
+
+  function fieldHasError(field: AuthField): boolean {
+    return invalidFields.includes(field);
+  }
+
+  function inputClassName(field: AuthField): string {
+    return `${inputBaseClass} ${
+      fieldHasError(field)
+        ? "border-[rgba(169,50,50,0.38)] bg-[rgba(255,244,244,0.98)] focus:border-[var(--danger)] focus:ring-[rgba(169,50,50,0.16)]"
+        : ""
+    }`;
+  }
 
   useEffect(() => {
     let active = true;
@@ -108,13 +205,13 @@ export function AuthLandingPage() {
             (acc, provider) => {
               acc[provider.id] = {
                 configured: Boolean(
-                  payload.providers?.[provider.id]?.configured
-                )
+                  payload.providers?.[provider.id]?.configured,
+                ),
               };
               return acc;
             },
-            {} as OAuthProviderStatus
-          )
+            {} as OAuthProviderStatus,
+          ),
         );
       } catch {
         if (active) {
@@ -130,27 +227,35 @@ export function AuthLandingPage() {
 
   async function submit() {
     setIsLoading(true);
-    setError(null);
+    clearEmailAuthErrors();
 
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
-          "content-type": "application/json"
+          "content-type": "application/json",
         },
-        body: JSON.stringify({ mode, email, password, name, next: nextPath })
+        body: JSON.stringify({ mode, email, password, name, next: nextPath }),
       });
 
       const json = await response.json();
       if (!response.ok) {
-        setError(json.error_message || "Authentication failed");
+        const nextErrorState = resolveAuthErrorState(
+          json.error_message || "Authentication failed",
+          mode,
+        );
+        setFieldErrors(nextErrorState.fieldErrors);
+        setFormError(nextErrorState.formError);
+        setInvalidFields(nextErrorState.invalidFields);
         return;
       }
 
-      router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"));
+      router.push(
+        json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"),
+      );
       router.refresh();
     } catch {
-      setError("Unexpected error. Please try again.");
+      setFormError("Unexpected error. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -177,14 +282,14 @@ export function AuthLandingPage() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-      <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-6">
+      <section className="card border-[rgba(31,122,90,0.14)] bg-[rgba(255,255,255,0.96)] p-5 sm:p-6 lg:sticky lg:top-24">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight text-[var(--ink)] sm:text-[2.15rem]">
             Log in to your private podcast feed
           </h1>
           <p className="max-w-md text-sm leading-6 text-[var(--muted)]">
-            Continue with social sign-in or email to save articles, upload PDFs, and hear the finished episodes in your regular
-            podcast app.
+            Continue with social sign-in or email to save articles, upload PDFs,
+            and hear the finished episodes in your regular podcast app.
           </p>
         </div>
 
@@ -220,11 +325,8 @@ export function AuthLandingPage() {
             ) : null}
           </div>
 
-          {error ? (
-            <p className="text-sm text-[var(--danger)]">{error}</p>
-          ) : null}
           {oauthErrorMessage ? (
-            <p className="text-sm text-[var(--danger)]">
+            <p className="text-sm text-[var(--danger)]" role="alert">
               {oauthErrorMessage}
             </p>
           ) : null}
@@ -244,7 +346,7 @@ export function AuthLandingPage() {
                       ? "bg-white text-[var(--ink)] shadow-sm"
                       : "text-[var(--muted)]"
                   }`}
-                  onClick={() => setMode("login")}
+                  onClick={() => handleModeChange("login")}
                   type="button"
                 >
                   Log in
@@ -255,7 +357,7 @@ export function AuthLandingPage() {
                       ? "bg-white text-[var(--ink)] shadow-sm"
                       : "text-[var(--muted)]"
                   }`}
-                  onClick={() => setMode("signup")}
+                  onClick={() => handleModeChange("signup")}
                   type="button"
                 >
                   Create account
@@ -266,50 +368,105 @@ export function AuthLandingPage() {
             <form className="mt-4 space-y-3" onSubmit={handleEmailAuthSubmit}>
               {mode === "signup" ? (
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium">
-                    Name
-                  </span>
+                  <span className="mb-1 block text-sm font-medium">Name</span>
                   <input
                     autoComplete="name"
-                    className={inputClass}
+                    aria-describedby={
+                      fieldErrors.name ? fieldErrorIds.name : undefined
+                    }
+                    aria-invalid={fieldHasError("name")}
+                    className={inputClassName("name")}
                     value={name}
-                    onChange={(event) => setName(event.target.value)}
+                    onChange={(event) => {
+                      clearEmailAuthErrors();
+                      setName(event.target.value);
+                    }}
                     onKeyDown={handleEmailAuthEnter}
                   />
+                  {fieldErrors.name ? (
+                    <p
+                      className="mt-1 text-sm text-[var(--danger)]"
+                      id={fieldErrorIds.name}
+                      role="alert"
+                    >
+                      {fieldErrors.name}
+                    </p>
+                  ) : null}
                 </label>
               ) : null}
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  Email
-                </span>
+                <span className="mb-1 block text-sm font-medium">Email</span>
                 <input
                   autoComplete="email"
-                  className={inputClass}
+                  aria-describedby={
+                    fieldErrors.email ? fieldErrorIds.email : undefined
+                  }
+                  aria-invalid={fieldHasError("email")}
+                  className={inputClassName("email")}
                   type="email"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => {
+                    clearEmailAuthErrors();
+                    setEmail(event.target.value);
+                  }}
                   onKeyDown={handleEmailAuthEnter}
                 />
+                {fieldErrors.email ? (
+                  <p
+                    className="mt-1 text-sm text-[var(--danger)]"
+                    id={fieldErrorIds.email}
+                    role="alert"
+                  >
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
               </label>
 
               <label className="block">
-                <span className="mb-1 block text-sm font-medium">
-                  Password
-                </span>
+                <span className="mb-1 block text-sm font-medium">Password</span>
                 <input
                   autoComplete={
                     mode === "login" ? "current-password" : "new-password"
                   }
-                  className={inputClass}
+                  aria-describedby={
+                    fieldErrors.password ? fieldErrorIds.password : undefined
+                  }
+                  aria-invalid={fieldHasError("password")}
+                  className={inputClassName("password")}
                   type="password"
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  onChange={(event) => {
+                    clearEmailAuthErrors();
+                    setPassword(event.target.value);
+                  }}
                   onKeyDown={handleEmailAuthEnter}
                 />
+                {fieldErrors.password ? (
+                  <p
+                    className="mt-1 text-sm text-[var(--danger)]"
+                    id={fieldErrorIds.password}
+                    role="alert"
+                  >
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
               </label>
 
-              <button className={primaryAuthActionClass} disabled={isLoading} type="submit">
+              {formError ? (
+                <p
+                  className="rounded-xl border border-[rgba(169,50,50,0.16)] bg-[rgba(255,244,244,0.94)] px-3 py-2 text-sm text-[var(--danger)]"
+                  role="alert"
+                >
+                  {formError}
+                </p>
+              ) : null}
+
+              <button
+                className={primaryAuthActionClass}
+                disabled={isLoading}
+                type="submit"
+              >
                 {isLoading ? "Please wait..." : emailSubmitLabel}
               </button>
             </form>
@@ -332,8 +489,12 @@ export function AuthLandingPage() {
               key={item.title}
               className="rounded-[22px] border border-[rgba(31,122,90,0.1)] bg-[rgba(255,255,255,0.86)] p-4 shadow-[0_12px_30px_rgba(20,38,30,0.05)]"
             >
-              <p className="text-sm font-semibold text-[var(--ink)]">{item.title}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.description}</p>
+              <p className="text-sm font-semibold text-[var(--ink)]">
+                {item.title}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                {item.description}
+              </p>
             </article>
           ))}
         </div>

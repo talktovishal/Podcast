@@ -16,10 +16,7 @@ test("app dashboard keeps the workspace content below the shared header", () => 
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);
-  assert.equal(
-    source.includes("keep an eye on processing"),
-    true,
-  );
+  assert.equal(source.includes("keep an eye on processing"), true);
   assert.equal(source.includes("py-5 sm:py-6"), true);
   assert.equal(source.includes("container-shell space-y-4 sm:space-y-5"), true);
 });
@@ -60,7 +57,10 @@ test("workspace billing summary stays compact inside the sticky header", () => {
   assert.equal(source.includes("Upgrade to Pro"), true);
   assert.equal(source.includes("Billing issue"), true);
   assert.equal(source.includes("Activating Pro"), true);
-  assert.equal(source.includes('variant?: "default" | "header" | "mobile-header"'), true);
+  assert.equal(
+    source.includes('variant?: "default" | "header" | "mobile-header"'),
+    true,
+  );
   assert.equal(source.includes('variant === "mobile-header"'), true);
   assert.equal(source.includes('href="/app/settings#billing"'), true);
   assert.equal(source.includes("useSearchParams"), true);
@@ -95,7 +95,7 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes('item.key !== "snippets"'), true);
   assert.equal(source.includes('variant="icon"'), true);
   assert.equal(source.includes("compact = false"), true);
-  assert.equal(source.includes("kind: \"utility\""), true);
+  assert.equal(source.includes('kind: "utility"'), true);
   assert.equal(source.includes("overflow-x-auto"), true);
   assert.equal(source.includes("lg:flex-row"), true);
   assert.equal(source.includes("lg:flex-nowrap"), true);
@@ -103,7 +103,7 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("appShellSelectedItemClass"), true);
   assert.equal(source.includes('variant="responsive"'), true);
   assert.equal(source.includes("md:sr-only"), true);
-  assert.equal(source.includes("compact ? \"sr-only\""), true);
+  assert.equal(source.includes('compact ? "sr-only"'), true);
   assert.equal(source.includes("M16.8617 4.48667L18.5492 2.79917"), true);
   assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
   assert.equal(source.includes("item.key !== current"), false);
@@ -1020,7 +1020,7 @@ test("auth landing redirects admins directly to admin dashboard", () => {
   );
   assert.equal(
     source.includes(
-      'router.push(json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app"))',
+      'json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app")',
     ),
     true,
   );
@@ -1047,12 +1047,9 @@ test("auth landing redirects admins directly to admin dashboard", () => {
     ),
     true,
   );
-  assert.equal(
-    source.includes(
-      'className={primaryAuthActionClass} disabled={isLoading} type="submit"',
-    ),
-    true,
-  );
+  assert.equal(source.includes("className={primaryAuthActionClass}"), true);
+  assert.equal(source.includes("disabled={isLoading}"), true);
+  assert.equal(source.includes('type="submit"'), true);
   assert.equal(source.includes("next: nextPath"), true);
   assert.equal(source.includes("bg-[var(--accent)]"), true);
   assert.equal(source.includes("text-white"), true);

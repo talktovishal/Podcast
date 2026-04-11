@@ -1,4 +1,15 @@
-import { test as baseTest, expect, loginViaUI, loginAsDemo, logout, TEST_PASSWORD, TEST_NAME, DEMO_EMAIL, DEMO_PASSWORD, trackTestUser } from "./helpers";
+import {
+  test as baseTest,
+  expect,
+  loginViaUI,
+  loginAsDemo,
+  logout,
+  TEST_PASSWORD,
+  TEST_NAME,
+  DEMO_EMAIL,
+  DEMO_PASSWORD,
+  trackTestUser,
+} from "./helpers";
 
 // Auth tests need a clean (unauthenticated) browser context
 const test = baseTest.extend({
@@ -48,10 +59,17 @@ test.describe("Authentication Flows", () => {
     await page.waitForLoadState("networkidle");
     await page.getByRole("button", { name: "Log in", exact: true }).click();
     await page.locator("input[type='email']").fill(DEMO_EMAIL);
-    await page.locator("input[type='password']").fill("wrongpassword123");
-    await page.locator("button.w-full", { hasText: "Log in with email" }).click();
+    const passwordInput = page.locator("input[type='password']");
+    await passwordInput.fill("wrongpassword123");
+    await page
+      .locator("button.w-full", { hasText: "Log in with email" })
+      .click();
 
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/invalid email or password/i)).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+    await expect(page.locator("#auth-password-error")).toBeVisible();
     expect(new URL(page.url()).pathname).toBe("/");
   });
 
@@ -67,7 +85,9 @@ test.describe("Authentication Flows", () => {
     expect(new URL(page.url()).pathname).toBe("/");
 
     await page.goto("/app");
-    await page.waitForURL((url) => url.pathname === "/" && url.searchParams.get("next") === "/app");
+    await page.waitForURL(
+      (url) => url.pathname === "/" && url.searchParams.get("next") === "/app",
+    );
     await context.close();
   });
 });

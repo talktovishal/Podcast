@@ -100,7 +100,7 @@
   - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the header and footer CTA are always present on the public marketing surface.
   - the persistent header keeps the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu while staying visible during content scroll.
   - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
-  - the public marketing shell now locks to the viewport height and scrolls only the middle content pane.
+  - the public marketing shell now keeps one shared public-page structure while leaving room for later usability refinements.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
   - `/about` now opens with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait treatment.
   - `/about` now flows from that hero into the founder story sections while keeping the `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles below.
@@ -123,6 +123,10 @@
   - public marketing pages now keep the mobile menu on one horizontal row, keep the footer CTA buttons on one row, and trim shell padding to maximize reading area.
   - signed-in mobile workspace chrome now uses a compact two-row header with `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second.
   - mobile workspace chrome hides `Chrome Extension` and `Snippets`, while desktop keeps the full signed-in nav unchanged.
+- Public marketing usability polish (`M117`) is implemented:
+  - the shared public marketing shell now uses standard browser page scrolling with a sticky header instead of a nested main-content scroll region.
+  - unknown public paths now render a branded `404` page instead of redirecting to `/`.
+  - the root email auth form now keeps validation feedback inline beside the relevant field and highlights invalid inputs.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -256,6 +260,7 @@
 | Public marketing SEO hardening (homepage, metadata, schema, crawl rules)                       | M107                                             |
 | Public marketing chrome cleanup (remove duplicate footer nav)                                  | M108                                             |
 | Persistent public marketing header + footer layout                                             | M109                                             |
+| Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -418,6 +423,7 @@ Milestone metadata contract:
 | M114      | Done        | 2026-04-21    | 2026-04-06   | local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)                        |
 | M115      | Done        | 2026-04-25    | 2026-04-10   | local validation + FAQ quick-answers-only navigation pass (2026-04-10)                                  |
 | M116      | Done        | 2026-04-26    | 2026-04-10   | local validation + compact mobile marketing/workspace header pass (2026-04-10)                          |
+| M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
@@ -3782,6 +3788,41 @@ Milestone metadata contract:
   - `corepack pnpm --filter @articlepod/web run build`
   - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile marketing chrome keeps nav items and footer actions on single rows" --no-deps`
   - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile workspace header keeps the compact two-row navigation" --no-deps`
+
+---
+
+### M117 - Public Marketing Usability Polish
+
+- status: Done
+- target_finish: 2026-04-27
+- completed_on: 2026-04-10
+- evidence: local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)
+- Scope:
+  - Replace the nested public marketing scroll pane with standard browser page scrolling while keeping the shared header/footer chrome.
+  - Let unknown public paths render a branded not-found page instead of redirecting them to `/`.
+  - Move root email auth feedback closer to the relevant field(s) and add invalid-input highlighting for overlooked login/signup errors.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/not-found.tsx`
+  - `apps/web/src/components/auth-landing-page.tsx`
+  - `apps/web/src/middleware.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/middleware-auth.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `apps/web/e2e/auth.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing pages scroll with the browser window instead of a nested content pane.
+  - Visiting `/nonexistent` stays on `/nonexistent` and renders a clear branded not-found message with recovery links.
+  - Invalid login/signup attempts surface inline feedback near the relevant input and visually mark invalid fields.
+  - Shared public header/footer chrome, mobile compact rows, and existing auth redirects remain intact.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web run lint`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/middleware-auth.test.ts tests/form-submit-affordances.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts e2e/auth.spec.ts --config=playwright.config.ts --project=chromium --grep "standard page scrolling|proper not-found page|wrong password shows error" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
 
 ---
 

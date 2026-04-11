@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AUTH_COOKIE_NAMES } from "@articlepod/core";
 import { NextRequest } from "next/server";
-import { isPublicPathForAuth, middleware } from "../src/middleware";
+import {
+  isProtectedPathForAuth,
+  isPublicPathForAuth,
+  middleware,
+} from "../src/middleware";
 
 test("isPublicPathForAuth allows expected unauthenticated assets and pages", () => {
   const allowed = [
@@ -16,11 +20,15 @@ test("isPublicPathForAuth allows expected unauthenticated assets and pages", () 
     "/brand/brain-mark-192.png",
     "/rss/token",
     "/api/media/items/demo/episode.mp3",
-    "/api/share-media/items/demo/episode.mp3"
+    "/api/share-media/items/demo/episode.mp3",
   ];
 
   for (const pathname of allowed) {
-    assert.equal(isPublicPathForAuth(pathname), true, `${pathname} should be public`);
+    assert.equal(
+      isPublicPathForAuth(pathname),
+      true,
+      `${pathname} should be public`,
+    );
   }
 });
 
@@ -28,6 +36,14 @@ test("isPublicPathForAuth protects authenticated workspace paths", () => {
   assert.equal(isPublicPathForAuth("/app"), false);
   assert.equal(isPublicPathForAuth("/app/settings"), false);
   assert.equal(isPublicPathForAuth("/api/items/url"), false);
+});
+
+test("isProtectedPathForAuth only flags known protected surfaces", () => {
+  assert.equal(isProtectedPathForAuth("/app"), true);
+  assert.equal(isProtectedPathForAuth("/app/settings"), true);
+  assert.equal(isProtectedPathForAuth("/admin"), true);
+  assert.equal(isProtectedPathForAuth("/api/items/url"), true);
+  assert.equal(isProtectedPathForAuth("/nonexistent"), false);
 });
 
 test("middleware redirects unauthenticated page requests to the root auth landing page", () => {
@@ -40,21 +56,38 @@ test("middleware redirects unauthenticated page requests to the root auth landin
 });
 
 test("middleware returns 401 for unauthenticated protected API requests", async () => {
-  const response = middleware(new NextRequest("http://localhost/api/items/url"));
+  const response = middleware(
+    new NextRequest("http://localhost/api/items/url"),
+  );
   assert.equal(response.status, 401);
-  const payload = (await response.json()) as { ok: boolean; error_code: string };
+  const payload = (await response.json()) as {
+    ok: boolean;
+    error_code: string;
+  };
   assert.equal(payload.ok, false);
   assert.equal(payload.error_code, "UNAUTHORIZED");
 });
 
+test("middleware lets unknown public paths fall through to Next.js not-found handling", () => {
+  const response = middleware(new NextRequest("http://localhost/nonexistent"));
+  assert.notEqual(response.status, 307);
+  assert.equal(response.headers.get("location"), null);
+});
+
 test("middleware allows public asset requests without a session cookie", () => {
-  const response = middleware(new NextRequest("http://localhost/brand/brain-mark-192.png"));
+  const response = middleware(
+    new NextRequest("http://localhost/brand/brain-mark-192.png"),
+  );
   assert.notEqual(response.status, 307);
   assert.equal(response.headers.get("location"), null);
 });
 
 test("middleware allows extension snapshot API requests without a session cookie", () => {
-  const response = middleware(new NextRequest("http://localhost/api/items/html-snapshot", { method: "POST" }));
+  const response = middleware(
+    new NextRequest("http://localhost/api/items/html-snapshot", {
+      method: "POST",
+    }),
+  );
   assert.notEqual(response.status, 401);
   assert.equal(response.headers.get("location"), null);
 });
@@ -65,18 +98,18 @@ test("middleware allows protected pages with current or legacy session cookie na
   const withCurrentCookie = middleware(
     new NextRequest("http://localhost/app", {
       headers: {
-        cookie: `${AUTH_COOKIE_NAMES.session}=${token}`
-      }
-    })
+        cookie: `${AUTH_COOKIE_NAMES.session}=${token}`,
+      },
+    }),
   );
   assert.notEqual(withCurrentCookie.status, 307);
 
   const withLegacyCookie = middleware(
     new NextRequest("http://localhost/app", {
       headers: {
-        cookie: `${AUTH_COOKIE_NAMES.legacySession}=${token}`
-      }
-    })
+        cookie: `${AUTH_COOKIE_NAMES.legacySession}=${token}`,
+      },
+    }),
   );
   assert.notEqual(withLegacyCookie.status, 307);
 });

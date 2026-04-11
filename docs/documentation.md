@@ -359,6 +359,12 @@ The root page now acts as the public homepage surface: it keeps the auth card pr
 
 The secondary public marketing pages (`/product`, `/pricing`, `/resources`, `/faq`, `/about`) now follow the same chrome principle: keep the shared top navigation plus the bottom CTA, but do not repeat the site links or ArticlePod summary again in a footer.
 
+Those public marketing pages now use standard browser page scrolling with a sticky shared header, so visitors only deal with the browser scrollbar instead of a nested content pane.
+
+Unknown public URLs now render a branded `Page not found` screen with links back to `/` and `/pricing` instead of silently redirecting to the homepage.
+
+On the root email auth form, validation feedback now appears inline beside the relevant field and invalid inputs get an error highlight, making messages like `Invalid email or password.` harder to miss.
+
 On mobile, that shared public chrome is denser: the primary nav stays on one compact horizontal row, the footer CTA keeps `Start your knowledge feed` and `See pricing` side by side, and the shell trims header/footer padding so the reading area begins sooner.
 
 ## Known boundaries

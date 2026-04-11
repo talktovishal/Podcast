@@ -30,17 +30,31 @@ test("marketing layout owns the shared header and footer CTA", () => {
   );
   assert.equal(layoutSource.includes("MarketingHeader"), true);
   assert.equal(layoutSource.includes("MarketingCta"), true);
-  assert.equal(layoutSource.includes("fixed inset-0"), true);
+  assert.equal(layoutSource.includes("min-h-screen"), true);
   assert.equal(layoutSource.includes("w-full"), true);
-  assert.equal(layoutSource.includes("overflow-hidden"), true);
-  assert.equal(layoutSource.includes("overflow-y-auto"), true);
-  assert.equal(layoutSource.includes("overscroll-y-contain"), true);
+  assert.equal(layoutSource.includes("sticky top-0"), true);
+  assert.equal(layoutSource.includes("overflow-hidden"), false);
+  assert.equal(layoutSource.includes("overflow-y-auto"), false);
+  assert.equal(layoutSource.includes("overscroll-y-contain"), false);
   assert.equal(layoutSource.includes("py-2 sm:py-4"), true);
   assert.equal(layoutSource.includes("py-4 sm:py-8"), true);
   assert.equal(ctaSource.includes("Footer call to action"), true);
   assert.equal(ctaSource.includes("grid grid-cols-2 items-center gap-2"), true);
   assert.equal(ctaSource.includes("sm:flex sm:flex-wrap sm:gap-3"), true);
   assert.equal(ctaSource.includes('href="/pricing"'), true);
+});
+
+test("site-wide not-found page uses shared marketing chrome and clear recovery links", () => {
+  const source = readFileSync(
+    new URL("../src/app/not-found.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("MarketingHeader"), true);
+  assert.equal(source.includes("MarketingCta"), true);
+  assert.equal(source.includes("Page not found"), true);
+  assert.equal(source.includes('href="/"'), true);
+  assert.equal(source.includes('href="/pricing"'), true);
 });
 
 test("secondary marketing pages stay content-only while the layout supplies shared chrome", () => {
@@ -105,6 +119,14 @@ test("auth landing page keeps auth card structure and trims duplicate marketing 
     ),
     true,
   );
+  assert.equal(source.includes("resolveAuthErrorState"), true);
+  assert.equal(source.includes('aria-invalid={fieldHasError("email")}'), true);
+  assert.equal(
+    source.includes('aria-invalid={fieldHasError("password")}'),
+    true,
+  );
+  assert.equal(source.includes("id={fieldErrorIds.password}"), true);
+  assert.equal(source.includes('role="alert"'), true);
   assert.equal(source.includes("Use email instead"), false);
   assert.equal(source.includes("Already have an email account?"), false);
   assert.equal(source.includes("Need a new account?"), false);
