@@ -62,7 +62,7 @@ export function buildFaqPageContent(input: {
 }): FaqPageContent {
   return {
     description:
-      "Common questions about private article podcasts, Starter and Pro pricing, private feed access, Chrome capture, PDFs, weekly digests, and podcast app support.",
+      "Common questions about private article podcasts, Karpathy-inspired personal wikis, Starter and Pro pricing, private feed access, Chrome capture, PDFs, and podcast app support.",
     quickAnswers: [
       {
         label: "One save becomes one episode",
@@ -80,9 +80,9 @@ export function buildFaqPageContent(input: {
         href: "#privacy-feed",
       },
       {
-        label: "Integrates with standard podcast apps",
-        helperText: "Podcast apps",
-        href: "#podcast-apps",
+        label: "Personal wiki that keeps growing",
+        helperText: "Getting started",
+        href: "#getting-started",
       },
     ],
     topicOptions: [
@@ -159,7 +159,7 @@ export function buildFaqPageContent(input: {
             id: "question-try-free",
             question: "Can I try ArticlePod for free?",
             chips: ["getting-started", "pricing"],
-            schemaAnswer: `Yes. Starter lets you create an account and try ArticlePod with ${input.freeTrialSubmissionLimit} free submissions before deciding whether you want Pro capacity and digest options.`,
+            schemaAnswer: `Yes. Starter lets you create an account and try ArticlePod with ${input.freeTrialSubmissionLimit} free submissions before deciding whether you want more daily capacity.`,
             blocks: [
               {
                 type: "paragraph",
@@ -170,13 +170,40 @@ export function buildFaqPageContent(input: {
                 items: [
                   `Starter includes ${input.freeTrialSubmissionLimit} free submissions so you can test ArticlePod on your own reading.`,
                   "You still get URL and PDF ingestion plus a private RSS feed.",
-                  "Upgrade later if you want higher daily capacity, weekly digests, and Chrome capture as part of the paid workflow.",
+                  "Upgrade later if you want higher daily capacity and the smoother long-run workflow for regular use.",
                 ],
               },
               {
                 type: "links",
                 items: [
                   { label: "Compare plans", href: "/pricing" },
+                ],
+              },
+            ],
+          },
+          {
+            id: "question-personal-wiki",
+            question: "Does ArticlePod build a personal wiki too?",
+            chips: ["getting-started"],
+            schemaAnswer:
+              "Yes. ArticlePod now centers a Karpathy-inspired personal wiki pattern where saved reading can accumulate into persistent, interlinked pages instead of staying trapped in one-off outputs.",
+            blocks: [
+              {
+                type: "paragraph",
+                text: "Yes. ArticlePod now centers a Karpathy-inspired personal wiki pattern where saved reading can accumulate into persistent, interlinked pages instead of staying trapped in one-off outputs.",
+              },
+              {
+                type: "bullets",
+                items: [
+                  "Articles, PDFs, and snippets can all contribute to the same evolving knowledge base.",
+                  "The wiki is meant to become a durable artifact you can browse later, not just a transient answer surface.",
+                  "That makes the product feel closer to a living reading system than a one-time conversion tool.",
+                ],
+              },
+              {
+                type: "links",
+                items: [
+                  { label: "See the product overview", href: "/product" },
                 ],
               },
             ],
@@ -433,18 +460,18 @@ export function buildFaqPageContent(input: {
             id: "question-starter-vs-pro",
             question: "What's included in Starter vs Pro?",
             chips: ["pricing", "chrome", "digests"],
-            schemaAnswer: `Starter is for trying the workflow with ${input.freeTrialSubmissionLimit} free submissions. Pro Monthly includes ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, ${input.proMonthlyWeeklySummaryLimit} manual summaries every 7 days, Chrome capture, and weekly digest options, while Pro Annual raises that to ${input.proAnnualDailyPodcastLimit} daily episodes and ${input.proAnnualWeeklySummaryLimit} manual summaries every 7 days.`,
+            schemaAnswer: `Starter is for trying the workflow with ${input.freeTrialSubmissionLimit} free submissions. Pro Monthly includes ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, Chrome capture, personal wiki browsing, and weekly digest options, while Pro Annual raises that to ${input.proAnnualDailyPodcastLimit} daily episodes with the strongest value for habitual use.`,
             blocks: [
               {
                 type: "paragraph",
-                text: "Starter is for trying the workflow. Pro is for regular listening with more daily capacity and digest options.",
+                text: "Starter is for trying the workflow. Pro is for regular listening with more daily capacity and the full persistent-knowledge experience.",
               },
               {
                 type: "bullets",
                 items: [
-                  `Starter: ${input.freeTrialSubmissionLimit} free submissions, URL and PDF ingestion, and a private RSS feed.`,
-                  `Pro Monthly: ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, ${input.proMonthlyWeeklySummaryLimit} manual summaries every 7 days, Chrome capture, and weekly digest podcast plus email options.`,
-                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, ${input.proAnnualWeeklySummaryLimit} manual summaries every 7 days, with the strongest value for habitual use.`,
+                  `Starter: ${input.freeTrialSubmissionLimit} free submissions, URL and PDF ingestion, a private RSS feed, and personal wiki browsing.`,
+                  `Pro Monthly: ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, Chrome capture, personal wiki browsing, and weekly digest podcast plus email options.`,
+                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, personal wiki browsing, and the strongest value for habitual use.`,
                 ],
               },
               {

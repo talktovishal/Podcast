@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { WikiSnapshotPreview } from "@/components/wiki-snapshot-preview";
 import { SeoJsonLd } from "@/components/seo-json-ld";
+import { KARPATHY_LLM_WIKI_GIST_URL } from "@/lib/marketing-content";
 import {
   buildBreadcrumbSchema,
   buildPublicMetadata,
@@ -8,7 +10,7 @@ import {
 } from "@/lib/seo";
 
 const productDescription =
-  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with weekly digest summaries when you want a recap layer.";
+  "See how ArticlePod turns articles, PDFs, and Chrome captures into a private podcast feed and a Karpathy-inspired personal wiki.";
 
 const productFlowSteps = [
   {
@@ -19,12 +21,12 @@ const productFlowSteps = [
   {
     step: "02",
     title: "Listen in the app you already use",
-    body: "Each saved article or PDF becomes a private podcast episode, so the finish line feels like pressing play in your normal queue.",
+    body: "Each saved article or PDF becomes a private podcast episode, so the finish line still feels like pressing play in your normal queue.",
   },
   {
     step: "03",
-    title: "Recap when you want the throughline",
-    body: "Weekly digest podcasts and email summaries can pull important ideas back together without replacing the original episodes.",
+    title: "Compile a living wiki",
+    body: "The system keeps folding saved reading and snippets into durable, interlinked pages so the synthesis builds over time.",
   },
 ] as const;
 
@@ -74,9 +76,9 @@ export default function ProductPage() {
         </h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns saved reading into ongoing learning. Each article or
-          PDF becomes a private podcast episode, with weekly digest podcasts and
-          email summaries when you want an easy recap. It&apos;s a calmer, more
-          practical way to stay current on the topics you care about.
+          PDF becomes a private podcast episode, and the knowledge behind it can
+          accumulate into a persistent personal wiki instead of vanishing into
+          one-off chats or recap outputs.
         </p>
       </section>
 
@@ -86,11 +88,11 @@ export default function ProductPage() {
             Three-step flow
           </p>
           <h2 className="max-w-3xl text-2xl font-semibold leading-tight">
-            Save. Listen. Recap.
+            Save. Listen. Compile.
           </h2>
           <p className="max-w-3xl text-sm leading-6 text-[var(--muted)] sm:text-base">
             One calm rhythm for turning saved reading into something you
-            actually finish.
+            actually finish and revisit.
           </p>
         </div>
 
@@ -112,6 +114,34 @@ export default function ProductPage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 sm:p-6">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
+            Karpathy-inspired wiki
+          </p>
+          <h2 className="max-w-3xl text-2xl font-semibold leading-tight">
+            Persistent knowledge, not one-off answers.
+          </h2>
+          <p className="max-w-3xl text-sm leading-6 text-[var(--muted)] sm:text-base">
+            Inspired by{" "}
+            <a
+              className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+              href={KARPATHY_LLM_WIKI_GIST_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Andrej Karpathy&apos;s LLM Wiki gist
+            </a>
+            , ArticlePod compiles saved reading into a durable, interlinked
+            artifact. The difference from typical RAG is simple: the wiki keeps
+            the cross-links, contradictions, and synthesis around instead of
+            rebuilding them from scratch at every query.
+          </p>
+        </div>
+
+        <WikiSnapshotPreview className="mt-5" />
       </section>
 
       <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.92))] p-5 sm:p-6">
@@ -158,7 +188,7 @@ export default function ProductPage() {
               Start your knowledge feed
             </Link>{" "}
             with something worth keeping, and let ArticlePod turn it into a
-            calmer listening flow.
+            calmer listening flow plus a wiki you can keep growing.
           </p>
         </div>
       </section>

@@ -29,22 +29,25 @@ export const publicMarketingSensitivePhrases: ReadonlyArray<string> = [
   "unit economics"
 ];
 
+export const KARPATHY_LLM_WIKI_GIST_URL =
+  "https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f";
+
 export const marketingCopy = {
-  heroHeadline: "The intellectual sanctuary for busy readers.",
+  heroHeadline: "A private podcast feed that compounds into a personal wiki.",
   heroSubheading:
-    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+    "Save URLs, PDFs, and Chrome captures, listen in your regular podcast app, and build a Karpathy-inspired wiki that keeps accumulating synthesis instead of starting from scratch.",
   heroHighlights: [
     {
-      title: "Curated archive",
-      description: "Keep the reading worth saving in one calm, focused queue."
-    },
-    {
       title: "Private RSS feed",
-      description: "Listen in the podcast app you already use without exposing saved sources."
+      description: "Keep listening in the podcast app you already trust, without exposing your saved reading."
     },
     {
-      title: "Podcast + email digests",
-      description: "Catch up later with weekly recap options when you want the highlights together."
+      title: "Persistent wiki",
+      description: "Turn saved reading into durable, interlinked pages that keep getting better as you add more."
+    },
+    {
+      title: "Snippets + sources",
+      description: "Fold Chrome captures, snippets, articles, and PDFs into one living knowledge base."
     }
   ] as const,
   securityIntro:

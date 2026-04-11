@@ -41,7 +41,7 @@
   - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
   - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
   - The extension popup now keeps its optional metadata block collapsed by default, remembers the last expanded/collapsed choice per Chrome profile, and includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
-  - `/app` Recent items now renders capture metadata, while `/app/summary` article selection supports lightweight client-side filtering by importance and tag.
+  - `/app` Recent items now renders capture metadata, while surfaced synthesis now routes through snippets and the published wiki instead of a visible summary workspace.
 - Extraction-quality audit track (`M101`) is implemented:
   - shared markdown quality analysis now distinguishes stored-markdown wrapper/footer junk from URL/image/table/metadata residue that incorrectly survives narration prep, plus low-signal post-cleanup results.
   - summary/digest artifact audits now evaluate stored summary markdown against the summary narration contract, so source appendices and other reusable stored context are allowed while narration-side residue still gets flagged.
@@ -124,7 +124,7 @@
   - quick-answer anchors, richer answer links, and `#question-*` auto-open behavior still cover the useful navigation paths without adding extra visible UI chrome.
 - Mobile header density pass (`M116`) is implemented:
   - public marketing pages now keep the mobile menu on one horizontal row, keep the footer CTA buttons on one row, and trim shell padding to maximize reading area.
-  - signed-in mobile workspace chrome now uses a compact two-row header with `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second.
+  - signed-in mobile workspace chrome now uses a compact two-row header with `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row, then `Episodes`, `Podcast Apps`, and conditional `Wiki` on the second.
   - mobile workspace chrome hides `Chrome Extension` and `Snippets`, while desktop keeps the full signed-in nav unchanged.
 - Public marketing usability polish (`M117`) is implemented:
   - the shared public marketing shell now uses standard browser page scrolling with a sticky header instead of a nested main-content scroll region.
@@ -140,6 +140,7 @@
   - operators can now run a local wiki prepare/lint/verify/publish loop that copies the Karpathy prompt verbatim into each workspace, compiles against downloaded item markdown plus normalized snippets, and publishes the resulting wiki back to blob storage.
   - the published wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, `state/builds/<runId>.json`), avoiding new schema/migration pressure in Prisma or Azure Table primary.
   - signed-in users now get a cleaner `/app/wiki` surface with a denser one-card browse rail, markdown cleanup that hides internal source/file metadata, explicitly long-form concept pages with an executive summary plus a 1500-3000 word synthesis target, visually emphasized `Executive summary` and `Working synthesis` section headers, a compact inline `Sources` list that shows five short previews by default, backlinks between reader-facing pages, conditional wiki nav visibility, and reference links back to original source URLs.
+  - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -190,8 +191,8 @@
   - signed-in workspace navigation is now shared in a sticky `/app` header so the current page stays visible and selected while users move between workspaces.
   - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
   - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
-  - `/app/chrome-extension` and `/app/summary` now emphasize their live setup/composition controls over surrounding instructional copy.
-  - keyboard-first submit affordances now map `Enter` to the obvious primary action across auth, episode submission, settings saves, summary creation, and admin search/save/filter flows.
+  - `/app/chrome-extension` now emphasizes its live setup controls over surrounding instructional copy, while `/app/summary` is no longer a surfaced workspace.
+  - keyboard-first submit affordances now map `Enter` to the obvious primary action across auth, episode submission, settings saves, and admin search/save/filter flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.

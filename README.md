@@ -1,6 +1,6 @@
 # ArticlePod
 
-RSS-first personal podcast feed that converts URLs/PDFs/extension captures into private podcast episodes.
+RSS-first personal podcast feed that turns URLs, PDFs, and extension captures into private podcast episodes plus a Karpathy-inspired personal wiki.
 
 ## Monorepo layout
 - `apps/web` - Next.js UI + API routes

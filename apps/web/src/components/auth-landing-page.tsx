@@ -12,7 +12,11 @@ import {
   buildOAuthStartHref,
   normalizePostAuthRedirect,
 } from "@/lib/auth-redirect";
-import { marketingCopy } from "@/lib/marketing-content";
+import {
+  KARPATHY_LLM_WIKI_GIST_URL,
+  marketingCopy,
+} from "@/lib/marketing-content";
+import { WikiSnapshotPreview } from "@/components/wiki-snapshot-preview";
 import {
   oauthProviders as oauthProviderDefinitions,
   type OAuthProviderStatus,
@@ -497,6 +501,23 @@ export function AuthLandingPage() {
               </p>
             </article>
           ))}
+        </div>
+
+        <div className="space-y-3">
+          <p className="max-w-2xl text-sm leading-6 text-[var(--muted)]">
+            Inspired by{" "}
+            <a
+              className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+              href={KARPATHY_LLM_WIKI_GIST_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Andrej Karpathy&apos;s LLM Wiki idea
+            </a>
+            , ArticlePod turns saved reading into a private podcast feed plus a
+            living wiki that keeps accumulating synthesis over time.
+          </p>
+          <WikiSnapshotPreview />
         </div>
 
         <section className="max-w-2xl border-t border-[rgba(31,122,90,0.14)] pt-4">

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { SeoJsonLd } from "@/components/seo-json-ld";
+import { KARPATHY_LLM_WIKI_GIST_URL } from "@/lib/marketing-content";
 import {
   buildBreadcrumbSchema,
   buildOrganizationSchema,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/seo";
 
 const aboutDescription =
-  "Learn how ArticlePod turns article URLs and text-based PDFs into private podcast episodes you can hear in your favorite podcast apps, even offline.";
+  "Learn how ArticlePod turns saved reading into a private podcast feed and a Karpathy-inspired personal wiki.";
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "About ArticlePod",
@@ -69,6 +70,21 @@ export default function AboutPage() {
                   an article and rarely made it back. That gap between wanting
                   to learn and actually keeping up is what inspired me.
                 </p>
+                <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                  When{" "}
+                  <a
+                    className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+                    href={KARPATHY_LLM_WIKI_GIST_URL}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Andrej Karpathy described the LLM Wiki pattern
+                  </a>
+                  , it crystallized the product direction I cared about most:
+                  not just turning reading into audio, but rebuilding that
+                  persistent, interlinked knowledge workflow into ArticlePod
+                  itself.
+                </p>
               </div>
             </div>
           </div>
@@ -99,8 +115,8 @@ export default function AboutPage() {
               I built ArticlePod to solve a problem I knew well. It turns
               article URLs and text-based PDFs into private podcast episodes I
               can listen to in my favorite podcast apps, even offline. Save one
-              item, get one episode. For easy recaps, I can also add a weekly
-              digest podcast or email summaries.
+              item, get one episode. But the deeper goal is to keep the ideas,
+              cross-links, and synthesis in a personal wiki I can come back to.
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Within a few weeks, I was finishing more of the articles and PDFs
@@ -145,7 +161,9 @@ export default function AboutPage() {
               The journey continues. For me, this is not just about fitting
               reading into a busy life. It is also about building a personal
               knowledge base over time, one that can grow into a personal wiki I
-              can return to, learn from, and keep expanding. Stay tuned.
+              can return to, learn from, and keep expanding. Rebuilding that
+              Karpathy-style workflow into a real product is a big part of why I
+              care so much about where ArticlePod goes next.
             </p>
           </div>
         </article>
@@ -194,14 +212,14 @@ export default function AboutPage() {
                 aria-hidden="true"
                 className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]"
               />
-              <span>Weekly digest podcast</span>
+              <span>Karpathy-inspired personal wiki</span>
             </li>
             <li className="flex items-start gap-2">
               <span
                 aria-hidden="true"
                 className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]"
               />
-              <span>Weekly Email Options</span>
+              <span>Snippet capture with reusable context</span>
             </li>
           </ul>
         </article>

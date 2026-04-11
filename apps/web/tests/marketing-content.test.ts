@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  KARPATHY_LLM_WIKI_GIST_URL,
   containsBannedMarketingPhrase,
   marketingBannedPhrases,
   marketingCopy,
@@ -31,15 +32,15 @@ test("marketing nav items follow canonical order and routes", () => {
 test("marketing copy keeps concise busy-reader framing", () => {
   assert.equal(
     marketingCopy.heroHeadline,
-    "The intellectual sanctuary for busy readers.",
+    "A private podcast feed that compounds into a personal wiki.",
   );
   assert.equal(
     marketingCopy.heroSubheading,
-    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+    "Save URLs, PDFs, and Chrome captures, listen in your regular podcast app, and build a Karpathy-inspired wiki that keeps accumulating synthesis instead of starting from scratch.",
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
-    ["Curated archive", "Private RSS feed", "Podcast + email digests"],
+    ["Private RSS feed", "Persistent wiki", "Snippets + sources"],
   );
   assert.equal(
     marketingCopy.securityIntro,
@@ -107,7 +108,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
     source.includes(
-      "Start free and upgrade when you need more daily episodes, manual summaries, and digest workflows.",
+      "Start free and upgrade when you need more daily episodes, stronger",
     ),
     true,
   );
@@ -128,10 +129,11 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     source.includes("new private podcast episodes per 24 hours"),
     false,
   );
-  assert.equal(source.includes("manual summaries per 7 days"), true);
+  assert.equal(source.includes("manual summaries per 7 days"), false);
+  assert.equal(source.includes("Karpathy-inspired personal wiki browsing"), true);
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
   assert.equal(
-    source.indexOf('feature: "Manual summaries"') <
+    source.indexOf('feature: "Personal wiki browsing"') <
       source.indexOf('feature: "Weekly digest podcast + email"'),
     true,
   );
@@ -211,7 +213,7 @@ test("resources page stays focused on Chrome capture and podcast app listening",
   assert.equal(source.includes("xml"), false);
 });
 
-test("public marketing copy focuses on instant episodes and weekly digest options", () => {
+test("public marketing copy focuses on the personal wiki and private feed flow", () => {
   const marketingSource = readFileSync(
     new URL("../src/lib/marketing-content.ts", import.meta.url),
     "utf8",
@@ -255,33 +257,24 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   });
 
   assert.equal(
-    marketingSource.includes("The intellectual sanctuary for busy readers."),
-    true,
-  );
-  assert.equal(
     marketingSource.includes(
-      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration.",
+      "A private podcast feed that compounds into a personal wiki.",
     ),
     true,
   );
   assert.equal(
     marketingSource.includes(
-      "Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+      "Save URLs, PDFs, and Chrome captures, listen in your regular podcast app, and build a Karpathy-inspired wiki that keeps accumulating synthesis instead of starting from scratch.",
     ),
     true,
   );
-  assert.equal(
-    marketingSource.includes(
-      "Catch up later with weekly recap options when you want the highlights together.",
-    ),
-    true,
-  );
+  assert.equal(marketingSource.includes("Podcast + email digests"), false);
   assert.equal(
     marketingSource.includes("monthly and yearly trend recaps"),
     false,
   );
   assert.equal(marketingSource.includes("daily recap podcast"), false);
-  assert.equal(marketingSource.includes("Curated archive"), true);
+  assert.equal(marketingSource.includes("Curated archive"), false);
   assert.equal(marketingSource.includes("Listening now"), false);
 
   assert.equal(loginSource.includes("MarketingFooter"), false);
@@ -307,13 +300,15 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   );
   assert.equal(loginSource.includes("MarketingHeader"), false);
   assert.equal(loginSource.includes("MarketingCta"), false);
+  assert.equal(loginSource.includes("WikiSnapshotPreview"), true);
+  assert.equal(loginSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
 
   assert.equal(faqSource.includes("Quick answers"), true);
   assert.equal(faqSource.includes("FaqExplorer"), true);
   assert.equal(faqSource.includes("buildFaqPageContent"), true);
   assert.equal(
     faqContent.quickAnswers.some(
-      (item) => item.label === "Integrates with standard podcast apps",
+      (item) => item.label === "Personal wiki that keeps growing",
     ),
     true,
   );
@@ -371,6 +366,15 @@ test("public marketing copy focuses on instant episodes and weekly digest option
       .flatMap((section) => section.questions)
       .some(
         (question) =>
+          question.question === "Does ArticlePod build a personal wiki too?",
+      ),
+    true,
+  );
+  assert.equal(
+    faqContent.sections
+      .flatMap((section) => section.questions)
+      .some(
+        (question) =>
           question.question === "What does the daily podcast include?",
       ),
     false,
@@ -413,7 +417,9 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Section 3"), false);
   assert.equal(aboutSource.includes("Mission"), false);
   assert.equal(
-    normalizedAboutSource.includes("weekly digest podcast or email summaries"),
+    normalizedAboutSource.includes(
+      "Andrej Karpathy described the LLM Wiki pattern",
+    ),
     true,
   );
   assert.equal(aboutSource.includes("Live today"), true);
@@ -423,8 +429,11 @@ test("public marketing copy focuses on instant episodes and weekly digest option
   assert.equal(aboutSource.includes("Per-article narrated episodes"), true);
   assert.equal(aboutSource.includes("Chrome extension capture"), true);
   assert.equal(aboutSource.includes("Private RSS feed delivery"), true);
-  assert.equal(aboutSource.includes("Weekly digest podcast"), true);
-  assert.equal(aboutSource.includes("Weekly Email Options"), true);
+  assert.equal(aboutSource.includes("Karpathy-inspired personal wiki"), true);
+  assert.equal(
+    aboutSource.includes("Snippet capture with reusable context"),
+    true,
+  );
   assert.equal(
     aboutSource.includes("Integrates with your favorite podcast apps"),
     true,
@@ -490,6 +499,7 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     true,
   );
+  assert.equal(aboutSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
   assert.equal(
     normalizedAboutSource.includes(
       "Within a few weeks, I was finishing more of the articles and PDFs I actually cared about, and my open tabs dropped from more than 50 to fewer than 10 across all my devices.",
@@ -526,7 +536,13 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     ),
     true,
   );
-  assert.equal(normalizedAboutSource.includes("Stay tuned."), true);
+  assert.equal(normalizedAboutSource.includes("Stay tuned."), false);
+  assert.equal(
+    normalizedAboutSource.includes(
+      "Rebuilding that Karpathy-style workflow into a real product is a big part of why I care so much about where ArticlePod goes next.",
+    ),
+    true,
+  );
   assert.equal(
     aboutSource.includes("Chrome captures into private podcast episodes"),
     false,
@@ -560,16 +576,21 @@ test("public marketing copy focuses on instant episodes and weekly digest option
     true,
   );
   assert.equal(
-    normalizedProductSource.includes(
-      "Each article or PDF becomes a private podcast episode",
-    ),
+    normalizedProductSource.includes("Each article or PDF becomes a private podcast episode"),
     true,
   );
-  assert.equal(productSource.includes("Weekly digest"), true);
+  assert.equal(productSource.includes("Save. Listen. Compile."), true);
+  assert.equal(
+    productSource.includes("Persistent knowledge, not one-off answers."),
+    true,
+  );
+  assert.equal(productSource.includes("WikiSnapshotPreview"), true);
+  assert.equal(productSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 
-  assert.equal(layoutSource.includes("weekly digest summary options"), true);
+  assert.equal(layoutSource.includes("Karpathy-inspired personal wiki"), true);
+  assert.equal(layoutSource.includes("weekly digest summary options"), false);
   assert.equal(layoutSource.includes("daily and weekly briefings"), false);
   assert.equal(marketingLayoutSource.includes("MarketingHeader"), true);
   assert.equal(marketingLayoutSource.includes("MarketingCta"), true);

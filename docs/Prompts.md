@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-10)
+## Spec Status (as of 2026-04-11)
 
-### Implemented (as of 2026-04-10)
+### Implemented (as of 2026-04-11)
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
@@ -42,6 +42,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - concept pages are now explicitly long-form: `WIKI_CONVENTIONS.md` asks for a 5-bullet `## Executive summary` followed by a `## Working synthesis` that targets 1500-3000 words and reads well as standalone, podcast-worthy material.
   - signed-in users can browse the published wiki at `/app/wiki`, with a denser one-card page rail, markdown cleanup that hides internal source/file plumbing, synthesis-first article rendering with visually emphasized `Executive summary` and `Working synthesis` section headers, and a compact inline `Sources` list that shows the first five references by default with a `Show all` control for the rest.
   - the `Wiki` nav item is conditional like `Snippets`: only users with a published wiki manifest see it, and direct `/app/wiki` visits redirect back to `/app` when no wiki exists yet.
+  - public marketing is now wiki-first: the homepage and product pages directly credit Andrej Karpathy's April 4, 2026 `LLM Wiki` gist as the inspiration anchor, and use a shared compact wiki snapshot to show the browse surface.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
   - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
@@ -116,7 +117,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
   - access is granted or extended only from webhook-confirmed billing events; `/app` and `/app/settings` now show pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
-  - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and annual positioning that emphasizes both “save nearly 30%” and the higher 15-episode / 10-summary capacity
+  - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and annual positioning that emphasizes both “save nearly 30%” and the higher 15-episode daily capacity
   - login now preserves pricing/billing return intent so “sign in to upgrade” comes back to the hosted checkout path instead of dropping users into the generic workspace
   - production can now carry both live Stripe and sandbox Stripe in the same deploy: live billing stays default, while admins and allowlisted tester emails can switch billing mode in `/app/settings` and exercise sandbox checkout, portal, and webhooks without changing live entitlements or quotas
   - the repo carries a checked-in internal sandbox tester allowlist for the core founder/demo/admin accounts, while `BILLING_SANDBOX_ALLOWLIST_EMAILS` can extend that list per environment
@@ -166,7 +167,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
   - `/app/snippets` is now a dedicated review workspace for extension-saved text selections and comment edits.
   - the `Snippets` nav entry only appears after a user has at least one saved snippet; users without snippets do not see that workspace in navigation yet.
-  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, `Summaries`, `Feedback`, and `Settings`.
+  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, conditional `Wiki`, `Feedback`, and `Settings`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - signed-in `/app/chrome-extension` now prepares a fresh connect code on page load, and the Chrome Web Store CTA also attempts to copy the current code so pairing takes fewer clicks.
@@ -177,8 +178,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app` groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately, removes duplicate explanatory copy inside `Add New Episode`, and keeps non-blocking quota/capacity copy below the submit control with quieter treatment.
   - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
-  - `/app/summary` now keeps the intro neutral while giving article selection and summary creation controls the stronger visual emphasis.
-  - keyboard-first submit affordances now map `Enter` to the obvious primary action across email auth, episode submission, settings saves, summary creation, and admin search/save flows.
+  - `/app/summary` is no longer a surfaced workspace: it redirects to `/app/wiki` when a wiki exists, or back to `/app` otherwise.
+  - keyboard-first submit affordances now map `Enter` to the obvious primary action across email auth, episode submission, settings saves, and admin search/save flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated users can submit message-first feedback from `/app/feedback` with optional type/feature metadata.
   - contact preference defaults to opt-in and can be disabled per submission.
@@ -193,10 +194,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
   - The web submit flow now keeps `Title`, `Importance`, and `Tags` inside a lighter `Optional details` panel that starts collapsed, can be expanded on demand, and remembers the user’s last open/closed choice on `/app`.
   - The extension popup keeps metadata inside a compact bordered optional block that starts collapsed, remembers the user's last expanded/collapsed choice in that Chrome profile, relies on the green queued button instead of duplicate success copy, disables repeat capture clicks for the same page while queued, and includes a small footer `articlepod.com` hyperlink back to the web app.
-  - `/app` Recent items now renders saved importance plus tag chips, while `/app/summary` article selection includes lightweight client-side filters for importance and tag.
-- Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
-  - signed-in `/app/summary` workspace supports explicit manual summary creation with searchable, importance-filtered, and tag-filtered article selection, title-first article cards, last-7-days defaults, optional custom title, and `5 / 15 / 30` minute presets.
-  - podcast publish controls are kept below the primary summary setup so the main desktop/mobile composition stays focused on selection and markdown options first.
+  - `/app` Recent items now renders saved importance plus tag chips, while saved snippets and published wiki pages remain the surfaced synthesis path.
+- Summary Studio and Azure OpenAI track (`M86`-`M91`) remains implemented behind the scenes:
+  - manual summary infrastructure, APIs, markdown storage, and optional podcast publication remain in the codebase, but the user-facing synthesis destination is now `/app/wiki` rather than `/app/summary`.
   - manual summary runs persist polished markdown artifacts under the user-centric `users/<userId>/markdown/summaries/...` namespace plus optional podcast audio, with provider/model/deployment/token metadata captured for observability.
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - podcast-enabled manual summaries now publish into the main private RSS/media feed alongside regular episodes instead of a separate summary-only feed surface.
@@ -240,7 +240,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - question hashes still auto-open matching answers, so direct `#question-*` links continue to work without adding extra visible UI chrome.
 - Mobile header density pass (`M116`) is implemented:
   - public marketing pages now trim mobile header/footer padding so more reading content stays above the fold.
-  - the signed-in mobile header now uses two compact rows: `Upgrade to Pro` plus `Feedback`, `Settings`, and `Logout` utilities on the first row, then `Episodes`, `Podcast Apps`, and `Summaries` on the second row.
+  - the signed-in mobile header now uses two compact rows: `Upgrade to Pro` plus `Feedback`, `Settings`, and `Logout` utilities on the first row, then `Episodes`, `Podcast Apps`, and conditional `Wiki` on the second row.
   - mobile signed-in nav hides `Chrome Extension` and `Snippets`, while desktop keeps the full workspace nav unchanged.
 - Public marketing usability polish (`M117`) is implemented:
   - public marketing pages now use standard browser page scrolling with a sticky shared header instead of a nested main-content scroll pane.
@@ -442,11 +442,11 @@ D) Podcast RSS feed
 
 E) Web UI (polished)
 
-- `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and weekly digests
+- `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and the Karpathy-inspired personal wiki
 - `/app` episodes workspace:
   - compact signed-in header stays visible while the workspace scrolls, with the ArticlePod icon first and the compact billing pill immediately beside it
-  - dedicated top-nav links for `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and `Summaries`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
-  - signed-in nav stays on one row on desktop; on mobile it compacts into two rows with `Upgrade to Pro` plus the utility icons on top and `Episodes`, `Podcast Apps`, plus `Summaries` beneath
+  - dedicated top-nav links for `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and conditional `Wiki`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
+  - signed-in nav stays on one row on desktop; on mobile it compacts into two rows with `Upgrade to Pro` plus the utility icons on top and `Episodes`, `Podcast Apps`, plus conditional `Wiki` beneath
   - mobile signed-in nav hides `Chrome Extension` and `Snippets` to keep the workspace chrome dense and preserve more reading area
   - compact workspace billing control inside the header itself: free users see a single subtly highlighted `Upgrade to Pro` action that jumps straight to the billing section of `/app/settings` without extra upsell copy underneath it, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
   - the active submit mode, active input field, and primary submit button should read as one clear action cluster above the rest of the workspace

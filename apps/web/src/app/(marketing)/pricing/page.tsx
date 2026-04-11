@@ -60,10 +60,10 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
     annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
   {
-    feature: "Manual summaries",
-    starter: { kind: "upgrade", value: "Upgrade to Pro" },
-    monthly: { kind: "text", value: `${monthlyPlan.weeklySummaryLimit} / 7 days` },
-    annual: { kind: "text", value: `${annualPlan.weeklySummaryLimit} / 7 days` }
+    feature: "Personal wiki browsing",
+    starter: { kind: "included" },
+    monthly: { kind: "included" },
+    annual: { kind: "included" }
   },
   {
     feature: "Weekly digest podcast + email",
@@ -109,7 +109,7 @@ const trustPoints = [
 ] as const;
 
 const pricingDescription =
-  `Simple pricing for personal article podcasts. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} private podcast episodes per day, or go annual for ${annualPlan.dailyPodcastLimit} per day, ${annualPlan.weeklySummaryLimit} manual summaries every 7 days, and nearly 30% savings.`;
+  `Simple pricing for a private article podcast feed and Karpathy-inspired personal wiki. Start free, choose monthly for ${monthlyPlan.dailyPodcastLimit} daily episodes, or go annual for ${annualPlan.dailyPodcastLimit} daily episodes and nearly 30% savings.`;
 
 export const metadata: Metadata = buildPublicMetadata({
   title: "Pricing for private article podcasts",
@@ -229,15 +229,16 @@ export default async function PricingPage({
           Choose the ArticlePod plan that fits how you save and learn.
         </h1>
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-          Start free and upgrade when you need more daily episodes, manual summaries, and digest workflows. Pro Annual
-          offers the best value for regular use.
+          Start free and upgrade when you need more daily episodes, stronger
+          listening capacity, and the best long-run value. Pro Annual offers the
+          strongest fit for regular use.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
             Save nearly 30% on annual
           </span>
           <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
-            {annualPlan.dailyPodcastLimit} episodes/day + {annualPlan.weeklySummaryLimit} summaries/7 days
+            {annualPlan.dailyPodcastLimit} episodes/day + personal wiki workflow
           </span>
         </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
@@ -262,6 +263,7 @@ export default async function PricingPage({
             <PlanFeatureItem label="Limited monthly episodes" />
             <PlanFeatureItem label="URL and PDF ingestion" />
             <PlanFeatureItem label="Private RSS feed access" />
+            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">No subscription required.</p>
           <div className="mt-auto pt-6 text-sm text-[var(--muted)]">
@@ -294,8 +296,8 @@ export default async function PricingPage({
           <p className="mt-3 text-2xl font-bold">$15/mo</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${monthlyPlan.dailyPodcastLimit} new podcast episodes per day`} />
-            <PlanFeatureItem label={`${monthlyPlan.weeklySummaryLimit} manual summaries per 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
+            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
             <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
@@ -348,13 +350,12 @@ export default async function PricingPage({
             <p className="text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
           </div>
           <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
-            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes and +{annualAdvantage.extraWeeklySummaries} manual summaries
-            versus monthly.
+            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes versus monthly.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
-            <PlanFeatureItem label={`${annualPlan.weeklySummaryLimit} manual summaries per 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
+            <PlanFeatureItem label="Karpathy-inspired personal wiki browsing" />
             <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>

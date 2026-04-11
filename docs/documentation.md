@@ -7,7 +7,7 @@ Related indexes:
 
 ## What ArticlePod does
 
-ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and publishes them through a private RSS feed.
+ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and a personal wiki, then publishes the listening side through a private RSS feed.
 
 ## User flow
 
@@ -16,10 +16,9 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 4. Episode appears in recent items and private RSS feed.
 5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
-6. Logged-in users can open Summaries at `/app/summary` to generate a polished manual markdown roundup and optional podcast from selected saved articles.
-7. Logged-in users can submit message-first product feedback at `/app/feedback`.
-8. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
-9. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
+6. Logged-in users can submit message-first product feedback at `/app/feedback`.
+7. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
+8. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
 
 ## Accounts
 
@@ -47,7 +46,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 - Billing:
   - `/pricing` supports self-serve upgrade to `Pro monthly` or `Pro annual` through Stripe-hosted Checkout when billing env vars are configured
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`
-  - the annual plan is intentionally positioned as the strongest offer: it saves nearly 30% and carries the higher 15-episode / 10-summary capacity
+  - the annual plan is intentionally positioned as the strongest offer: it saves nearly 30% and carries the higher 15-episode daily capacity
   - `/pricing` includes explicit billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current paid period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
   - `/app` and `/app/settings` show current live plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management
@@ -83,11 +82,11 @@ Connect flow:
   - the header now uses the simplest possible billing control: free users get a single `Upgrade to Pro` action, while paid users get one clickable billing pill that opens Stripe billing; `/app/settings` keeps the fuller plan, renewal, and invoice controls
   - `Add New Episode`
   - `Recent items`
-  - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, summary creation, and admin search/save flows
+  - primary single-line inputs now support keyboard-first submit behavior, so pressing `Enter` triggers the obvious primary action in auth, episode submission, and admin search/save flows
   - submit forms keep the required source input primary and tuck `Title`, `Importance`, and comma-separated `Tags` into a lighter `Optional details` panel that starts collapsed and remembers the user’s last toggle state
   - recent items render importance/tag metadata and support quick filtering by importance or tag
-  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, conditional `Wiki`, and `Summaries` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
-  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, `Summaries`, and conditional `Wiki` stay on the second row
+  - desktop nav keeps `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, and conditional `Wiki` as text actions, with `Feedback`, `Settings`, and `Logout` grouped as compact utilities; the selected page stays visible and highlighted
+  - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, and conditional `Wiki` stay on the second row
   - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL, podcast-app onboarding shortcuts, digest feed access, and feed rotation at the top
@@ -151,45 +150,18 @@ Scheduler trigger API (internal automation):
 
 - `POST /api/internal/digests/tick` (Bearer secret protected via `DIGEST_SCHEDULER_SECRET`)
 
-## Summaries
-
-Available in `/app/summary`:
-
-- default selection = READY items with markdown artifacts from the last 7 days
-- manual searchable item selection with a 30-item cap
-- optional custom summary title
-- length presets:
-  - `Quick (5)`
-  - `Standard (15)`
-  - `Deep Dive (30)`
-- podcast generation toggle enabled by default
-- recent summary run history with markdown preview for completed runs
-
-Summary output shape:
-
-- title
-- intro / hook
-- key themes
-- notable developments
-- why it matters
-- source list
-
-Summaries APIs:
-
-- `GET /api/summary/items`
-- `POST /api/summary/runs`
-- `GET /api/summary/runs/[id]/markdown`
-
 ## Personal wiki
 
 Available in `/app/wiki` after an operator publishes a wiki for that user:
 
+- ArticlePod now treats this as the primary synthesis surface in the product story: a Karpathy-inspired personal wiki that compounds saved reading into persistent, reader-first pages.
 - reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
 - denser one-card browse rail with clamped page summaries so the left column behaves more like a compact table of contents than a stack of cards
 - markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render
 - concept pages are generated as long-form reader-first essays with a 5-bullet executive summary and a `## Working synthesis` that targets 1500-3000 words for stronger read/listen value
 - the article view visually emphasizes the `Executive summary` and `Working synthesis` section headers so long-form pages scan cleanly without adding extra chrome
 - concept/entity pages keep the main synthesis in the primary article and place a compact inline `Sources` list underneath it, showing five short previews by default with a `Show all` control for the rest
+- articles, PDFs, and saved snippets can all contribute source material to the same wiki build
 - client-side title, summary, and tag filter
 - backlinks between reader-facing pages and reference links back to original source URLs
 - `/app/wiki` only appears in the signed-in nav after a manifest exists for that user; direct visits redirect back to `/app` when no wiki has been published yet

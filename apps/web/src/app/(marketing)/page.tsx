@@ -9,10 +9,10 @@ import {
 } from "@/lib/seo";
 
 const homepageDescription =
-  "Turn saved articles, PDFs, and Chrome captures into a private podcast feed. Listen in Apple Podcasts, YouTube Music, or any RSS-compatible app.";
+  "Turn saved articles, PDFs, and Chrome captures into a private podcast feed and a Karpathy-inspired personal wiki.";
 
 export const metadata = buildPublicMetadata({
-  title: "Private podcast feed for articles and PDFs",
+  title: "Private podcast feed and personal wiki for saved reading",
   description: homepageDescription,
   path: "/"
 });
