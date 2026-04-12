@@ -36,18 +36,18 @@ export default function AboutPage() {
       />
 
       <section className="card overflow-hidden border-[rgba(31,122,90,0.14)] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,247,244,0.9))] p-5 sm:p-6 lg:p-8">
-        <div className="space-y-5">
-          <div className="max-w-5xl space-y-3">
-            <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl lg:max-w-none">
-              Listen to your reading list and finally catch up on what matters
-            </h1>
-            <p className="text-base font-semibold text-[var(--ink)] sm:text-lg">
-              Smita Busar, Founder, engineer, and builder
-            </p>
-          </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.12fr)_minmax(19rem,22rem)] lg:items-center lg:gap-10">
+          <div className="space-y-5">
+            <div className="max-w-5xl space-y-3">
+              <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl lg:max-w-none">
+                Listen to your reading list and finally catch up on what matters
+              </h1>
+              <p className="text-base font-semibold text-[var(--ink)] sm:text-lg">
+                Smita Busar, Founder, engineer, and builder
+              </p>
+            </div>
 
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,19rem)] lg:items-start">
-            <div className="max-w-2xl space-y-5">
+            <div className="space-y-5 lg:max-w-[40rem]">
               <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
                 Growing up in a family of doctors and professors, I developed an
                 early respect for knowledge and lifelong learning. As an
@@ -72,19 +72,19 @@ export default function AboutPage() {
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="mx-auto w-full max-w-[19rem] lg:max-w-none">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] border border-[rgba(31,122,90,0.14)] bg-white shadow-[0_24px_45px_rgba(24,38,32,0.08)]">
-                <Image
-                  alt="Portrait of Smita Busar, founder of ArticlePod."
-                  className="object-cover object-[56%_18%]"
-                  fill
-                  priority
-                  sizes="(min-width: 1024px) 22rem, (min-width: 640px) 20rem, 100vw"
-                  src="/brand/founder-portrait.jpg"
-                />
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[rgba(24,38,32,0.12)] to-transparent" />
-              </div>
+          <div className="mx-auto w-full max-w-[22rem] lg:mx-0 lg:justify-self-end lg:max-w-none">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] border border-[rgba(31,122,90,0.14)] bg-white shadow-[0_24px_45px_rgba(24,38,32,0.08)]">
+              <Image
+                alt="Portrait of Smita Busar, founder of ArticlePod."
+                className="object-cover object-[56%_18%]"
+                fill
+                priority
+                sizes="(min-width: 1024px) 22rem, (min-width: 640px) 20rem, 100vw"
+                src="/brand/founder-portrait.jpg"
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[rgba(24,38,32,0.12)] to-transparent" />
             </div>
           </div>
         </div>
@@ -92,72 +92,82 @@ export default function AboutPage() {
 
       <section className="mt-8 space-y-5 sm:space-y-6">
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 shadow-[0_14px_34px_rgba(24,38,32,0.05)] sm:p-6">
-          <div className="max-w-3xl space-y-4">
-            <h2 className="text-2xl font-semibold leading-tight">
-              How it has improved my life
-            </h2>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              I built ArticlePod to solve a problem I knew well. It turns
-              article URLs and text-based PDFs into private podcast episodes I
-              can listen to in my favorite podcast apps, even offline. Save one
-              item, get one episode. Over time, the personal wiki keeps the
-              ideas I want to retain connected in one place.
-            </p>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Within a few weeks, I was finishing more of the articles and PDFs
-              I actually cared about, and my open tabs dropped from more than 50
-              to fewer than 10 across all my devices. Cooking, driving, walking,
-              and everyday chores became more interesting and productive. I was
-              no longer leaving articles half-read.
-            </p>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Most importantly, I felt more current, more informed, and happier.
-              I stayed up to date with the latest technology, felt sharper at
-              professional meetups, and found myself talking not just about past
-              work, but about how I am using AI to solve everyday problems in my
-              own life.
-            </p>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Honestly, I believe better technology leads to better habits.
-              ArticlePod is a live example.
-            </p>
+          <div className="grid gap-5 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:gap-10">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold leading-tight">
+                How it has improved my life
+              </h2>
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                I built ArticlePod to solve a problem I knew well. It turns
+                article URLs and text-based PDFs into private podcast episodes I
+                can listen to in my favorite podcast apps, even offline. Save
+                one item, get one episode. Over time, the personal wiki keeps
+                the ideas I want to retain connected in one place.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                Within a few weeks, I was finishing more of the articles and
+                PDFs I actually cared about, and my open tabs dropped from more
+                than 50 to fewer than 10 across all my devices. Cooking,
+                driving, walking, and everyday chores became more interesting
+                and productive. I was no longer leaving articles half-read.
+              </p>
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                Most importantly, I felt more current, more informed, and
+                happier. I stayed up to date with the latest technology, felt
+                sharper at professional meetups, and found myself talking not
+                just about past work, but about how I am using AI to solve
+                everyday problems in my own life.
+              </p>
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                Honestly, I believe better technology leads to better habits.
+                ArticlePod is a live example.
+              </p>
+            </div>
           </div>
         </article>
 
         <article className="rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[rgba(247,251,250,0.92)] p-5 sm:p-6">
-          <div className="max-w-3xl space-y-4">
-            <h2 className="text-2xl font-semibold leading-tight">
-              Why I care?
-            </h2>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              Above all, I want ArticlePod to feel personal, calm, and genuinely
-              useful long after the novelty fades. Private RSS matters because
-              the best listening habits fit naturally into the podcast apps you
-              already use, without making your reading history feel public. I
-              want to keep building this for people who save thoughtful reading,
-              want to learn deeply, and value a product that respects both their
-              attention and their privacy.
-            </p>
-            <p className="inline-flex max-w-fit rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[#0f5b42]">
-              Make your reading list effortless—listen anywhere, anytime, and
-              retain more
-            </p>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              When{" "}
-              <a
-                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
-                href={KARPATHY_LLM_WIKI_GIST_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Andrej Karpathy described the LLM Wiki pattern
-              </a>
-              , it crystallized something I cared about deeply. We have now
-              built that into ArticlePod as a personal wiki that keeps the
-              links, snippets, and ideas worth retaining in one place. That
-              matters because learning gets more useful when knowledge compounds
-              instead of disappearing after a single listen.
-            </p>
+          <div className="grid gap-5 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:gap-10">
+            <div className="space-y-4">
+              <h2 className="text-2xl font-semibold leading-tight">
+                Why I care?
+              </h2>
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                Above all, I want ArticlePod to feel personal, calm, and
+                genuinely useful long after the novelty fades. Private RSS
+                matters because the best listening habits fit naturally into the
+                podcast apps you already use, without making your reading
+                history feel public. I want to keep building this for people who
+                save thoughtful reading, want to learn deeply, and value a
+                product that respects both their attention and their privacy.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <p className="inline-flex max-w-fit rounded-full bg-[var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[#0f5b42]">
+                Make your reading list effortless—listen anywhere, anytime, and
+                retain more
+              </p>
+              <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+                When{" "}
+                <a
+                  className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+                  href={KARPATHY_LLM_WIKI_GIST_URL}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Andrej Karpathy described the LLM Wiki pattern
+                </a>
+                , it crystallized something I cared about deeply. We have now
+                built that into ArticlePod as a personal wiki that keeps the
+                links, snippets, and ideas worth retaining in one place. That
+                matters because learning gets more useful when knowledge
+                compounds instead of disappearing after a single listen.
+              </p>
+            </div>
           </div>
         </article>
       </section>
