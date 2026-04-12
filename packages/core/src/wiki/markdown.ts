@@ -1,8 +1,7 @@
 type ParsedFrontmatter = Record<string, string | string[]>;
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
-const WIKILINK_RE = /\[\[([^[\]]+?)\]\]/g;
-const MARKDOWN_LINK_RE = /(?<!!)\[([^\]]+)\]\(([^)]+)\)/g;
+const MARKDOWN_LINK_RE = /(?<!!)\[((?:\\.|[^\]\\])*)\]\(([^)]+)\)/g;
 const WIKI_SUPPORTING_SECTION_RE = /^(?:#{1,6}\s*)?(source pages?|sources?|references?)\s*:?\s*$/i;
 
 function stripQuotes(value: string): string {
@@ -50,6 +49,10 @@ function parseWikilinkTarget(rawTarget: string): { target: string; label: string
   return { target, label };
 }
 
+function escapeMarkdownLinkLabel(label: string): string {
+  return label.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+}
+
 function splitTargetAnchor(target: string): { path: string; anchor: string } {
   const [pathPart, ...anchorParts] = target.split("#");
   const anchor = anchorParts.join("#").trim();
@@ -57,6 +60,53 @@ function splitTargetAnchor(target: string): { path: string; anchor: string } {
     path: pathPart.trim(),
     anchor
   };
+}
+
+type WikilinkMatch = {
+  rawTarget: string;
+  start: number;
+  end: number;
+};
+
+function findWikilinkMatches(markdown: string): WikilinkMatch[] {
+  const matches: WikilinkMatch[] = [];
+  let cursor = 0;
+
+  while (cursor < markdown.length) {
+    const start = markdown.indexOf("[[", cursor);
+    if (start === -1) {
+      break;
+    }
+
+    let searchFrom = start + 2;
+    let close = -1;
+    while (searchFrom < markdown.length) {
+      const candidate = markdown.indexOf("]]", searchFrom);
+      if (candidate === -1) {
+        break;
+      }
+      if (markdown[candidate + 2] === "]") {
+        searchFrom = candidate + 1;
+        continue;
+      }
+      close = candidate;
+      break;
+    }
+
+    if (close === -1) {
+      cursor = start + 2;
+      continue;
+    }
+
+    matches.push({
+      rawTarget: markdown.slice(start + 2, close),
+      start,
+      end: close + 2,
+    });
+    cursor = close + 2;
+  }
+
+  return matches;
 }
 
 export function normalizeWikiPagePath(input: string): string {
@@ -230,8 +280,8 @@ export function resolveWikiTargetToPagePath(input: {
 export function extractWikiLinkTargets(markdown: string): string[] {
   const targets = new Set<string>();
 
-  for (const match of markdown.matchAll(WIKILINK_RE)) {
-    const { target } = parseWikilinkTarget(match[1] || "");
+  for (const match of findWikilinkMatches(markdown)) {
+    const { target } = parseWikilinkTarget(match.rawTarget);
     if (target) {
       targets.add(target);
     }
@@ -266,11 +316,18 @@ export function rewriteWikiLinksForApp(markdown: string, input: {
     return anchor ? `${routePath}#${anchor}` : routePath;
   };
 
-  const withWikilinks = markdown.replace(WIKILINK_RE, (_match, rawTarget: string) => {
-    const { target, label } = parseWikilinkTarget(rawTarget);
+  let withWikilinks = "";
+  let cursor = 0;
+
+  for (const match of findWikilinkMatches(markdown)) {
+    withWikilinks += markdown.slice(cursor, match.start);
+    const { target, label } = parseWikilinkTarget(match.rawTarget);
     const href = rewriteResolvedHref(target);
-    return href ? `[${label}](${href})` : label;
-  });
+    withWikilinks += href ? `[${escapeMarkdownLinkLabel(label)}](${href})` : label;
+    cursor = match.end;
+  }
+
+  withWikilinks += markdown.slice(cursor);
 
   return withWikilinks.replace(MARKDOWN_LINK_RE, (match, label: string, rawHref: string) => {
     const cleanedHref = rawHref.trim().replace(/^<|>$/g, "");

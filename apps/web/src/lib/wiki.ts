@@ -1040,6 +1040,51 @@ function isWikiSourcePage(page: Pick<WikiPageMeta, "type" | "path">): boolean {
   );
 }
 
+function isReaderFacingWikiPage(page: Pick<WikiPageMeta, "type" | "path">): boolean {
+  return !isWikiSourcePage(page) && page.type !== "log";
+}
+
+function resolveDefaultWikiLandingPage(
+  pages: Array<Pick<WikiPageMeta, "path" | "type">>,
+  preferredPath?: string | null
+): string {
+  const normalizedPreferred = preferredPath ? normalizeWikiPagePath(preferredPath) : null;
+  const pagePaths = new Set(pages.map((page) => normalizeWikiPagePath(page.path)));
+  const normalizedPages = pages.map((page) => ({
+    path: normalizeWikiPagePath(page.path),
+    type: page.type,
+  }));
+
+  if (
+    pagePaths.has("overview.md") &&
+    normalizedPages.some((page) => page.path === "overview.md" && isReaderFacingWikiPage(page))
+  ) {
+    return "overview.md";
+  }
+
+  if (
+    normalizedPreferred &&
+    pagePaths.has(normalizedPreferred) &&
+    normalizedPages.some((page) => page.path === normalizedPreferred && isReaderFacingWikiPage(page))
+  ) {
+    return normalizedPreferred;
+  }
+
+  if (
+    pagePaths.has("index.md") &&
+    normalizedPages.some((page) => page.path === "index.md" && isReaderFacingWikiPage(page))
+  ) {
+    return "index.md";
+  }
+
+  const firstReaderFacing = normalizedPages.find((page) => isReaderFacingWikiPage(page));
+  if (firstReaderFacing) {
+    return firstReaderFacing.path;
+  }
+
+  return normalizedPages[0]?.path || "index.md";
+}
+
 export function sanitizeWikiMarkdownForDisplay(
   markdown: string,
   page: Pick<WikiPageMeta, "path" | "summary" | "title" | "type">
@@ -1466,7 +1511,7 @@ export async function publishPreparedWikiRun(input: WikiPublishOptions): Promise
       buildRunId: runState.runId,
       generatedAt: new Date().toISOString(),
       buildMode: workspace.buildMode,
-      defaultPagePath: pagesByPath.has("index.md") ? "index.md" : storedPages[0]?.meta.path || "index.md",
+      defaultPagePath: resolveDefaultWikiLandingPage(storedPages.map((page) => page.meta)),
       schema: {
         promptSource: "Andrej Karpathy llm-wiki.md",
         promptHash: workspace.promptHash,
@@ -1540,7 +1585,7 @@ export async function getUserWikiPageForApp(userId: string, input?: {
     ? normalizeWikiPagePath(input.pagePath)
     : input?.slug && input.slug.length > 0
       ? normalizeWikiPagePath(input.slug.join("/"))
-      : manifest.defaultPagePath;
+      : resolveDefaultWikiLandingPage(manifest.pages, manifest.defaultPagePath);
   const page = manifest.pages.find((entry) => entry.path === resolvedPath || entry.routePath === wikiPagePathToRoutePath(resolvedPath));
   if (!page) {
     return null;

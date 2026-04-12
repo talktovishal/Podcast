@@ -395,6 +395,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                                     : "bg-transparent hover:bg-[rgba(247,251,250,0.9)]"
                                 }`}
                                 href={page.routePath}
+                                prefetch={false}
                               >
                                 <div className="text-sm font-medium text-[var(--foreground)]">{page.title}</div>
                                 {page.summary ? (
@@ -463,7 +464,11 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
 
                   if (!resolved.external && resolved.href.startsWith("/app/wiki")) {
                     return (
-                      <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
+                      <Link
+                        className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
+                        href={resolved.href}
+                        prefetch={false}
+                      >
                         {children}
                       </Link>
                     );
@@ -507,7 +512,11 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                             {source.title}
                           </a>
                         ) : (
-                          <Link className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2" href={resolved.href}>
+                          <Link
+                            className="font-medium text-[rgba(31,122,90,1)] underline underline-offset-2"
+                            href={resolved.href}
+                            prefetch={false}
+                          >
                             {source.title}
                           </Link>
                         )
@@ -558,6 +567,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                   key={page.path}
                   className="rounded-xl border border-[rgba(31,122,90,0.14)] bg-[rgba(247,251,250,0.84)] px-3 py-2.5 transition hover:border-[rgba(31,122,90,0.24)] hover:bg-white"
                   href={page.routePath}
+                  prefetch={false}
                 >
                   <div className="text-sm font-medium">{page.title}</div>
                   {page.summary ? (

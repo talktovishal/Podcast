@@ -73,6 +73,20 @@ test("wiki link extraction and rewrite handle wikilinks and markdown links", () 
   );
 });
 
+test("wiki link rewrite handles labels that contain brackets", () => {
+  const markdown =
+    "See [[sources/items/item-1|Epic Lays Off An Employee [Update: Epic Responds]]] for details.";
+  const pages = ["sources/items/item-1.md"];
+
+  assert.equal(
+    rewriteWikiLinksForApp(markdown, {
+      currentPagePath: "entities/epic-games.md",
+      pagePaths: pages,
+    }),
+    "See [Epic Lays Off An Employee \\[Update: Epic Responds\\]](/app/wiki/sources/items/item-1) for details."
+  );
+});
+
 test("wiki display splitter separates supporting notes from the main article", () => {
   const split = splitWikiMarkdownForDisplay(`# Concept\n\nWorking synthesis.\n\n## Source pages\n\n[One](https://example.com/one) - Note one.\n\n[Two](https://example.com/two) - Note two.`);
 

@@ -278,6 +278,7 @@ Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
     const manifest = await getUserWikiManifestForApp(user.id);
     assert.ok(manifest);
     assert.equal(manifest?.pages.some((page) => page.path === "concepts/topic.md"), true);
+    assert.equal(manifest?.defaultPagePath, "overview.md");
 
     const topicPage = await getUserWikiPageForApp(user.id, { pagePath: "concepts/topic.md" });
     assert.ok(topicPage);
@@ -285,6 +286,9 @@ Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
     assert.equal(topicPage?.page.backlinks.includes("index.md"), true);
     assert.equal(topicPage?.content.includes("tags:"), false);
     assert.equal(topicPage?.content.includes("# Topic"), false);
+
+    const landingPage = await getUserWikiPageForApp(user.id);
+    assert.equal(landingPage?.page.path, "overview.md");
 
     const itemArtifact = await prisma.itemArtifact.findFirst({
       where: {

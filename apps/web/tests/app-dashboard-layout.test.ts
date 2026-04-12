@@ -173,6 +173,7 @@ test("wiki browser keeps the wiki layout compact on both the rail and article bo
   assert.equal(source.includes("{browsePages.length} pages"), true);
   assert.equal(source.includes("rounded-xl px-2.5 py-2 transition"), true);
   assert.equal(source.includes("hover:bg-[rgba(247,251,250,0.9)]"), true);
+  assert.equal(source.includes("prefetch={false}"), true);
   assert.equal(source.includes("WebkitLineClamp: 2"), true);
   assert.equal(source.includes("border-t border-[rgba(31,122,90,0.12)] pt-3"), true);
   assert.equal(source.includes("border-b border-[rgba(31,122,90,0.24)] pb-0.5 font-semibold text-[rgba(20,78,58,1)]"), true);
