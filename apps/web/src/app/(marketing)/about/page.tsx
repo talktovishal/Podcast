@@ -70,21 +70,6 @@ export default function AboutPage() {
                   an article and rarely made it back. That gap between wanting
                   to learn and actually keeping up is what inspired me.
                 </p>
-                <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-                  When{" "}
-                  <a
-                    className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
-                    href={KARPATHY_LLM_WIKI_GIST_URL}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Andrej Karpathy described the LLM Wiki pattern
-                  </a>
-                  , it crystallized the product direction I cared about most:
-                  not just turning reading into audio, but rebuilding that
-                  persistent, interlinked knowledge workflow into ArticlePod
-                  itself.
-                </p>
               </div>
             </div>
           </div>
@@ -117,6 +102,20 @@ export default function AboutPage() {
               can listen to in my favorite podcast apps, even offline. Save one
               item, get one episode. Over time, the personal wiki keeps the
               ideas I want to retain connected in one place.
+            </p>
+            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
+              When{" "}
+              <a
+                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+                href={KARPATHY_LLM_WIKI_GIST_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Andrej Karpathy described the LLM Wiki pattern
+              </a>
+              , it crystallized the product direction I cared about most: not
+              just turning reading into audio, but rebuilding that persistent,
+              interlinked knowledge workflow into ArticlePod itself.
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Within a few weeks, I was finishing more of the articles and PDFs
