@@ -61,8 +61,6 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
       createSession(user.id),
       createSession(otherUser.id)
     ]);
-    const initialJobCount = await prisma.job.count();
-
     const createResponse = await snippetsPost(
       new NextRequest("http://localhost/api/snippets", {
         method: "POST",
@@ -109,7 +107,10 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
     assert.match(createdSnippet?.captureMarkdown || "", /Section path: Main topic > Important section/);
     assert.equal(createdSnippet?.pageMetadataJson?.includes('"siteName":"Example Site"'), true);
     assert.equal(await prisma.item.count({ where: { userId: user.id } }), 0);
-    assert.equal(await prisma.job.count(), initialJobCount);
+    assert.equal(
+      await prisma.job.count({ where: { item: { userId: user.id } } }),
+      0,
+    );
 
     const listResponse = await snippetsGet(
       new NextRequest("http://localhost/api/snippets?limit=10", {

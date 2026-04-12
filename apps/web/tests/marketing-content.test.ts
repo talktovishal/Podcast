@@ -135,7 +135,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Wiki plan"), true);
   assert.equal(
     source.includes("annual-only personal wiki that automatically refreshes"),
-    true,
+    false,
   );
   assert.equal(source.includes("Weekly digest podcast + email options"), false);
   assert.equal(

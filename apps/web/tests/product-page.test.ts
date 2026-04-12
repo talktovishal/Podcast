@@ -9,16 +9,16 @@ test("product page keeps a calm three-step story with one trust section", () => 
   );
   const normalizedSource = source.replace(/\s+/g, " ");
 
-  assert.equal(normalizedSource.includes("Save. Listen. Recap."), true);
+  assert.equal(normalizedSource.includes("Save. Listen. Compile."), true);
   assert.equal(
     normalizedSource.includes(
-      "One calm rhythm for turning saved reading into something you actually finish.",
+      "ArticlePod turns saved reading into ongoing learning.",
     ),
     true,
   );
   assert.equal(source.includes("Save what matters"), true);
   assert.equal(source.includes("Listen in the app you already use"), true);
-  assert.equal(source.includes("Recap when you want the throughline"), true);
+  assert.equal(source.includes("Build the throughline"), true);
   assert.equal(source.includes("Private RSS feed"), true);
   assert.equal(source.includes("Standard podcast apps"), true);
   assert.equal(source.includes("Your feed, your control"), true);
@@ -44,7 +44,7 @@ test("product page keeps a calm three-step story with one trust section", () => 
   assert.equal(source.includes("/resources/articlepod-extension-flow.gif"), false);
   assert.equal(source.includes("What makes the workflow useful"), false);
   assert.equal(source.includes("What happens after you save something"), false);
-  assert.equal(source.includes("What you get over time"), false);
+  assert.equal(source.includes("Persistent knowledge, not one-off answers."), true);
 });
 
 test("product page ends with one calm closing CTA", () => {

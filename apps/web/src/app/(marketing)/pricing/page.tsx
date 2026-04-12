@@ -15,7 +15,7 @@ import {
   buildPublicMetadata,
   buildSoftwareApplicationSchema
 } from "@/lib/seo";
-import { paidPlanCapacityDelta, paidPlanConfig } from "@/lib/paid-plan-config";
+import { paidPlanConfig } from "@/lib/paid-plan-config";
 
 type ComparisonCell =
   | {
@@ -39,7 +39,6 @@ type ComparisonRow = {
 
 const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
 const annualPlan = paidPlanConfig("PRO_ANNUAL");
-const annualAdvantage = paidPlanCapacityDelta();
 const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Price",
@@ -341,9 +340,6 @@ export default async function PricingPage({
             <p className="text-2xl font-bold">$130/yr</p>
             <p className="text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
           </div>
-          <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
-            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes versus monthly, plus the annual-only personal wiki that automatically refreshes.
-          </p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
             <PlanFeatureItem label="Chrome extension capture" />

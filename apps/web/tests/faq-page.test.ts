@@ -23,10 +23,12 @@ const faqContent = buildFaqPageContent({
 });
 
 test("faq page keeps the refreshed hero copy and delegates interactive rendering to the explorer", () => {
+  const normalizedSource = faqPageSource.replace(/\s+/g, " ");
+
   assert.equal(faqPageSource.includes("Common questions, answered"), true);
   assert.equal(
-    faqPageSource.includes(
-      "ArticlePod is built around private per-article podcast episodes, with optional weekly digests when you want an easy recap.",
+    normalizedSource.includes(
+      "ArticlePod is built around private per-article podcast episodes, with a personal wiki layer for the ideas you want to keep.",
     ),
     true,
   );
@@ -123,12 +125,18 @@ test("faq explorer keeps question hash support without extra navigation chrome",
 
 test("faq schema stays flat even though rendered answers are richer", () => {
   const schemaItems = flattenFaqQuestionsForSchema(faqContent.sections);
-  assert.equal(schemaItems.length, 15);
+  assert.equal(schemaItems.length, 16);
   assert.deepEqual(schemaItems[0], {
     question: "What happens when I save something?",
     answer:
       "Usually one save becomes one private podcast episode. Save a URL, upload a text-based PDF, or capture a page in Chrome, and ArticlePod processes it into an episode that appears in your private feed when it is ready.",
   });
+  assert.equal(
+    schemaItems.some(
+      (item) => item.question === "Does ArticlePod build a personal wiki too?",
+    ),
+    true,
+  );
   assert.equal(
     schemaItems.some(
       (item) => item.question === "What happens if I need to rotate my feed URL?",
