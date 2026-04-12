@@ -144,8 +144,8 @@ export default function ProductPage() {
         <WikiSnapshotPreview className="mt-4" />
       </section>
 
-      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.92))] p-5 sm:p-6">
-        <div className="space-y-2">
+      <section className="mt-6 rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.94))] p-4 sm:p-5">
+        <div className="space-y-1.5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
             Trust and privacy
           </p>
@@ -158,16 +158,16 @@ export default function ProductPage() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           {productTrustPoints.map((point) => (
             <article
               key={point.title}
-              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/88 p-5"
+              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/90 p-4"
             >
               <h3 className="text-base font-semibold text-[var(--ink)]">
                 {point.title}
               </h3>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              <p className="mt-1.5 text-sm leading-6 text-[var(--muted)]">
                 {point.body}
               </p>
             </article>
@@ -175,8 +175,8 @@ export default function ProductPage() {
         </div>
       </section>
 
-      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-6 text-center shadow-[0_18px_40px_rgba(24,38,32,0.05)] sm:p-8">
-        <div className="mx-auto max-w-2xl space-y-4">
+      <section className="mt-6 rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 text-center shadow-[0_18px_40px_rgba(24,38,32,0.05)] sm:p-6">
+        <div className="mx-auto max-w-2xl space-y-3">
           <h2 className="text-2xl font-semibold leading-tight text-[var(--ink)]">
             Start with one article and let the system grow from there.
           </h2>
