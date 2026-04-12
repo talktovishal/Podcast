@@ -12,10 +12,7 @@ import {
   buildOAuthStartHref,
   normalizePostAuthRedirect,
 } from "@/lib/auth-redirect";
-import {
-  KARPATHY_LLM_WIKI_GIST_URL,
-  marketingCopy,
-} from "@/lib/marketing-content";
+import { marketingCopy } from "@/lib/marketing-content";
 import {
   oauthProviders as oauthProviderDefinitions,
   type OAuthProviderStatus,
@@ -486,7 +483,7 @@ export function AuthLandingPage() {
           {marketingCopy.heroSubheading}
         </p>
 
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-1">
+        <div className="grid gap-2.5 sm:grid-cols-3">
           {marketingCopy.heroHighlights.map((item) => (
             <article
               key={item.title}
@@ -503,21 +500,7 @@ export function AuthLandingPage() {
         </div>
 
         <section className="border-t border-[rgba(31,122,90,0.14)] pt-3">
-          <div className="space-y-2">
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Inspired by{" "}
-              <a
-                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
-                href={KARPATHY_LLM_WIKI_GIST_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Andrej Karpathy&apos;s LLM Wiki idea
-              </a>
-              , Pro Annual includes a personal wiki based on the links and
-              snippets you curate. It is rebuilt weekly so the ideas you keep
-              can compound over time.
-            </p>
+          <div className="space-y-1.5">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
               Security
             </p>

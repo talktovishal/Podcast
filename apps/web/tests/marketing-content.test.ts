@@ -36,7 +36,7 @@ test("marketing copy keeps concise busy-reader framing", () => {
   );
   assert.equal(
     marketingCopy.heroSubheading,
-    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
@@ -278,7 +278,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     marketingSource.includes(
-      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
     ),
     true,
   );
@@ -315,12 +315,10 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(loginSource.includes("MarketingHeader"), false);
   assert.equal(loginSource.includes("MarketingCta"), false);
   assert.equal(loginSource.includes("WikiSnapshotPreview"), false);
-  assert.equal(loginSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
-  assert.equal(loginSource.includes("Pro Annual"), true);
-  assert.equal(loginSource.includes("links and"), true);
-  assert.equal(loginSource.includes("snippets you curate"), true);
-  assert.equal(loginSource.includes("rebuilt weekly"), true);
-  assert.equal(loginSource.includes("rebuilt daily"), false);
+  assert.equal(loginSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), false);
+  assert.equal(loginSource.includes("sm:grid-cols-3"), true);
+  assert.equal(loginSource.includes("sm:grid-cols-2"), false);
+  assert.equal(loginSource.includes("lg:grid-cols-1"), false);
 
   assert.equal(faqSource.includes("Quick answers"), true);
   assert.equal(faqSource.includes("FaqExplorer"), true);
