@@ -231,15 +231,15 @@ export default async function PricingPage({
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
           Start free and upgrade when you need more daily episodes and digest
           workflows. Pro Annual is where the personal wiki becomes a real
-          differentiator, with daily rebuilds that keep your knowledge base
-          fresh.
+          differentiator, with automatic refreshes that keep your knowledge
+          base fresh.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
             Save nearly 30% on annual
           </span>
           <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
-            {annualPlan.dailyPodcastLimit} episodes/day + daily wiki rebuilds
+            {annualPlan.dailyPodcastLimit} episodes/day + wiki auto-refresh
           </span>
         </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
@@ -349,13 +349,13 @@ export default async function PricingPage({
             <p className="text-sm font-medium text-[#1f7a5a]">Save nearly 30%</p>
           </div>
           <p className="mt-2 rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
-            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes versus monthly, plus the annual-only personal wiki rebuilt every day.
+            Includes +{annualAdvantage.extraDailyPodcasts} daily episodes versus monthly, plus the annual-only personal wiki that automatically refreshes.
           </p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
             <PlanFeatureItem label="Chrome extension capture" />
             <PlanFeatureItem label="Personal wiki access" />
-            <PlanFeatureItem label="Daily wiki rebuilds" />
+            <PlanFeatureItem label="Personal wiki automatically refreshes" />
             <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>

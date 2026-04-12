@@ -131,10 +131,10 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   );
   assert.equal(source.includes("manual summaries per 7 days"), false);
   assert.equal(source.includes("Personal wiki access"), true);
-  assert.equal(source.includes("Daily wiki rebuilds"), true);
+  assert.equal(source.includes("Personal wiki automatically refreshes"), true);
   assert.equal(source.includes("Wiki plan"), true);
   assert.equal(
-    source.includes("annual-only personal wiki rebuilt every day"),
+    source.includes("annual-only personal wiki that automatically refreshes"),
     true,
   );
   assert.equal(source.includes("Weekly digest podcast + email options"), true);
