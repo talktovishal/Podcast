@@ -36,7 +36,7 @@ test("marketing copy keeps concise busy-reader framing", () => {
   );
   assert.equal(
     marketingCopy.heroSubheading,
-    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly.",
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
@@ -278,7 +278,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     marketingSource.includes(
-      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests.",
+      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly.",
     ),
     true,
   );
