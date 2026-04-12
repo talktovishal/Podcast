@@ -104,20 +104,6 @@ export default function AboutPage() {
               ideas I want to retain connected in one place.
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              When{" "}
-              <a
-                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
-                href={KARPATHY_LLM_WIKI_GIST_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                Andrej Karpathy described the LLM Wiki pattern
-              </a>
-              , it crystallized the product direction I cared about most: not
-              just turning reading into audio, but rebuilding that persistent,
-              interlinked knowledge workflow into ArticlePod itself.
-            </p>
-            <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
               Within a few weeks, I was finishing more of the articles and PDFs
               I actually cared about, and my open tabs dropped from more than 50
               to fewer than 10 across all my devices. Cooking, driving, walking,
@@ -157,10 +143,20 @@ export default function AboutPage() {
               retain more
             </p>
             <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
-              The journey continues. For me, this is not just about fitting
-              reading into a busy life. It is also about building a personal
-              knowledge base over time, one that can grow into a personal wiki I
-              can return to, learn from, and keep expanding. Stay tuned.
+              When{" "}
+              <a
+                className="font-semibold text-[var(--ink)] underline decoration-[#8cb7ab] underline-offset-4 transition hover:decoration-[var(--ink)]"
+                href={KARPATHY_LLM_WIKI_GIST_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Andrej Karpathy described the LLM Wiki pattern
+              </a>
+              , it crystallized something I cared about deeply. We have now
+              built that into ArticlePod as a personal wiki that keeps the
+              links, snippets, and ideas worth retaining in one place. That
+              matters because learning gets more useful when knowledge compounds
+              instead of disappearing after a single listen.
             </p>
           </div>
         </article>

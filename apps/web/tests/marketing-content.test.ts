@@ -555,11 +555,17 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "The journey continues. For me, this is not just about fitting reading into a busy life.",
+      "We have now built that into ArticlePod as a personal wiki that keeps the links, snippets, and ideas worth retaining in one place.",
     ),
     true,
   );
-  assert.equal(normalizedAboutSource.includes("Stay tuned."), true);
+  assert.equal(
+    normalizedAboutSource.includes(
+      "That matters because learning gets more useful when knowledge compounds instead of disappearing after a single listen.",
+    ),
+    true,
+  );
+  assert.equal(normalizedAboutSource.includes("Stay tuned."), false);
   assert.equal(
     normalizedAboutSource.includes(
       "Andrej Karpathy described the LLM Wiki pattern",
