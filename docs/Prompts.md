@@ -41,7 +41,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - the current corpus is `items + snippets` only, and the durable wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, and one current `state/builds/<runId>.json` blob per user).
   - concept pages are now explicitly long-form: `WIKI_CONVENTIONS.md` asks for a 5-bullet `## Executive summary` followed by a `## Working synthesis` that targets 1500-3000 words and reads well as standalone, podcast-worthy material.
   - signed-in users can browse the published wiki at `/app/wiki`, with a denser one-card page rail, markdown cleanup that hides internal source/file plumbing, synthesis-first article rendering with visually emphasized `Executive summary` and `Working synthesis` section headers, and a compact inline `Sources` list that shows the first five references by default with a `Show all` control for the rest.
-  - the `Wiki` nav item is conditional like `Snippets`: only users with a published wiki manifest see it, and direct `/app/wiki` visits redirect back to `/app` when no wiki exists yet.
+  - the `Wiki` nav item now stays visible for `Pro annual` members even before the first publish. If no published wiki manifest exists yet, `/app/wiki` renders an annual-only placeholder that explains the wiki appears once enough saved articles/snippets accumulate and the next wiki processing pass runs; non-annual users still redirect back to `/app`.
   - public marketing is now wiki-first: the homepage and product pages directly credit Andrej Karpathy's April 4, 2026 `LLM Wiki` gist as the inspiration anchor, and use a shared compact wiki snapshot to show the browse surface.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
@@ -178,7 +178,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `/app` groups source mode selection, the active URL/PDF input, and the submit button into one accent-backed action zone so the input field reads as the next step immediately, removes duplicate explanatory copy inside `Add New Episode`, and keeps non-blocking quota/capacity copy below the submit control with quieter treatment.
   - `/app/podcast-apps` now makes the private feed URL copy box the dominant above-the-fold control, with app launch shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
   - `/app/chrome-extension` now emphasizes install/connect controls ahead of the longer setup guidance.
-  - `/app/summary` is no longer a surfaced workspace: it redirects to `/app/wiki` when a wiki exists, or back to `/app` otherwise.
+  - `/app/summary` is no longer a surfaced workspace: it redirects to `/app/wiki` when a wiki exists or the user is eligible for the annual wiki placeholder, or back to `/app` otherwise.
   - keyboard-first submit affordances now map `Enter` to the obvious primary action across email auth, episode submission, settings saves, and admin search/save flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated users can submit message-first feedback from `/app/feedback` with optional type/feature metadata.

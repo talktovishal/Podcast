@@ -44,7 +44,11 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(headerSource.includes("AppShellNav"), true);
   assert.equal(headerSource.includes("hasSnippetsForUser"), true);
   assert.equal(headerSource.includes("hasWikiForUser"), true);
+  assert.equal(headerSource.includes("showWikiSurface = false"), true);
+  assert.equal(headerSource.includes("showWiki={showWikiSurface || hasPublishedWiki}"), true);
   assert.equal(headerSource.includes("lg:inline-flex"), true);
+  assert.equal(layoutSource.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(layoutSource.includes("showWikiSurface={hasAnnualPersonalWikiAccess("), true);
   assert.equal(layoutSource.includes("pt-28 sm:pt-32 lg:pt-24"), true);
 });
 
@@ -119,7 +123,14 @@ test("summary route redirects away so the summary workspace is not surfaced", ()
   );
 
   assert.equal(source.includes("getUserWikiManifestForApp"), true);
-  assert.equal(source.includes('redirect(wikiManifest ? "/app/wiki" : "/app")'), true);
+  assert.equal(source.includes("getBillingSettingsState"), true);
+  assert.equal(source.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(
+    source.includes(
+      'wikiManifest || hasAnnualPersonalWikiAccess(billingState.selectedBilling)',
+    ),
+    true,
+  );
   assert.equal(source.includes("SummaryStudioClient"), false);
   assert.equal(source.includes("listSelectableSummaryItems"), false);
   assert.equal(source.includes("listSummaryRunsForUser"), false);
@@ -127,14 +138,18 @@ test("summary route redirects away so the summary workspace is not surfaced", ()
   assert.equal(source.includes("<h1"), false);
 });
 
-test("wiki route redirects back to the workspace when no wiki is published", () => {
+test("wiki route keeps an annual-plan placeholder available before the first publish", () => {
   const source = readFileSync(
     new URL("../src/app/app/wiki/[[...slug]]/page.tsx", import.meta.url),
     "utf8",
   );
 
+  assert.equal(source.includes("getBillingSettingsState"), true);
+  assert.equal(source.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(source.includes("getUserWikiSourceAvailabilityForApp"), true);
   assert.equal(source.includes('redirect("/app")'), true);
-  assert.equal(source.includes("No personal wiki has been published"), false);
+  assert.equal(source.includes("No personal wiki has been published yet"), true);
+  assert.equal(source.includes("Add articles"), true);
 });
 
 test("wiki browser keeps the wiki layout compact on both the rail and article body", () => {

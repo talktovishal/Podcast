@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getAuthUserFromCookies } from "@/lib/auth";
+import { getBillingSettingsState } from "@/lib/billing";
+import { hasAnnualPersonalWikiAccess } from "@/lib/billing-contract";
 import { getUserWikiManifestForApp } from "@/lib/wiki";
 
 export const metadata: Metadata = {
@@ -13,6 +15,13 @@ export default async function SummaryStudioPage() {
     redirect("/");
   }
 
-  const wikiManifest = await getUserWikiManifestForApp(user.id);
-  redirect(wikiManifest ? "/app/wiki" : "/app");
+  const [billingState, wikiManifest] = await Promise.all([
+    getBillingSettingsState(user.id),
+    getUserWikiManifestForApp(user.id),
+  ]);
+  redirect(
+    wikiManifest || hasAnnualPersonalWikiAccess(billingState.selectedBilling)
+      ? "/app/wiki"
+      : "/app",
+  );
 }

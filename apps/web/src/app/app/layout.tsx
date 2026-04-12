@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppShellHeader } from "@/components/app-shell-header";
 import { getAuthUserFromCookies } from "@/lib/auth";
+import { hasAnnualPersonalWikiAccess } from "@/lib/billing-contract";
 import {
   getBillingSettingsState,
   isBillingPlanCheckoutConfigured,
@@ -28,6 +29,9 @@ export default async function AppLayout({
         billingConfigured={billingConfigured}
         initialBilling={billingState.liveBilling}
         sandboxModeActive={billingState.mode.effectiveLane === "SANDBOX"}
+        showWikiSurface={hasAnnualPersonalWikiAccess(
+          billingState.selectedBilling,
+        )}
         userId={user.id}
       />
       <div className="pt-28 sm:pt-32 lg:pt-24">{children}</div>

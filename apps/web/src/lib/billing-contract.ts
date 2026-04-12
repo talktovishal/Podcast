@@ -43,6 +43,12 @@ export type BillingSettingsState = {
   mode: BillingModeState;
 };
 
+export function hasAnnualPersonalWikiAccess(
+  snapshot: Pick<BillingAccountSnapshot, "hasPaidAccess" | "planCode">,
+): boolean {
+  return snapshot.hasPaidAccess && snapshot.planCode === "PRO_ANNUAL";
+}
+
 export function billingPlanLabel(planCode: BillingPlanCode): string {
   switch (planCode) {
     case "PRO_MONTHLY":

@@ -563,6 +563,68 @@ async function listWikiCorpusSourcesForUser(userId: string): Promise<WikiCorpusS
   });
 }
 
+export async function getUserWikiSourceAvailabilityForApp(userId: string): Promise<{
+  submittedItemCount: number;
+  readyItemCount: number;
+  snippetCount: number;
+  submittedSourceCount: number;
+  readySourceCount: number;
+}> {
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const [items, snippets] = await Promise.all([
+      webPrimaryStore.listItemsByUser(userId, Number.MAX_SAFE_INTEGER),
+      webPrimaryStore.listSnippetsByUser(userId, Number.MAX_SAFE_INTEGER),
+    ]);
+    const supportedItems = items.filter((item) =>
+      SUPPORTED_WIKI_ITEM_SOURCE_TYPES.has(item.sourceType),
+    );
+    const readyItemCount = supportedItems.filter(
+      (item) => item.status === "READY",
+    ).length;
+    const snippetCount = snippets.length;
+    const submittedItemCount = supportedItems.length;
+
+    return {
+      submittedItemCount,
+      readyItemCount,
+      snippetCount,
+      submittedSourceCount: submittedItemCount + snippetCount,
+      readySourceCount: readyItemCount + snippetCount,
+    };
+  }
+
+  const [submittedItemCount, readyItemCount, snippetCount] = await Promise.all([
+    prisma.item.count({
+      where: {
+        userId,
+        sourceType: {
+          in: [...SUPPORTED_WIKI_ITEM_SOURCE_TYPES],
+        },
+      },
+    }),
+    prisma.item.count({
+      where: {
+        userId,
+        status: "READY",
+        sourceType: {
+          in: [...SUPPORTED_WIKI_ITEM_SOURCE_TYPES],
+        },
+      },
+    }),
+    prisma.snippet.count({
+      where: { userId },
+    }),
+  ]);
+
+  return {
+    submittedItemCount,
+    readyItemCount,
+    snippetCount,
+    submittedSourceCount: submittedItemCount + snippetCount,
+    readySourceCount: readyItemCount + snippetCount,
+  };
+}
+
 function buildSourceState(sources: WikiCorpusSource[], previousManifest: WikiManifest | null): WikiSourceState {
   const hashes = Object.fromEntries(sources.map((source) => [source.sourceKey, source.hash]));
   const previousHashes = previousManifest?.sourceState.hashes ?? {};

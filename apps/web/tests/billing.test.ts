@@ -12,6 +12,7 @@ import {
   selectStripeSubscriptionForSync
 } from "../src/lib/billing";
 import { setBillingLanePreference } from "../src/lib/billing";
+import { hasAnnualPersonalWikiAccess } from "../src/lib/billing-contract";
 import { prisma } from "../src/lib/prisma";
 
 let dbReady = false;
@@ -93,6 +94,30 @@ test("buildBillingSnapshot preserves active annual Pro subscriptions", () => {
   assert.equal(snapshot.planAccessLevel, "PRO");
   assert.equal(snapshot.status, "ACTIVE");
   assert.equal(snapshot.lastPaymentStatus, "PAID");
+});
+
+test("hasAnnualPersonalWikiAccess is reserved for active annual billing", () => {
+  assert.equal(
+    hasAnnualPersonalWikiAccess({
+      hasPaidAccess: true,
+      planCode: "PRO_ANNUAL",
+    }),
+    true,
+  );
+  assert.equal(
+    hasAnnualPersonalWikiAccess({
+      hasPaidAccess: true,
+      planCode: "PRO_MONTHLY",
+    }),
+    false,
+  );
+  assert.equal(
+    hasAnnualPersonalWikiAccess({
+      hasPaidAccess: false,
+      planCode: "PRO_ANNUAL",
+    }),
+    false,
+  );
 });
 
 test("buildStripeDashboardLinks points to the Stripe test dashboard", () => {

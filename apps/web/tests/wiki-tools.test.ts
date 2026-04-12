@@ -15,6 +15,7 @@ import { createSnippetForUser } from "../src/lib/snippets";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 import {
+  getUserWikiSourceAvailabilityForApp,
   getUserWikiManifestForApp,
   getUserWikiPageForApp,
   lintPreparedWikiRun,
@@ -80,6 +81,61 @@ Useful body copy.
   assert.equal(cleaned.includes("sources/items/abc-123.md"), false);
   assert.equal(cleaned.includes("Snapshot"), false);
   assert.equal(cleaned.includes("Useful body copy."), true);
+});
+
+test("wiki source availability counts submitted items, ready items, and snippets", async () => {
+  ensureDbBootstrap();
+  const uniq = `wiki-source-availability-${Date.now().toString(36)}`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  await prisma.item.createMany({
+    data: [
+      {
+        userId: user.id,
+        title: "Ready wiki article",
+        sourceType: "URL",
+        sourceUrl: `https://example.com/${uniq}/ready`,
+        status: "READY"
+      },
+      {
+        userId: user.id,
+        title: "Queued wiki article",
+        sourceType: "PDF",
+        sourceUrl: `https://example.com/${uniq}/queued`,
+        status: "QUEUED"
+      },
+      {
+        userId: user.id,
+        title: "Unsupported source",
+        sourceType: "TEXT",
+        sourceUrl: `https://example.com/${uniq}/text`,
+        status: "READY"
+      }
+    ]
+  });
+
+  await createSnippetForUser(user.id, {
+    sourceUrl: `https://example.com/${uniq}/snippet`,
+    sourceTitle: undefined,
+    selectedText: "Snippet for wiki placeholder counts.",
+    comment: null,
+    selectedHtml: undefined,
+    contextHtml: undefined,
+    pageMetadata: undefined
+  });
+
+  const availability = await getUserWikiSourceAvailabilityForApp(user.id);
+  assert.equal(availability.submittedItemCount, 2);
+  assert.equal(availability.readyItemCount, 1);
+  assert.equal(availability.snippetCount, 1);
+  assert.equal(availability.submittedSourceCount, 3);
+  assert.equal(availability.readySourceCount, 2);
 });
 
 test("wiki prepare/publish supports a Karpathy prompt copy, manifest publishing, and incremental prepare", async () => {

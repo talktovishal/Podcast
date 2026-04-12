@@ -11,14 +11,16 @@ export async function AppShellHeader({
   billingConfigured,
   initialBilling,
   sandboxModeActive = false,
+  showWikiSurface = false,
   userId,
 }: {
   billingConfigured: boolean;
   initialBilling: BillingAccountSnapshot;
   sandboxModeActive?: boolean;
+  showWikiSurface?: boolean;
   userId: string;
 }) {
-  const [showSnippets, showWiki] = await Promise.all([
+  const [showSnippets, hasPublishedWiki] = await Promise.all([
     hasSnippetsForUser(userId),
     hasWikiForUser(userId),
   ]);
@@ -62,7 +64,7 @@ export async function AppShellHeader({
                 />
               }
               showSnippets={showSnippets}
-              showWiki={showWiki}
+              showWiki={showWikiSurface || hasPublishedWiki}
             />
           </div>
         </div>
