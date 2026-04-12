@@ -10,7 +10,7 @@ import {
 } from "@/lib/seo";
 
 const productDescription =
-  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with an annual-plan personal wiki that is rebuilt daily.";
+  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with an annual-plan personal wiki that is rebuilt weekly.";
 
 const productFlowSteps = [
   {
@@ -26,7 +26,7 @@ const productFlowSteps = [
   {
     step: "03",
     title: "Build the throughline",
-    body: "On Pro Annual, the personal wiki is rebuilt daily so saved reading and snippets keep folding into durable, interlinked pages you can return to later.",
+    body: "On Pro Annual, the personal wiki is rebuilt weekly so saved reading and snippets keep folding into durable, interlinked pages you can return to later.",
   },
 ] as const;
 
@@ -70,20 +70,20 @@ export default function ProductPage() {
         ]}
       />
 
-      <section className="space-y-4">
+      <section className="space-y-3">
         <h1 className="max-w-3xl text-3xl font-bold leading-tight sm:text-4xl">
           One system for continuous learning
         </h1>
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns saved reading into ongoing learning. Each article or
           PDF becomes a private podcast episode. On Pro Annual, the personal
-          wiki is rebuilt daily so important ideas stay connected over time.
+          wiki is rebuilt weekly so important ideas stay connected over time.
           It&apos;s a calmer, more practical way to stay current on the topics
           you care about.
         </p>
       </section>
 
-      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[rgba(248,252,251,0.88)] p-5 sm:p-6">
+      <section className="mt-6 rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-[rgba(248,252,251,0.9)] p-4 sm:p-5">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
             Three-step flow
@@ -97,19 +97,19 @@ export default function ProductPage() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {productFlowSteps.map((step) => (
             <article
               key={step.step}
-              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/88 p-5"
+              className="rounded-2xl border border-[rgba(31,122,90,0.1)] bg-white/90 p-4"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
                 {step.step}
               </p>
-              <h3 className="mt-3 text-lg font-semibold text-[var(--ink)]">
+              <h3 className="mt-2 text-lg font-semibold text-[var(--ink)]">
                 {step.title}
               </h3>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              <p className="mt-1.5 text-sm leading-6 text-[var(--muted)]">
                 {step.body}
               </p>
             </article>
@@ -117,7 +117,7 @@ export default function ProductPage() {
         </div>
       </section>
 
-      <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-5 sm:p-6">
+      <section className="mt-8 rounded-[24px] border border-[rgba(31,122,90,0.12)] bg-white/92 p-4 sm:p-5">
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4d7b72]">
             Karpathy-inspired wiki
@@ -136,12 +136,12 @@ export default function ProductPage() {
               Andrej Karpathy&apos;s LLM Wiki gist
             </a>
             , ArticlePod adds a durable, interlinked wiki layer on top of the
-            private feed. It is available on Pro Annual and rebuilt daily so
+            private feed. It is available on Pro Annual and rebuilt weekly so
             the ideas you save are easier to revisit later.
           </p>
         </div>
 
-        <WikiSnapshotPreview className="mt-5" />
+        <WikiSnapshotPreview className="mt-4" />
       </section>
 
       <section className="mt-10 rounded-[28px] border border-[rgba(31,122,90,0.12)] bg-[linear-gradient(180deg,rgba(248,252,251,0.95),rgba(240,247,244,0.92))] p-5 sm:p-6">

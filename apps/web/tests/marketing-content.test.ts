@@ -254,6 +254,10 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
     "utf8",
   );
   const normalizedProductSource = productSource.replace(/\s+/g, " ");
+  const wikiSnapshotSource = readFileSync(
+    new URL("../src/components/wiki-snapshot-preview.tsx", import.meta.url),
+    "utf8",
+  );
   const layoutSource = readFileSync(
     new URL("../src/app/layout.tsx", import.meta.url),
     "utf8",
@@ -601,13 +605,16 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(productSource.includes("Save. Listen. Compile."), true);
   assert.equal(productSource.includes("Build the throughline"), true);
   assert.equal(productSource.includes("Pro Annual"), true);
-  assert.equal(productSource.includes("rebuilt daily"), true);
+  assert.equal(productSource.includes("rebuilt weekly"), true);
+  assert.equal(productSource.includes("rebuilt daily"), false);
   assert.equal(
     productSource.includes("Persistent knowledge, not one-off answers."),
     true,
   );
   assert.equal(productSource.includes("WikiSnapshotPreview"), true);
   assert.equal(productSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
+  assert.equal(wikiSnapshotSource.includes("782 linked pages"), true);
+  assert.equal(wikiSnapshotSource.includes("Updated weekly"), true);
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 
