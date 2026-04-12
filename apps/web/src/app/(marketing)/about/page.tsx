@@ -36,17 +36,17 @@ export default function AboutPage() {
       />
 
       <section className="card overflow-hidden border-[rgba(31,122,90,0.14)] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(239,247,244,0.9))] p-5 sm:p-6 lg:p-8">
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.14fr)_minmax(18rem,0.86fr)] lg:items-center">
-          <div className="space-y-6">
-            <div className="max-w-4xl space-y-4">
-              <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
-                Listen to your reading list and finally catch up on what matters
-              </h1>
-              <p className="text-base font-semibold text-[var(--ink)] sm:text-lg">
-                Smita Busar, Founder, engineer, and builder
-              </p>
-            </div>
+        <div className="space-y-5">
+          <div className="max-w-5xl space-y-3">
+            <h1 className="max-w-4xl text-3xl font-bold leading-tight sm:text-4xl lg:max-w-none">
+              Listen to your reading list and finally catch up on what matters
+            </h1>
+            <p className="text-base font-semibold text-[var(--ink)] sm:text-lg">
+              Smita Busar, Founder, engineer, and builder
+            </p>
+          </div>
 
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,19rem)] lg:items-start">
             <div className="max-w-2xl space-y-5">
               <p className="text-sm leading-6 text-[var(--muted)] sm:text-base">
                 Growing up in a family of doctors and professors, I developed an
@@ -72,19 +72,19 @@ export default function AboutPage() {
                 </p>
               </div>
             </div>
-          </div>
 
-          <div className="mx-auto w-full max-w-[23rem] lg:max-w-none">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] border border-[rgba(31,122,90,0.14)] bg-white shadow-[0_24px_45px_rgba(24,38,32,0.08)]">
-              <Image
-                alt="Portrait of Smita Busar, founder of ArticlePod."
-                className="object-cover object-[56%_18%]"
-                fill
-                priority
-                sizes="(min-width: 1024px) 22rem, (min-width: 640px) 20rem, 100vw"
-                src="/brand/founder-portrait.jpg"
-              />
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[rgba(24,38,32,0.12)] to-transparent" />
+            <div className="mx-auto w-full max-w-[19rem] lg:max-w-none">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[30px] border border-[rgba(31,122,90,0.14)] bg-white shadow-[0_24px_45px_rgba(24,38,32,0.08)]">
+                <Image
+                  alt="Portrait of Smita Busar, founder of ArticlePod."
+                  className="object-cover object-[56%_18%]"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 22rem, (min-width: 640px) 20rem, 100vw"
+                  src="/brand/founder-portrait.jpg"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[rgba(24,38,32,0.12)] to-transparent" />
+              </div>
             </div>
           </div>
         </div>
