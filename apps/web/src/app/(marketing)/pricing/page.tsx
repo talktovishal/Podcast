@@ -66,12 +66,6 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
     annual: { kind: "included" }
   },
   {
-    feature: "Weekly digest podcast + email",
-    starter: { kind: "upgrade", value: "Upgrade to Pro" },
-    monthly: { kind: "included" },
-    annual: { kind: "included" }
-  },
-  {
     feature: "URL + PDF ingestion",
     starter: { kind: "included" },
     monthly: { kind: "included" },
@@ -229,8 +223,8 @@ export default async function PricingPage({
           Choose the ArticlePod plan that fits how you save and learn.
         </h1>
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
-          Start free and upgrade when you need more daily episodes and digest
-          workflows. Pro Annual is where the personal wiki becomes a real
+          Start free and upgrade when you need more daily episodes. Pro Annual
+          is where the personal wiki becomes a real
           differentiator, with automatic refreshes that keep your knowledge
           base fresh.
         </p>
@@ -297,7 +291,6 @@ export default async function PricingPage({
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${monthlyPlan.dailyPodcastLimit} new podcast episodes per day`} />
             <PlanFeatureItem label="Chrome extension capture" />
-            <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">
@@ -356,7 +349,6 @@ export default async function PricingPage({
             <PlanFeatureItem label="Chrome extension capture" />
             <PlanFeatureItem label="Personal wiki access" />
             <PlanFeatureItem label="Personal wiki automatically refreshes" />
-            <PlanFeatureItem label="Weekly digest podcast + email options" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">

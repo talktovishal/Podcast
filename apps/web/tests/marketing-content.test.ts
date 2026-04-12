@@ -108,7 +108,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("Save nearly 30%"), true);
   assert.equal(
     source.includes(
-      "Pro Annual is where the personal wiki becomes a real",
+      "Start free and upgrade when you need more daily episodes.",
     ),
     true,
   );
@@ -137,12 +137,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     source.includes("annual-only personal wiki that automatically refreshes"),
     true,
   );
-  assert.equal(source.includes("Weekly digest podcast + email options"), true);
-  assert.equal(
-    source.indexOf('feature: "Personal wiki"') <
-      source.indexOf('feature: "Weekly digest podcast + email"'),
-    true,
-  );
+  assert.equal(source.includes("Weekly digest podcast + email options"), false);
   assert.equal(
     source.includes('starter: { kind: "upgrade", value: "Upgrade to Pro Annual" }'),
     true,
@@ -152,7 +147,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
     true,
   );
   assert.equal(
-    source.indexOf('feature: "Weekly digest podcast + email"') <
+    source.indexOf('feature: "Personal wiki"') <
       source.indexOf('feature: "URL + PDF ingestion"'),
     true,
   );
