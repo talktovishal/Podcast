@@ -21,6 +21,7 @@
 - Chrome extension smart capture now uses a popup-triggered bounded reveal pass plus safe inert-node cleanup before HTML snapshot upload, while keeping the worker extraction path HTML-first.
 - Chrome extension release tooling now treats the packaged artifact as a first-class test surface: `extension:package` runs extension-specific regression gates before building, and the live-site smoke harness can target `dist/extension/package` for release-candidate checks.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
+- Python TTS hardening now streams Kokoro WAV assembly segment-by-segment on the sidecar, reducing peak RAM spikes on the B2s VM, and user-facing job failures now say `Audio processing...` instead of leaking provider internals.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - GitHub Actions now keeps CI automatic on `main`, while Azure production deploys require an explicit manual `Deploy to Azure` workflow dispatch instead of auto-running after every successful CI completion.
 - CI is now split into quick pull-request validation plus a nightly full run, with shared local `pnpm preflight` coverage and auto-cancelled superseded runs to reduce unnecessary GitHub Actions time.

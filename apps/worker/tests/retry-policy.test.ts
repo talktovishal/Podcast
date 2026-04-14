@@ -3,10 +3,10 @@ import test from "node:test";
 import { errorCodes } from "@articlepod/core";
 import { shouldRecommendRetry } from "../src/jobs/processItemJob.js";
 
-test("marks ffmpeg merge failures as non-retryable", () => {
+test("marks audio finalization failures as non-retryable", () => {
   const retry = shouldRecommendRetry({
     code: errorCodes.TTS_FAILED,
-    userMessage: "Could not merge synthesized audio segments. Ensure ffmpeg is installed and available on PATH."
+    userMessage: "Audio processing failed while finalizing the episode. Please retry."
   });
 
   assert.equal(retry, false);
@@ -15,7 +15,7 @@ test("marks ffmpeg merge failures as non-retryable", () => {
 test("keeps transient TTS failures retryable", () => {
   const retry = shouldRecommendRetry({
     code: errorCodes.TTS_FAILED,
-    userMessage: "Could not synthesize audio with kokoro. Ensure python-tts service is running."
+    userMessage: "Audio processing is temporarily unavailable. Please retry shortly."
   });
 
   assert.equal(retry, true);
@@ -24,7 +24,7 @@ test("keeps transient TTS failures retryable", () => {
 test("marks TTS timeout failures as non-retryable", () => {
   const retry = shouldRecommendRetry({
     code: errorCodes.TTS_FAILED,
-    userMessage: "Kokoro synthesis timed out after 205s. Increase PYTHON_TTS_TIMEOUT_MS or reduce WORKER_TTS_CHUNK_MAX_CHARS."
+    userMessage: "Audio processing timed out. Please retry."
   });
 
   assert.equal(retry, false);

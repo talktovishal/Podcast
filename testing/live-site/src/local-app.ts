@@ -427,6 +427,8 @@ export function isHarnessRuntimeFailure(errorMessage?: string | null): boolean {
     normalized.includes("run scripts/bootstrap-python-tts.sh") ||
     normalized.includes("ensure python-tts service is running") ||
     normalized.includes("tts provider unavailable") ||
+    normalized.includes("audio processing is temporarily unavailable") ||
+    normalized.includes("audio processing failed") ||
     normalized.includes("python kokoro provider failed") ||
     normalized.includes("python melo provider failed")
   );

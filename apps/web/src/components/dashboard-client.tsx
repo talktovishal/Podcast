@@ -15,7 +15,7 @@ import {
   type UserDemographicSurveyView
 } from "@/lib/demographics";
 import { mergeItemsPreservingEpisodeTokens } from "@/lib/dashboard-items";
-import { recommendsChromeExtensionCapture } from "@/lib/item-errors";
+import { normalizeItemErrorMessage, recommendsChromeExtensionCapture } from "@/lib/item-errors";
 import { sourceFallbackLabel, sourceTypeBadgeLabel } from "@/lib/source-labels";
 
 type DashboardItem = {
@@ -1555,6 +1555,7 @@ export function DashboardClient({
             {newestFirst.map((item) => {
               const badgeClass = item.status.toLowerCase();
               const statusText = item.status.toUpperCase();
+              const displayErrorMessage = normalizeItemErrorMessage(item.errorMessage);
               const mediaUrl = item.episode
                 ? `/api/media/${item.episode.audioPath}?mt=${encodeURIComponent(item.episode.mediaToken)}&eid=${encodeURIComponent(item.episode.id)}`
                 : null;
@@ -1611,8 +1612,8 @@ export function DashboardClient({
                     ))}
                   </div>
                   {helpText ? <p className="mt-1 text-xs text-[var(--muted)]">{helpText}</p> : null}
-                  {item.errorMessage && statusText === "FAILED" ? (
-                    <p className="mt-1 text-sm text-[var(--danger)]">{item.errorMessage}</p>
+                  {displayErrorMessage && statusText === "FAILED" ? (
+                    <p className="mt-1 text-sm text-[var(--danger)]">{displayErrorMessage}</p>
                   ) : null}
 
                   {mediaUrl ? (

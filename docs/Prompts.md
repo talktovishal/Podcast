@@ -11,6 +11,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
+- Kokoro narration on the python-tts sidecar now streams WAV assembly segment-by-segment instead of concatenating the full response in memory first, reducing peak RAM pressure on the production B2s VM.
+- User-facing TTS failures now surface as generic `Audio processing...` messages instead of exposing provider-specific python-tts/Kokoro wording.
 - Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.
 - OAuth provider gating + callback hardening with provider-subject identity linking is implemented, including social-first login UX plus Google/Facebook/Apple provider support.
 - Chrome extension baseline is implemented:

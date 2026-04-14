@@ -55,6 +55,8 @@ LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
 LOG_ERROR_RETENTION_DAYS = int(os.getenv("LOG_ERROR_RETENTION_DAYS", str(max(LOG_RETENTION_DAYS, 30))))
 TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))
 ERROR_LEVELS = {"ERROR", "FATAL"}
+GENERIC_AUDIO_FAILURE_DETAIL = "Audio processing failed. Please retry."
+TEMPORARY_AUDIO_FAILURE_DETAIL = "Audio processing is temporarily unavailable. Please retry shortly."
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 
@@ -265,31 +267,37 @@ def _get_kokoro_pipeline(language_code: str) -> Any:
     return _kokoro_pipelines[language_code]
 
 
-def _synthesize_kokoro(text: str, voice: str, speed: float) -> tuple[np.ndarray, int]:
+def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> bytes:
     if "_" not in voice:
         raise ValueError("Kokoro voice must include a language prefix (for example af_heart).")
 
     language_code = voice.split("_", 1)[0][0].lower()
     pipeline = _get_kokoro_pipeline(language_code)
-    chunks: list[np.ndarray] = []
+    stream = io.BytesIO()
+    wrote_audio = False
 
     try:
-        try:
-            segments = pipeline(text, voice=voice, speed=speed)
-        except TypeError:
-            segments = pipeline(text, voice=voice)
+        with sf.SoundFile(stream, mode="w", samplerate=24_000, channels=1, format="WAV", subtype="PCM_16") as sink:
+            try:
+                segments = pipeline(text, voice=voice, speed=speed)
+            except TypeError:
+                segments = pipeline(text, voice=voice)
 
-        for _graphemes, _phonemes, audio in segments:
-            if audio is None:
-                continue
-            chunks.append(np.asarray(audio, dtype=np.float32))
+            for _graphemes, _phonemes, audio in segments:
+                if audio is None:
+                    continue
+                segment = np.asarray(audio, dtype=np.float32)
+                if segment.ndim > 1:
+                    segment = np.mean(segment, axis=1)
+                sink.write(segment)
+                wrote_audio = True
     except Exception as exc:
         raise RuntimeError(f"Kokoro synthesis failed: {exc}") from exc
 
-    if not chunks:
+    if not wrote_audio:
         raise RuntimeError("Kokoro synthesis returned no audio chunks.")
 
-    return np.concatenate(chunks), 24_000
+    return stream.getvalue()
 
 
 def _get_melo_model() -> Any:
@@ -388,17 +396,19 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             traceparent=request_ctx["traceparent"],
             attrs={"provider": payload.provider, "reason": provider_health.reason},
         )
-        raise HTTPException(status_code=503, detail=provider_health.reason or "Provider unavailable.")
+        raise HTTPException(status_code=503, detail=TEMPORARY_AUDIO_FAILURE_DETAIL)
 
     try:
         if payload.provider == "kokoro":
             if payload.voice not in KOKORO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Kokoro voice: {payload.voice}")
-            audio, sample_rate = _synthesize_kokoro(payload.text, payload.voice, payload.speed)
+            wav_bytes = _synthesize_kokoro_to_wav_bytes(payload.text, payload.voice, payload.speed)
+            sample_rate = 24_000
         else:
             if payload.voice not in MELO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
             audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
+            wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
     except HTTPException as exc:
         _log_event(
             "WARN",
@@ -434,7 +444,7 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             traceparent=request_ctx["traceparent"],
             attrs={"provider": payload.provider, "detail": str(exc)},
         )
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=GENERIC_AUDIO_FAILURE_DETAIL) from exc
     except Exception as exc:
         _log_event(
             "ERROR",
@@ -446,9 +456,8 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             traceparent=request_ctx["traceparent"],
             attrs={"provider": payload.provider, "detail": str(exc)},
         )
-        raise HTTPException(status_code=500, detail=f"{payload.provider} synthesis failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=GENERIC_AUDIO_FAILURE_DETAIL) from exc
 
-    wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
     elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
     _log_event(
         "INFO",

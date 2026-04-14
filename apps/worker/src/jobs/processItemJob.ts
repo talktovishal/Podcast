@@ -445,7 +445,7 @@ async function concatenateAudioSegments(
   } catch {
     throw new AppError(
       errorCodes.TTS_FAILED,
-      "Could not merge synthesized audio segments. Ensure ffmpeg is installed and available on PATH.",
+      "Audio processing failed while finalizing the episode. Please retry.",
       500
     );
   } finally {
@@ -692,10 +692,10 @@ export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage
   if (error.code === errorCodes.PROCESSING_TIMEOUT) {
     return false;
   }
-  if (error.code === errorCodes.TTS_FAILED && message.includes("ffmpeg")) {
+  if (error.code === errorCodes.TTS_FAILED && message.includes("finalizing the episode")) {
     return false;
   }
-  if (error.code === errorCodes.TTS_FAILED && message.includes("timed out after")) {
+  if (error.code === errorCodes.TTS_FAILED && message.includes("timed out")) {
     return false;
   }
   if (error.code === errorCodes.EXTRACTION_FAILED && message.includes("blocked server-side access")) {
@@ -783,7 +783,7 @@ function mapUnexpectedWorkerError(error: unknown, stage: WorkerStage): AppError 
     }
     return new AppError(
       errorCodes.TTS_FAILED,
-      "Audio generation failed unexpectedly. Retry once; if it repeats, check TTS setup.",
+      "Audio processing failed. Please retry.",
       500
     );
   }
