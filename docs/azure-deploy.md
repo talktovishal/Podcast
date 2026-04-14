@@ -302,6 +302,9 @@ Defaults now include VM-safe runtime paths:
 - `MEDIA_ROOT=/var/lib/articlepod/media`
 - `UPLOAD_ROOT=/var/lib/articlepod/uploads`
 - `PYTHON_TTS_TIMEOUT_MS=300000` and `OVERFLOW_PYTHON_TTS_TIMEOUT_MS=300000` on Azure unless explicitly overridden, which avoids false worker failures on slower B2s Kokoro chunk synthesis.
+- `WORKER_TTS_CHUNK_MAX_CHARS=1200` on Azure unless explicitly overridden, which reduces Kokoro peak working-set growth on the primary VM.
+- `PYTHON_TTS_RECYCLE_RSS_MB=4096` and `PYTHON_TTS_RECYCLE_IDLE_SECONDS=10` on Azure unless explicitly overridden, so python-tts can restart itself after a high-RSS idle window instead of lingering near OOM.
+- `PYTHON_TTS_SYSTEMD_MEMORY_HIGH=5G` and `PYTHON_TTS_SYSTEMD_MEMORY_MAX=6G` on Azure unless explicitly overridden, so systemd applies a last-resort memory ceiling to the sidecar.
 - `PINNED_FETCH_IPV6_ENABLED=0` on Azure unless explicitly overridden, because the current Azure VM runtime is effectively IPv4-only for outbound pinned fetches and IPv6 candidates can crash Node 22 before request-level recovery logic runs.
 - `WORKER_STALE_PROCESSING_MS=900000`, `WORKER_MAX_STALE_RETRIES=1`, and `WORKER_MAX_PROCESSING_MS=2700000` on Azure unless explicitly overridden, so stalled jobs get one bounded recovery attempt and then fail cleanly instead of blocking the queue forever.
 
@@ -329,6 +332,7 @@ Notes:
 - `deploy-vm-runtime.sh` skips `db:bootstrap` when Azure Table is the primary metadata backend.
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
 - `deploy-vm-runtime.sh` now runs a root-owned disk cleanup pass before build/install work so staging junk, old journal data, and pressure-cleanable caches do not crowd out the deploy.
+- `install-systemd.sh` now writes a python-tts drop-in with `MemoryHigh`, `MemoryMax`, `OOMPolicy=stop`, and the configured restart delay, so the service restarts cleanly instead of drifting indefinitely at multi-GB RSS.
 - overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
 - enable overflow worker only when external overflow TTS is configured:
   - `sudo ENABLE_OVERFLOW_WORKER_SERVICE=1 /opt/articlepod/scripts/azure/install-systemd.sh`

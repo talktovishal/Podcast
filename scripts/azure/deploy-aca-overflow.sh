@@ -325,6 +325,8 @@ worker_env_order = [
 python_tts_env_order = [
     "RUNTIME_PROFILE",
     "PYTHON_TTS_SECRET",
+    "PYTHON_TTS_RECYCLE_RSS_MB",
+    "PYTHON_TTS_RECYCLE_IDLE_SECONDS",
     "LOG_ROOT",
     "LOG_RETENTION_DAYS",
     "LOG_ERROR_RETENTION_DAYS",

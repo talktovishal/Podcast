@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -19,6 +20,7 @@ import soundfile as sf
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 app = FastAPI(title="ArticlePod Python TTS")
 
@@ -45,6 +47,28 @@ def _default_log_root() -> Path:
     return project_root / ".runtime" / "logs"
 
 
+def _read_non_negative_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return default
+    return max(0, parsed)
+
+
+def _read_non_negative_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, parsed)
+
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROOT = Path(os.getenv("LOG_ROOT", str(_default_log_root())))
 LOG_EVENTS_PATH = LOG_ROOT / "events" / "python-tts" / "events.log.jsonl"
@@ -57,8 +81,17 @@ TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))
 ERROR_LEVELS = {"ERROR", "FATAL"}
 GENERIC_AUDIO_FAILURE_DETAIL = "Audio processing failed. Please retry."
 TEMPORARY_AUDIO_FAILURE_DETAIL = "Audio processing is temporarily unavailable. Please retry shortly."
+PYTHON_TTS_RECYCLE_RSS_MB = _read_non_negative_int_env("PYTHON_TTS_RECYCLE_RSS_MB", 0)
+PYTHON_TTS_RECYCLE_IDLE_SECONDS = _read_non_negative_float_env("PYTHON_TTS_RECYCLE_IDLE_SECONDS", 0.0)
+PYTHON_TTS_RECYCLE_RSS_BYTES = PYTHON_TTS_RECYCLE_RSS_MB * 1024 * 1024
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+
+_SYNTH_STATE_LOCK = threading.Lock()
+_ACTIVE_SYNTH_REQUESTS = 0
+_RECYCLE_REQUESTED = False
+_RECYCLE_THREAD: threading.Thread | None = None
+_LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
 
 
 def _utc_now_iso() -> str:
@@ -165,6 +198,136 @@ def _request_context(request: Request) -> dict[str, str | None]:
         "job_id": request.headers.get("x-job-id"),
         "item_id": request.headers.get("x-item-id"),
     }
+
+
+def _read_current_rss_bytes() -> int | None:
+    status_path = Path("/proc/self/status")
+    try:
+        for line in status_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("VmRSS:"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    return int(parts[1]) * 1024
+                return None
+    except Exception:
+        return None
+    return None
+
+
+def _state_snapshot() -> tuple[int, bool]:
+    with _SYNTH_STATE_LOCK:
+        return _ACTIVE_SYNTH_REQUESTS, _RECYCLE_REQUESTED
+
+
+def _note_synth_started() -> None:
+    global _ACTIVE_SYNTH_REQUESTS, _LAST_SYNTH_ACTIVITY_MONOTONIC
+    with _SYNTH_STATE_LOCK:
+        _ACTIVE_SYNTH_REQUESTS += 1
+        _LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
+
+
+def _should_request_recycle(rss_bytes: int | None) -> bool:
+    return PYTHON_TTS_RECYCLE_RSS_BYTES > 0 and rss_bytes is not None and rss_bytes >= PYTHON_TTS_RECYCLE_RSS_BYTES
+
+
+def _request_process_recycle(
+    request_ctx: dict[str, str | None],
+    *,
+    rss_bytes: int,
+    provider: str,
+    text_chars: int,
+) -> None:
+    global _RECYCLE_REQUESTED
+
+    with _SYNTH_STATE_LOCK:
+        if _RECYCLE_REQUESTED:
+            return
+        _RECYCLE_REQUESTED = True
+        active_requests = _ACTIVE_SYNTH_REQUESTS
+
+    _log_event(
+        "WARN",
+        "python-tts recycle requested after high RSS",
+        error_code="TTS_RECYCLE_REQUESTED",
+        request_id=request_ctx["request_id"],
+        job_id=request_ctx["job_id"],
+        item_id=request_ctx["item_id"],
+        traceparent=request_ctx["traceparent"],
+        attrs={
+            "provider": provider,
+            "text_chars": text_chars,
+            "rss_mb": round(rss_bytes / (1024 * 1024), 2),
+            "rss_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB,
+            "idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+            "active_requests": active_requests,
+        },
+    )
+
+
+def _should_restart_after_idle(now: float | None = None) -> bool:
+    current_time = time.monotonic() if now is None else now
+    with _SYNTH_STATE_LOCK:
+        if not _RECYCLE_REQUESTED or _ACTIVE_SYNTH_REQUESTS > 0:
+            return False
+        idle_for = current_time - _LAST_SYNTH_ACTIVITY_MONOTONIC
+    return idle_for >= PYTHON_TTS_RECYCLE_IDLE_SECONDS
+
+
+def _trigger_process_restart() -> None:
+    logging.shutdown()
+    os._exit(0)
+
+
+def _recycle_when_idle() -> None:
+    global _RECYCLE_THREAD
+
+    wait_seconds = 0.25 if PYTHON_TTS_RECYCLE_IDLE_SECONDS <= 0 else min(1.0, PYTHON_TTS_RECYCLE_IDLE_SECONDS)
+    while True:
+        if _should_restart_after_idle():
+            rss_bytes = _read_current_rss_bytes()
+            _log_event(
+                "WARN",
+                "python-tts recycling after idle threshold",
+                error_code="TTS_RECYCLE",
+                attrs={
+                    "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+                    "rss_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB,
+                    "idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+                },
+            )
+            with _SYNTH_STATE_LOCK:
+                _RECYCLE_THREAD = None
+            _trigger_process_restart()
+            return
+
+        with _SYNTH_STATE_LOCK:
+            if not _RECYCLE_REQUESTED:
+                _RECYCLE_THREAD = None
+                return
+
+        time.sleep(wait_seconds)
+
+
+def _arm_recycle_thread_if_needed() -> None:
+    global _RECYCLE_THREAD
+
+    with _SYNTH_STATE_LOCK:
+        if not _RECYCLE_REQUESTED or _ACTIVE_SYNTH_REQUESTS > 0 or _RECYCLE_THREAD is not None:
+            return
+        _RECYCLE_THREAD = threading.Thread(target=_recycle_when_idle, name="python-tts-recycle", daemon=True)
+        recycle_thread = _RECYCLE_THREAD
+
+    recycle_thread.start()
+
+
+def _finish_synth_request() -> None:
+    global _ACTIVE_SYNTH_REQUESTS, _LAST_SYNTH_ACTIVITY_MONOTONIC
+
+    with _SYNTH_STATE_LOCK:
+        _ACTIVE_SYNTH_REQUESTS = max(0, _ACTIVE_SYNTH_REQUESTS - 1)
+        _LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
+
+    _arm_recycle_thread_if_needed()
 
 
 class SynthesizePayload(BaseModel):
@@ -342,11 +505,21 @@ def _audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
 @app.get("/health")
 def health() -> dict[str, Any]:
     health_info = _provider_health()
+    rss_bytes = _read_current_rss_bytes()
+    active_requests, recycle_requested = _state_snapshot()
     return {
         "status": "ok",
         "providers": {
             provider_id: {"available": value.available, "reason": value.reason}
             for provider_id, value in health_info.items()
+        },
+        "process": {
+            "rss_bytes": rss_bytes,
+            "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+            "recycle_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB or None,
+            "recycle_idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+            "recycle_requested": recycle_requested,
+            "active_synth_requests": active_requests,
         },
     }
 
@@ -374,6 +547,8 @@ def providers(_auth: None = Depends(_require_sidecar_auth)) -> dict[str, Any]:
 def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depends(_require_sidecar_auth)) -> Response:
     started = time.perf_counter()
     request_ctx = _request_context(request)
+    response: Response | None = None
+    _note_synth_started()
     _log_event(
         "INFO",
         "TTS synth request received",
@@ -383,22 +558,22 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
         traceparent=request_ctx["traceparent"],
         attrs={"provider": payload.provider, "voice": payload.voice, "text_chars": len(payload.text)},
     )
-    health_info = _provider_health()
-    provider_health = health_info[payload.provider]
-    if not provider_health.available:
-        _log_event(
-            "ERROR",
-            "TTS provider unavailable",
-            error_code="TTS_UNAVAILABLE",
-            request_id=request_ctx["request_id"],
-            job_id=request_ctx["job_id"],
-            item_id=request_ctx["item_id"],
-            traceparent=request_ctx["traceparent"],
-            attrs={"provider": payload.provider, "reason": provider_health.reason},
-        )
-        raise HTTPException(status_code=503, detail=TEMPORARY_AUDIO_FAILURE_DETAIL)
-
     try:
+        health_info = _provider_health()
+        provider_health = health_info[payload.provider]
+        if not provider_health.available:
+            _log_event(
+                "ERROR",
+                "TTS provider unavailable",
+                error_code="TTS_UNAVAILABLE",
+                request_id=request_ctx["request_id"],
+                job_id=request_ctx["job_id"],
+                item_id=request_ctx["item_id"],
+                traceparent=request_ctx["traceparent"],
+                attrs={"provider": payload.provider, "reason": provider_health.reason},
+            )
+            raise HTTPException(status_code=503, detail=TEMPORARY_AUDIO_FAILURE_DETAIL)
+
         if payload.provider == "kokoro":
             if payload.voice not in KOKORO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Kokoro voice: {payload.voice}")
@@ -409,6 +584,43 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
                 raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
             audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
             wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        rss_bytes = _read_current_rss_bytes()
+        if _should_request_recycle(rss_bytes):
+            _request_process_recycle(
+                request_ctx,
+                rss_bytes=rss_bytes,
+                provider=payload.provider,
+                text_chars=len(payload.text),
+            )
+
+        _log_event(
+            "INFO",
+            "TTS synth completed",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={
+                "provider": payload.provider,
+                "voice": payload.voice,
+                "sample_rate": sample_rate,
+                "duration_ms": elapsed_ms,
+                "bytes": len(wav_bytes),
+                "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+                "recycle_requested": _state_snapshot()[1],
+            },
+        )
+        response = Response(
+            content=wav_bytes,
+            media_type="audio/wav",
+            headers={
+                "x-provider": payload.provider,
+                "x-sample-rate": str(sample_rate),
+            },
+            background=BackgroundTask(_finish_synth_request),
+        )
+        return response
     except HTTPException as exc:
         _log_event(
             "WARN",
@@ -457,28 +669,6 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             attrs={"provider": payload.provider, "detail": str(exc)},
         )
         raise HTTPException(status_code=500, detail=GENERIC_AUDIO_FAILURE_DETAIL) from exc
-
-    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-    _log_event(
-        "INFO",
-        "TTS synth completed",
-        request_id=request_ctx["request_id"],
-        job_id=request_ctx["job_id"],
-        item_id=request_ctx["item_id"],
-        traceparent=request_ctx["traceparent"],
-        attrs={
-            "provider": payload.provider,
-            "voice": payload.voice,
-            "sample_rate": sample_rate,
-            "duration_ms": elapsed_ms,
-            "bytes": len(wav_bytes),
-        },
-    )
-    return Response(
-        content=wav_bytes,
-        media_type="audio/wav",
-        headers={
-            "x-provider": payload.provider,
-            "x-sample-rate": str(sample_rate),
-        },
-    )
+    finally:
+        if response is None:
+            _finish_synth_request()

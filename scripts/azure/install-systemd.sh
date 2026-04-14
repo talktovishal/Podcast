@@ -21,6 +21,19 @@ LEGACY_WEB_SERVICE="$(legacy_runtime_service_name web)"
 LEGACY_WORKER_SERVICE="$(legacy_runtime_service_name worker)"
 ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
 
+read_env_value() {
+  local key="$1"
+  local line
+  if [[ ! -f "$RUNTIME_ENV_FILE" ]]; then
+    return 1
+  fi
+  line="$(grep -E "^${key}=" "$RUNTIME_ENV_FILE" | tail -n 1 || true)"
+  if [[ -z "$line" ]]; then
+    return 1
+  fi
+  echo "${line#*=}"
+}
+
 cleanup_legacy_alias_conflicts() {
   local service
   local legacy_path
@@ -40,6 +53,20 @@ install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_SERVICE}" "/etc/systemd/system
 install -m 0644 "$ROOT_DIR/infra/systemd/${WORKER_OVERFLOW_SERVICE}" "/etc/systemd/system/${WORKER_OVERFLOW_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${MAINTENANCE_SERVICE}" "/etc/systemd/system/${MAINTENANCE_SERVICE}"
 install -m 0644 "$ROOT_DIR/infra/systemd/${MAINTENANCE_TIMER}" "/etc/systemd/system/${MAINTENANCE_TIMER}"
+
+PYTHON_TTS_SYSTEMD_MEMORY_HIGH="${PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-$(read_env_value PYTHON_TTS_SYSTEMD_MEMORY_HIGH || true)}"
+PYTHON_TTS_SYSTEMD_MEMORY_MAX="${PYTHON_TTS_SYSTEMD_MEMORY_MAX:-$(read_env_value PYTHON_TTS_SYSTEMD_MEMORY_MAX || true)}"
+PYTHON_TTS_SYSTEMD_RESTART_SEC="${PYTHON_TTS_SYSTEMD_RESTART_SEC:-$(read_env_value PYTHON_TTS_SYSTEMD_RESTART_SEC || true)}"
+PYTHON_TTS_DROPIN_DIR="/etc/systemd/system/${PYTHON_TTS_SERVICE}.d"
+mkdir -p "$PYTHON_TTS_DROPIN_DIR"
+cat > "${PYTHON_TTS_DROPIN_DIR}/10-memory-guardrails.conf" <<EOF
+[Service]
+MemoryAccounting=yes
+MemoryHigh=${PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G}
+MemoryMax=${PYTHON_TTS_SYSTEMD_MEMORY_MAX:-6G}
+OOMPolicy=stop
+RestartSec=${PYTHON_TTS_SYSTEMD_RESTART_SEC:-3}
+EOF
 
 cleanup_legacy_alias_conflicts
 "$ROOT_DIR/scripts/azure/configure-journald.sh"

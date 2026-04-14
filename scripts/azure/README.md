@@ -63,6 +63,7 @@ Default deploy mode is incremental:
 
 - skips `pnpm install` when `pnpm-lock.yaml` is unchanged
 - skips python-tts package/model provisioning when requirements/assets are unchanged
+- renders Azure-safe audio defaults unless explicitly overridden (`WORKER_TTS_CHUNK_MAX_CHARS=1200`, python-tts recycle threshold/idle window, and python-tts systemd memory ceilings)
 - runs demo seed only once by default (`DEPLOY_DEMO_SEED_MODE=auto`)
 - refuses to sync/promote when remote free space stays below the configured floor after safe cleanup (`DEPLOY_WARN_FREE_MB`, `DEPLOY_FAIL_FREE_MB`)
 - retries health checks automatically (`HEALTH_RETRIES` / `HEALTH_RETRY_DELAY`)

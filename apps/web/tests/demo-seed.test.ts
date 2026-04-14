@@ -150,3 +150,24 @@ test("azure deploy forwards optional reviewer secrets into the VM env render", (
   assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_EMAIL=\$\{WEBSTORE_REVIEWER_EMAIL:-chrome-reviewer@articlepod\.com\}$/m);
   assert.match(renderEnvSource, /^WEBSTORE_REVIEWER_PASSWORD=\$\{WEBSTORE_REVIEWER_PASSWORD:-\}$/m);
 });
+
+test("azure runtime defaults guard python-tts memory on production deploys", () => {
+  const root = resolve(process.cwd(), "../..");
+  const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
+  const installSystemdSource = readFileSync(resolve(root, "scripts/azure/install-systemd.sh"), "utf8");
+  const pythonTtsUnitSource = readFileSync(resolve(root, "infra/systemd/articlepod-python-tts.service"), "utf8");
+  const overflowDeploySource = readFileSync(resolve(root, "scripts/azure/deploy-aca-overflow.sh"), "utf8");
+
+  assert.match(renderEnvSource, /^WORKER_TTS_CHUNK_MAX_CHARS=\$\{WORKER_TTS_CHUNK_MAX_CHARS:-1200\}$/m);
+  assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_RSS_MB=\$\{PYTHON_TTS_RECYCLE_RSS_MB:-4096\}$/m);
+  assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_IDLE_SECONDS=\$\{PYTHON_TTS_RECYCLE_IDLE_SECONDS:-10\}$/m);
+  assert.match(renderEnvSource, /^PYTHON_TTS_SYSTEMD_MEMORY_HIGH=\$\{PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G\}$/m);
+  assert.match(renderEnvSource, /^PYTHON_TTS_SYSTEMD_MEMORY_MAX=\$\{PYTHON_TTS_SYSTEMD_MEMORY_MAX:-6G\}$/m);
+  assert.match(installSystemdSource, /MemoryHigh=\$\{PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G\}/);
+  assert.match(installSystemdSource, /MemoryMax=\$\{PYTHON_TTS_SYSTEMD_MEMORY_MAX:-6G\}/);
+  assert.match(installSystemdSource, /OOMPolicy=stop/);
+  assert.match(pythonTtsUnitSource, /StartLimitIntervalSec=0/);
+  assert.match(pythonTtsUnitSource, /RestartSec=3/);
+  assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_RSS_MB"/);
+  assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_IDLE_SECONDS"/);
+});

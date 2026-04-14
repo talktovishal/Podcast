@@ -2,6 +2,7 @@
 Description=ArticlePod Python TTS Service
 After=network.target
 Wants=network.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -12,8 +13,9 @@ EnvironmentFile=/etc/articlepod/articlepod.env
 # Cost-optimized default locks local TTS lane to a single worker on B2s.
 ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers 1'
 Restart=always
-RestartSec=5
+RestartSec=3
 TimeoutStartSec=120
+TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
