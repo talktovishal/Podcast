@@ -159,7 +159,7 @@ Available in `/app/wiki` after an operator publishes a wiki for that user:
 - reader-first manifest-driven page tree that hides source pages and internal logs from primary navigation
 - denser one-card browse rail with clamped page summaries so the left column behaves more like a compact table of contents than a stack of cards
 - markdown page reader with rewritten internal wiki links plus display cleanup that strips file paths, raw ids, and frontmatter-like metadata before render, including bracket-heavy source titles that would otherwise leak raw `[[...]]` markup
-- concept pages are generated as long-form reader-first essays with a 5-bullet executive summary and a `## Working synthesis` that targets 1500-3000 words for stronger read/listen value
+- concept pages are generated as long-form reader-first wiki articles with a 5-bullet executive summary, a compact `## At a glance` table, a `## Working synthesis` that targets 1500-3000 words and is broken into 3-6 `###` subsections, plus `## Key tensions`, `## Why this matters`, `## Open questions`, and `## References`
 - the article view visually emphasizes the `Executive summary` and `Working synthesis` section headers so long-form pages scan cleanly without adding extra chrome
 - concept/entity pages keep the main synthesis in the primary article and place a compact inline `Sources` list underneath it, showing five short previews by default with a `Show all` control for the rest
 - when `overview.md` exists, `/app/wiki` now opens there by default instead of `index.md`, and wiki-internal links disable automatic Next.js prefetching to avoid bursty background `_rsc` requests on load

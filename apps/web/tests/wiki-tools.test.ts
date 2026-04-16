@@ -225,7 +225,11 @@ test("wiki prepare/publish supports a Karpathy prompt copy, manifest publishing,
     );
     assert.equal(
       await readFile(join(workspaceOne.workspaceDir, "WIKI_CONVENTIONS.md"), "utf8").then((value) =>
-        value.includes("## Executive summary") && value.includes("1500-3000 words")
+        value.includes("## Executive summary") &&
+        value.includes("## At a glance") &&
+        value.includes("## References") &&
+        value.includes("3-6 `###` subsections") &&
+        value.includes("1500-3000 words")
       ),
       true
     );
@@ -260,9 +264,45 @@ source_ids: [${items[0]!.id}]
 - Durable takeaway four.
 - Durable takeaway five.
 
+## At a glance
+
+| Dimension | View |
+| --- | --- |
+| Core claim | Topic is becoming a durable pattern. |
+| Confidence | Moderate confidence from repeated supporting sources. |
+| What changed | Newer evidence sharpened the practical implications. |
+
 ## Working synthesis
 
-${Array.from({ length: 260 }, (_, index) => `Synthesis paragraph word${index + 1}.`).join(" ")}
+### What the corpus is really saying
+
+${Array.from({ length: 90 }, (_, index) => `Synthesis paragraph word${index + 1}.`).join(" ")}
+
+### How the evidence clusters
+
+${Array.from({ length: 90 }, (_, index) => `Cluster paragraph word${index + 1}.`).join(" ")}
+
+### What changes in practice
+
+${Array.from({ length: 90 }, (_, index) => `Practice paragraph word${index + 1}.`).join(" ")}
+
+## Key tensions
+
+- Speed versus care.
+- Centralization versus flexibility.
+
+## Why this matters
+
+Readers should be able to act on the synthesis without opening every source note.
+
+## Open questions
+
+- What evidence would change the current thesis?
+- Which signals are still too early to trust?
+
+## References
+
+- [Item source](../sources/items/${items[0]!.id}.md) - Establishes the base observation for this concept.
 
 Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
 `,

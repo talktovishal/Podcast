@@ -30,7 +30,7 @@ import { hasPrismaDatabase, prisma } from "./prisma";
 import { getArtifactStorage } from "./storage";
 
 const DEFAULT_KARPATHY_PROMPT_PATH = "/Users/vishalchowdhary/Downloads/llm-wiki.md";
-const WIKI_WRAPPER_VERSION = "2026-04-11-v2";
+const WIKI_WRAPPER_VERSION = "2026-04-15-v1";
 const WIKI_RUNTIME_VERSION = "2026-04-11-v2";
 const WIKI_PREPARE_RUN_FILENAME = "prepare-run.json";
 const WIKI_WORKSPACE_STATE_FILENAME = "workspace-state.json";
@@ -723,7 +723,8 @@ function buildWorkspaceAgentsMd(buildMode: WikiBuildMode): string {
     "- Treat the current `wiki/` tree as the artifact to maintain for this run.",
     "- Do not rewrite `KARPATHY_LLM_WIKI.md`; use it as-is.",
     "- Do not edit generated runtime helper files except `wiki/` content.",
-    "- For concept pages, follow the long-form synthesis structure from `WIKI_CONVENTIONS.md`."
+    "- For concept pages, follow the long-form synthesis structure from `WIKI_CONVENTIONS.md`.",
+    "- Prefer wiki-style pages over essay blobs: use subsections, comparison tables when helpful, and concise reference notes."
   ].join("\n");
 }
 
@@ -736,25 +737,40 @@ function buildWorkspaceConventionsMd(): string {
     "",
     "## Concept pages",
     "",
-    "Files under `wiki/concepts/` are reader-first synthesis pages. They should feel like substantial standalone essays that a user can read or listen to without needing to open every source page.",
+    "Files under `wiki/concepts/` are reader-first synthesis pages. They should feel like substantial standalone wiki articles that a user can read or listen to without needing to open every source page.",
     "",
     "Required structure for every concept page:",
     "- `## Executive summary` with 5 concise bullets covering the most important takeaways.",
-    `- \`## Working synthesis\` as the main deliverable, targeting ${CONCEPT_SYNTHESIS_TARGET_MIN_WORDS}-${CONCEPT_SYNTHESIS_TARGET_MAX_WORDS} words.`,
-    "- Optional supporting sections such as `## Key tensions`, `## Why this matters`, `## Open questions`, and `## Source highlights` when they make the page clearer.",
+    "- `## At a glance` with a compact markdown table that helps a reader orient quickly.",
+    `- \`## Working synthesis\` as the main deliverable, targeting ${CONCEPT_SYNTHESIS_TARGET_MIN_WORDS}-${CONCEPT_SYNTHESIS_TARGET_MAX_WORDS} words and broken into 3-6 \`###\` subsections with descriptive headings.`,
+    "- `## Key tensions` with the core tradeoffs, disagreements, or fault lines in the topic.",
+    "- `## Why this matters` with user-facing implications.",
+    "- `## Open questions` with the biggest uncertainties, unresolved bets, or monitoring points.",
+    "- `## References` with only the most decision-useful sources.",
     "",
     "Writing standards for `## Working synthesis`:",
     "- Write a long-form synthesis, not a stub and not a source-by-source list.",
     "- The section should stand on its own for a user who never opens the underlying sources.",
+    "- Do not write one unbroken wall of prose. Break the synthesis into thematic subsections with meaningful `###` headings.",
     "- Use substantial paragraphs and a clear narrative arc; it is fine to mix in bullets where they genuinely improve clarity.",
+    "- Prefer paragraphs of 3-6 sentences, then reset with a heading, bullet list, or table before the page starts to feel visually flat.",
+    "- Use markdown tables when comparing actors, positions, timelines, or tradeoffs.",
     "- Favor synthesis over repetition: collapse overlapping source ideas into a single interpreted argument.",
     "- Surface the strongest themes, disagreements, implications, and what changed the current thesis.",
     "- Optimize for material that would also make a strong spoken or podcast-style listening experience.",
     "",
-    "Source handling for concept pages:",
-    "- Keep source sections selective.",
-    "- Highlight only the most decision-useful sources instead of dumping every source note verbatim.",
-    "- Do not let source excerpts dominate the page length; the synthesis should be the primary content.",
+    "Freshness and disagreement handling:",
+    "- If newer sources materially change the picture, add `## What changed` and explain the update in plain language.",
+    "- If the sources point in different directions, add `## Conflicting signals` and describe the disagreement directly.",
+    "- Use qualitative confidence language such as `high confidence`, `moderate confidence`, or `tentative` when the evidence strength varies.",
+    "- When an older view has been displaced, say that it has been superseded instead of leaving the old framing implicit.",
+    "",
+    "Reference handling for concept pages:",
+    "- Keep reference sections selective and useful.",
+    "- Include roughly 3-8 of the most decision-useful references instead of dumping every source note verbatim.",
+    "- For each reference, add one short sentence explaining why it matters.",
+    "- Prefer links to source pages or original URLs over long pasted excerpts.",
+    "- Do not let reference notes dominate the page length; the synthesis should remain the primary content.",
     "",
     "## Entity pages",
     "",
@@ -762,9 +778,10 @@ function buildWorkspaceConventionsMd(): string {
     "",
     "## General guidance",
     "",
-    "- Prefer clear section headings and navigable structure.",
+    "- Prefer clear section headings, navigable structure, and visually varied markdown.",
     "- When a page is meant to be read end-to-end, write for flow, not just for reference lookup.",
-    "- Use wiki links generously across concepts, entities, outputs, and source pages."
+    "- Use wiki links generously across concepts, entities, outputs, and source pages.",
+    "- If a reader can only skim the page, they should still come away with the core claim, the live tensions, and the best references."
   ].join("\n");
 }
 
@@ -830,6 +847,17 @@ function countWordsInMarkdown(content: string): number {
     .replace(/[`*_>#~\-]/g, " ")
     .split(/\s+/)
     .filter(Boolean).length;
+}
+
+function countMarkdownHeadings(content: string, level: number): number {
+  const headingPrefix = "#".repeat(level);
+  const matches = content.replace(/\r\n/g, "\n").match(new RegExp(`^${escapeRegExp(headingPrefix)}\\s+.+$`, "gm"));
+  return matches?.length ?? 0;
+}
+
+function hasMarkdownTable(content: string): boolean {
+  const normalized = content.replace(/\r\n/g, "\n");
+  return /^\|.+\|\s*$/m.test(normalized) && /^\|\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)+\|\s*$/m.test(normalized);
 }
 
 async function restorePublishedWikiToDirectory(userId: string, manifest: WikiManifest, targetDir: string): Promise<void> {
@@ -1389,10 +1417,19 @@ async function lintWikiWorkspace(workspace: WikiPrepareWorkspaceState): Promise<
 
     if (pagePath.startsWith("concepts/")) {
       const executiveSummary = extractMarkdownSection(content, "Executive summary");
+      const atAGlance = extractMarkdownSection(content, "At a glance");
       const workingSynthesis = extractMarkdownSection(content, "Working synthesis");
+      const keyTensions = extractMarkdownSection(content, "Key tensions");
+      const whyThisMatters = extractMarkdownSection(content, "Why this matters");
+      const openQuestions = extractMarkdownSection(content, "Open questions");
+      const references = extractMarkdownSection(content, "References");
 
       if (!executiveSummary) {
         issues.push(`Concept page ${pagePath} is missing a \`## Executive summary\` section.`);
+      }
+
+      if (!atAGlance) {
+        issues.push(`Concept page ${pagePath} is missing a \`## At a glance\` section.`);
       }
 
       if (!workingSynthesis) {
@@ -1404,6 +1441,31 @@ async function lintWikiWorkspace(workspace: WikiPrepareWorkspaceState): Promise<
             `Concept page ${pagePath} has ${wordCount} words in \`## Working synthesis\`; target ${CONCEPT_SYNTHESIS_TARGET_MIN_WORDS}-${CONCEPT_SYNTHESIS_TARGET_MAX_WORDS} words.`
           );
         }
+
+        const subsectionCount = countMarkdownHeadings(workingSynthesis, 3);
+        if (subsectionCount < 3) {
+          warnings.push(`Concept page ${pagePath} has only ${subsectionCount} \`###\` subsections in \`## Working synthesis\`; target 3-6 subsections.`);
+        }
+      }
+
+      if (!keyTensions) {
+        issues.push(`Concept page ${pagePath} is missing a \`## Key tensions\` section.`);
+      }
+
+      if (!whyThisMatters) {
+        issues.push(`Concept page ${pagePath} is missing a \`## Why this matters\` section.`);
+      }
+
+      if (!openQuestions) {
+        issues.push(`Concept page ${pagePath} is missing a \`## Open questions\` section.`);
+      }
+
+      if (!references) {
+        issues.push(`Concept page ${pagePath} is missing a \`## References\` section.`);
+      }
+
+      if (atAGlance && !hasMarkdownTable(atAGlance)) {
+        warnings.push(`Concept page ${pagePath} has an \`## At a glance\` section without a markdown table.`);
       }
     }
   }
@@ -1460,7 +1522,13 @@ export async function verifyPreparedWikiRun(input: WikiLintOptions): Promise<Wik
       result.issues.push("AGENTS.md does not point Codex to the local wiki conventions file.");
     }
 
-    if (!conventionsMd.includes("## Executive summary") || !conventionsMd.includes("1500-3000 words")) {
+    if (
+      !conventionsMd.includes("## Executive summary") ||
+      !conventionsMd.includes("## At a glance") ||
+      !conventionsMd.includes("## References") ||
+      !conventionsMd.includes("3-6 `###` subsections") ||
+      !conventionsMd.includes("1500-3000 words")
+    ) {
       result.ok = false;
       result.issues.push("WIKI_CONVENTIONS.md does not contain the expected long-form concept page contract.");
     }

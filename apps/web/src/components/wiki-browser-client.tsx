@@ -453,7 +453,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
         </section>
 
         <section className="card p-4 sm:p-5">
-          <article className="prose prose-sm max-w-none prose-a:text-[rgba(31,122,90,1)] prose-headings:text-[var(--foreground)] prose-p:text-[var(--foreground)] sm:prose-base">
+          <article className="prose prose-sm max-w-none prose-a:text-[rgba(31,122,90,1)] prose-headings:text-[var(--foreground)] prose-p:text-[var(--foreground)] prose-ul:my-3 prose-ol:my-3 prose-li:my-1 prose-table:my-5 prose-table:w-full prose-table:border-collapse prose-th:border-b prose-th:border-[rgba(31,122,90,0.18)] prose-th:px-3 prose-th:py-2 prose-th:text-left prose-th:text-xs prose-th:font-semibold prose-th:uppercase prose-th:tracking-[0.08em] prose-th:text-[var(--muted)] prose-td:border-b prose-td:border-[rgba(31,122,90,0.10)] prose-td:px-3 prose-td:py-2 prose-td:align-top prose-tr:last:border-b-0 sm:prose-base">
             <ReactMarkdown
               rehypePlugins={[rehypeSanitize]}
               remarkPlugins={[remarkGfm]}
@@ -488,6 +488,7 @@ export function WikiBrowserClient({ manifest, activePage, content }: WikiBrowser
                 },
                 h2: ({ children }) => <WikiSectionHeading level={2}>{children}</WikiSectionHeading>,
                 h3: ({ children }) => <WikiSectionHeading level={3}>{children}</WikiSectionHeading>,
+                table: ({ children }) => <table className="w-full border-collapse text-sm">{children}</table>,
               }}
             >
               {renderedArticleMarkdown}
