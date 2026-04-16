@@ -41,8 +41,8 @@ export default async function PodcastAppsPage() {
           <div className="space-y-1">
             <h1 className="font-bold text-2xl">Podcast Apps</h1>
             <p className="text-sm text-[var(--muted)]">
-              Copy your private feed URL, pick your podcast app, and keep
-              private feed replacement tucked away unless you truly need it.
+              Copy your private feed URL, choose a podcast app, and use the
+              walkthroughs below if you need the exact in-app steps.
             </p>
           </div>
         </section>
@@ -58,32 +58,12 @@ export default async function PodcastAppsPage() {
           initialItems={[]}
         />
 
-        <section className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-          <h2 className="text-base font-semibold">Quick start</h2>
-          <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-            <li>1. Copy your private feed URL using the box above.</li>
-            <li>
-              2. Tap one of the app buttons to copy the URL and open the app at
-              the same time.
-            </li>
-            <li>
-              3. Paste the URL inside the app&apos;s &ldquo;Add by URL&rdquo; or
-              &ldquo;Add a Show by URL&rdquo; flow.
-            </li>
-            <li>
-              4. Only replace the private feed URL when you are ready to re-add
-              the new one in every app where you subscribed. The old URL stops
-              working immediately.
-            </li>
-          </ol>
-        </section>
-
         <section className="space-y-3">
           <div>
             <h2 className="text-base font-semibold">App walkthroughs</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Expand an app below for step-by-step instructions. Tap the app
-              button first so your feed URL is already in your clipboard.
+              Use these for the exact app-specific steps and labels. If you tap
+              an app button above first, your feed URL is already copied.
             </p>
           </div>
           <PodcastAppWalkthroughs />

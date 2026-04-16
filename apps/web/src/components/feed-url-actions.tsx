@@ -321,9 +321,9 @@ export function FeedUrlActions({
           value={feedUrl}
         />
         <p className="mt-3 text-sm text-[var(--muted)]">
-          Copy this first, then paste it into your podcast app&apos;s{" "}
-          <span className="font-medium text-[var(--ink)]">Add by URL</span>{" "}
-          flow.
+          Copy this first. Each app names the next step a little differently,
+          so use the app walkthroughs below if you&apos;re not sure where to
+          paste the feed URL.
         </p>
       </section>
 
@@ -377,8 +377,8 @@ export function FeedUrlActions({
       </section>
       <p className="text-xs text-[var(--muted)]">
         Tapping a button copies your feed URL and tries to open the app first on
-        mobile. Some apps jump straight to an &ldquo;Add by URL&rdquo; flow,
-        while others open the app so you can paste the copied URL there.
+        mobile. If the app does not land on the right screen, use the
+        walkthroughs below for the exact labels and steps in that app.
       </p>
       {statusMessage ? (
         <p aria-live="polite" className="text-xs text-[var(--muted)]">

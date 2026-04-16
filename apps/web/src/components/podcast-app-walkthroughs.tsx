@@ -107,8 +107,8 @@ export function PodcastAppWalkthroughs() {
         platform="iPhone · iPad · Mac"
         intro={
           <>
-            On iPhone, tap the Apple Podcasts button above first so your
-            private feed URL is already copied, then follow these steps.
+            If you used the Apple Podcasts shortcut above, your private feed URL
+            is already copied.
           </>
         }
         steps={[
@@ -168,8 +168,8 @@ export function PodcastAppWalkthroughs() {
         platform="iPhone · Android · Web"
         intro={
           <>
-            Tap the YouTube Music button above first so your private feed URL is
-            already copied, then follow these steps.
+            If you used the YouTube Music shortcut above, your private feed URL
+            is already copied.
           </>
         }
         steps={[
@@ -237,8 +237,8 @@ export function PodcastAppWalkthroughs() {
         platform="iPhone · Android · Web"
         intro={
           <>
-            Tap the Pocket Casts button above first so your private feed URL is
-            already copied, then use Pocket Casts search to add the show.
+            If you used the Pocket Casts shortcut above, your private feed URL
+            is already copied. Then use Pocket Casts search to add the show.
           </>
         }
         steps={[
@@ -297,8 +297,8 @@ export function PodcastAppWalkthroughs() {
         platform="iPhone · iPad (iOS only)"
         intro={
           <>
-            Tap the Overcast button above first so your private feed URL is
-            already copied, then follow these iPhone steps.
+            If you used the Overcast shortcut above, your private feed URL is
+            already copied.
           </>
         }
         steps={[
@@ -344,8 +344,8 @@ export function PodcastAppWalkthroughs() {
         platform="iPhone · iPad (iOS only)"
         intro={
           <>
-            Tap the Castro button above first so your private feed URL is
-            already copied, then follow these steps.
+            If you used the Castro shortcut above, your private feed URL is
+            already copied.
           </>
         }
         steps={[
@@ -388,8 +388,8 @@ export function PodcastAppWalkthroughs() {
         platform="Android"
         intro={
           <>
-            Tap the AntennaPod button above first so your private feed URL is
-            already copied, then follow these Android steps.
+            If you used the AntennaPod shortcut above, your private feed URL is
+            already copied.
           </>
         }
         steps={[

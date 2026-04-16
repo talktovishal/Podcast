@@ -90,7 +90,7 @@ Connect flow:
   - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
   - private feed URL copy and podcast-app onboarding shortcuts at the top, with private feed replacement kept in a secondary advanced control
-  - setup notes and future walkthrough/video space below the live tools
+  - app walkthroughs directly below the live tools, with the top-level copy pointing there for app-specific labels and steps
 - `/app/chrome-extension` is the dedicated capture-setup page:
   - extension install/connect/revoke controls at the top
   - setup notes and future walkthrough/video space below the live tools

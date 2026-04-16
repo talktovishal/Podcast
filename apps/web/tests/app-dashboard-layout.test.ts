@@ -195,6 +195,7 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
     source.includes("this older URL can no longer be shown here"),
     true,
   );
+  assert.equal(source.includes("use the app walkthroughs below"), true);
   assert.equal(source.includes("Featured apps"), true);
   assert.equal(source.includes("Other podcast apps"), true);
   assert.equal(source.includes("ApplePodcastsIcon"), true);
@@ -304,15 +305,10 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
 
   assert.equal(podcastPageSource.includes('viewMode="podcast-apps"'), true);
   assert.equal(podcastPageSource.includes("Podcast Apps"), true);
-  assert.equal(podcastPageSource.includes("Quick start"), true);
+  assert.equal(podcastPageSource.includes("Quick start"), false);
   assert.equal(podcastPageSource.includes("App walkthroughs"), true);
   assert.equal(
     podcastPageSource.indexOf('viewMode="podcast-apps"') <
-      podcastPageSource.indexOf("Quick start"),
-    true,
-  );
-  assert.equal(
-    podcastPageSource.indexOf("Quick start") <
       podcastPageSource.indexOf("App walkthroughs"),
     true,
   );
@@ -908,6 +904,32 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
     true,
   );
   assert.equal(
+    popupSource.includes('from "./pdf-capture.mjs"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      "Local PDF files need to be uploaded from articlepod.com/app after you sign in.",
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("PDF detected. Uploading to ArticlePod..."),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("uploadRemotePdfCapture({"),
+    true,
+  );
+  assert.equal(
+    popupSource.includes('captureTarget.mode === "remote-pdf"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("PDF upload failed."),
+    true,
+  );
+  assert.equal(
     popupSource.includes(
       'captureOptionsToggle: document.getElementById("capture-options-toggle")',
     ),
@@ -1041,7 +1063,7 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("src={previewAudioUrl}"), true);
   assert.equal(source.includes("src={mediaUrl}"), true);
   assert.equal(
-    source.includes("Copy your private feed URL first, then open your podcast app"),
+    source.includes("If the app&apos;s next step is unclear, use the walkthroughs"),
     true,
   );
   assert.equal(source.includes("Need a new private feed URL?"), true);

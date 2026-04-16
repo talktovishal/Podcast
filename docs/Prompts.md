@@ -461,7 +461,7 @@ E) Web UI (polished)
 - `/app/podcast-apps`:
   - private feed copy/open shortcuts lead the page, with the feed URL copy action as the strongest visual element above the fold and private feed replacement tucked into a clearly secondary advanced control
   - Apple Podcasts and YouTube Music shortcuts appear first, with app-first mobile handoff before browser fallback
-  - quick start and walkthrough guidance sit below the live feed tools with clearly secondary treatment
+  - app walkthroughs sit directly below the live feed tools, while the top setup copy stays generic and points users there for exact app-specific labels and steps
 - `/app/chrome-extension`:
   - Chrome extension install + connect/revoke controls lead the page and carry the strongest emphasis
   - quick start and walkthrough guidance sit below the live extension tools

@@ -1046,8 +1046,8 @@ export function DashboardClient({
         <section className="card scroll-mt-24 p-4 sm:p-5" id={isPodcastAppsView ? "podcast-apps" : undefined}>
           <h2 className="text-lg font-semibold">Set up your private feed</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Copy your private feed URL first, then open your podcast app&apos;s Add by URL flow. Replacing the URL stays separate below
-            because it turns off the old one right away.
+            Copy your private feed URL first, then open your podcast app. If the app&apos;s next step is unclear, use the walkthroughs
+            below for the exact labels and screens. Replacing the URL stays separate below because it turns off the old one right away.
           </p>
           <div className="space-y-3">
             <FeedUrlActions autoFocusPrimaryAction={isPodcastAppsView} feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
