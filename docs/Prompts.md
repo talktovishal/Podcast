@@ -31,6 +31,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - captured snapshot cleanup removes inert scripts, styles, templates, noscript blocks, and HTML comments while preserving document structure for the server extraction path.
   - snapshot size enforcement is byte-based on the server, and the popup now fails early when safe cleanup still exceeds the upload budget.
   - the packaged extension manifest intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require an extra per-site access grant before capture.
+  - browser-opened remote PDFs on HTTP/HTTPS tabs now reuse the existing PDF upload pipeline directly from the extension instead of falling through the HTML snapshot path.
+  - local `file://` PDFs remain web-app-only; the popup shows inline guidance to sign in on `articlepod.com/app` and upload them there.
   - runtime config still defaults extension connections to `https://articlepod.com`, and local debugging against another ArticlePod origin only requires a temporary `apps/extension/runtime-config.js` override.
   - `/app/settings` includes extension install/connect/revoke controls, with a top-level “Add to Chrome” CTA that links to the Chrome Web Store listing.
   - public `/resources` now reuses the same Chrome extension setup cards as `/app/chrome-extension`; logged-out visitors can see the walkthrough but cannot reveal or copy the one-time connect code.

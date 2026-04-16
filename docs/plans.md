@@ -19,6 +19,7 @@
 - Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
 - URL ingestion now performs a short safe redirect-canonicalization pass before enqueue/extraction so redirecting share/login-style URLs can normalize to their public destination when discoverable.
 - Chrome extension smart capture now uses a popup-triggered bounded reveal pass plus safe inert-node cleanup before HTML snapshot upload, while keeping the worker extraction path HTML-first.
+- Chrome extension now routes browser-opened remote HTTP/HTTPS PDF tabs into the existing PDF upload pipeline, while local `file://` PDFs show inline guidance to upload from `articlepod.com/app`.
 - Chrome extension release tooling now treats the packaged artifact as a first-class test surface: `extension:package` runs extension-specific regression gates before building, and the live-site smoke harness can target `dist/extension/package` for release-candidate checks.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Python TTS hardening now streams Kokoro WAV assembly segment-by-segment on the sidecar, reducing peak RAM spikes on the B2s VM, and user-facing job failures now say `Audio processing...` instead of leaking provider internals.
@@ -279,7 +280,7 @@
 | Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
 | Resources Chrome walkthrough balance pass                                                      | M118                                             |
 | Public marketing chrome persistence restore                                                    | M119                                             |
-| Per-user Karpathy-core LLM wiki prepare/publish workflow + `/app/wiki` browser                | M120                                             |
+| Per-user Karpathy-core LLM wiki prepare/publish workflow + `/app/wiki` browser                 | M120                                             |
 | Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
 | Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
 | Free-trial ingest gating + admin quota overrides                                               | M71                                              |
@@ -445,7 +446,7 @@ Milestone metadata contract:
 | M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
 | M118      | Done        | 2026-04-29    | 2026-04-11   | local validation + compact resources Chrome walkthrough layout pass (2026-04-11)                        |
 | M119      | Done        | 2026-04-30    | 2026-04-11   | local validation + restored persistent public header/footer chrome pass (2026-04-11)                    |
-| M120      | Done        | 2026-05-01    | 2026-04-11   | local validation + wiki prepare/publish/browser integration pass (2026-04-11)                          |
+| M120      | Done        | 2026-05-01    | 2026-04-11   | local validation + wiki prepare/publish/browser integration pass (2026-04-11)                           |
 | S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
 | S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |

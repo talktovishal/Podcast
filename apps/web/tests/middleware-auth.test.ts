@@ -14,6 +14,7 @@ test("isPublicPathForAuth allows expected unauthenticated assets and pages", () 
     "/login",
     "/api/share/cta",
     "/api/items/html-snapshot",
+    "/api/items/pdf",
     "/manifest.webmanifest",
     "/extension-smoke.html",
     "/apple-icon.png",
@@ -43,6 +44,7 @@ test("isProtectedPathForAuth only flags known protected surfaces", () => {
   assert.equal(isProtectedPathForAuth("/app/settings"), true);
   assert.equal(isProtectedPathForAuth("/admin"), true);
   assert.equal(isProtectedPathForAuth("/api/items/url"), true);
+  assert.equal(isProtectedPathForAuth("/api/items/pdf"), false);
   assert.equal(isProtectedPathForAuth("/nonexistent"), false);
 });
 
@@ -85,6 +87,16 @@ test("middleware allows public asset requests without a session cookie", () => {
 test("middleware allows extension snapshot API requests without a session cookie", () => {
   const response = middleware(
     new NextRequest("http://localhost/api/items/html-snapshot", {
+      method: "POST",
+    }),
+  );
+  assert.notEqual(response.status, 401);
+  assert.equal(response.headers.get("location"), null);
+});
+
+test("middleware allows extension PDF API requests without a session cookie", () => {
+  const response = middleware(
+    new NextRequest("http://localhost/api/items/pdf", {
       method: "POST",
     }),
   );

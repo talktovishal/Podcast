@@ -2,6 +2,11 @@ import {
   capturePageSnapshot,
   HTML_SNAPSHOT_MAX_BYTES,
 } from "./capture-page.mjs";
+import {
+  detectCaptureTarget,
+  LOCAL_FILE_PDF_UPLOAD_MESSAGE,
+  uploadRemotePdfCapture,
+} from "./pdf-capture.mjs";
 import { resolvePopupTargetTab } from "./target-tab.mjs";
 
 const STORAGE_KEYS = {
@@ -497,12 +502,52 @@ async function captureCurrentPage() {
       return;
     }
 
-    if (!/^https?:/i.test(activeTab.url)) {
+    const captureTarget = await detectCaptureTarget(chrome, activeTab);
+    if (captureTarget.mode === "local-file") {
+      setStatus(LOCAL_FILE_PDF_UPLOAD_MESSAGE, "error");
+      return;
+    }
+    if (captureTarget.mode === "unsupported") {
       setStatus("Only HTTP/HTTPS pages can be captured.", "error");
+      return;
+    }
+    if (captureTarget.mode === "missing-tab") {
+      setStatus("No active tab found.", "error");
       return;
     }
 
     currentCaptureTargetKey = buildCaptureTargetKey(activeTab);
+    if (captureTarget.mode === "remote-pdf") {
+      setStatus("PDF detected. Uploading to ArticlePod...");
+
+      const response = await uploadRemotePdfCapture({
+        tabUrl: activeTab.url,
+        serverUrl,
+        extensionToken,
+        importance: els.captureImportance?.value || "LOW",
+        tags: els.captureTags?.value || "",
+      });
+      const payload = await readJson(response);
+      if (!response.ok) {
+        setStatus(payload.error_message || "PDF upload failed.", "error");
+        if (response.status === 401 || response.status === 403) {
+          await chrome.storage.local.remove([
+            STORAGE_KEYS.extensionToken,
+            STORAGE_KEYS.tokenExpiresAt,
+          ]);
+          await loadState();
+        }
+        return;
+      }
+
+      setStatus("");
+      queuedCaptureTargetKey =
+        currentCaptureTargetKey || buildCaptureTargetKey(activeTab);
+      setCaptureButtonLabel("queued");
+      syncInteractivity();
+      await setCaptureQueuedBadge();
+      return;
+    }
 
     const results = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
