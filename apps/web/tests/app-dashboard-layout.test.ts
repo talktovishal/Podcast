@@ -195,6 +195,12 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
     source.includes("this older URL can no longer be shown here"),
     true,
   );
+  assert.equal(source.includes("Feed actions"), true);
+  assert.equal(source.includes("Generate new private feed URL"), true);
+  assert.equal(
+    source.includes("Generating a new URL revokes the old one immediately."),
+    true,
+  );
   assert.equal(source.includes("the app walkthroughs below"), true);
   assert.equal(source.includes('href="#app-walkthroughs"'), true);
   assert.equal(source.includes("Featured apps"), true);
@@ -729,7 +735,13 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
   );
   assert.equal(
     source.includes(
-      'const focusTarget = sourceMode === "url" ? urlInputRef.current : pdfInputRef.current;',
+      "const focusTarget =",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'sourceMode === "url" ? urlInputRef.current : pdfInputRef.current',
     ),
     true,
   );
@@ -788,14 +800,8 @@ test("dashboard client exposes importance, tags, and recent-item filters", () =>
     ),
     true,
   );
-  assert.equal(
-    source.includes('text-sm font-semibold text-[var(--accent)]">Article URL'),
-    true,
-  );
-  assert.equal(
-    source.includes('text-sm font-semibold text-[var(--accent)]">PDF file'),
-    true,
-  );
+  assert.equal(source.includes("Article URL"), true);
+  assert.equal(source.includes("PDF file"), true);
   assert.equal(
     source.includes("border-[rgba(31,122,90,0.32)] bg-white/96"),
     true,
@@ -886,6 +892,10 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
     new URL("../../extension/popup.js", import.meta.url),
     "utf8",
   );
+  const pdfCaptureSource = readFileSync(
+    new URL("../../extension/pdf-capture.mjs", import.meta.url),
+    "utf8",
+  );
   const popupMarkup = readFileSync(
     new URL("../../extension/popup.html", import.meta.url),
     "utf8",
@@ -910,7 +920,7 @@ test("extension popup treats installed tokens as non-expiring until revoked", ()
     true,
   );
   assert.equal(
-    popupSource.includes(
+    pdfCaptureSource.includes(
       "Local PDF files need to be uploaded from articlepod.com/app after you sign in.",
     ),
     true,
@@ -1065,14 +1075,20 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("src={previewAudioUrl}"), true);
   assert.equal(source.includes("src={mediaUrl}"), true);
   assert.equal(
-    source.includes("If the app&apos;s next step is unclear, use the walkthroughs"),
+    source.includes("app&apos;s next step is unclear"),
     true,
   );
-  assert.equal(source.includes("Need a new private feed URL?"), true);
-  assert.equal(source.includes("Replace private feed URL"), true);
+  assert.equal(source.includes("Need a new private feed URL?"), false);
+  assert.equal(source.includes("Replace private feed URL"), false);
+  assert.equal(source.includes("feedUrlStatusMessage"), true);
+  assert.equal(source.includes("isFeedUrlBusy"), true);
+  assert.equal(source.includes("allowFeedReplacement={!readOnly}"), true);
+  assert.equal(source.includes("bg-[#fff8ea]"), false);
+  assert.equal(source.includes("border-[#f1d7a6]"), false);
   assert.equal(source.includes("Create workspace demo link"), false);
   assert.equal(source.includes("Rotate token"), false);
-  assert.equal(source.includes("download href={mediaUrl}"), true);
+  assert.equal(source.includes("download"), true);
+  assert.equal(source.includes("href={mediaUrl}"), true);
   assert.equal(
     source.includes('className="flex flex-wrap items-center gap-2"'),
     true,

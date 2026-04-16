@@ -288,7 +288,9 @@ export function DashboardClient({
   const [hasLoadedOptionalDetailsPreference, setHasLoadedOptionalDetailsPreference] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [feedUrlStatusMessage, setFeedUrlStatusMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [isFeedUrlBusy, setIsFeedUrlBusy] = useState(false);
   const [isDigestBusy, setIsDigestBusy] = useState(false);
   const [shareBusyState, setShareBusyState] = useState<{ itemId: string; action: "create" | "revoke" } | null>(null);
   const [shareActionFeedback, setShareActionFeedback] = useState<ShareActionFeedback>(null);
@@ -664,8 +666,8 @@ export function DashboardClient({
       return;
     }
 
-    setIsBusy(true);
-    setStatusMessage(null);
+    setIsFeedUrlBusy(true);
+    setFeedUrlStatusMessage(null);
     try {
       const response = await fetch("/api/feed-token/rotate", {
         method: "POST",
@@ -674,14 +676,14 @@ export function DashboardClient({
       });
       const json = await response.json();
       if (!response.ok) {
-        setStatusMessage(json.error_message || "Could not replace the private feed URL.");
+        setFeedUrlStatusMessage(json.error_message || "Could not replace the private feed URL.");
         return;
       }
 
-      setStatusMessage("Private feed URL replaced. Reloading...");
+      setFeedUrlStatusMessage("Private feed URL replaced. Reloading...");
       window.location.reload();
     } finally {
-      setIsBusy(false);
+      setIsFeedUrlBusy(false);
     }
   }
 
@@ -1047,36 +1049,20 @@ export function DashboardClient({
           <h2 className="text-lg font-semibold">Set up your private feed</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Copy your private feed URL first, then open your podcast app. If the app&apos;s next step is unclear, use the walkthroughs
-            below for the exact labels and screens. Replacing the URL stays separate below because it turns off the old one right away.
+            below for the exact labels and screens.
           </p>
           <div className="space-y-3">
-            <FeedUrlActions autoFocusPrimaryAction={isPodcastAppsView} feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
-            {!readOnly ? (
-              <section className="rounded-2xl border border-[#f1d7a6] bg-[#fff8ea] p-4 sm:p-5">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="max-w-2xl">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a5b12]">Advanced</p>
-                    <h3 className="mt-1 text-sm font-semibold text-[var(--ink)]">Need a new private feed URL?</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">
-                      Use this only if the current private feed URL was shared or you want to replace it everywhere. The old URL stops
-                      working immediately.
-                    </p>
-                    {!feedUrl ? (
-                      <p className="mt-2 text-sm text-[var(--muted)]">
-                        Your current private feed may still be active even though this older URL can no longer be shown here.
-                      </p>
-                    ) : null}
-                  </div>
-                  <button
-                    className="w-full rounded-lg border border-[#d7b06b] bg-white px-3 py-2 text-sm font-medium text-[var(--ink)] transition hover:border-[#c79948] hover:bg-[#fffdf7] disabled:opacity-60 sm:w-auto"
-                    onClick={replaceFeedUrl}
-                    disabled={isBusy}
-                  >
-                    {isBusy ? "Replacing..." : "Replace private feed URL"}
-                  </button>
-                </div>
-              </section>
-            ) : null}
+            <FeedUrlActions
+              allowFeedReplacement={!readOnly}
+              autoFocusPrimaryAction={isPodcastAppsView}
+              feedManagementStatusMessage={feedUrlStatusMessage}
+              feedUrl={feedUrl}
+              isReplacingFeedUrl={isFeedUrlBusy}
+              onReplaceFeedUrl={() => {
+                void replaceFeedUrl();
+              }}
+              unavailableMessage={feedUrlMessage}
+            />
           </div>
         </section>
       ) : null}

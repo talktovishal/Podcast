@@ -16,6 +16,10 @@ type Props = {
   feedUrl: string | null;
   unavailableMessage?: string | null;
   autoFocusPrimaryAction?: boolean;
+  allowFeedReplacement?: boolean;
+  feedManagementStatusMessage?: string | null;
+  isReplacingFeedUrl?: boolean;
+  onReplaceFeedUrl?: () => void;
 };
 
 type Platform = "ios" | "android" | "desktop";
@@ -105,7 +109,11 @@ function ShortcutButton({
 export function FeedUrlActions({
   feedUrl,
   unavailableMessage = null,
-  autoFocusPrimaryAction = false
+  autoFocusPrimaryAction = false,
+  allowFeedReplacement = false,
+  feedManagementStatusMessage = null,
+  isReplacingFeedUrl = false,
+  onReplaceFeedUrl,
 }: Props) {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const platform = useMemo(() => detectPlatform(), []);
@@ -295,14 +303,48 @@ export function FeedUrlActions({
     },
   ] as const;
 
+  const feedManagementPanel =
+    allowFeedReplacement && onReplaceFeedUrl ? (
+      <div className="mt-4 rounded-xl border border-[rgba(31,122,90,0.16)] bg-white/80 p-3 sm:p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+          Feed actions
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <button
+            className="w-full rounded-lg border bg-white px-3 py-2 text-sm sm:w-auto"
+            disabled={isReplacingFeedUrl}
+            onClick={onReplaceFeedUrl}
+            type="button"
+          >
+            {isReplacingFeedUrl
+              ? "Generating..."
+              : "Generate new private feed URL"}
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Use this only if the current URL was shared or you need to replace it
+          everywhere. Generating a new URL revokes the old one immediately.
+        </p>
+        {feedManagementStatusMessage ? (
+          <p aria-live="polite" className="mt-2 text-xs text-[var(--muted)]">
+            {feedManagementStatusMessage}
+          </p>
+        ) : null}
+      </div>
+    ) : null;
+
   if (!feedUrl) {
     return (
-      <div className="mt-2">
-        <p className="text-sm text-[var(--muted)]">
-          {unavailableMessage ||
-            "Your current private feed is still active, but this older URL can no longer be shown here. Replace the private feed URL below only when you are ready to re-add the new one in your podcast app."}
+      <section className="rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/55 p-4 sm:p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+          Step 1
         </p>
-      </div>
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          {unavailableMessage ||
+            "Your current private feed is still active, but this older URL can no longer be shown here. Keep using the URL already added in your podcast app unless you decide to replace it."}
+        </p>
+        {feedManagementPanel}
+      </section>
     );
   }
 
@@ -320,9 +362,10 @@ export function FeedUrlActions({
           tone="accent"
           value={feedUrl}
         />
+        {feedManagementPanel}
         <p className="mt-3 text-sm text-[var(--muted)]">
-          Copy this first. Each app names the next step a little differently,
-          so refer to{" "}
+          Copy this first. Each app names the next step a little differently, so
+          refer to{" "}
           <a
             className="font-medium text-[var(--ink)] underline decoration-[rgba(31,122,90,0.35)] underline-offset-2 transition hover:text-[var(--accent)]"
             href="#app-walkthroughs"
