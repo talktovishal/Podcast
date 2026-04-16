@@ -656,7 +656,14 @@ export function DashboardClient({
     }
   }
 
-  async function rotateToken() {
+  async function replaceFeedUrl() {
+    const confirmed = window.confirm(
+      "Replace your private feed URL?\n\nThe old URL will stop working immediately, and you will need to add the new URL in every podcast app where you subscribed."
+    );
+    if (!confirmed) {
+      return;
+    }
+
     setIsBusy(true);
     setStatusMessage(null);
     try {
@@ -667,27 +674,15 @@ export function DashboardClient({
       });
       const json = await response.json();
       if (!response.ok) {
-        setStatusMessage(json.error_message || "Token rotation failed.");
+        setStatusMessage(json.error_message || "Could not replace the private feed URL.");
         return;
       }
 
-      setStatusMessage(`Feed token rotated. New URL: ${json.feed_url}`);
+      setStatusMessage("Private feed URL replaced. Reloading...");
       window.location.reload();
     } finally {
       setIsBusy(false);
     }
-  }
-
-  async function createShareLink() {
-    const response = await fetch("/api/share/create", { method: "POST" });
-    const json = await response.json();
-    if (!response.ok) {
-      setStatusMessage(json.error_message || "Failed to create share link.");
-      return;
-    }
-
-    const copied = await copyText(json.share_url);
-    setStatusMessage(copied ? "Workspace demo URL copied." : "Workspace demo link is ready, but we could not copy it automatically.");
   }
 
   async function copyEpisodeShareLink(item: DashboardItem) {
@@ -1049,25 +1044,39 @@ export function DashboardClient({
     <div className="space-y-4 sm:space-y-6">
       {showFeedSection ? (
         <section className="card scroll-mt-24 p-4 sm:p-5" id={isPodcastAppsView ? "podcast-apps" : undefined}>
-          <h2 className="text-lg font-semibold">Podcast Apps</h2>
+          <h2 className="text-lg font-semibold">Set up your private feed</h2>
           <p className="mt-1 text-sm text-[var(--muted)]">
-            Copy your private feed URL, open your podcast app&apos;s Add by URL flow, and manage feed rotation only when you are ready to
-            replace the subscription.
+            Copy your private feed URL first, then open your podcast app&apos;s Add by URL flow. Replacing the URL stays separate below
+            because it turns off the old one right away.
           </p>
           <div className="space-y-3">
             <FeedUrlActions autoFocusPrimaryAction={isPodcastAppsView} feedUrl={feedUrl} unavailableMessage={feedUrlMessage} />
-            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              {!readOnly ? (
-                <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={rotateToken} disabled={isBusy}>
-                  Rotate token
-                </button>
-              ) : null}
-              {!readOnly ? (
-                <button className="w-full rounded-lg border px-3 py-2 text-sm sm:w-auto" onClick={createShareLink}>
-                  Create workspace demo link
-                </button>
-              ) : null}
-            </div>
+            {!readOnly ? (
+              <section className="rounded-2xl border border-[#f1d7a6] bg-[#fff8ea] p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="max-w-2xl">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a5b12]">Advanced</p>
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--ink)]">Need a new private feed URL?</h3>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Use this only if the current private feed URL was shared or you want to replace it everywhere. The old URL stops
+                      working immediately.
+                    </p>
+                    {!feedUrl ? (
+                      <p className="mt-2 text-sm text-[var(--muted)]">
+                        Your current private feed may still be active even though this older URL can no longer be shown here.
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    className="w-full rounded-lg border border-[#d7b06b] bg-white px-3 py-2 text-sm font-medium text-[var(--ink)] transition hover:border-[#c79948] hover:bg-[#fffdf7] disabled:opacity-60 sm:w-auto"
+                    onClick={replaceFeedUrl}
+                    disabled={isBusy}
+                  >
+                    {isBusy ? "Replacing..." : "Replace private feed URL"}
+                  </button>
+                </div>
+              </section>
+            ) : null}
           </div>
         </section>
       ) : null}

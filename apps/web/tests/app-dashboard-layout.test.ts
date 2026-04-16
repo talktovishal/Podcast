@@ -192,7 +192,7 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
   );
   assert.equal(source.includes("Feed URL copied."), true);
   assert.equal(
-    source.includes("this legacy URL can no longer be shown here"),
+    source.includes("this older URL can no longer be shown here"),
     true,
   );
   assert.equal(source.includes("Featured apps"), true);
@@ -863,7 +863,7 @@ test("dashboard client supports the dedicated podcast setup page and settings va
     source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'),
     true,
   );
-  assert.equal(source.includes("Podcast Apps"), true);
+  assert.equal(source.includes("Set up your private feed"), true);
   assert.equal(source.includes("Digest podcast feed"), false);
   assert.equal(source.includes("manual summary podcast episodes"), false);
   assert.equal(source.includes("/api/digest-feed-token/rotate"), false);
@@ -1041,10 +1041,13 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   assert.equal(source.includes("src={previewAudioUrl}"), true);
   assert.equal(source.includes("src={mediaUrl}"), true);
   assert.equal(
-    source.includes("manage feed rotation only when you are ready to"),
+    source.includes("Copy your private feed URL first, then open your podcast app"),
     true,
   );
-  assert.equal(source.includes("Create workspace demo link"), true);
+  assert.equal(source.includes("Need a new private feed URL?"), true);
+  assert.equal(source.includes("Replace private feed URL"), true);
+  assert.equal(source.includes("Create workspace demo link"), false);
+  assert.equal(source.includes("Rotate token"), false);
   assert.equal(source.includes("download href={mediaUrl}"), true);
   assert.equal(
     source.includes('className="flex flex-wrap items-center gap-2"'),

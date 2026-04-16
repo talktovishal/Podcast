@@ -86,7 +86,7 @@
 - `/app/settings` now also supports a persisted `Live billing` / `Sandbox billing` tester toggle for admins and allowlisted emails, with sandbox Stripe state isolated from live entitlements and quotas.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
-- `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.
+- `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance and `/app/podcast-apps` keeping private feed replacement in a separate advanced control instead of the main setup flow.
 - Chrome selection snippets (`M113`) are implemented:
   - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
   - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
@@ -1758,7 +1758,7 @@ Milestone metadata contract:
 ### 00:20-00:45 - Show Immediate Value
 
 1. Show starter episode already present and playable.
-2. Highlight the focused `/app` workspace, then open `/app/podcast-apps` for copy/rotation controls.
+2. Highlight the focused `/app` workspace, then open `/app/podcast-apps` for copy/setup controls.
 
 ### 00:45-01:15 - Verify Feed
 

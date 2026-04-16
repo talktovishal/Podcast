@@ -208,7 +208,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Public episode sharing (`M104`) is implemented:
   - owners can create one stable, revocable public share link per ready item episode from `/app`.
   - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still create/copy existing links immediately with inline confirmation feedback, revoke confirms in place, and delete now uses a brief transient toast plus `Deleting...` button state so removal is visually obvious after the row disappears.
-  - the existing workspace share flow remains separate and is relabeled as `Create workspace demo link`.
+  - the existing workspace share flow remains separate from the podcast-app setup surface.
   - public episode links render a branded, `noindex` landing page with browser playback, direct download, optional source attribution, concise trust copy about the owner's private feed staying private, and CTA links to `/` and `/pricing`.
   - public playback and download use a dedicated share-media route that preserves `HEAD` and byte-range `206` behavior without changing private RSS/media auth.
   - raw analytics coverage now includes `SHARE_LINK_CREATED`, `SHARE_PAGE_VIEWED`, `SHARE_PLAYBACK_STARTED`, and `SHARE_CTA_CLICKED`.
@@ -459,7 +459,7 @@ E) Web UI (polished)
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
-  - private feed copy/open shortcuts and rotation lead the page, with the feed URL copy action as the strongest visual element above the fold
+  - private feed copy/open shortcuts lead the page, with the feed URL copy action as the strongest visual element above the fold and private feed replacement tucked into a clearly secondary advanced control
   - Apple Podcasts and YouTube Music shortcuts appear first, with app-first mobile handoff before browser fallback
   - quick start and walkthrough guidance sit below the live feed tools with clearly secondary treatment
 - `/app/chrome-extension`:

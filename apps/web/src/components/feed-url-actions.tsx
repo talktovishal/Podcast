@@ -300,7 +300,7 @@ export function FeedUrlActions({
       <div className="mt-2">
         <p className="text-sm text-[var(--muted)]">
           {unavailableMessage ||
-            "Your current private feed is still active, but this legacy URL can no longer be shown here. Rotate the token from Settings only when you are ready to re-add the new URL in your podcast app."}
+            "Your current private feed is still active, but this older URL can no longer be shown here. Replace the private feed URL below only when you are ready to re-add the new one in your podcast app."}
         </p>
       </div>
     );

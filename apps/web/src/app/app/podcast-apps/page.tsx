@@ -32,7 +32,7 @@ export default async function PodcastAppsPage() {
     ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml`
     : null;
   const feedUrlMessage =
-    "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
+    "Your current private feed is still active, but this older URL can no longer be shown here. Keep using the URL already added in your podcast app unless you decide to replace it.";
 
   return (
     <main className="py-5 sm:py-8">
@@ -41,8 +41,8 @@ export default async function PodcastAppsPage() {
           <div className="space-y-1">
             <h1 className="font-bold text-2xl">Podcast Apps</h1>
             <p className="text-sm text-[var(--muted)]">
-              Copy your private feed URL and add it to any RSS-capable podcast
-              app — on iPhone, Android, or desktop.
+              Copy your private feed URL, pick your podcast app, and keep
+              private feed replacement tucked away unless you truly need it.
             </p>
           </div>
         </section>
@@ -71,9 +71,9 @@ export default async function PodcastAppsPage() {
               &ldquo;Add a Show by URL&rdquo; flow.
             </li>
             <li>
-              4. Only rotate the feed token when you are ready to re-add the new
-              URL in every app where you subscribed — rotating invalidates the
-              old URL immediately.
+              4. Only replace the private feed URL when you are ready to re-add
+              the new one in every app where you subscribed. The old URL stops
+              working immediately.
             </li>
           </ol>
         </section>
