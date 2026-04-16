@@ -41,8 +41,8 @@ export default async function PodcastAppsPage() {
           <div className="space-y-1">
             <h1 className="font-bold text-2xl">Podcast Apps</h1>
             <p className="text-sm text-[var(--muted)]">
-              Copy your private feed URL, choose a podcast app, and use the
-              walkthroughs below if you need the exact in-app steps.
+              Copy your private feed URL and choose the podcast app you want to
+              use.
             </p>
           </div>
         </section>
@@ -58,12 +58,12 @@ export default async function PodcastAppsPage() {
           initialItems={[]}
         />
 
-        <section className="space-y-3">
+        <section className="scroll-mt-24 space-y-3" id="app-walkthroughs">
           <div>
             <h2 className="text-base font-semibold">App walkthroughs</h2>
             <p className="mt-1 text-sm text-[var(--muted)]">
-              Use these for the exact app-specific steps and labels. If you tap
-              an app button above first, your feed URL is already copied.
+              If you tap an app button above first, your feed URL is already
+              copied.
             </p>
           </div>
           <PodcastAppWalkthroughs />

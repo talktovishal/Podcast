@@ -195,7 +195,8 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
     source.includes("this older URL can no longer be shown here"),
     true,
   );
-  assert.equal(source.includes("use the app walkthroughs below"), true);
+  assert.equal(source.includes("the app walkthroughs below"), true);
+  assert.equal(source.includes('href="#app-walkthroughs"'), true);
   assert.equal(source.includes("Featured apps"), true);
   assert.equal(source.includes("Other podcast apps"), true);
   assert.equal(source.includes("ApplePodcastsIcon"), true);
@@ -307,6 +308,7 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(podcastPageSource.includes("Podcast Apps"), true);
   assert.equal(podcastPageSource.includes("Quick start"), false);
   assert.equal(podcastPageSource.includes("App walkthroughs"), true);
+  assert.equal(podcastPageSource.includes('id="app-walkthroughs"'), true);
   assert.equal(
     podcastPageSource.indexOf('viewMode="podcast-apps"') <
       podcastPageSource.indexOf("App walkthroughs"),

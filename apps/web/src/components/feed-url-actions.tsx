@@ -322,8 +322,14 @@ export function FeedUrlActions({
         />
         <p className="mt-3 text-sm text-[var(--muted)]">
           Copy this first. Each app names the next step a little differently,
-          so use the app walkthroughs below if you&apos;re not sure where to
-          paste the feed URL.
+          so refer to{" "}
+          <a
+            className="font-medium text-[var(--ink)] underline decoration-[rgba(31,122,90,0.35)] underline-offset-2 transition hover:text-[var(--accent)]"
+            href="#app-walkthroughs"
+          >
+            the app walkthroughs below
+          </a>{" "}
+          if you&apos;re not sure where to paste the feed URL.
         </p>
       </section>
 
@@ -377,8 +383,7 @@ export function FeedUrlActions({
       </section>
       <p className="text-xs text-[var(--muted)]">
         Tapping a button copies your feed URL and tries to open the app first on
-        mobile. If the app does not land on the right screen, use the
-        walkthroughs below for the exact labels and steps in that app.
+        mobile.
       </p>
       {statusMessage ? (
         <p aria-live="polite" className="text-xs text-[var(--muted)]">
