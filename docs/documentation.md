@@ -90,7 +90,7 @@ Connect flow:
   - mobile uses a denser two-row header: `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` stay on the first row, while `Episodes`, `Podcast Apps`, and conditional `Wiki` stay on the second row
   - mobile hides `Chrome Extension` and `Snippets` in the sticky header so more workspace content stays visible above the fold
 - `/app/podcast-apps` is the dedicated feed-setup page:
-  - private feed URL copy and podcast-app onboarding shortcuts at the top, with private feed replacement kept in a compact secondary action panel inside the Step 1 card
+  - private feed URL copy and podcast-app onboarding shortcuts at the top, with private feed replacement kept in a collapsed secondary disclosure inside the Step 1 card
   - app walkthroughs directly below the live tools, with the top-level copy pointing there for app-specific labels and steps
 - `/app/chrome-extension` is the dedicated capture-setup page:
   - extension install/connect/revoke controls at the top

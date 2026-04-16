@@ -461,7 +461,7 @@ E) Web UI (polished)
   - recent items list with status and actions (retry/delete)
   - ability to play in browser via streaming and download.
 - `/app/podcast-apps`:
-  - private feed copy/open shortcuts lead the page, with the feed URL copy action as the strongest visual element above the fold and replacement actions tucked into a compact secondary panel inside the same Step 1 card
+  - private feed copy/open shortcuts lead the page, with the feed URL copy action as the strongest visual element above the fold and replacement actions hidden inside a collapsed secondary disclosure within the same Step 1 card
   - Apple Podcasts and YouTube Music shortcuts appear first, with app-first mobile handoff before browser fallback
   - app walkthroughs sit directly below the live feed tools, while the top setup copy stays generic and points users there for exact app-specific labels and steps
 - `/app/chrome-extension`:

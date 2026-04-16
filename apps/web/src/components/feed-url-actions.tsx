@@ -305,32 +305,38 @@ export function FeedUrlActions({
 
   const feedManagementPanel =
     allowFeedReplacement && onReplaceFeedUrl ? (
-      <div className="mt-4 rounded-xl border border-[rgba(31,122,90,0.16)] bg-white/80 p-3 sm:p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-          Feed actions
-        </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <button
-            className="w-full rounded-lg border bg-white px-3 py-2 text-sm sm:w-auto"
-            disabled={isReplacingFeedUrl}
-            onClick={onReplaceFeedUrl}
-            type="button"
-          >
-            {isReplacingFeedUrl
-              ? "Generating..."
-              : "Generate new private feed URL"}
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">
-          Use this only if the current URL was shared or you need to replace it
-          everywhere. Generating a new URL revokes the old one immediately.
-        </p>
-        {feedManagementStatusMessage ? (
-          <p aria-live="polite" className="mt-2 text-xs text-[var(--muted)]">
-            {feedManagementStatusMessage}
+      <details className="mt-4 rounded-xl border border-[rgba(31,42,31,0.1)] bg-white/70 p-3 sm:p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-[var(--ink)] [&::-webkit-details-marker]:hidden">
+          <span>Need a new private feed URL?</span>
+          <span className="text-xs uppercase tracking-[0.12em] text-[var(--muted)]">
+            Show
+          </span>
+        </summary>
+        <div className="mt-3 border-t border-[rgba(31,42,31,0.08)] pt-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <button
+              className="w-full rounded-lg border bg-white px-3 py-2 text-sm sm:w-auto"
+              disabled={isReplacingFeedUrl}
+              onClick={onReplaceFeedUrl}
+              type="button"
+            >
+              {isReplacingFeedUrl
+                ? "Generating..."
+                : "Generate new private feed URL"}
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[var(--muted)]">
+            Use this only if the current URL was shared or you need to replace
+            it everywhere. Generating a new URL revokes the old one
+            immediately.
           </p>
-        ) : null}
-      </div>
+          {feedManagementStatusMessage ? (
+            <p aria-live="polite" className="mt-2 text-xs text-[var(--muted)]">
+              {feedManagementStatusMessage}
+            </p>
+          ) : null}
+        </div>
+      </details>
     ) : null;
 
   if (!feedUrl) {
@@ -424,10 +430,6 @@ export function FeedUrlActions({
           </div>
         </div>
       </section>
-      <p className="text-xs text-[var(--muted)]">
-        Tapping a button copies your feed URL and tries to open the app first on
-        mobile.
-      </p>
       {statusMessage ? (
         <p aria-live="polite" className="text-xs text-[var(--muted)]">
           {statusMessage}

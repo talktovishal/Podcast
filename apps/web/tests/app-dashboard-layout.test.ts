@@ -195,10 +195,13 @@ test("feed url actions use a tappable copy box with inline feedback", () => {
     source.includes("this older URL can no longer be shown here"),
     true,
   );
-  assert.equal(source.includes("Feed actions"), true);
+  assert.equal(source.includes("Feed actions"), false);
+  assert.equal(source.includes("Need a new private feed URL?"), true);
+  assert.equal(source.includes("<details"), true);
+  assert.equal(source.includes("Show"), true);
   assert.equal(source.includes("Generate new private feed URL"), true);
   assert.equal(
-    source.includes("Generating a new URL revokes the old one immediately."),
+    source.includes("Generating a new URL revokes the old one"),
     true,
   );
   assert.equal(source.includes("the app walkthroughs below"), true);
@@ -1080,6 +1083,7 @@ test("dashboard client preloads audio metadata for preview and recent items", ()
   );
   assert.equal(source.includes("Need a new private feed URL?"), false);
   assert.equal(source.includes("Replace private feed URL"), false);
+  assert.equal(source.includes("Feed actions"), false);
   assert.equal(source.includes("feedUrlStatusMessage"), true);
   assert.equal(source.includes("isFeedUrlBusy"), true);
   assert.equal(source.includes("allowFeedReplacement={!readOnly}"), true);
