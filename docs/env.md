@@ -171,6 +171,8 @@ Behavior:
 - `WORKER_RETRY_POLL_MS`
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `AUDIO_RETENTION_DAYS` (default `60`; stamps item/digest/summary episode audio expiry from `publishedAt` for feed/media hiding + purge)
+- `WORKER_TTS_CHUNK_MAX_CHARS` (default `1800`; Azure production env rendering defaults this to `1200` for steadier Kokoro chunk latency)
+- `WORKER_TTS_MAX_CHUNKS` (default `24`; fail extracted/narration content before TTS when one episode would exceed this chunk count)
 - `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)
 
 ## Metadata primary + mirror controls
@@ -193,7 +195,7 @@ Recommended low-cost Azure setting:
 
 Recommended eastus blue/green burst setting:
 - primary VM: `Standard_D2as_v5` in `eastus`
-- overflow compute: Azure Container Apps in `eastus` with private `worker` + `python-tts` sidecar replicas
+- overflow compute: Azure Container Apps in `eastus` with private `worker` + `python-tts` sidecar replicas (`1Gi` default worker memory)
 - `WORKER_ROLE=primary` on the VM, `WORKER_ROLE=overflow` in ACA
 - `WORKER_OVERFLOW_ENABLED=0` on the VM, `WORKER_OVERFLOW_ENABLED=1` in ACA
 - `OVERFLOW_PYTHON_TTS_URL=http://127.0.0.1:8010`

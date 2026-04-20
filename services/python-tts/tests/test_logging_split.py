@@ -37,3 +37,15 @@ def test_log_event_splits_activity_and_errors(tmp_path: Path) -> None:
         main.LOG_ERRORS_PATH = original_errors_path
         main.LOG_RETENTION_DAYS = original_retention
         main.LOG_ERROR_RETENTION_DAYS = original_error_retention
+
+
+def test_log_event_does_not_fail_request_when_log_path_is_unwritable(tmp_path: Path) -> None:
+    original_events_path = main.LOG_EVENTS_PATH
+    blocked = tmp_path / "blocked"
+    blocked.write_text("not a directory", encoding="utf-8")
+    main.LOG_EVENTS_PATH = blocked / "python-tts" / "events.log.jsonl"
+
+    try:
+        main._log_event("INFO", "healthy")
+    finally:
+        main.LOG_EVENTS_PATH = original_events_path

@@ -14,6 +14,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Kokoro narration on the python-tts sidecar now streams WAV assembly segment-by-segment instead of concatenating the full response in memory first, reducing peak RAM pressure on the production B2s VM.
 - Python TTS now self-recycles after requests when RSS stays above a configured threshold, waiting for an idle window before exiting so systemd can restart it without interrupting active chunk chains.
 - Azure production env rendering now lowers `WORKER_TTS_CHUNK_MAX_CHARS` to `1200` by default and installs python-tts systemd memory guardrails (`MemoryHigh`/`MemoryMax`) for B2s-class hosts.
+- Worker narration now enforces `WORKER_TTS_MAX_CHUNKS` before TTS starts, failing oversized sources with `SOURCE_TOO_LONG` instead of occupying the audio lane until the global processing timeout.
+- Python TTS structured logging is best-effort, so an unwritable log volume cannot turn an otherwise successful sidecar synthesis request into a 500.
 - User-facing TTS failures now surface as generic `Audio processing...` messages instead of exposing provider-specific python-tts/Kokoro wording.
 - Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.
 - OAuth provider gating + callback hardening with provider-subject identity linking is implemented, including social-first login UX plus Google/Facebook/Apple provider support.

@@ -96,8 +96,8 @@ Current behavior (`M57`-`M64` implemented):
    - the durable job row carries `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
    - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
-4. Worker chunks text deterministically and computes hash key.
-5. Worker resolves TTS selection and uses chunk cache when available.
+4. Worker chunks text deterministically and rejects sources above `WORKER_TTS_MAX_CHUNKS` before TTS starts.
+5. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
 6. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
 7. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
 8. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error, then acknowledges or requeues the dispatch message.
@@ -270,7 +270,7 @@ Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/
 ## Durable Azure target (M35-M46)
 Locked target architecture:
 - Primary compute: `eastus` Linux VM running `web`, primary `worker`, and local `python-tts` as `systemd` services (`Standard_D2as_v5`, `TTS_WORKERS=1`)
-- Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, and no public ingress
+- Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, `1Gi` default worker memory, and no public ingress
 - Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
 - Durable item dispatch: Azure Queue Storage in the same storage account when `ITEM_DISPATCH_BACKEND=azure_queue`
 - Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)

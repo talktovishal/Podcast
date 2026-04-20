@@ -492,6 +492,61 @@ test("processes oversized snapshot when chunk cache is available", async () => {
   }
 });
 
+test("fails oversized snapshot before synthesis when chunk cache is unavailable", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-oversize-no-cache`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `oversize-no-cache-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const repeated = "Long-form paragraph. ".repeat(3000);
+  const oversizedHtml = `<html><body><article><h1>Oversized</h1><p>${repeated}</p></article></body></html>`;
+
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      title: `Oversized No Cache ${uniq}`,
+      sourceType: "HTML_SNAPSHOT",
+      sourceUrl: `https://example.com/oversized-no-cache/${uniq}`,
+      sourceHtml: oversizedHtml,
+      sourceCapturedAt: new Date(),
+      status: "QUEUED"
+    }
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      itemId: item.id,
+      status: "QUEUED",
+      attempt: 0
+    }
+  });
+
+  try {
+    const processed = await processJob(job.id);
+    assert.equal(processed, false);
+
+    const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
+    const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
+    const episode = await prisma.episode.findUnique({ where: { itemId: item.id } });
+
+    assert.equal(finishedJob?.status, "FAILED");
+    assert.equal(finishedJob?.errorCode, errorCodes.SOURCE_TOO_LONG);
+    assert.equal(finishedItem?.status, "FAILED");
+    assert.equal(finishedItem?.errorCode, errorCodes.SOURCE_TOO_LONG);
+    assert.match(finishedItem?.errorMessage ?? "", /too long to narrate/);
+    assert.equal(episode, null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("does not crash when item is deleted while a job is processing", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-deleted-mid-flight`;

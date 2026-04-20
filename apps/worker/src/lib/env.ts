@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { hostname } from "node:os";
 import { resolve } from "node:path";
 import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
+import { DEFAULT_TTS_MAX_CHUNKS } from "./narrationLimits.js";
 
 config({ path: resolve(process.cwd(), ".env") });
 const repoRoot = resolve(process.cwd(), "../..");
@@ -182,6 +183,7 @@ export const workerEnv = {
   rawArtifactRetentionDays: Number(process.env.WORKER_RAW_ARTIFACT_RETENTION_DAYS ?? 90),
   audioRetentionDays: toPositiveInt(process.env.AUDIO_RETENTION_DAYS ?? process.env.WORKER_AUDIO_RETENTION_DAYS, 60),
   ttsChunkMaxChars: Number(process.env.WORKER_TTS_CHUNK_MAX_CHARS ?? 1800),
+  ttsMaxChunks: toPositiveInt(process.env.WORKER_TTS_MAX_CHUNKS, DEFAULT_TTS_MAX_CHUNKS),
   digestInternalSchedulerEnabled: (process.env.DIGEST_INTERNAL_SCHEDULER_ENABLED ?? "1") !== "0",
   digestSchedulerTickMs: Number(process.env.DIGEST_SCHEDULER_TICK_MS ?? 60_000),
   digestSchedulerSecret: process.env.DIGEST_SCHEDULER_SECRET ?? "",

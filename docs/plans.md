@@ -24,6 +24,7 @@
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
 - Python TTS hardening now streams Kokoro WAV assembly segment-by-segment on the sidecar, reducing peak RAM spikes on the B2s VM, and user-facing job failures now say `Audio processing...` instead of leaking provider internals.
 - Azure audio hardening now defaults production chunking to `1200` characters, asks python-tts to recycle itself after high-RSS idle windows, and installs systemd memory ceilings/restart guardrails during VM deploy.
+- Oversized narration hardening now fails extracted sources above `WORKER_TTS_MAX_CHUNKS` before TTS begins, and python-tts structured logging is best-effort so log-volume permission issues do not fail synthesis requests.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
 - GitHub Actions now keeps CI automatic on `main`, while Azure production deploys require an explicit manual `Deploy to Azure` workflow dispatch instead of auto-running after every successful CI completion.
 - CI is now split into quick pull-request validation plus a nightly full run, with shared local `pnpm preflight` coverage and auto-cancelled superseded runs to reduce unnecessary GitHub Actions time.

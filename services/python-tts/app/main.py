@@ -170,7 +170,6 @@ def _log_event(
     attrs: dict[str, Any] | None = None,
 ) -> None:
     log_path, retention_days = _log_sink_for_level(level)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
     event = {
         "ts": _utc_now_iso(),
         "level": level,
@@ -186,9 +185,13 @@ def _log_event(
         "user_id_hash": _safe_user_hash(os.getenv("DEMO_EMAIL")),
         "attrs": attrs or {},
     }
-    with log_path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=True) + "\n")
-    _rotate_logs_if_needed(log_path, retention_days)
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=True) + "\n")
+        _rotate_logs_if_needed(log_path, retention_days)
+    except Exception as exc:
+        logging.warning("Structured log write failed for %s: %s", log_path, exc)
 
 
 def _request_context(request: Request) -> dict[str, str | None]:

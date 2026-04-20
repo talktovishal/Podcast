@@ -35,6 +35,7 @@ import {
 import { workerEnv } from "../lib/env.js";
 import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
+import { assertNarrationChunkLimit } from "../lib/narrationLimits.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
@@ -1816,6 +1817,22 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         mimeType: cacheHit.mimeType
       };
     } else {
+      try {
+        assertNarrationChunkLimit(chunks.length, workerEnv.ttsMaxChunks);
+      } catch (error) {
+        if (error instanceof AppError) {
+          await workerLogger.warn("Narration exceeds configured audio chunk limit", {
+            chunkCount: chunks.length,
+            maxChunks: workerEnv.ttsMaxChunks,
+            sourceType: item.sourceType
+          });
+          appendExtractionLog(extractionLogs, "tts", "Narration rejected before synthesis", {
+            chunkCount: chunks.length,
+            maxChunks: workerEnv.ttsMaxChunks
+          });
+        }
+        throw error;
+      }
       stage = "tts";
       await workerLogger.info("TTS cache miss; synthesizing", {
         cacheKey,
