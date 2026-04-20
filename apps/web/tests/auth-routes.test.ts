@@ -786,7 +786,7 @@ test("html snapshot validates payload and queues item for session user", async (
       },
       body: JSON.stringify({
         url: `https://example.com/session/${uniq}`,
-        title: `Session Snapshot ${uniq}`,
+        title: `Session Snapshot ${uniq} ${"long title segment ".repeat(20)}`,
         html,
         capturedAt: "2026-02-08T00:00:00.000Z",
         importance: "HIGH",
@@ -810,6 +810,8 @@ test("html snapshot validates payload and queues item for session user", async (
     assert.ok(item);
     assert.equal(item?.userId, user.id);
     assert.equal(item?.sourceType, "HTML_SNAPSHOT");
+    assert.equal(item?.title?.length, 200);
+    assert.equal(item?.title?.startsWith(`Session Snapshot ${uniq}`), true);
     assert.equal(item?.status, "QUEUED");
     assert.equal(item?.priority, "HIGH");
     assert.equal(item?.tagsJson, '["technology","personal"]');

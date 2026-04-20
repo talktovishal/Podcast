@@ -6,6 +6,7 @@ Status as of 2026-04-02:
 - Stripe-hosted Checkout, Customer Portal, invoice-aware webhook sync, billing status, and support visibility are implemented for `Pro monthly` and `Pro annual`.
 - Production can now carry both live Stripe and sandbox Stripe at the same time. Live billing remains the default path, while admins and allowlisted tester emails can switch to sandbox billing from `/app/settings`.
 - ArticlePod stores Stripe billing metadata, entitlement state, latest invoice/payment state, and webhook audit watermarks. Card details stay in Stripe-hosted flows.
+- If Stripe reports that an inactive account's locally stored customer id no longer exists, ArticlePod clears that stale customer reference during billing reconciliation or before creating the next checkout session; webhook-confirmed paid access is not reset by this repair path.
 - Self-serve billing stays scoped to `Starter` free + `Pro` only for MVP, with monthly and annual cadences.
 - `Team`, coupons, trials, seats, usage billing, and non-card methods remain out of scope for the current launch track.
 

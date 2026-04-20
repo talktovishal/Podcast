@@ -247,6 +247,32 @@ function stripe(lane: BillingLane = "LIVE"): Stripe {
   return client;
 }
 
+export function isMissingStripeCustomerError(error: unknown, customerId?: string | null): boolean {
+  const candidate = error as
+    | {
+        code?: unknown;
+        param?: unknown;
+        message?: unknown;
+        raw?: { code?: unknown; param?: unknown; message?: unknown };
+      }
+    | null
+    | undefined;
+  const code = typeof candidate?.code === "string" ? candidate.code : typeof candidate?.raw?.code === "string" ? candidate.raw.code : "";
+  const param = typeof candidate?.param === "string" ? candidate.param : typeof candidate?.raw?.param === "string" ? candidate.raw.param : "";
+  const message =
+    typeof candidate?.message === "string"
+      ? candidate.message
+      : typeof candidate?.raw?.message === "string"
+        ? candidate.raw.message
+        : "";
+  const normalizedMessage = message.toLowerCase();
+  const mentionsMissingCustomer =
+    normalizedMessage.includes("no such customer") ||
+    (Boolean(customerId) && normalizedMessage.includes(String(customerId).toLowerCase()));
+
+  return code === "resource_missing" && (param === "customer" || mentionsMissingCustomer);
+}
+
 function stripeDashboardBaseUrl(lane: BillingLane = "LIVE"): string {
   return stripeLaneConfig(lane).secretKey?.startsWith("sk_test_")
     ? "https://dashboard.stripe.com/test"
@@ -680,13 +706,60 @@ function entitlementStatusFromBillingStatus(status: BillingStatus): BillingEntit
   return "INACTIVE";
 }
 
+function missingStripeCustomerRepairPatch(): Partial<BillingStateRecord> {
+  return {
+    billingProvider: null,
+    billingCustomerId: null,
+    billingSubscriptionId: null,
+    billingPriceId: null,
+    billingPlanCode: "STARTER",
+    billingStatus: "NONE",
+    billingEntitlementStatus: "INACTIVE",
+    billingLastPaymentStatus: "NONE",
+    billingLastInvoiceId: null,
+    billingCurrentPeriodEnd: null,
+    billingCancelAtPeriodEnd: false,
+    billingUpdatedAt: new Date(),
+    isPaid: false
+  };
+}
+
+async function stripeCustomerExists(lane: BillingLane, customerId: string): Promise<boolean> {
+  try {
+    const customer = await stripe(lane).customers.retrieve(customerId);
+    return !("deleted" in customer && customer.deleted);
+  } catch (error) {
+    if (isMissingStripeCustomerError(error, customerId)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
 async function ensureStripeCustomer(
   user: BillingUserRecord,
   lane: BillingLane,
   currentRecord: BillingStateRecord
 ): Promise<string> {
   if (currentRecord.billingCustomerId) {
-    return currentRecord.billingCustomerId;
+    const existingCustomerId = currentRecord.billingCustomerId;
+    if (await stripeCustomerExists(lane, existingCustomerId)) {
+      return existingCustomerId;
+    }
+
+    await logger.warn("Clearing stale Stripe customer before creating a replacement", {
+      userId: user.id,
+      billingLane: lane,
+      stripeCustomerId: existingCustomerId
+    });
+    if (lane === "LIVE") {
+      await updatePrimaryUser(user.id, missingStripeCustomerRepairPatch());
+    } else {
+      await upsertPrimarySandboxBillingAccount({
+        userId: user.id,
+        ...missingStripeCustomerRepairPatch()
+      });
+    }
   }
 
   const config = stripeLaneConfig(lane);
@@ -826,6 +899,30 @@ export async function createStripeBillingPortalSession(userId: string): Promise<
   const sandboxAccount = lane === "SANDBOX" ? await findPrimarySandboxBillingAccountByUserId(user.id) : null;
   const customerId = lane === "SANDBOX" ? sandboxAccount?.billingCustomerId ?? null : user.billingCustomerId;
   if (!customerId) {
+    throw new AppError(errorCodes.INVALID_INPUT, "No Stripe billing profile exists for this account yet.", 400);
+  }
+  if (!(await stripeCustomerExists(lane, customerId))) {
+    const billingRecord = selectedBillingStateRecord(
+      user,
+      sandboxAccount ? sandboxAccountToBillingState(sandboxAccount, user.id) : null,
+      lane
+    );
+    if (!shouldReconcileBillingStateFromStripe(billingRecord, lane)) {
+      throw new AppError(errorCodes.BILLING_UNAVAILABLE, "Stripe billing profile could not be found. Contact support.", 503);
+    }
+    await logger.warn("Clearing stale Stripe customer before opening billing portal", {
+      userId,
+      billingLane: lane,
+      stripeCustomerId: customerId
+    });
+    if (lane === "LIVE") {
+      await updatePrimaryUser(user.id, missingStripeCustomerRepairPatch());
+    } else {
+      await upsertPrimarySandboxBillingAccount({
+        userId: user.id,
+        ...missingStripeCustomerRepairPatch()
+      });
+    }
     throw new AppError(errorCodes.INVALID_INPUT, "No Stripe billing profile exists for this account yet.", 400);
   }
 
@@ -1086,6 +1183,13 @@ async function reconcileBillingStateFromStripeIfNeeded<T extends BillingStateRec
 
     return persist(patch);
   } catch (error) {
+    if (isMissingStripeCustomerError(error, record.billingCustomerId)) {
+      await logger.warn("Clearing stale Stripe customer after Stripe reported it missing", {
+        billingLane: lane,
+        stripeCustomerId: record.billingCustomerId
+      });
+      return persist(missingStripeCustomerRepairPatch() as Partial<T>);
+    }
     await logger.warn("Billing state reconciliation from Stripe failed", {
       billingLane: lane,
       stripeCustomerId: record.billingCustomerId,

@@ -333,6 +333,7 @@ Notes:
 - `deploy-vm-runtime.sh` precomputes Kokoro voice previews during deployment so dashboard preview requests are instant.
 - `deploy-vm-runtime.sh` now runs a root-owned disk cleanup pass before build/install work so staging junk, old journal data, and pressure-cleanable caches do not crowd out the deploy.
 - `install-systemd.sh` now writes a python-tts drop-in with `MemoryHigh`, `MemoryMax`, `OOMPolicy=stop`, and the configured restart delay, so the service restarts cleanly instead of drifting indefinitely at multi-GB RSS.
+- the primary worker systemd unit still waits for local python-tts health on startup, but it no longer `Requires=` python-tts; sidecar recycle restarts should not stop an otherwise healthy worker process.
 - overflow worker service is installed but disabled by default (`ENABLE_OVERFLOW_WORKER_SERVICE=0`).
 - enable overflow worker only when external overflow TTS is configured:
   - `sudo ENABLE_OVERFLOW_WORKER_SERVICE=1 /opt/articlepod/scripts/azure/install-systemd.sh`

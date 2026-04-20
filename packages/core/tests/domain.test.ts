@@ -37,6 +37,17 @@ test("submitHtmlSnapshotSchema no longer enforces the old character cap", () => 
   assert.equal(parsed.importance, "LOW");
 });
 
+test("submitHtmlSnapshotSchema truncates captured page titles instead of rejecting", () => {
+  const parsed = submitHtmlSnapshotSchema.parse({
+    url: "https://example.com/private",
+    title: ` ${"Long captured title ".repeat(20)} `,
+    html: "<html><body><article><p>Hello world content for narration.</p></article></body></html>"
+  });
+
+  assert.equal(parsed.title?.length, 200);
+  assert.equal(parsed.title?.startsWith("Long captured title"), true);
+});
+
 test("submitUrlSchema accepts importance aliasing and normalizes comma-separated tags", () => {
   const parsed = submitUrlSchema.parse({
     url: "https://example.com/article",

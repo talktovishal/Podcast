@@ -126,6 +126,7 @@ export const submitPdfSchema = z
   }));
 
 export const HTML_SNAPSHOT_MAX_BYTES = 2 * 1024 * 1024;
+export const ITEM_TITLE_MAX_CHARS = 200;
 export const SNIPPET_SELECTED_TEXT_MAX_CHARS = 20_000;
 export const SNIPPET_COMMENT_MAX_CHARS = 2_000;
 export const SNIPPET_SELECTED_HTML_MAX_CHARS = 12_000;
@@ -149,6 +150,17 @@ function normalizeOptionalSnippetField(input: string | null | undefined): string
   }
   const trimmed = input.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function normalizeOptionalItemTitle(input: string | null | undefined): string | undefined {
+  if (typeof input !== "string") {
+    return undefined;
+  }
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.slice(0, ITEM_TITLE_MAX_CHARS);
 }
 
 function normalizeSnippetSectionHeadings(input: ReadonlyArray<string> | null | undefined): string[] {
@@ -234,7 +246,7 @@ export const snippetPageMetadataSchema = z
 export const submitHtmlSnapshotSchema = z
   .object({
     url: z.string().url().max(2048),
-    title: z.string().trim().min(1).max(200).optional(),
+    title: z.string().optional(),
     html: z.string().trim().min(1),
     capturedAt: z.string().datetime().optional(),
     importance: itemImportanceSchema.optional(),
@@ -243,7 +255,7 @@ export const submitHtmlSnapshotSchema = z
   })
   .transform((input) => ({
     url: input.url,
-    title: input.title,
+    title: normalizeOptionalItemTitle(input.title),
     html: input.html,
     capturedAt: input.capturedAt,
     importance: resolveItemImportance(input.importance, input.priority),

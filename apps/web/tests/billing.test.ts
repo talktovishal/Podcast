@@ -9,6 +9,7 @@ import {
   buildBillingSnapshot,
   buildStripeDashboardLinks,
   getBillingSettingsState,
+  isMissingStripeCustomerError,
   selectStripeSubscriptionForSync
 } from "../src/lib/billing";
 import { setBillingLanePreference } from "../src/lib/billing";
@@ -131,6 +132,31 @@ test("buildStripeDashboardLinks points to the Stripe test dashboard", () => {
   assert.equal(links.customerUrl?.endsWith("/customers/cus_123"), true);
   assert.equal(links.subscriptionUrl?.endsWith("/subscriptions/sub_123"), true);
   assert.equal(links.invoiceUrl?.endsWith("/invoices/in_123"), true);
+});
+
+test("isMissingStripeCustomerError recognizes Stripe resource_missing customer failures", () => {
+  assert.equal(
+    isMissingStripeCustomerError(
+      {
+        code: "resource_missing",
+        param: "customer",
+        message: "No such customer: 'cus_missing'"
+      },
+      "cus_missing"
+    ),
+    true
+  );
+  assert.equal(
+    isMissingStripeCustomerError(
+      {
+        code: "resource_missing",
+        param: "subscription",
+        message: "No such subscription: 'sub_missing'"
+      },
+      "cus_missing"
+    ),
+    false
+  );
 });
 
 test("selectStripeSubscriptionForSync prefers active subscriptions over stale canceled ones", () => {

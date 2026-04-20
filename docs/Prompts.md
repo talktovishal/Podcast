@@ -31,6 +31,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - server-side snapshot classification now also catches lightweight challenge pages (for example Cloudflare `Verifying...` shells) so extension failures stay explicit instead of degrading into generic extraction errors.
   - snapshot challenge detection now tolerates real readable article pages that also include visible reCAPTCHA/paywall/newsletter widgets, instead of failing early on that chrome alone.
   - captured snapshot cleanup removes inert scripts, styles, templates, noscript blocks, and HTML comments while preserving document structure for the server extraction path.
+  - captured snapshot titles are truncated to the item-title storage limit on ingest instead of rejecting otherwise valid captures.
   - snapshot size enforcement is byte-based on the server, and the popup now fails early when safe cleanup still exceeds the upload budget.
   - the packaged extension manifest intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require an extra per-site access grant before capture.
   - browser-opened remote PDFs on HTTP/HTTPS tabs now reuse the existing PDF upload pipeline directly from the extension instead of falling through the HTML snapshot path.
@@ -123,6 +124,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
   - Stripe-hosted Checkout, Customer Portal, billing status route, and webhook-driven recurring billing state are implemented for the Pro plan
   - billing now persists Stripe customer/subscription/price metadata, payment state, entitlement state, latest invoice id, and webhook audit watermarks across both Prisma and Azure Table primary metadata backends
+  - stale missing Stripe customer ids on inactive accounts are cleared during reconciliation or before new checkout creation, preventing repeated noisy read-path warnings and letting checkout create a replacement customer safely.
   - access is granted or extended only from webhook-confirmed billing events; `/app` and `/app/settings` now show pending activation, renewal, cancel-at-period-end, and payment-issue states instead of trusting the Checkout redirect alone
   - admin quota tools now expose read-only Stripe identifiers, last invoice/payment status, and Stripe Dashboard deep links for support workflows
   - the public pricing page now shows `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with upfront cancel-at-period-end billing policy copy and annual positioning that emphasizes both “save nearly 30%” and the higher 15-episode daily capacity

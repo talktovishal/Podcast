@@ -159,6 +159,7 @@ test("azure runtime defaults guard python-tts memory on production deploys", () 
   const overflowDeploySource = readFileSync(resolve(root, "scripts/azure/deploy-aca-overflow.sh"), "utf8");
 
   assert.match(renderEnvSource, /^WORKER_TTS_CHUNK_MAX_CHARS=\$\{WORKER_TTS_CHUNK_MAX_CHARS:-1200\}$/m);
+  assert.match(renderEnvSource, /^WORKER_TTS_MAX_CHUNKS=\$\{WORKER_TTS_MAX_CHUNKS:-24\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_RSS_MB=\$\{PYTHON_TTS_RECYCLE_RSS_MB:-4096\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_IDLE_SECONDS=\$\{PYTHON_TTS_RECYCLE_IDLE_SECONDS:-10\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_SYSTEMD_MEMORY_HIGH=\$\{PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G\}$/m);
@@ -166,6 +167,7 @@ test("azure runtime defaults guard python-tts memory on production deploys", () 
   assert.match(installSystemdSource, /MemoryHigh=\$\{PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G\}/);
   assert.match(installSystemdSource, /MemoryMax=\$\{PYTHON_TTS_SYSTEMD_MEMORY_MAX:-6G\}/);
   assert.match(installSystemdSource, /OOMPolicy=stop/);
+  assert.doesNotMatch(readFileSync(resolve(root, "infra/systemd/articlepod-worker.service"), "utf8"), /Requires=articlepod-python-tts\.service/);
   assert.match(pythonTtsUnitSource, /StartLimitIntervalSec=0/);
   assert.match(pythonTtsUnitSource, /RestartSec=3/);
   assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_RSS_MB"/);

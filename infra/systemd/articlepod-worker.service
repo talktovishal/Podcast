@@ -1,8 +1,7 @@
 [Unit]
 Description=ArticlePod Worker
 After=network.target articlepod-python-tts.service
-Wants=network.target
-Requires=articlepod-python-tts.service
+Wants=network.target articlepod-python-tts.service
 
 [Service]
 Type=simple
