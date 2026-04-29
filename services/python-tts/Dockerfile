@@ -2,7 +2,11 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache \
     XDG_DATA_HOME=/usr/local/share \
+    HF_HOME=/tmp/.cache/huggingface \
+    TRANSFORMERS_CACHE=/tmp/.cache/huggingface/transformers \
     NLTK_DATA=/usr/local/share/nltk_data
 
 WORKDIR /app

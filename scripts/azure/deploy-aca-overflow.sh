@@ -14,7 +14,7 @@ IMAGE_TAG="${IMAGE_TAG:-$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null 
 MIN_REPLICAS="${MIN_REPLICAS:-0}"
 MAX_REPLICAS="${MAX_REPLICAS:-1}"
 QUEUE_WAKE_LENGTH="${QUEUE_WAKE_LENGTH:-1}"
-WORKER_CPU="${WORKER_CPU:-0.25}"
+WORKER_CPU="${WORKER_CPU:-0.5}"
 WORKER_MEMORY="${WORKER_MEMORY:-1Gi}"
 PYTHON_TTS_CPU="${PYTHON_TTS_CPU:-1.75}"
 PYTHON_TTS_MEMORY="${PYTHON_TTS_MEMORY:-3.5Gi}"
@@ -22,6 +22,7 @@ WORKER_CONTAINER_NAME="${WORKER_CONTAINER_NAME:-worker}"
 PYTHON_TTS_CONTAINER_NAME="${PYTHON_TTS_CONTAINER_NAME:-python-tts}"
 STATE_VOLUME_NAME="${STATE_VOLUME_NAME:-runtime-state}"
 LOG_VOLUME_NAME="${LOG_VOLUME_NAME:-runtime-logs}"
+SKIP_ACR_BUILD="${SKIP_ACR_BUILD:-0}"
 
 usage() {
   cat <<EOF
@@ -43,6 +44,7 @@ Options:
   --worker-memory <Gi>            Worker memory allocation (default: ${WORKER_MEMORY})
   --python-tts-cpu <cores>        Python TTS CPU allocation (default: ${PYTHON_TTS_CPU})
   --python-tts-memory <Gi>        Python TTS memory allocation (default: ${PYTHON_TTS_MEMORY})
+  SKIP_ACR_BUILD=1                Reuse existing images for IMAGE_TAG instead of rebuilding
   -h, --help                      Show this help
 EOF
 }
@@ -149,10 +151,14 @@ acr_password="$(az acr credential show -g "$RG" -n "$ACR_NAME" --query passwords
 worker_image="${acr_login_server}/${WORKER_IMAGE_REPO}:${IMAGE_TAG}"
 python_tts_image="${acr_login_server}/${PYTHON_TTS_IMAGE_REPO}:${IMAGE_TAG}"
 
-az acr build -r "$ACR_NAME" -t "${WORKER_IMAGE_REPO}:${IMAGE_TAG}" -f "$ROOT_DIR/Dockerfile.worker" "$ROOT_DIR" >/dev/null
-az acr build -r "$ACR_NAME" -t "${PYTHON_TTS_IMAGE_REPO}:${IMAGE_TAG}" -f "$ROOT_DIR/services/python-tts/Dockerfile" "$ROOT_DIR" >/dev/null
+if [[ "$SKIP_ACR_BUILD" == "1" ]]; then
+  echo "[deploy-aca-overflow] reusing existing images for tag '${IMAGE_TAG}'"
+else
+  az acr build -r "$ACR_NAME" -t "${WORKER_IMAGE_REPO}:${IMAGE_TAG}" -f "$ROOT_DIR/Dockerfile.worker" "$ROOT_DIR" >/dev/null
+  az acr build -r "$ACR_NAME" -t "${PYTHON_TTS_IMAGE_REPO}:${IMAGE_TAG}" -f "$ROOT_DIR/services/python-tts/Dockerfile" "$ROOT_DIR" >/dev/null
+fi
 
-manifest_file="$(mktemp "${TMPDIR:-/tmp}/articlepod-overflow-aca.XXXXXX.json")"
+manifest_file="$(mktemp "${TMPDIR:-/tmp}/articlepod-overflow-aca.XXXXXX")"
 
 python3 - "$ENV_FILE" "$manifest_file" "$environment_resource_id" "$environment_location" "$acr_login_server" "$acr_username" "$acr_password" "$worker_image" "$python_tts_image" "$MIN_REPLICAS" "$MAX_REPLICAS" "$QUEUE_WAKE_LENGTH" "$WORKER_CONTAINER_NAME" "$PYTHON_TTS_CONTAINER_NAME" "$WORKER_CPU" "$WORKER_MEMORY" "$PYTHON_TTS_CPU" "$PYTHON_TTS_MEMORY" "$STATE_VOLUME_NAME" "$LOG_VOLUME_NAME" <<'PY'
 from __future__ import annotations
@@ -296,6 +302,7 @@ worker_env_order = [
     "LOG_ERROR_RETENTION_DAYS",
     "LOG_MAX_BYTES",
     "LOG_MAX_FILES",
+    "ARTICLEPOD_CONSOLE_LOGS",
     "WORKER_POLL_MS",
     "WORKER_STALE_PROCESSING_MS",
     "WORKER_MAX_STALE_RETRIES",
@@ -347,7 +354,8 @@ overrides = {
     "WORKER_OVERFLOW_MIN_ACTIVE_MS": "1200000",
     "OVERFLOW_PYTHON_TTS_URL": "http://127.0.0.1:8010",
     "TTS_WORKERS": "1",
-    "LOG_ROOT": "/var/log/articlepod",
+    "LOG_ROOT": "/tmp/articlepod/logs",
+    "ARTICLEPOD_CONSOLE_LOGS": "1",
     "STORAGE_ROOT": "/var/lib/articlepod/storage",
     "MEDIA_ROOT": "/var/lib/articlepod/media",
     "UPLOAD_ROOT": "/var/lib/articlepod/uploads",
@@ -455,7 +463,6 @@ doc = {
                 {"name": log_volume_name, "storageType": "EmptyDir"},
             ],
         },
-    }
     },
 }
 

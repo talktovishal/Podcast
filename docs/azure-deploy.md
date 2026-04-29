@@ -361,6 +361,10 @@ Default overflow settings:
   - `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS=120000`
   - `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS=60000`
   - `WORKER_OVERFLOW_MIN_ACTIVE_MS=1200000`
+- The ACA overflow manifest forces `LOG_ROOT=/tmp/articlepod/logs` because both containers run with container-local ephemeral logs and the python-tts image runs as a non-root user.
+- The overflow worker also sets `ARTICLEPOD_CONSOLE_LOGS=1` so queue and job decisions appear in Container Apps Log Analytics.
+- The python-tts image sets `HOME`, `XDG_CACHE_HOME`, `HF_HOME`, and `TRANSFORMERS_CACHE` under `/tmp` so Kokoro/HuggingFace runtime cache writes work for the non-root container user.
+- The default ACA resource shape is worker `0.5 CPU / 1Gi` plus python-tts `1.75 CPU / 3.5Gi`, which satisfies the Consumption plan's `2.25 CPU / 4.5Gi` total pairing.
 
 The overflow app reuses the live Blob/Table/OpenAI data plane and uses a local sidecar `python-tts` endpoint at `http://127.0.0.1:8010`.
 

@@ -204,6 +204,10 @@ Recommended eastus blue/green burst setting:
 - `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS=120000`
 - `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS=60000`
 - `WORKER_OVERFLOW_MIN_ACTIVE_MS=1200000`
+- ACA overflow deploys force `LOG_ROOT=/tmp/articlepod/logs` so the non-root python-tts sidecar can write structured logs without failing synthesis requests.
+- ACA overflow deploys force `ARTICLEPOD_CONSOLE_LOGS=1` for the worker so job/queue decisions are available in Container Apps Log Analytics.
+- The python-tts image sets HuggingFace/Kokoro cache env (`HOME`, `XDG_CACHE_HOME`, `HF_HOME`, `TRANSFORMERS_CACHE`) under `/tmp` for the non-root container user.
+- ACA overflow defaults to worker `0.5 CPU / 1Gi` plus python-tts `1.75 CPU / 3.5Gi`, matching Azure's `2.25 CPU / 4.5Gi` Consumption pairing.
 - no PostgreSQL in the new eastus resource group
 
 Parity note:
