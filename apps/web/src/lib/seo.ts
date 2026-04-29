@@ -181,7 +181,7 @@ export function buildSoftwareApplicationSchema(
         price: "15",
         priceCurrency: "USD",
         url: absoluteSeoUrl("/pricing"),
-        description: `Upgrade monthly for ${monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours, ${monthlyPlan.weeklySummaryLimit} manual summaries every 7 days, and digest workflows.`,
+        description: `Upgrade monthly for ${monthlyPlan.dailyPodcastLimit} new private podcast episodes per 24 hours, ${monthlyPlan.dailySummaryLimit} summary-mode items per 24 hours, ${monthlyPlan.weeklySummaryLimit} manual summaries every 7 days, and digest workflows.`,
       },
       {
         "@type": "Offer",
@@ -189,7 +189,7 @@ export function buildSoftwareApplicationSchema(
         price: "130",
         priceCurrency: "USD",
         url: absoluteSeoUrl("/pricing"),
-        description: `Upgrade annually and save nearly 30 percent while getting ${annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours and ${annualPlan.weeklySummaryLimit} manual summaries every 7 days.`,
+        description: `Upgrade annually and save nearly 30 percent while getting ${annualPlan.dailyPodcastLimit} new private podcast episodes per 24 hours, ${annualPlan.dailySummaryLimit} summary-mode items per 24 hours, and ${annualPlan.weeklySummaryLimit} manual summaries every 7 days.`,
       },
     ],
   };

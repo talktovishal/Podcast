@@ -54,13 +54,18 @@ export async function POST(request: NextRequest) {
       typeof formData.get("tags") === "string"
         ? (formData.get("tags") as string)
         : undefined;
+    const rawMode =
+      typeof formData.get("mode") === "string"
+        ? (formData.get("mode") as string)
+        : undefined;
     const parsed = submitPdfSchema.parse({
       title: rawTitle,
       importance: rawImportance,
       priority: rawPriority,
+      mode: rawMode,
       tags: rawTags,
     });
-    const { title, importance, tags } = parsed;
+    const { title, importance, tags, mode } = parsed;
 
     if (!(file instanceof File)) {
       return NextResponse.json(
@@ -123,6 +128,7 @@ export async function POST(request: NextRequest) {
       title,
       importance,
       tags,
+      mode,
       sourceType: "PDF",
       sourceFilePath: relativePath,
     });

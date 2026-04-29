@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
 import { copyText } from "@/lib/copy-text";
 import type { DemoExtractionDiagnostic } from "@/lib/demo-diagnostics";
 import { FeedUrlActions } from "@/components/feed-url-actions";
@@ -24,10 +27,16 @@ type DashboardItem = {
   sourceType: string;
   sourceUrl: string | null;
   status: string;
+  processingMode: "FULL_EPISODE" | "SUMMARY_ONLY";
   importance: "LOW" | "MEDIUM" | "HIGH";
   tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
+  summaryStatus: "NOT_REQUESTED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+  summaryTitle: string | null;
+  summaryCompletedAt: string | null;
+  summaryErrorCode: string | null;
+  summaryErrorMessage: string | null;
   createdAt: string;
   share:
     | {
@@ -88,6 +97,9 @@ type SubmissionQuotaSnapshot = {
   dailyPodcastLimit: number | null;
   podcastsUsedLast24Hours: number;
   remainingDailyPodcasts: number | null;
+  dailySummaryLimit: number | null;
+  summariesUsedLast24Hours: number;
+  remainingDailySummaries: number | null;
   queuedDeferredPodcasts: number;
   maxDeferredPodcasts: number | null;
 };
@@ -182,6 +194,7 @@ type Props = {
   isAdmin?: boolean;
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
+  initialProcessingMode?: "FULL_EPISODE" | "SUMMARY_ONLY";
   initialDigestSettings?: DigestSettings;
   initialDemographicSurvey?: UserDemographicSurveyView;
   initialTtsSelection: {
@@ -225,6 +238,37 @@ function statusHelpText(status: string, processingMessage?: string | null): stri
   return null;
 }
 
+function itemStatusHelpText(item: DashboardItem): string | null {
+  const normalized = item.status.toUpperCase();
+  if (item.processingMode === "SUMMARY_ONLY" && normalized === "READY" && !item.episode) {
+    if (item.summaryStatus === "SUCCEEDED") {
+      return "Summary is ready. TTS is available on request.";
+    }
+    if (item.summaryStatus === "FAILED") {
+      return item.summaryErrorMessage || "Summary generation failed.";
+    }
+  }
+
+  if (item.summaryStatus === "PROCESSING") {
+    return "Creating summary.";
+  }
+
+  return statusHelpText(item.status, item.errorMessage);
+}
+
+function summaryStatusLabel(status: string): string {
+  switch (status) {
+    case "SUCCEEDED":
+      return "summary ready";
+    case "PROCESSING":
+      return "summary processing";
+    case "FAILED":
+      return "summary failed";
+    default:
+      return "summary off";
+  }
+}
+
 function CollapsibleSettingsCard({
   title,
   description,
@@ -265,6 +309,7 @@ export function DashboardClient({
   isAdmin = false,
   isDemoAccount = false,
   initialSubmissionQuota = null,
+  initialProcessingMode = "FULL_EPISODE",
   initialDigestSettings = DEFAULT_DIGEST_SETTINGS,
   initialDemographicSurvey = DEFAULT_DEMOGRAPHIC_SURVEY,
   initialTtsSelection,
@@ -278,6 +323,8 @@ export function DashboardClient({
 }: Props) {
   const [items, setItems] = useState(initialItems);
   const [submissionQuota, setSubmissionQuota] = useState(initialSubmissionQuota);
+  const [processingMode, setProcessingMode] = useState<"FULL_EPISODE" | "SUMMARY_ONLY">(initialProcessingMode);
+  const [isProcessingModeBusy, setIsProcessingModeBusy] = useState(false);
   const [demoDiagnostics, setDemoDiagnostics] = useState(initialDemoDiagnostics);
   const [sourceMode, setSourceMode] = useState<"url" | "pdf">("url");
   const [urlInput, setUrlInput] = useState("");
@@ -303,6 +350,9 @@ export function DashboardClient({
   const [previewAudioUrl, setPreviewAudioUrl] = useState<string | null>(null);
   const [isTtsBusy, setIsTtsBusy] = useState(false);
   const [markdownPreview, setMarkdownPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
+  const [summaryPreview, setSummaryPreview] = useState<{ itemId: string; title: string; content: string } | null>(null);
+  const [summaryBusyItemId, setSummaryBusyItemId] = useState<string | null>(null);
+  const [ttsRequestBusyItemId, setTtsRequestBusyItemId] = useState<string | null>(null);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
   const shareActionFeedbackTimerRef = useRef<number | null>(null);
@@ -315,18 +365,31 @@ export function DashboardClient({
   const showItemsSection = viewMode === "workspace";
   const showDiagnosticsSection = !readOnly && isDemoAccount && viewMode === "workspace";
   const showSubmissionQuota = showSubmissionSection && Boolean(submissionQuota);
+  const summaryModeEnabled = processingMode === "SUMMARY_ONLY";
+  const paidSummaryBlocked =
+    Boolean(submissionQuota?.isPaid) &&
+    summaryModeEnabled &&
+    ((submissionQuota?.dailySummaryLimit ?? 0) <= 0 || (submissionQuota?.remainingDailySummaries ?? 0) <= 0);
   const paidQueueFull =
     Boolean(submissionQuota?.isPaid) &&
+    !summaryModeEnabled &&
     (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0 &&
     (submissionQuota?.maxDeferredPodcasts ?? 0) > 0 &&
     (submissionQuota?.queuedDeferredPodcasts ?? 0) >= (submissionQuota?.maxDeferredPodcasts ?? 0);
-  const paidWillDefer = Boolean(submissionQuota?.isPaid) && !paidQueueFull && (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0;
+  const paidWillDefer =
+    Boolean(submissionQuota?.isPaid) && !summaryModeEnabled && !paidQueueFull && (submissionQuota?.remainingDailyPodcasts ?? 0) <= 0;
   const submissionBlocked =
     showSubmissionQuota &&
-    (paidQueueFull || (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
+    (paidQueueFull || paidSummaryBlocked || (!submissionQuota?.isPaid && (submissionQuota?.remainingFreeSubmissions ?? 0) <= 0));
   const submissionQuotaMessage = showSubmissionQuota
     ? submissionQuota?.isPaid
-      ? paidQueueFull
+      ? summaryModeEnabled
+        ? paidSummaryBlocked
+          ? `Pro plan: ${submissionQuota?.dailySummaryLimit ?? 0} summary-mode items can start in the current 24-hour window.`
+          : `Summary Mode: ${submissionQuota?.remainingDailySummaries ?? 0} of ${
+              submissionQuota?.dailySummaryLimit ?? 0
+            } item summaries can start in the current 24-hour window.`
+        : paidQueueFull
         ? "The current Pro window and overflow queue are full. Try again later."
         : paidWillDefer
           ? `The current Pro window is full, but new submissions still queue automatically. ${
@@ -417,6 +480,23 @@ export function DashboardClient({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!summaryPreview) {
+      return;
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSummaryPreview(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [summaryPreview]);
 
   const showShareActionFeedback = useCallback((feedback: Exclude<ShareActionFeedback, null>) => {
     if (shareActionFeedbackTimerRef.current !== null) {
@@ -583,6 +663,7 @@ export function DashboardClient({
           url: urlInput,
           title: titleInput.trim() || undefined,
           importance: importanceInput,
+          mode: summaryModeEnabled ? "summary" : "full",
           tags: tagsInput
         })
       });
@@ -625,6 +706,7 @@ export function DashboardClient({
         formData.set("title", titleInput.trim());
       }
       formData.set("importance", importanceInput);
+      formData.set("mode", summaryModeEnabled ? "summary" : "full");
       formData.set("tags", tagsInput);
 
       const response = await fetch("/api/items/pdf", {
@@ -781,6 +863,78 @@ export function DashboardClient({
   async function retryItem(id: string) {
     await fetch(`/api/items/${id}/retry`, { method: "POST" });
     await refreshItems();
+  }
+
+  async function saveProcessingMode(nextMode: "FULL_EPISODE" | "SUMMARY_ONLY") {
+    const previousMode = processingMode;
+    setProcessingMode(nextMode);
+    setIsProcessingModeBusy(true);
+    setStatusMessage(null);
+    try {
+      const response = await fetch("/api/account/processing-mode", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ mode: nextMode })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setProcessingMode(previousMode);
+        setStatusMessage(json.error_message || "Could not save processing mode.");
+        return;
+      }
+      setProcessingMode(json.mode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE");
+      setStatusMessage(json.mode === "SUMMARY_ONLY" ? "Summary Mode enabled for new items." : "Full episode mode enabled for new items.");
+    } finally {
+      setIsProcessingModeBusy(false);
+    }
+  }
+
+  async function viewSummary(item: DashboardItem) {
+    setStatusMessage(null);
+    setSummaryBusyItemId(item.id);
+    try {
+      const response = await fetch(`/api/items/${item.id}/summary`);
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Summary is not available yet.");
+        return;
+      }
+      setSummaryPreview({
+        itemId: item.id,
+        title: json.title || item.summaryTitle || item.title || "Untitled item",
+        content: json.markdown || ""
+      });
+    } finally {
+      setSummaryBusyItemId((current) => (current === item.id ? null : current));
+    }
+  }
+
+  async function requestTts(item: DashboardItem) {
+    setStatusMessage(null);
+    setTtsRequestBusyItemId(item.id);
+    try {
+      const response = await fetch(`/api/items/${item.id}/request-tts`, {
+        method: "POST"
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setStatusMessage(json.error_message || "Could not request TTS for this item.");
+        return;
+      }
+      setSubmissionQuota(json.submission_quota ?? submissionQuota);
+      setStatusMessage(
+        json.already_ready
+          ? "TTS is already ready for this item."
+          : json.already_queued
+            ? "TTS is already queued for this item."
+            : json.accepted_message || "TTS requested. Audio will appear when processing completes."
+      );
+      await refreshItems();
+    } finally {
+      setTtsRequestBusyItemId((current) => (current === item.id ? null : current));
+    }
   }
 
   async function deleteItem(item: DashboardItem) {
@@ -1540,6 +1694,25 @@ export function DashboardClient({
               <h2 className="text-lg font-semibold">Recent items</h2>
               <p className="text-sm text-[var(--muted)]">Track processing, play finished audio, and clean up older saves from one list.</p>
             </div>
+            {!readOnly ? (
+              <label className="mt-2 flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-[rgba(31,42,31,0.12)] bg-white px-3 py-2 text-sm sm:mt-0 sm:w-auto">
+                <span>
+                  <span className="block font-medium">Summary Mode</span>
+                  <span className="block text-xs text-[var(--muted)]">
+                    {summaryModeEnabled ? "New items save summaries first." : "New items become podcast episodes."}
+                  </span>
+                </span>
+                <input
+                  className="h-5 w-5 accent-[var(--accent)]"
+                  type="checkbox"
+                  checked={summaryModeEnabled}
+                  disabled={isProcessingModeBusy}
+                  onChange={(event) => {
+                    void saveProcessingMode(event.target.checked ? "SUMMARY_ONLY" : "FULL_EPISODE");
+                  }}
+                />
+              </label>
+            ) : null}
           </div>
 
           <div className="space-y-3">
@@ -1554,8 +1727,13 @@ export function DashboardClient({
               const mediaUrl = item.episode
                 ? `/api/media/${item.episode.audioPath}?mt=${encodeURIComponent(item.episode.mediaToken)}&eid=${encodeURIComponent(item.episode.id)}`
                 : null;
-              const helpText = statusHelpText(item.status, item.errorMessage);
+              const helpText = itemStatusHelpText(item);
               const showRetry = statusText === "FAILED" && !recommendsChromeExtensionCapture(item.errorMessage);
+              const hasSummary = item.summaryStatus === "SUCCEEDED";
+              const isSummaryItem = item.processingMode === "SUMMARY_ONLY";
+              const canRequestTts = !readOnly && isSummaryItem && hasSummary && !item.episode && !isPendingStatus(item.status);
+              const isViewingSummary = summaryBusyItemId === item.id;
+              const isRequestingTts = ttsRequestBusyItemId === item.id;
               const shareFeedback = shareActionFeedback?.itemId === item.id ? shareActionFeedback : null;
               const isShareBusy = shareBusyState?.itemId === item.id;
               const isCreatingShare = isShareBusy && shareBusyState?.action === "create";
@@ -1564,13 +1742,21 @@ export function DashboardClient({
               const shareFeedbackClassName = shareFeedback?.kind === "error" ? "text-[var(--danger)]" : "text-emerald-700";
               const itemActionClassName =
                 "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
-              const hasActionRow = Boolean(mediaUrl) || !readOnly;
+              const hasActionRow = Boolean(mediaUrl) || hasSummary || !readOnly;
               const isDeletingItem = deleteBusyItemId === item.id;
 
               return (
                 <article key={item.id} className="rounded-xl border p-3 sm:p-4">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <span className={`badge ${badgeClass}`}>{item.status.toLowerCase()}</span>
+                    <span className="rounded-full border border-[rgba(31,42,31,0.12)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
+                      {isSummaryItem ? "summary" : "episode"}
+                    </span>
+                    {item.summaryStatus !== "NOT_REQUESTED" ? (
+                      <span className={`badge ${item.summaryStatus === "SUCCEEDED" ? "ready" : item.summaryStatus.toLowerCase()}`}>
+                        {summaryStatusLabel(item.summaryStatus)}
+                      </span>
+                    ) : null}
                     <span className="text-xs uppercase tracking-wide text-[var(--muted)]">{sourceTypeBadgeLabel(item.sourceType)}</span>
                     <span className="text-xs text-[var(--muted)]">{new Date(item.createdAt).toLocaleString()}</span>
                   </div>
@@ -1624,6 +1810,16 @@ export function DashboardClient({
                           <a className={itemActionClassName} download href={mediaUrl}>
                             Download
                           </a>
+                        ) : null}
+                        {hasSummary ? (
+                          <button className={itemActionClassName} disabled={isViewingSummary} onClick={() => viewSummary(item)}>
+                            {isViewingSummary ? "Opening summary..." : "View summary"}
+                          </button>
+                        ) : null}
+                        {canRequestTts ? (
+                          <button className={itemActionClassName} disabled={isRequestingTts} onClick={() => requestTts(item)}>
+                            {isRequestingTts ? "Requesting TTS..." : "Request TTS"}
+                          </button>
                         ) : null}
                         {!readOnly && isAdmin ? (
                           <button
@@ -1727,6 +1923,35 @@ export function DashboardClient({
             })}
           </div>
         </section>
+      ) : null}
+
+      {summaryPreview ? (
+        <div className="fixed inset-0 z-40 bg-[rgba(15,23,42,0.28)]" role="dialog" aria-modal="true" aria-label="Item summary">
+          <div className="flex min-h-full justify-end">
+            <section className="flex h-screen w-full flex-col bg-white shadow-2xl sm:max-w-xl">
+              <header className="border-b px-4 py-3 sm:px-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">Summary</p>
+                    <h2 className="mt-0.5 break-words text-base font-semibold">{summaryPreview.title}</h2>
+                  </div>
+                  <button
+                    className="rounded-lg border px-3 py-1.5 text-xs"
+                    onClick={() => setSummaryPreview(null)}
+                    type="button"
+                  >
+                    Close
+                  </button>
+                </div>
+              </header>
+              <article className="prose prose-sm max-w-none flex-1 overflow-auto px-4 py-4 prose-a:text-[rgba(31,122,90,1)] prose-headings:text-[var(--ink)] prose-p:text-[var(--ink)] prose-ul:my-3 prose-ol:my-3 prose-li:my-1 sm:px-5">
+                <ReactMarkdown rehypePlugins={[rehypeSanitize]} remarkPlugins={[remarkGfm]}>
+                  {summaryPreview.content || "Summary is empty."}
+                </ReactMarkdown>
+              </article>
+            </section>
+          </div>
+        </div>
       ) : null}
 
       {recentItemsToast ? (

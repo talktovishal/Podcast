@@ -7,18 +7,20 @@ Related indexes:
 
 ## What ArticlePod does
 
-ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes and a personal wiki, then publishes the listening side through a private RSS feed.
+ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes or per-item summaries, compounds saved reading into a personal wiki, and publishes the listening side through private RSS feeds.
 
 ## User flow
 
 1. Sign in with local credentials (or OAuth when configured).
 2. Submit URL, upload PDF, or capture page from Chrome extension, with optional importance and comma-separated tags.
-3. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
-4. Episode appears in recent items and private RSS feed.
-5. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
-6. Logged-in users can submit message-first product feedback at `/app/feedback`.
-7. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
-8. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
+3. On `/app`, choose the default processing mode: full episode or Summary Mode.
+4. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
+5. Full episode items create audio and appear in recent items and the private RSS feed.
+6. Summary Mode items create canonical markdown plus a per-item summary; users can read the summary from the recent-items drawer or explicitly choose `Request TTS` later.
+7. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
+8. Logged-in users can submit message-first product feedback at `/app/feedback`.
+9. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
+10. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
 
 ## Accounts
 
@@ -39,14 +41,14 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - after quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
   - admin can grant extra submission credits or add complimentary Pro access from `/admin`
   - paid access is plan-specific by default:
-    - `Pro monthly`: 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days
-    - `Pro annual`: 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
+    - `Pro monthly`: 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days
+    - `Pro annual`: 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
   - after paid users fill the current 24-hour episode-start window, new submissions are still accepted and queued for the next available Pro window
   - paid submissions only hard-fail once the deferred overflow queue reaches its cap (default: `30`)
 - Billing:
   - `/pricing` supports self-serve upgrade to `Pro monthly` or `Pro annual` through Stripe-hosted Checkout when billing env vars are configured
   - `/pricing` now presents `Starter`, `Pro monthly` at `$15/mo`, and `Pro annual` at `$130/yr`
-  - the annual plan is intentionally positioned as the strongest offer: it saves nearly 30% and carries the higher 15-episode daily capacity
+  - the annual plan is intentionally positioned as the strongest offer: it saves nearly 30% and carries the higher 15-episode daily capacity, 45-item daily Summary Mode capacity, and 30 manual summaries per 7 days
   - `/pricing` includes explicit billing policy copy: billed upfront, auto-renews until canceled, and access stays active through the current paid period after cancelation
   - browser clients send only approved internal plan keys; raw Stripe price ids are never accepted from the browser
   - `/app` and `/app/settings` show current live plan, renewal date, cancel-at-period-end state, pending activation, and payment-issue recovery messaging, then link to Stripe Customer Portal for self-serve management
@@ -58,6 +60,24 @@ Set passwords via environment variables before seeding (see `.env.example`):
   - `/app/feedback` collects required freeform message plus optional type/feature metadata.
   - contact checkbox defaults to opt-in per submission.
   - admin can triage suggestions from `/admin`.
+
+## Summary Mode
+
+Available in `/app`:
+
+- `Summary Mode` is a per-user default for new URL/PDF/Chrome captures.
+- `FULL_EPISODE` keeps the existing extract -> TTS -> episode -> RSS behavior.
+- `SUMMARY_ONLY` extracts and stores canonical markdown, generates an item summary asynchronously, skips TTS/audio/RSS by default, and keeps the finished summary readable from Recent items.
+- `Request TTS` on a summary item queues a `REQUEST_TTS` job that consumes normal podcast capacity and generates full-article audio using stored canonical markdown when available.
+- Daily/weekly digest generation prefers the stored item summary when present and falls back to canonical article markdown.
+- Wiki preparation keeps full article markdown as the authoritative source body while prepending the item summary as compact guidance for that source.
+
+Summary Mode APIs:
+
+- `GET /api/account/processing-mode`
+- `POST /api/account/processing-mode`
+- `GET /api/items/:id/summary`
+- `POST /api/items/:id/request-tts`
 
 ## Chrome extension
 
@@ -338,6 +358,7 @@ Current (`M57`-`M64` implemented):
 - URL HTML extraction now runs both the existing `Readability` path and `defuddle` against the same HTML, scores both candidates, and logs the winning engine plus per-engine diagnostics before persistence.
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - canonical item, digest, and summary markdown now lives under `users/<userId>/markdown/...`; raw source artifacts, uploads, and audio continue to use their existing namespaces.
+- Summary Mode item summaries are stored at `users/<userId>/markdown/items/<itemId>/summary.md`; canonical full-article markdown remains at `users/<userId>/markdown/items/<itemId>/canonical.md`.
 - source-item persistence cleanup is now conservative: it removes obvious wrapper junk plus footer/legal/navigation/share noise while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in `MARKDOWN`.
 - malformed leaked image wrapper fragments are normalized into URL-bearing stored content instead of being dropped outright, so the durable artifact keeps useful references while narration still suppresses them.
 - cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.

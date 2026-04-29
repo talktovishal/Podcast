@@ -2,9 +2,9 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-11)
+## Spec Status (as of 2026-04-29)
 
-### Implemented (as of 2026-04-11)
+### Implemented (as of 2026-04-29)
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
@@ -118,7 +118,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Submission monetization baseline is implemented:
   - free users are limited to a default of 2 submissions (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - once free quota is exhausted, ingest APIs return `USAGE_LIMIT_EXCEEDED`
-  - paid access now uses plan-specific guardrails by default: `Pro monthly` includes 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
+  - paid access now uses plan-specific guardrails by default: `Pro monthly` includes 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days; `Pro annual` includes 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
   - once paid users fill the 24-hour episode-start window, new submissions are still accepted into a capped deferred queue and start automatically in the next available Pro window
   - paid over-limit submissions only return `USAGE_LIMIT_EXCEEDED` after the deferred backlog reaches its cap (default: 30 queued items)
   - admin dashboard includes user-level quota controls (`complimentaryPro` override + extra submission credits)
@@ -199,6 +199,13 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - fast polling while jobs are actively processing
   - slower visible-tab polling while idle
   - immediate refresh on tab focus/visibility return for external captures (for example Chrome extension submits)
+- Summary Mode is implemented on the Episodes workspace:
+  - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from `/app` through `GET/POST /api/account/processing-mode`.
+  - URL, PDF, and Chrome extension captures inherit the user's default unless the web submit flow explicitly sends `mode=full` or `mode=summary`.
+  - summary-only item jobs still extract and store canonical article markdown, then write a per-item summary markdown artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
+  - summary-only items do not synthesize TTS, create `Episode` rows, or publish to the main RSS feed until the user explicitly chooses `Request TTS`.
+  - `Request TTS` queues a `REQUEST_TTS` item job that consumes normal podcast capacity and generates full-article audio using the stored canonical markdown when available.
+  - Recent items shows summary status, opens finished summaries in a drawer/sheet, and keeps summary viewing separate from podcast audio playback.
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.
@@ -211,6 +218,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - Azure OpenAI summary provider is implemented with `nano`-first routing, `mini` fallback, and deterministic structured markdown/text output.
   - podcast-enabled manual summaries now publish into the main private RSS/media feed alongside regular episodes instead of a separate summary-only feed surface.
   - Azure deploy helpers can provision Azure OpenAI resources and render runtime env without requiring manual portal setup.
+- Digest and wiki synthesis now reuse per-item summaries when present:
+  - scheduled digest generation prefers each item's stored summary markdown and falls back to canonical full-article markdown when the item summary is missing.
+  - wiki preparation keeps full article markdown as the authoritative corpus body while prepending the item summary as compact guidance for pages built from that source.
 - Public episode sharing (`M104`) is implemented:
   - owners can create one stable, revocable public share link per ready item episode from `/app`.
   - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still create/copy existing links immediately with inline confirmation feedback, revoke confirms in place, and delete now uses a brief transient toast plus `Deleting...` button state so removal is visually obvious after the row disappears.

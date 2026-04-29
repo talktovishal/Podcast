@@ -243,7 +243,7 @@ test("summary runs endpoint scrubs technical failure details into user-friendly 
   }
 });
 
-test("paid users are capped at five manual summaries per 7 days", async () => {
+test("paid monthly users are capped at fifteen manual summaries per 7 days", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-summary-limit`;
   const storage = getArtifactStorage();
@@ -287,7 +287,7 @@ test("paid users are capped at five manual summaries per 7 days", async () => {
       }
     });
 
-    for (let index = 0; index < 5; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       await prisma.summaryRun.create({
         data: {
           userId: user.id,
@@ -326,13 +326,13 @@ test("paid users are capped at five manual summaries per 7 days", async () => {
     };
     assert.equal(payload.ok, false);
     assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
-    assert.equal(payload.error_message.includes("5 manual summaries per 7 days"), true);
+    assert.equal(payload.error_message.includes("15 manual summaries per 7 days"), true);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
 
-test("paid annual users are capped at ten manual summaries per 7 days", async () => {
+test("paid annual users are capped at thirty manual summaries per 7 days", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-summary-limit-annual`;
   const storage = getArtifactStorage();
@@ -376,7 +376,7 @@ test("paid annual users are capped at ten manual summaries per 7 days", async ()
       }
     });
 
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 30; index += 1) {
       await prisma.summaryRun.create({
         data: {
           userId: user.id,
@@ -415,7 +415,7 @@ test("paid annual users are capped at ten manual summaries per 7 days", async ()
     };
     assert.equal(payload.ok, false);
     assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
-    assert.equal(payload.error_message.includes("10 manual summaries per 7 days"), true);
+    assert.equal(payload.error_message.includes("30 manual summaries per 7 days"), true);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

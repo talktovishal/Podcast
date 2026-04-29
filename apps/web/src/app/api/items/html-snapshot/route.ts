@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       title: payload.title,
       importance: payload.importance,
       tags: payload.tags,
+      mode: payload.mode,
       sourceType: "HTML_SNAPSHOT",
       sourceUrl: payload.url,
       sourceFilePath: snapshotKey,

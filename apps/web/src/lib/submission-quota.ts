@@ -1,10 +1,11 @@
 import { AppError, errorCodes } from "@articlepod/core";
+import type { ItemJobKind } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
 import { refreshBillingStateFromStripe } from "./billing";
 import { env } from "./env";
 import { findPrimaryUserById, updatePrimaryUser } from "./metadata-primary-auth";
 import { webPrimaryStore } from "./metadata-primary-store";
-import { maxPaidDailyPodcastLimit, paidPlanConfigForAccess } from "./paid-plan-config";
+import { maxPaidDailyPodcastLimit, maxPaidDailySummaryLimit, paidPlanConfigForAccess } from "./paid-plan-config";
 import { prisma } from "./prisma";
 
 type QuotaDbClient = Prisma.TransactionClient | typeof prisma;
@@ -31,6 +32,9 @@ export type SubmissionQuotaSnapshot = {
   dailyPodcastLimit: number | null;
   podcastsUsedLast24Hours: number;
   remainingDailyPodcasts: number | null;
+  dailySummaryLimit: number | null;
+  summariesUsedLast24Hours: number;
+  remainingDailySummaries: number | null;
   queuedDeferredPodcasts: number;
   maxDeferredPodcasts: number | null;
 };
@@ -52,6 +56,8 @@ type PaidSubmissionScheduleState = {
   deferredQueueCount: number;
   scheduledSlots: Date[];
 };
+
+type PaidCapacityKind = "podcast" | "summary";
 
 function nonNegativeInt(value: number): number {
   if (!Number.isFinite(value) || value < 0) {
@@ -86,12 +92,39 @@ function limitMessage(snapshot: SubmissionQuotaSnapshot): string {
   return `You have used all ${allowance} free submission ${allowance === 1 ? "try" : "tries"}. Upgrade to a paid plan or ask an admin for extra quota.`;
 }
 
+function paidCapacityLabel(kind: PaidCapacityKind): string {
+  return kind === "summary" ? "summary-mode item summaries" : "new podcast episodes";
+}
+
+function limitMessageForKind(snapshot: SubmissionQuotaSnapshot, kind: PaidCapacityKind): string {
+  if (!snapshot.isPaid) {
+    return limitMessage(snapshot);
+  }
+
+  const limit = kind === "summary" ? snapshot.dailySummaryLimit ?? 0 : snapshot.dailyPodcastLimit ?? 0;
+  if (limit <= 0) {
+    return `${paidCapacityLabel(kind)} are temporarily disabled for paid accounts in this environment.`;
+  }
+
+  if (
+    kind === "podcast" &&
+    (snapshot.remainingDailyPodcasts ?? 0) <= 0 &&
+    snapshot.maxDeferredPodcasts !== null &&
+    snapshot.queuedDeferredPodcasts >= snapshot.maxDeferredPodcasts
+  ) {
+    return `This Pro plan includes ${limit} ${paidCapacityLabel(kind)} per 24 hours plus ${snapshot.maxDeferredPodcasts} queued overflow spot${snapshot.maxDeferredPodcasts === 1 ? "" : "s"}. The queue is full for now. Please try again later.`;
+  }
+
+  return `This Pro plan includes ${limit} ${paidCapacityLabel(kind)} per 24 hours. This account has reached that limit for now.`;
+}
+
 export function buildSubmissionQuotaSnapshot(input: {
   isPaid: boolean;
   billingPlanCode?: string | null;
   submissionCount: number;
   extraSubmissionCredits: number;
   podcastsUsedLast24Hours?: number;
+  summariesUsedLast24Hours?: number;
   queuedDeferredPodcasts?: number;
 }): SubmissionQuotaSnapshot {
   const freeTrialSubmissionLimit = nonNegativeInt(env.freeTrialSubmissionLimit);
@@ -100,10 +133,12 @@ export function buildSubmissionQuotaSnapshot(input: {
     billingPlanCode: input.billingPlanCode
   });
   const dailyPodcastLimit = paidPlan ? nonNegativeInt(paidPlan.dailyPodcastLimit) : null;
+  const dailySummaryLimit = paidPlan ? nonNegativeInt(paidPlan.dailySummaryLimit) : null;
   const extraSubmissionCredits = nonNegativeInt(input.extraSubmissionCredits);
   const totalFreeSubmissionAllowance = freeTrialSubmissionLimit + extraSubmissionCredits;
   const submissionCount = nonNegativeInt(input.submissionCount);
   const podcastsUsedLast24Hours = input.isPaid ? nonNegativeInt(input.podcastsUsedLast24Hours ?? 0) : 0;
+  const summariesUsedLast24Hours = input.isPaid ? nonNegativeInt(input.summariesUsedLast24Hours ?? 0) : 0;
   const queuedDeferredPodcasts = input.isPaid ? nonNegativeInt(input.queuedDeferredPodcasts ?? 0) : 0;
   const maxDeferredPodcasts = input.isPaid && dailyPodcastLimit !== null ? dailyPodcastLimit * PAID_DEFERRED_BACKLOG_MULTIPLIER : null;
 
@@ -117,6 +152,9 @@ export function buildSubmissionQuotaSnapshot(input: {
     dailyPodcastLimit,
     podcastsUsedLast24Hours,
     remainingDailyPodcasts: input.isPaid && dailyPodcastLimit !== null ? Math.max(0, dailyPodcastLimit - podcastsUsedLast24Hours) : null,
+    dailySummaryLimit,
+    summariesUsedLast24Hours,
+    remainingDailySummaries: input.isPaid && dailySummaryLimit !== null ? Math.max(0, dailySummaryLimit - summariesUsedLast24Hours) : null,
     queuedDeferredPodcasts,
     maxDeferredPodcasts
   };
@@ -159,13 +197,28 @@ function buildPaidSubmissionScheduleState(entries: SubmissionScheduleEntry[], no
   };
 }
 
-async function getPaidSubmissionScheduleState(userId: string, now: Date, tx?: QuotaDbClient): Promise<PaidSubmissionScheduleState> {
+function capacityKindForJobKind(jobKind: ItemJobKind): PaidCapacityKind {
+  return jobKind === "SUMMARY_ONLY" ? "summary" : "podcast";
+}
+
+function jobKindsForCapacityKind(kind: PaidCapacityKind): ItemJobKind[] {
+  return kind === "summary" ? ["SUMMARY_ONLY"] : ["FULL_EPISODE", "REQUEST_TTS"];
+}
+
+async function getPaidSubmissionScheduleState(
+  userId: string,
+  now: Date,
+  kind: PaidCapacityKind,
+  tx?: QuotaDbClient
+): Promise<PaidSubmissionScheduleState> {
+  const acceptedJobKinds = new Set(jobKindsForCapacityKind(kind));
   if (env.metadataPrimaryBackend === "azure_table") {
-    const lookbackLimit = Math.max(maxPaidDailyPodcastLimit() * 6, 120);
+    const lookbackLimit = Math.max(maxPaidDailyPodcastLimit() * 6, maxPaidDailySummaryLimit() * 3, 120);
     const jobs = (await webPrimaryStore?.listJobsByUser(userId, lookbackLimit)) ?? [];
     const items = (await webPrimaryStore?.listItemsByUser(userId, lookbackLimit)) ?? [];
     const itemCreatedAtById = new Map(items.map((item) => [item.id, item.createdAt]));
     const entries = jobs
+      .filter((job) => acceptedJobKinds.has(job.jobKind as ItemJobKind))
       .map((job) => {
         const itemCreatedAt = itemCreatedAtById.get(job.itemId);
         const scheduledFor = resolveSubmissionScheduledFor({
@@ -189,6 +242,9 @@ async function getPaidSubmissionScheduleState(userId: string, now: Date, tx?: Qu
   const jobs = await db.job.findMany({
     where: {
       item: { userId },
+      jobKind: {
+        in: [...acceptedJobKinds]
+      },
       OR: [
         {
           scheduledFor: {
@@ -287,11 +343,17 @@ export async function getSubmissionQuotaSnapshot(userId: string, tx?: QuotaDbCli
     if (!user) {
       throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
     }
-    const scheduleState = user.isPaid ? await getPaidSubmissionScheduleState(user.id, nowTs) : null;
+    const [podcastScheduleState, summaryScheduleState] = user.isPaid
+      ? await Promise.all([
+          getPaidSubmissionScheduleState(user.id, nowTs, "podcast"),
+          getPaidSubmissionScheduleState(user.id, nowTs, "summary")
+        ])
+      : [null, null];
     return buildSubmissionQuotaSnapshot({
       ...user,
-      podcastsUsedLast24Hours: scheduleState?.usedLast24Hours ?? 0,
-      queuedDeferredPodcasts: scheduleState?.deferredQueueCount ?? 0
+      podcastsUsedLast24Hours: podcastScheduleState?.usedLast24Hours ?? 0,
+      summariesUsedLast24Hours: summaryScheduleState?.usedLast24Hours ?? 0,
+      queuedDeferredPodcasts: podcastScheduleState?.deferredQueueCount ?? 0
     });
   }
 
@@ -304,12 +366,18 @@ export async function getSubmissionQuotaSnapshot(userId: string, tx?: QuotaDbCli
   if (!user) {
     throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
   }
-  const scheduleState = user.isPaid ? await getPaidSubmissionScheduleState(user.id, nowTs, db) : null;
+  const [podcastScheduleState, summaryScheduleState] = user.isPaid
+    ? await Promise.all([
+        getPaidSubmissionScheduleState(user.id, nowTs, "podcast", db),
+        getPaidSubmissionScheduleState(user.id, nowTs, "summary", db)
+      ])
+    : [null, null];
 
   return buildSubmissionQuotaSnapshot({
     ...user,
-    podcastsUsedLast24Hours: scheduleState?.usedLast24Hours ?? 0,
-    queuedDeferredPodcasts: scheduleState?.deferredQueueCount ?? 0
+    podcastsUsedLast24Hours: podcastScheduleState?.usedLast24Hours ?? 0,
+    summariesUsedLast24Hours: summaryScheduleState?.usedLast24Hours ?? 0,
+    queuedDeferredPodcasts: podcastScheduleState?.deferredQueueCount ?? 0
   });
 }
 
@@ -317,11 +385,18 @@ function throwQuotaLimitError(snapshot: SubmissionQuotaSnapshot): never {
   throw new AppError(errorCodes.USAGE_LIMIT_EXCEEDED, limitMessage(snapshot), 402);
 }
 
+function throwQuotaLimitErrorForKind(snapshot: SubmissionQuotaSnapshot, kind: PaidCapacityKind): never {
+  throw new AppError(errorCodes.USAGE_LIMIT_EXCEEDED, limitMessageForKind(snapshot, kind), 402);
+}
+
 export async function consumeSubmissionCredit(input: {
   userId: string;
+  jobKind?: ItemJobKind;
   tx?: Prisma.TransactionClient;
 }): Promise<SubmissionCreditOutcome> {
   const nowTs = new Date();
+  const jobKind = input.jobKind ?? "FULL_EPISODE";
+  const capacityKind = capacityKindForJobKind(jobKind);
   await refreshBillingStateFromStripe(input.userId);
   if (env.metadataPrimaryBackend === "azure_table") {
     const user = await findPrimaryUserById(input.userId);
@@ -329,25 +404,42 @@ export async function consumeSubmissionCredit(input: {
       throw new AppError(errorCodes.UNAUTHORIZED, "Unauthorized", 401);
     }
 
-    const scheduleState = user.isPaid ? await getPaidSubmissionScheduleState(user.id, nowTs) : null;
+    const [podcastScheduleState, summaryScheduleState] = user.isPaid
+      ? await Promise.all([
+          getPaidSubmissionScheduleState(user.id, nowTs, "podcast"),
+          getPaidSubmissionScheduleState(user.id, nowTs, "summary")
+        ])
+      : [null, null];
+    const scheduleState = capacityKind === "summary" ? summaryScheduleState : podcastScheduleState;
     const before = buildSubmissionQuotaSnapshot({
       ...user,
-      podcastsUsedLast24Hours: scheduleState?.usedLast24Hours ?? 0,
-      queuedDeferredPodcasts: scheduleState?.deferredQueueCount ?? 0
+      podcastsUsedLast24Hours: podcastScheduleState?.usedLast24Hours ?? 0,
+      summariesUsedLast24Hours: summaryScheduleState?.usedLast24Hours ?? 0,
+      queuedDeferredPodcasts: podcastScheduleState?.deferredQueueCount ?? 0
     });
     if (before.isPaid) {
-      const dailyLimit = before.dailyPodcastLimit ?? 0;
+      const dailyLimit = capacityKind === "summary" ? before.dailySummaryLimit ?? 0 : before.dailyPodcastLimit ?? 0;
+      const remaining = capacityKind === "summary" ? before.remainingDailySummaries ?? 0 : before.remainingDailyPodcasts ?? 0;
       if (dailyLimit <= 0) {
-        throwQuotaLimitError(before);
+        throwQuotaLimitErrorForKind(before, capacityKind);
       }
 
-      if ((before.remainingDailyPodcasts ?? 0) > 0) {
+      if (remaining > 0) {
         return {
           snapshot: {
             ...before,
-            podcastsUsedLast24Hours: before.podcastsUsedLast24Hours + 1,
+            podcastsUsedLast24Hours:
+              capacityKind === "podcast" ? before.podcastsUsedLast24Hours + 1 : before.podcastsUsedLast24Hours,
             remainingDailyPodcasts:
-              before.remainingDailyPodcasts === null ? null : Math.max(0, before.remainingDailyPodcasts - 1)
+              capacityKind === "podcast" && before.remainingDailyPodcasts !== null
+                ? Math.max(0, before.remainingDailyPodcasts - 1)
+                : before.remainingDailyPodcasts,
+            summariesUsedLast24Hours:
+              capacityKind === "summary" ? before.summariesUsedLast24Hours + 1 : before.summariesUsedLast24Hours,
+            remainingDailySummaries:
+              capacityKind === "summary" && before.remainingDailySummaries !== null
+                ? Math.max(0, before.remainingDailySummaries - 1)
+                : before.remainingDailySummaries
           },
           queueMode: "IMMEDIATE",
           scheduledFor: nowTs,
@@ -355,8 +447,12 @@ export async function consumeSubmissionCredit(input: {
         };
       }
 
+      if (capacityKind === "summary") {
+        throwQuotaLimitErrorForKind(before, capacityKind);
+      }
+
       if (before.maxDeferredPodcasts !== null && before.queuedDeferredPodcasts >= before.maxDeferredPodcasts) {
-        throwQuotaLimitError(before);
+        throwQuotaLimitErrorForKind(before, capacityKind);
       }
 
       const scheduledFor = nextSubmissionSlot(scheduleState?.scheduledSlots ?? [], dailyLimit, nowTs);
@@ -409,25 +505,40 @@ export async function consumeSubmissionCredit(input: {
 
   const before = buildSubmissionQuotaSnapshot(user);
   if (before.isPaid) {
-    const scheduleState = await getPaidSubmissionScheduleState(user.id, nowTs, tx);
+    const [podcastScheduleState, summaryScheduleState] = await Promise.all([
+      getPaidSubmissionScheduleState(user.id, nowTs, "podcast", tx),
+      getPaidSubmissionScheduleState(user.id, nowTs, "summary", tx)
+    ]);
+    const scheduleState = capacityKind === "summary" ? summaryScheduleState : podcastScheduleState;
     const paidSnapshot = buildSubmissionQuotaSnapshot({
       ...user,
-      podcastsUsedLast24Hours: scheduleState.usedLast24Hours,
-      queuedDeferredPodcasts: scheduleState.deferredQueueCount
+      podcastsUsedLast24Hours: podcastScheduleState.usedLast24Hours,
+      summariesUsedLast24Hours: summaryScheduleState.usedLast24Hours,
+      queuedDeferredPodcasts: podcastScheduleState.deferredQueueCount
     });
 
-    const dailyLimit = paidSnapshot.dailyPodcastLimit ?? 0;
+    const dailyLimit = capacityKind === "summary" ? paidSnapshot.dailySummaryLimit ?? 0 : paidSnapshot.dailyPodcastLimit ?? 0;
+    const remaining = capacityKind === "summary" ? paidSnapshot.remainingDailySummaries ?? 0 : paidSnapshot.remainingDailyPodcasts ?? 0;
     if (dailyLimit <= 0) {
-      throwQuotaLimitError(paidSnapshot);
+      throwQuotaLimitErrorForKind(paidSnapshot, capacityKind);
     }
 
-    if ((paidSnapshot.remainingDailyPodcasts ?? 0) > 0) {
+    if (remaining > 0) {
       return {
         snapshot: {
           ...paidSnapshot,
-          podcastsUsedLast24Hours: paidSnapshot.podcastsUsedLast24Hours + 1,
+          podcastsUsedLast24Hours:
+            capacityKind === "podcast" ? paidSnapshot.podcastsUsedLast24Hours + 1 : paidSnapshot.podcastsUsedLast24Hours,
           remainingDailyPodcasts:
-            paidSnapshot.remainingDailyPodcasts === null ? null : Math.max(0, paidSnapshot.remainingDailyPodcasts - 1)
+            capacityKind === "podcast" && paidSnapshot.remainingDailyPodcasts !== null
+              ? Math.max(0, paidSnapshot.remainingDailyPodcasts - 1)
+              : paidSnapshot.remainingDailyPodcasts,
+          summariesUsedLast24Hours:
+            capacityKind === "summary" ? paidSnapshot.summariesUsedLast24Hours + 1 : paidSnapshot.summariesUsedLast24Hours,
+          remainingDailySummaries:
+            capacityKind === "summary" && paidSnapshot.remainingDailySummaries !== null
+              ? Math.max(0, paidSnapshot.remainingDailySummaries - 1)
+              : paidSnapshot.remainingDailySummaries
         },
         queueMode: "IMMEDIATE",
         scheduledFor: nowTs,
@@ -435,8 +546,12 @@ export async function consumeSubmissionCredit(input: {
       };
     }
 
+    if (capacityKind === "summary") {
+      throwQuotaLimitErrorForKind(paidSnapshot, capacityKind);
+    }
+
     if (paidSnapshot.maxDeferredPodcasts !== null && paidSnapshot.queuedDeferredPodcasts >= paidSnapshot.maxDeferredPodcasts) {
-      throwQuotaLimitError(paidSnapshot);
+      throwQuotaLimitErrorForKind(paidSnapshot, capacityKind);
     }
 
     const scheduledFor = nextSubmissionSlot(scheduleState.scheduledSlots, dailyLimit, nowTs);

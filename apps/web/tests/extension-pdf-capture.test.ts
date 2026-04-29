@@ -80,11 +80,11 @@ test("detectCaptureTarget falls back to PDF URL detection when contentType is un
 });
 
 test("uploadRemotePdfCapture fetches tab bytes and submits multipart PDF upload", async () => {
-  const seen = [];
+  const seen: Array<{ url: string; method: string }> = [];
   const pdfBytes = Uint8Array.from([37, 80, 68, 70, 45, 49, 46, 55]);
 
   const response = await uploadRemotePdfCapture({
-    fetchImpl: async (url, init = {}) => {
+    fetchImpl: async (url: RequestInfo | URL, init: RequestInit = {}) => {
       seen.push({
         url: String(url),
         method: init.method || "GET",
@@ -104,10 +104,12 @@ test("uploadRemotePdfCapture fetches tab bytes and submits multipart PDF upload"
 
       assert.equal(String(url), "https://articlepod.com/api/items/pdf");
       assert.equal(init.method, "POST");
-      assert.equal(init.headers.authorization, "Bearer extension-token");
-      assert.ok(init.body instanceof FormData);
+      const headers = init.headers as Record<string, string>;
+      assert.equal(headers.authorization, "Bearer extension-token");
+      const body = init.body;
+      assert.ok(body instanceof FormData);
 
-      const file = init.body.get("file");
+      const file = body.get("file");
       assert.ok(file instanceof File);
       assert.equal(file.name, "market-brief.pdf");
       assert.equal(file.type, "application/pdf");
@@ -115,8 +117,8 @@ test("uploadRemotePdfCapture fetches tab bytes and submits multipart PDF upload"
         Array.from(new Uint8Array(await file.arrayBuffer())),
         Array.from(pdfBytes),
       );
-      assert.equal(init.body.get("importance"), "HIGH");
-      assert.equal(init.body.get("tags"), "finance, markets");
+      assert.equal(body.get("importance"), "HIGH");
+      assert.equal(body.get("tags"), "finance, markets");
 
       return new Response(JSON.stringify({ ok: true, item_id: "item-123" }), {
         status: 200,

@@ -6,6 +6,14 @@ import { logger } from "@/lib/logger";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 
+function retryJobKindForItem(item: { processingMode?: string | null }, jobs: Array<{ jobKind?: string | null }>): string {
+  const latestJobKind = jobs[0]?.jobKind;
+  if (latestJobKind === "SUMMARY_ONLY" || latestJobKind === "REQUEST_TTS" || latestJobKind === "FULL_EPISODE") {
+    return latestJobKind;
+  }
+  return item.processingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE";
+}
+
 export async function POST(request: NextRequest, context: { params: { id: string } }) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
@@ -14,22 +22,56 @@ export async function POST(request: NextRequest, context: { params: { id: string
 
   const item =
     webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findItemById(context.params.id)
-      : await prisma.item.findUnique({ where: { id: context.params.id } });
+      ? await (async () => {
+          const [itemRow, jobs] = await Promise.all([
+            webPrimaryStore.findItemById(context.params.id),
+            webPrimaryStore.listJobsByItemId(context.params.id)
+          ]);
+          return itemRow
+            ? {
+                ...itemRow,
+                jobs
+              }
+            : null;
+        })()
+      : await prisma.item.findUnique({
+          where: { id: context.params.id },
+          include: {
+            jobs: {
+              select: {
+                jobKind: true,
+                createdAt: true
+              },
+              orderBy: { createdAt: "desc" },
+              take: 1
+            }
+          }
+        });
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
   }
 
+  const jobKind = retryJobKindForItem(item, item.jobs);
+  const retryItemPatch = {
+    status: "QUEUED",
+    errorCode: null,
+    errorMessage: null,
+    ...(jobKind === "SUMMARY_ONLY"
+      ? {
+          summaryStatus: "PROCESSING",
+          summaryErrorCode: null,
+          summaryErrorMessage: null
+        }
+      : {})
+  };
+
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
-    await webPrimaryStore.updateItem(item.id, {
-      status: "QUEUED",
-      errorCode: null,
-      errorMessage: null
-    });
+    await webPrimaryStore.updateItem(item.id, retryItemPatch);
     const createdJob = await webPrimaryStore.createJob({
       id: randomUUID(),
       itemId: item.id,
       userId: item.userId,
+      jobKind,
       status: "QUEUED"
     });
     try {
@@ -48,9 +90,9 @@ export async function POST(request: NextRequest, context: { params: { id: string
     }
   } else {
     const createdJob = await prisma.$transaction(async (tx) => {
-      await tx.item.update({ where: { id: item.id }, data: { status: "QUEUED", errorCode: null, errorMessage: null } });
+      await tx.item.update({ where: { id: item.id }, data: retryItemPatch });
       const job = await tx.job.create({
-        data: { itemId: item.id, status: "QUEUED" },
+        data: { itemId: item.id, jobKind, status: "QUEUED" },
         select: {
           id: true
         }

@@ -37,11 +37,19 @@ type DashboardItemRecord = {
   sourceHtml: string | null;
   sourceCapturedAt: Date | null;
   status: string;
+  processingMode: string;
   importance: DashboardItemImportance;
   tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
+  summaryStatus: string;
+  summaryTitle: string | null;
+  summaryStorageKey: string | null;
+  summaryBytes: number | null;
+  summaryErrorCode: string | null;
+  summaryErrorMessage: string | null;
+  summaryCompletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   share:
@@ -98,11 +106,19 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
       sourceHtml: item.sourceHtml,
       sourceCapturedAt: item.sourceCapturedAt,
       status: item.status,
+      processingMode: item.processingMode,
       importance: item.priority as DashboardItemImportance,
       tags: item.tags,
       errorCode: item.errorCode,
       errorMessage: item.errorMessage,
       textHash: item.textHash,
+      summaryStatus: item.summaryStatus,
+      summaryTitle: item.summaryTitle,
+      summaryStorageKey: item.summaryStorageKey,
+      summaryBytes: item.summaryBytes,
+      summaryErrorCode: item.summaryErrorCode,
+      summaryErrorMessage: item.summaryErrorMessage,
+      summaryCompletedAt: item.summaryCompletedAt,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       share: sharesByItemId.get(item.id) ?? null,
@@ -129,11 +145,19 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
     sourceHtml: item.sourceHtml,
     sourceCapturedAt: item.sourceCapturedAt,
     status: item.status,
+    processingMode: item.processingMode,
     importance: item.priority as DashboardItemImportance,
     tags: parseStoredItemTags(item.tagsJson),
     errorCode: item.errorCode,
     errorMessage: item.errorMessage,
     textHash: item.textHash,
+    summaryStatus: item.summaryStatus,
+    summaryTitle: item.summaryTitle,
+    summaryStorageKey: item.summaryStorageKey,
+    summaryBytes: item.summaryBytes,
+    summaryErrorCode: item.summaryErrorCode,
+    summaryErrorMessage: item.summaryErrorMessage,
+    summaryCompletedAt: item.summaryCompletedAt,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     share: sharesByItemId.get(item.id) ?? null,

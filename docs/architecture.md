@@ -11,7 +11,7 @@ ArticlePod is an RSS-first ingestion and narration system with three runtime tie
 Primary entities:
 - `User`, `Session`, `FeedToken`, `ShareToken`
 - `Item` (source submission lifecycle)
-- `Job` + `JobEvent` (worker queue and deterministic events)
+- `Job` + `JobEvent` (worker queue and deterministic events; `jobKind` distinguishes `FULL_EPISODE`, `SUMMARY_ONLY`, and explicit `REQUEST_TTS`)
 - `Episode` (RSS/media metadata)
 - `ItemArtifact` (raw + markdown extraction artifact metadata)
 - `ChunkCache` (idempotent synthesis cache)
@@ -27,6 +27,7 @@ Primary entities:
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
 - `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
 - `Item` also carries an optional compact HTML extraction-selection scorecard (`extractionEngine`, `extractionSelectionMode`, `extractionScoreMargin`, `extractionSummaryJson`, `extractionSelectionRecordedAt`) so production trends can be queried from the primary metadata store without persisting verbose logs there.
+- `Item` also carries Summary Mode state (`processingMode`, `summaryStatus`, `summaryStorageKey`, provider/model/deployment/token metadata, and summary error/completion fields) so summary-only captures can finish without creating audio.
 - Published personal wiki artifacts are blob-only in v1, keyed per user under `users/<userId>/wiki/...`; no new Prisma or Azure Table primary entities are required for the wiki workflow.
 
 Auth profile metadata on `User`:
@@ -47,6 +48,7 @@ Monetization/quota fields on `User`:
 - `isPaid` (effective access cache derived from billing state + complimentary override)
 - `submissionCount` (lifetime submission usage counter)
 - `extraSubmissionCredits` (admin-granted free-tier extensions)
+- `defaultItemProcessingMode` (`FULL_EPISODE` or `SUMMARY_ONLY`) for new captures when the request does not explicitly choose a mode
 - `BillingWebhookEvent` (Stripe event idempotency + audit rows, including event/object ids, invoice ids, and apply result)
 - `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
 - `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
@@ -69,6 +71,7 @@ Current behavior (`M57`-`M64` implemented):
 - worker persists dual artifacts in object storage:
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
   - cleaned extracted item markdown artifacts retained under `users/<userId>/markdown/items/<itemId>/canonical.md`
+  - Summary Mode item summary markdown retained under `users/<userId>/markdown/items/<itemId>/summary.md`
   - digest summary/email markdown retained under `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`
   - manual summary markdown retained under `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`
   - generated item/digest/summary episode audio retained for 60 days from `publishedAt` before purge removes the blob/object and episode row
@@ -96,11 +99,22 @@ Current behavior (`M57`-`M64` implemented):
    - the durable job row carries `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
    - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
-4. Worker chunks text deterministically and rejects sources above `WORKER_TTS_MAX_CHUNKS` before TTS starts.
-5. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
-6. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
-7. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
-8. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error, then acknowledges or requeues the dispatch message.
+4. For `SUMMARY_ONLY`, worker generates and stores item summary markdown, marks the item ready, and skips TTS/audio/RSS publication.
+5. For `FULL_EPISODE` and `REQUEST_TTS`, worker chunks text deterministically and rejects sources above `WORKER_TTS_MAX_CHUNKS` before TTS starts.
+6. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
+7. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
+8. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
+9. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error, then acknowledges or requeues the dispatch message.
+
+## Summary Mode pipeline
+1. User toggles `/app` between `FULL_EPISODE` and `SUMMARY_ONLY`; the default persists on `User.defaultItemProcessingMode`.
+2. Submit routes pass an explicit `mode` from the web form or inherit the persisted default for Chrome/PDF/API captures.
+3. `SUMMARY_ONLY` jobs store canonical item markdown exactly like full episodes, then call the summary provider with `kind=item_summary`.
+4. Summary output is stored at `users/<userId>/markdown/items/<itemId>/summary.md` and reflected on the `Item.summary*` metadata fields.
+5. No `Episode`, audio object, RSS item, or media token is created for summary-only completion.
+6. `POST /api/items/:id/request-tts` queues a `REQUEST_TTS` job, consumes normal podcast capacity, and the worker prefers the stored canonical markdown so explicit audio requests do not depend on re-fetching the original page.
+7. Retry preserves the last job kind, so summary failures retry as summaries and failed explicit TTS requests retry as TTS.
+8. Downstream synthesis reads summary artifacts selectively: digests prefer them as compact source inputs, while wiki preparation prepends them to the full article markdown instead of replacing the source.
 
 ## Billing flow
 1. Authenticated user starts `Pro monthly` or `Pro annual` checkout from `/pricing` or `/app/settings`.
@@ -116,7 +130,7 @@ Current behavior (`M57`-`M64` implemented):
 1. User configures digest preferences in `/app/settings` (daily/weekly email + podcast, timezone, schedule, target length).
 2. Worker scheduler pass evaluates due windows from `UserDigestSettings`.
 3. Scheduler enqueues idempotent `DigestRun` rows keyed by `(userId, cadence, periodKey)`.
-4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
+4. Digest processor claims queued/retryable runs and loads READY source items in window, preferring each stored item summary and falling back to canonical item markdown when no item summary exists.
 5. Summary provider adapter generates digest markdown/text (stub, proxy, or Azure OpenAI depending on runtime env), while persisting provider/model/deployment/token usage metadata.
 6. Processor persists digest summary/email markdown under deterministic `users/<userId>/markdown/digests/...` keys; email sender adapter records stub delivery status.
 7. When enabled, processor derives narration text from stored digest markdown with the shared summary cleanup pass, then synthesizes audio and upserts `DigestEpisode`.
@@ -126,7 +140,7 @@ Current behavior (`M57`-`M64` implemented):
 1. Signed-in user opens `/app/summary`.
 2. Web lists READY items with markdown artifacts, default-selecting the last 7 days up to 30 items.
 3. User optionally refines selection, title, target length (`5 / 15 / 30`), and podcast toggle, then creates a `SummaryRun`.
-4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
+4. Worker claims queued/retryable summary runs and loads the selected canonical markdown sources.
 5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
 6. Worker stores summary markdown under deterministic `users/<userId>/markdown/summaries/<summaryRunId>/summary.md` keys and records provider/model/deployment/token usage metadata.
 7. When podcast generation is enabled, worker derives narration text from stored summary markdown with the shared summary cleanup pass, publishes `SummaryEpisode` audio, and surfaces it in the main private RSS/media feed alongside regular episodes.

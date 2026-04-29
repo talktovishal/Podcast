@@ -289,6 +289,8 @@ export default async function PricingPage({
           <p className="mt-3 text-2xl font-bold">$15/mo</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${monthlyPlan.dailyPodcastLimit} new podcast episodes per day`} />
+            <PlanFeatureItem label={`${monthlyPlan.dailySummaryLimit} summary-mode items per day`} />
+            <PlanFeatureItem label={`${monthlyPlan.weeklySummaryLimit} manual summaries every 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront monthly. Renews automatically until canceled.</p>
@@ -342,6 +344,8 @@ export default async function PricingPage({
           </div>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
             <PlanFeatureItem label={`${annualPlan.dailyPodcastLimit} new podcast episodes per day`} />
+            <PlanFeatureItem label={`${annualPlan.dailySummaryLimit} summary-mode items per day`} />
+            <PlanFeatureItem label={`${annualPlan.weeklySummaryLimit} manual summaries every 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
             <PlanFeatureItem label="Personal wiki access" />
             <PlanFeatureItem label="Personal wiki automatically refreshes" />

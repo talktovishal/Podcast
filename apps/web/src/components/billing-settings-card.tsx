@@ -18,6 +18,7 @@ type Props = {
   activationHint?: boolean;
   annualPitch: {
     dailyPodcastLimit: number;
+    dailySummaryLimit: number;
     weeklySummaryLimit: number;
     extraDailyPodcasts: number;
     extraWeeklySummaries: number;
@@ -175,7 +176,7 @@ export function BillingSettingsCard({
               {annualCheckoutConfigured ? (
                 <p className="rounded-lg border border-[#cfe7df] bg-[#edf8f5] px-3 py-2 text-sm text-[#155240]">
                   Pro Annual is the best value: save nearly 30%, get {annualPitch.dailyPodcastLimit} new private podcast episodes
-                  per 24 hours, and {annualPitch.weeklySummaryLimit} manual summaries every 7 days.
+                  per 24 hours, {annualPitch.dailySummaryLimit} summary-mode items per 24 hours, and {annualPitch.weeklySummaryLimit} manual summaries every 7 days.
                 </p>
               ) : null}
               {annualCheckoutConfigured ? (

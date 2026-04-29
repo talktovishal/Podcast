@@ -86,10 +86,19 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             sourceType: item.sourceType,
             sourceUrl: item.sourceUrl,
             status: item.status,
+            processingMode: item.processingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE",
             importance: item.importance,
             tags: item.tags,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,
+            summaryStatus:
+              item.summaryStatus === "PROCESSING" || item.summaryStatus === "SUCCEEDED" || item.summaryStatus === "FAILED"
+                ? item.summaryStatus
+                : "NOT_REQUESTED",
+            summaryTitle: item.summaryTitle,
+            summaryCompletedAt: item.summaryCompletedAt ? item.summaryCompletedAt.toISOString() : null,
+            summaryErrorCode: item.summaryErrorCode,
+            summaryErrorMessage: item.summaryErrorMessage,
             createdAt: item.createdAt.toISOString(),
             share: item.share,
             episode: item.episode

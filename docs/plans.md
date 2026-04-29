@@ -146,6 +146,10 @@
   - the published wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, `state/builds/<runId>.json`), avoiding new schema/migration pressure in Prisma or Azure Table primary.
   - signed-in users now get a cleaner `/app/wiki` surface with a denser one-card browse rail, markdown cleanup that hides internal source/file metadata, explicitly long-form concept pages with an executive summary, an `At a glance` table, a 1500-3000 word synthesis target broken into thematic subsections, visually emphasized `Executive summary` and `Working synthesis` section headers, a compact inline `Sources` list that shows five short previews by default, backlinks between reader-facing pages, annual-plan placeholder visibility before the first publish, a default landing on `overview.md` when present, disabled wiki-link auto-prefetch to avoid bursty background `_rsc` loads, and reference links back to original source URLs.
   - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
+- Summary Mode item summaries (`M121`) are implemented:
+  - `/app` can persist `FULL_EPISODE` vs `SUMMARY_ONLY` as the default for future captures.
+  - summary-only item jobs store canonical markdown plus item summary markdown, skip TTS/RSS by default, and support explicit `Request TTS` later.
+  - digest generation prefers item summaries, while wiki preparation keeps full article markdown with the summary as compact guidance.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -158,7 +162,7 @@
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
-  - paid access now carries plan-specific default guardrails: `Pro monthly` includes 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
+  - paid access now carries plan-specific default guardrails: `Pro monthly` includes 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
   - paid over-limit episode submissions now spill into a capped deferred queue instead of hard-failing immediately
   - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy and an annual-first value narrative
 - Digest automation controls (`M72`-`M79`) are implemented:
@@ -3990,6 +3994,63 @@ Milestone metadata contract:
   - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts tests/wiki-markdown.test.ts`
   - `corepack pnpm --filter @articlepod/web exec tsx --test tests/wiki-tools.test.ts`
   - `corepack pnpm --filter @articlepod/web run typecheck`
+
+---
+
+### M121 - Summary Mode Item Summaries and Explicit TTS
+
+- status: Done
+- target_finish: 2026-04-29
+- completed_on: 2026-04-29
+- evidence: local implementation + targeted typecheck/test pass (2026-04-29)
+- Scope:
+  - Add a per-user `/app` processing-mode toggle for future URL/PDF/Chrome captures.
+  - Let `SUMMARY_ONLY` item jobs extract/store canonical markdown, generate per-item summary markdown, and skip TTS/RSS until explicit user request.
+  - Add explicit `Request TTS` for summary items that generates the same full-article audio path as the existing episode flow.
+  - Preserve digest/wiki synthesis quality by preferring item summaries for digests while still feeding full article markdown into wiki builds with the summary prepended as guidance.
+  - Add separate paid daily Summary Mode capacity while keeping explicit TTS on normal podcast capacity.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/migrations/20260429120000_add_summary_mode/migration.sql`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/digest/summary.ts`
+  - `packages/core/src/storage/keys.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/submission-quota.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/app/api/account/processing-mode/route.ts`
+  - `apps/web/src/app/api/items/[id]/summary/route.ts`
+  - `apps/web/src/app/api/items/[id]/request-tts/route.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/web/src/lib/wiki.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - New users default to `FULL_EPISODE`; toggling Summary Mode persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
+  - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, `Job.jobKind=SUMMARY_ONLY`, canonical `MARKDOWN`, and `summaryStatus=SUCCEEDED` with summary metadata when complete.
+  - Summary Mode completion creates no `Episode`, audio object, RSS item, or media token.
+  - Recent items shows summary state, opens summary markdown in a right-side drawer/full-screen mobile sheet, and closes on Escape.
+  - `Request TTS` creates `Job.jobKind=REQUEST_TTS`, consumes podcast capacity, and prefers stored canonical markdown so audio requests are restartable without re-fetching when possible.
+  - Digests prefer item summary markdown and fall back to canonical article markdown.
+  - Wiki source preparation keeps full article markdown, with item summary prepended as compact source guidance when present.
+  - Paid plan defaults are updated: monthly `12` podcast/day + `36` summary-mode/day + `15` manual summaries/7 days; annual `15` podcast/day + `45` summary-mode/day + `30` manual summaries/7 days.
+- Migration/backfill plan:
+  - Expand-only Prisma migration adds `User.defaultItemProcessingMode`, `Item.processingMode`, `Item.summary*`, and `Job.jobKind` with backward-compatible defaults.
+  - Azure Table primary rows dual-read defaults when the new properties are absent, so existing users/items/jobs remain valid without a table reset.
+  - Existing items remain `FULL_EPISODE` / `NOT_REQUESTED` until reprocessed or explicitly summarized through new work.
+  - New summary blobs are additive under `users/<userId>/markdown/items/<itemId>/summary.md`; cleanup on item/account deletion removes these blobs.
+  - Rollback is safe-disable: hide the toggle and stop creating `SUMMARY_ONLY` jobs; existing summary metadata/blobs can remain inert.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/core run typecheck`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+  - `npx pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/web exec tsx --test tests/submission-quota.test.ts`
+  - `cd apps/worker && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/summary-jobs.test.ts tests/digest-jobs.test.ts`
 
 ---
 

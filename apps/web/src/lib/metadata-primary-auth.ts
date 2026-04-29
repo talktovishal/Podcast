@@ -11,6 +11,7 @@ export type PrimaryAuthUserRecord = {
   name: string | null;
   role: string;
   billingLanePreference?: string;
+  defaultItemProcessingMode?: string;
   createdAt: Date;
 };
 
@@ -92,6 +93,7 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
         name: true,
         role: true,
         billingLanePreference: true,
+        defaultItemProcessingMode: true,
         createdAt: true
       }
     });
@@ -109,6 +111,7 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
     name: user.name,
     role: user.role,
     billingLanePreference: user.billingLanePreference,
+    defaultItemProcessingMode: user.defaultItemProcessingMode,
     createdAt: user.createdAt
   };
 }
@@ -224,6 +227,7 @@ export async function updatePrimaryUser(
     lastSeenCity: string | null;
     ttsProvider: string;
     ttsVoice: string;
+    defaultItemProcessingMode: string;
     isPaid: boolean;
     submissionCount: number;
     extraSubmissionCredits: number;

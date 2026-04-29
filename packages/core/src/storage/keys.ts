@@ -29,6 +29,10 @@ export function buildUserItemMarkdownStorageKey(userId: string, itemId: string):
   return normalizedJoin(buildUserMarkdownRootStorageKey(userId), "items", itemId, "canonical.md");
 }
 
+export function buildUserItemSummaryStorageKey(userId: string, itemId: string): string {
+  return normalizedJoin(buildUserMarkdownRootStorageKey(userId), "items", itemId, "summary.md");
+}
+
 export function buildUserDigestSummaryStorageKey(userId: string, cadence: string, periodKey: string): string {
   return normalizedJoin(buildUserMarkdownRootStorageKey(userId), "digests", cadence.toLowerCase(), periodKey, "summary.md");
 }

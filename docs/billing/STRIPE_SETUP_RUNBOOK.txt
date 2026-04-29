@@ -40,8 +40,8 @@ Launch defaults for this MVP
 - No seat-based pricing
 - No usage-based pricing
 - Paid usage guardrails:
-  - Pro monthly: 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days
-  - Pro annual: 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
+  - Pro monthly: 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days
+  - Pro annual: 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
 
 ======================================================================
 PHASE 1 - CREATE AND CONFIGURE STRIPE

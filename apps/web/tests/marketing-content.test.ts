@@ -166,11 +166,13 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   assert.equal(source.includes("cost model details"), false);
   assert.equal(source.includes("better margin on regular use"), false);
   assert.equal(monthlyPlan.dailyPodcastLimit, 12);
-  assert.equal(monthlyPlan.weeklySummaryLimit, 5);
+  assert.equal(monthlyPlan.dailySummaryLimit, 36);
+  assert.equal(monthlyPlan.weeklySummaryLimit, 15);
   assert.equal(annualPlan.dailyPodcastLimit, 15);
-  assert.equal(annualPlan.weeklySummaryLimit, 10);
+  assert.equal(annualPlan.dailySummaryLimit, 45);
+  assert.equal(annualPlan.weeklySummaryLimit, 30);
   assert.equal(annualAdvantage.extraDailyPodcasts, 3);
-  assert.equal(annualAdvantage.extraWeeklySummaries, 5);
+  assert.equal(annualAdvantage.extraWeeklySummaries, 15);
 });
 
 test("public marketing pages do not leak internal economics or vendor implementation details", () => {

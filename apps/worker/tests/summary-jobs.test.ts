@@ -3,11 +3,12 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildUserItemMarkdownStorageKey, buildUserSummaryRunStorageKey } from "@articlepod/core";
+import { buildUserItemMarkdownStorageKey, buildUserItemSummaryStorageKey, buildUserSummaryRunStorageKey } from "@articlepod/core";
 import { workerEnv } from "../src/lib/env.js";
 import { prisma } from "../src/lib/prisma.js";
 import { resetSummaryProviderForTests } from "../src/lib/summary.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
+import { processJob } from "../src/jobs/processItemJob.js";
 import { processSummaryRun } from "../src/jobs/processSummaryRunJob.js";
 
 let dbReady = false;
@@ -197,6 +198,67 @@ test("processSummaryRun stores a friendly failure message when the summary provi
     assert.equal(refreshed?.status, "FAILED");
     assert.equal(refreshed?.errorCode, "EXTRACTION_FAILED");
     assert.equal(refreshed?.errorMessage, "We couldn't finish this summary right now. Please try again.");
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("summary-only item job stores an item summary without creating an episode", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-item-summary`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `item-summary-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Item summary ${uniq}`,
+        sourceType: "HTML_SNAPSHOT",
+        sourceUrl: `https://example.com/${uniq}`,
+        sourceHtml: `<html><body><article><h1>Summary ${uniq}</h1><p>This saved article has enough text to create a deterministic item summary without synthesizing audio.</p><p>It should remain a summary-only item until TTS is explicitly requested.</p></article></body></html>`,
+        status: "QUEUED",
+        processingMode: "SUMMARY_ONLY",
+        summaryStatus: "PROCESSING",
+        jobs: {
+          create: {
+            jobKind: "SUMMARY_ONLY",
+            status: "QUEUED",
+            scheduledFor: new Date()
+          }
+        }
+      },
+      include: {
+        jobs: true
+      }
+    });
+
+    const processed = await processJob(item.jobs[0].id);
+    assert.equal(processed, true);
+
+    const refreshed = await prisma.item.findUnique({
+      where: { id: item.id },
+      include: {
+        episode: true
+      }
+    });
+    assert.equal(refreshed?.status, "READY");
+    assert.equal(refreshed?.processingMode, "SUMMARY_ONLY");
+    assert.equal(refreshed?.summaryStatus, "SUCCEEDED");
+    assert.equal(refreshed?.summaryStorageKey, buildUserItemSummaryStorageKey(user.id, item.id));
+    assert.equal(refreshed?.episode, null);
+
+    const summaryMarkdown = (await storage.getObject(buildUserItemSummaryStorageKey(user.id, item.id))).toString("utf8");
+    assert.match(summaryMarkdown, /## Key points/);
+    assert.match(summaryMarkdown, /Item summary/);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

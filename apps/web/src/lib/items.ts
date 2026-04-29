@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { serializeItemTags } from "@articlepod/core";
+import { serializeItemTags, type ItemJobKind, type ItemProcessingMode } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
 import { env } from "./env";
 import { enqueueItemDispatchMessage, webUsesPrismaDispatchQueue } from "./item-dispatch-queue";
@@ -9,21 +9,45 @@ import { consumeSubmissionCredit, PAID_SUBMISSION_DEFERRED_CODE } from "./submis
 import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
 import { webPrimaryStore } from "./metadata-primary-store";
 
+async function resolveItemProcessingMode(userId: string, mode?: "full" | "summary"): Promise<ItemProcessingMode> {
+  if (mode === "summary") {
+    return "SUMMARY_ONLY";
+  }
+  if (mode === "full") {
+    return "FULL_EPISODE";
+  }
+
+  if (env.metadataPrimaryBackend === "azure_table" && webPrimaryStore) {
+    const user = await webPrimaryStore.findUserById(userId);
+    return user?.defaultItemProcessingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE";
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { defaultItemProcessingMode: true }
+  });
+  return user?.defaultItemProcessingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE";
+}
+
 export async function enqueueItem(input: {
   userId: string;
   title?: string;
   importance?: string;
   tags?: string[];
+  mode?: "full" | "summary";
   sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
   sourceUrl?: string;
   sourceFilePath?: string;
   sourceHtml?: string;
   sourceCapturedAt?: Date;
 }) {
+  const processingMode = await resolveItemProcessingMode(input.userId, input.mode);
+  const jobKind: ItemJobKind = processingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE";
   let submissionOutcome: Awaited<ReturnType<typeof consumeSubmissionCredit>> | null = null;
   if (env.metadataPrimaryBackend === "azure_table" && webPrimaryStore) {
     submissionOutcome = await consumeSubmissionCredit({
-      userId: input.userId
+      userId: input.userId,
+      jobKind
     });
   }
   const initialQueueMode = submissionOutcome?.queueMode ?? "IMMEDIATE";
@@ -46,6 +70,8 @@ export async function enqueueItem(input: {
             sourceHtml: input.sourceHtml,
             sourceCapturedAt: input.sourceCapturedAt,
             status: "QUEUED",
+            processingMode,
+            summaryStatus: processingMode === "SUMMARY_ONLY" ? "PROCESSING" : "NOT_REQUESTED",
             errorCode: initialDeferredErrorCode,
             errorMessage: initialAcceptedMessage
           });
@@ -53,6 +79,7 @@ export async function enqueueItem(input: {
             id: randomUUID(),
             itemId: createdItem.id,
             userId: input.userId,
+            jobKind,
             status: "QUEUED",
             nextRetryAt: initialQueueMode === "DEFERRED" ? initialScheduledFor : null,
             scheduledFor: initialScheduledFor,
@@ -83,6 +110,7 @@ export async function enqueueItem(input: {
       : await prisma.$transaction(async (tx) => {
           submissionOutcome = await consumeSubmissionCredit({
             userId: input.userId,
+            jobKind,
             tx
           });
           const queueMode = submissionOutcome.queueMode;
@@ -125,10 +153,13 @@ export async function enqueueItem(input: {
               sourceHtml: input.sourceHtml,
               sourceCapturedAt: input.sourceCapturedAt,
               status: "QUEUED",
+              processingMode,
+              summaryStatus: processingMode === "SUMMARY_ONLY" ? "PROCESSING" : "NOT_REQUESTED",
               errorCode: deferredErrorCode,
               errorMessage: acceptedMessage,
               jobs: {
                 create: {
+                  jobKind,
                   status: "QUEUED",
                   nextRetryAt: queueMode === "DEFERRED" ? scheduledFor : null,
                   scheduledFor,

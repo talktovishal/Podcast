@@ -66,6 +66,7 @@ export type AzureTablePrimaryUser = {
   isPaid: boolean;
   submissionCount: number;
   extraSubmissionCredits: number;
+  defaultItemProcessingMode: string;
   ttsProvider: string;
   ttsVoice: string;
   firstSeenAt: Date | null;
@@ -209,11 +210,24 @@ export type AzureTablePrimaryItem = {
   sourceHtml: string | null;
   sourceCapturedAt: Date | null;
   status: string;
+  processingMode: string;
   priority: string;
   tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
+  summaryStatus: string;
+  summaryTitle: string | null;
+  summaryStorageKey: string | null;
+  summaryBytes: number | null;
+  summaryProvider: string | null;
+  summaryModel: string | null;
+  summaryDeployment: string | null;
+  summaryInputTokens: number | null;
+  summaryOutputTokens: number | null;
+  summaryErrorCode: string | null;
+  summaryErrorMessage: string | null;
+  summaryCompletedAt: Date | null;
   extractionEngine: string | null;
   extractionSelectionMode: string | null;
   extractionScoreMargin: number | null;
@@ -243,6 +257,7 @@ export type AzureTablePrimaryJob = {
   id: string;
   itemId: string;
   userId: string;
+  jobKind: string;
   attempt: number;
   status: string;
   lockedAt: Date | null;
@@ -882,6 +897,7 @@ export class AzureTablePrimaryStore {
       isPaid: parseBoolean(entity.isPaid, false),
       submissionCount: parseNumber(entity.submissionCount, 0),
       extraSubmissionCredits: parseNumber(entity.extraSubmissionCredits, 0),
+      defaultItemProcessingMode: parseString(entity.defaultItemProcessingMode) || "FULL_EPISODE",
       ttsProvider: parseString(entity.ttsProvider) || "kokoro",
       ttsVoice: parseString(entity.ttsVoice) || "af_heart",
       firstSeenAt: parseDate(entity.firstSeenAt),
@@ -1024,11 +1040,24 @@ export class AzureTablePrimaryStore {
       sourceHtml: parseString(entity.sourceHtml),
       sourceCapturedAt: parseDate(entity.sourceCapturedAt),
       status: parseRequiredString(entity.status, "status"),
+      processingMode: parseString(entity.processingMode) || "FULL_EPISODE",
       priority: parseString(entity.priority) ?? "LOW",
       tags: parseStoredItemTags(entity.tagsJson),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
+      summaryStatus: parseString(entity.summaryStatus) || "NOT_REQUESTED",
+      summaryTitle: parseString(entity.summaryTitle),
+      summaryStorageKey: parseString(entity.summaryStorageKey),
+      summaryBytes: parseNullableNumber(entity.summaryBytes),
+      summaryProvider: parseString(entity.summaryProvider),
+      summaryModel: parseString(entity.summaryModel),
+      summaryDeployment: parseString(entity.summaryDeployment),
+      summaryInputTokens: parseNullableNumber(entity.summaryInputTokens),
+      summaryOutputTokens: parseNullableNumber(entity.summaryOutputTokens),
+      summaryErrorCode: parseString(entity.summaryErrorCode),
+      summaryErrorMessage: parseString(entity.summaryErrorMessage),
+      summaryCompletedAt: parseDate(entity.summaryCompletedAt),
       extractionEngine: parseString(entity.extractionEngine),
       extractionSelectionMode: parseString(entity.extractionSelectionMode),
       extractionScoreMargin: parseNullableNumber(entity.extractionScoreMargin),
@@ -1083,6 +1112,7 @@ export class AzureTablePrimaryStore {
       id: String(entity.rowKey),
       itemId: parseRequiredString(entity.itemId, "itemId"),
       userId: parseRequiredString(entity.userId, "userId"),
+      jobKind: parseString(entity.jobKind) || "FULL_EPISODE",
       attempt: parseNumber(entity.attempt, 0),
       status: parseRequiredString(entity.status, "status"),
       lockedAt: parseDate(entity.lockedAt),
@@ -1434,6 +1464,7 @@ export class AzureTablePrimaryStore {
     isPaid?: boolean;
     submissionCount?: number;
     extraSubmissionCredits?: number;
+    defaultItemProcessingMode?: string;
     ttsProvider?: string;
     ttsVoice?: string;
     createdAt?: Date;
@@ -1467,6 +1498,7 @@ export class AzureTablePrimaryStore {
       isPaid: input.isPaid ?? false,
       submissionCount: input.submissionCount ?? 0,
       extraSubmissionCredits: input.extraSubmissionCredits ?? 0,
+      defaultItemProcessingMode: input.defaultItemProcessingMode ?? "FULL_EPISODE",
       ttsProvider: input.ttsProvider ?? "kokoro",
       ttsVoice: input.ttsVoice ?? "af_heart",
       createdAt: createdAt.toISOString(),
@@ -1504,6 +1536,7 @@ export class AzureTablePrimaryStore {
       isPaid: boolean;
       submissionCount: number;
       extraSubmissionCredits: number;
+      defaultItemProcessingMode: string;
       ttsProvider: string;
       ttsVoice: string;
       firstSeenAt: Date | null;
@@ -1561,6 +1594,7 @@ export class AzureTablePrimaryStore {
       isPaid: input.isPaid ?? current.isPaid,
       submissionCount: input.submissionCount ?? current.submissionCount,
       extraSubmissionCredits: input.extraSubmissionCredits ?? current.extraSubmissionCredits,
+      defaultItemProcessingMode: input.defaultItemProcessingMode ?? current.defaultItemProcessingMode ?? "FULL_EPISODE",
       ttsProvider: input.ttsProvider ?? current.ttsProvider,
       ttsVoice: input.ttsVoice ?? current.ttsVoice,
       firstSeenAt: input.firstSeenAt === undefined ? current.firstSeenAt : isoOrNull(input.firstSeenAt),
@@ -2287,11 +2321,24 @@ export class AzureTablePrimaryStore {
     sourceHtml?: string | null;
     sourceCapturedAt?: Date | null;
     status: string;
+    processingMode?: string | null;
     priority?: string | null;
     tags?: string[] | null;
     errorCode?: string | null;
     errorMessage?: string | null;
     textHash?: string | null;
+    summaryStatus?: string | null;
+    summaryTitle?: string | null;
+    summaryStorageKey?: string | null;
+    summaryBytes?: number | null;
+    summaryProvider?: string | null;
+    summaryModel?: string | null;
+    summaryDeployment?: string | null;
+    summaryInputTokens?: number | null;
+    summaryOutputTokens?: number | null;
+    summaryErrorCode?: string | null;
+    summaryErrorMessage?: string | null;
+    summaryCompletedAt?: Date | null;
     extractionEngine?: string | null;
     extractionSelectionMode?: string | null;
     extractionScoreMargin?: number | null;
@@ -2311,11 +2358,24 @@ export class AzureTablePrimaryStore {
       sourceHtml: input.sourceHtml ?? null,
       sourceCapturedAt: isoOrNull(input.sourceCapturedAt ?? null),
       status: input.status,
+      processingMode: input.processingMode ?? "FULL_EPISODE",
       priority: input.priority ?? "LOW",
       tagsJson: serializeItemTags(input.tags),
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
       textHash: input.textHash ?? null,
+      summaryStatus: input.summaryStatus ?? "NOT_REQUESTED",
+      summaryTitle: input.summaryTitle ?? null,
+      summaryStorageKey: input.summaryStorageKey ?? null,
+      summaryBytes: input.summaryBytes ?? null,
+      summaryProvider: input.summaryProvider ?? null,
+      summaryModel: input.summaryModel ?? null,
+      summaryDeployment: input.summaryDeployment ?? null,
+      summaryInputTokens: input.summaryInputTokens ?? null,
+      summaryOutputTokens: input.summaryOutputTokens ?? null,
+      summaryErrorCode: input.summaryErrorCode ?? null,
+      summaryErrorMessage: input.summaryErrorMessage ?? null,
+      summaryCompletedAt: isoOrNull(input.summaryCompletedAt ?? null),
       extractionEngine: input.extractionEngine ?? null,
       extractionSelectionMode: input.extractionSelectionMode ?? null,
       extractionScoreMargin: input.extractionScoreMargin ?? null,
@@ -2336,11 +2396,24 @@ export class AzureTablePrimaryStore {
       sourceFilePath: string | null;
       sourceHtml: string | null;
       status: string;
+      processingMode: string;
       priority: string;
       tags: string[];
       errorCode: string | null;
       errorMessage: string | null;
       textHash: string | null;
+      summaryStatus: string;
+      summaryTitle: string | null;
+      summaryStorageKey: string | null;
+      summaryBytes: number | null;
+      summaryProvider: string | null;
+      summaryModel: string | null;
+      summaryDeployment: string | null;
+      summaryInputTokens: number | null;
+      summaryOutputTokens: number | null;
+      summaryErrorCode: string | null;
+      summaryErrorMessage: string | null;
+      summaryCompletedAt: Date | null;
       extractionEngine: string | null;
       extractionSelectionMode: string | null;
       extractionScoreMargin: number | null;
@@ -2363,11 +2436,24 @@ export class AzureTablePrimaryStore {
       sourceFilePath: input.sourceFilePath === undefined ? current.sourceFilePath : input.sourceFilePath,
       sourceHtml: input.sourceHtml === undefined ? current.sourceHtml : input.sourceHtml,
       status: input.status ?? current.status,
+      processingMode: input.processingMode ?? current.processingMode ?? "FULL_EPISODE",
       priority: input.priority ?? current.priority ?? "LOW",
       tagsJson: input.tags === undefined ? current.tagsJson ?? "[]" : serializeItemTags(input.tags),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
       textHash: input.textHash === undefined ? current.textHash : input.textHash,
+      summaryStatus: input.summaryStatus ?? current.summaryStatus ?? "NOT_REQUESTED",
+      summaryTitle: input.summaryTitle === undefined ? current.summaryTitle : input.summaryTitle,
+      summaryStorageKey: input.summaryStorageKey === undefined ? current.summaryStorageKey : input.summaryStorageKey,
+      summaryBytes: input.summaryBytes === undefined ? current.summaryBytes : input.summaryBytes,
+      summaryProvider: input.summaryProvider === undefined ? current.summaryProvider : input.summaryProvider,
+      summaryModel: input.summaryModel === undefined ? current.summaryModel : input.summaryModel,
+      summaryDeployment: input.summaryDeployment === undefined ? current.summaryDeployment : input.summaryDeployment,
+      summaryInputTokens: input.summaryInputTokens === undefined ? current.summaryInputTokens : input.summaryInputTokens,
+      summaryOutputTokens: input.summaryOutputTokens === undefined ? current.summaryOutputTokens : input.summaryOutputTokens,
+      summaryErrorCode: input.summaryErrorCode === undefined ? current.summaryErrorCode : input.summaryErrorCode,
+      summaryErrorMessage: input.summaryErrorMessage === undefined ? current.summaryErrorMessage : input.summaryErrorMessage,
+      summaryCompletedAt: input.summaryCompletedAt === undefined ? current.summaryCompletedAt : isoOrNull(input.summaryCompletedAt),
       extractionEngine: input.extractionEngine === undefined ? current.extractionEngine : input.extractionEngine,
       extractionSelectionMode:
         input.extractionSelectionMode === undefined ? current.extractionSelectionMode : input.extractionSelectionMode,
@@ -2408,6 +2494,7 @@ export class AzureTablePrimaryStore {
     id: string;
     itemId: string;
     userId: string;
+    jobKind?: string | null;
     attempt?: number;
     status: string;
     lockedAt?: Date | null;
@@ -2428,6 +2515,7 @@ export class AzureTablePrimaryStore {
       rowKey: input.id,
       itemId: input.itemId,
       userId: input.userId,
+      jobKind: input.jobKind ?? "FULL_EPISODE",
       attempt: input.attempt ?? 0,
       status: input.status,
       lockedAt: isoOrNull(input.lockedAt ?? null),

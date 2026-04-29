@@ -8,6 +8,7 @@ import {
   buildUserDigestEmailStorageKey,
   buildUserDigestSummaryStorageKey,
   buildUserItemMarkdownStorageKey,
+  buildUserItemSummaryStorageKey,
   buildUserSummaryRunStorageKey,
   buildUserWikiBuildStateStorageKey,
   buildUserWikiManifestStorageKey,
@@ -17,6 +18,7 @@ import {
 
 test("markdown storage key builders emit stable user-centric paths", () => {
   assert.equal(buildUserItemMarkdownStorageKey("user-1", "item-1"), "users/user-1/markdown/items/item-1/canonical.md");
+  assert.equal(buildUserItemSummaryStorageKey("user-1", "item-1"), "users/user-1/markdown/items/item-1/summary.md");
   assert.equal(buildUserDigestSummaryStorageKey("user-1", "WEEKLY", "2026-03-08"), "users/user-1/markdown/digests/weekly/2026-03-08/summary.md");
   assert.equal(buildUserDigestEmailStorageKey("user-1", "DAILY", "2026-03-08"), "users/user-1/markdown/digests/daily/2026-03-08/email.md");
   assert.equal(buildUserSummaryRunStorageKey("user-1", "summary-1"), "users/user-1/markdown/summaries/summary-1/summary.md");

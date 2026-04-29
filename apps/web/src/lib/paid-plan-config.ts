@@ -4,6 +4,7 @@ export type PaidPlanConfig = {
   planCode: PaidPlanCode;
   label: string;
   dailyPodcastLimit: number;
+  dailySummaryLimit: number;
   weeklySummaryLimit: number;
 };
 
@@ -12,13 +13,15 @@ const PAID_PLAN_CONFIGS: Record<PaidPlanCode, PaidPlanConfig> = {
     planCode: "PRO_MONTHLY",
     label: "Pro Monthly",
     dailyPodcastLimit: parseNonNegativeInt(process.env.PRO_MONTHLY_DAILY_PODCAST_LIMIT, 12),
-    weeklySummaryLimit: parseNonNegativeInt(process.env.PRO_MONTHLY_WEEKLY_SUMMARY_LIMIT, 5)
+    dailySummaryLimit: parseNonNegativeInt(process.env.PRO_MONTHLY_DAILY_SUMMARY_LIMIT, 36),
+    weeklySummaryLimit: parseNonNegativeInt(process.env.PRO_MONTHLY_WEEKLY_SUMMARY_LIMIT, 15)
   },
   PRO_ANNUAL: {
     planCode: "PRO_ANNUAL",
     label: "Pro Annual",
     dailyPodcastLimit: parseNonNegativeInt(process.env.PRO_ANNUAL_DAILY_PODCAST_LIMIT, 15),
-    weeklySummaryLimit: parseNonNegativeInt(process.env.PRO_ANNUAL_WEEKLY_SUMMARY_LIMIT, 10)
+    dailySummaryLimit: parseNonNegativeInt(process.env.PRO_ANNUAL_DAILY_SUMMARY_LIMIT, 45),
+    weeklySummaryLimit: parseNonNegativeInt(process.env.PRO_ANNUAL_WEEKLY_SUMMARY_LIMIT, 30)
   }
 };
 
@@ -54,6 +57,10 @@ export function paidPlanCapacityDelta(): {
 
 export function maxPaidDailyPodcastLimit(): number {
   return Math.max(PAID_PLAN_CONFIGS.PRO_MONTHLY.dailyPodcastLimit, PAID_PLAN_CONFIGS.PRO_ANNUAL.dailyPodcastLimit);
+}
+
+export function maxPaidDailySummaryLimit(): number {
+  return Math.max(PAID_PLAN_CONFIGS.PRO_MONTHLY.dailySummaryLimit, PAID_PLAN_CONFIGS.PRO_ANNUAL.dailySummaryLimit);
 }
 
 export function maxPaidWeeklySummaryLimit(): number {

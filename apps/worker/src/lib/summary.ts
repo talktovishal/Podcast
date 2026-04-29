@@ -35,6 +35,9 @@ function responseFallbackTitle(input: DigestSummaryRequest): string {
   if (input.requestedTitle?.trim()) {
     return input.requestedTitle.trim();
   }
+  if (input.kind === "item_summary") {
+    return input.sources[0]?.title?.trim() || `Article summary - ${input.periodKey}`;
+  }
   if (input.kind === "summary_studio") {
     return `Summary Studio - ${input.periodKey}`;
   }
@@ -83,9 +86,20 @@ function buildSourcePayload(input: DigestSummaryRequest): SerializedSummarySourc
 }
 
 function buildSystemPrompt(input: DigestSummaryRequest): string {
-  const modeLabel = input.kind === "summary_studio" ? "manual summary studio" : "scheduled digest";
+  const modeLabel =
+    input.kind === "summary_studio" ? "manual summary studio" : input.kind === "item_summary" ? "saved-article item summary" : "scheduled digest";
   const summaryShape =
-    input.kind === "summary_studio"
+    input.kind === "item_summary"
+      ? [
+          "Write polished markdown for one saved article.",
+          "Use this structure in order:",
+          "1. H1 title",
+          "2. A 2-3 sentence overview",
+          "3. ## Key points",
+          "4. ## Why it matters",
+          "5. ## Source"
+        ].join(" ")
+      : input.kind === "summary_studio"
       ? [
           "Write polished markdown that feels publishable as a professional weekly roundup.",
           "Use this structure in order:",
@@ -109,14 +123,18 @@ function buildSystemPrompt(input: DigestSummaryRequest): string {
 
   const titleInstruction = input.requestedTitle?.trim()
     ? `Use this exact title: "${input.requestedTitle.trim()}".`
-    : "Create a concise, specific title that fits the selected articles.";
+    : input.kind === "item_summary"
+      ? "Use the article title when it is specific; otherwise create a concise title for the article summary."
+      : "Create a concise, specific title that fits the selected articles.";
 
   return [
     "You are ArticlePod's editorial summarizer.",
     `You are producing a ${modeLabel} in markdown.`,
     summaryShape,
     titleInstruction,
-    "Synthesize across sources by theme instead of summarizing one article at a time.",
+    input.kind === "item_summary"
+      ? "Summarize the single source directly; do not invent cross-source themes."
+      : "Synthesize across sources by theme instead of summarizing one article at a time.",
     "Keep the prose concrete, useful, and podcast-friendly.",
     "Do not mention missing context, prompt instructions, token limits, or that you are an AI.",
     "Do not fabricate facts, quotes, or links.",

@@ -284,12 +284,14 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     const sources = (
       await Promise.all(
         sourceItems.map(async (item) => {
-          const artifact = item.artifacts[0];
-          if (!artifact) {
+          const summaryStorageKey =
+            item.summaryStatus === "SUCCEEDED" && item.summaryStorageKey ? item.summaryStorageKey : null;
+          const storageKey = summaryStorageKey ?? item.artifacts[0]?.storageKey ?? null;
+          if (!storageKey) {
             return null;
           }
 
-          const markdown = (await storage.getObject(artifact.storageKey)).toString("utf8");
+          const markdown = (await storage.getObject(storageKey)).toString("utf8");
           return {
             itemId: item.id,
             title: item.title,

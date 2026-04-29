@@ -280,8 +280,8 @@ When you pick this back up, the safest order is:
 - `isPaid` is only a compatibility cache for the rest of the app
 - `complimentaryPro` is the manual support/admin override
 - paid access is guarded by plan-specific defaults:
-  - `Pro monthly`: 12 new podcast episodes per 24 hours and 5 manual summaries per 7 days
-  - `Pro annual`: 15 new podcast episodes per 24 hours and 10 manual summaries per 7 days
+  - `Pro monthly`: 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days
+  - `Pro annual`: 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
 - founder must make the Stripe Tax decision before live launch; engineering should not silently choose that policy
 - checkout success redirect is not the source of truth for access; webhook-confirmed billing events remain authoritative
 - for incident response, keep webhook handling and the billing portal live for existing customers even if you temporarily disable new checkout

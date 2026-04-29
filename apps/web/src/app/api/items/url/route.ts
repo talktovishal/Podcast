@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       title: payload.title,
       importance: payload.importance,
       tags: payload.tags,
+      mode: payload.mode,
       sourceType: "URL",
       sourceUrl: canonical.canonicalUrl
     });

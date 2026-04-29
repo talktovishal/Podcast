@@ -9,6 +9,7 @@ import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/rou
 import { createSession } from "../src/lib/auth";
 import { enqueueItem } from "../src/lib/items";
 import { prisma } from "../src/lib/prisma";
+import { getSubmissionQuotaSnapshot } from "../src/lib/submission-quota";
 
 let dbReady = false;
 
@@ -384,6 +385,62 @@ test("paid monthly users are blocked once the deferred overflow queue reaches 24
     assert.equal(payload.ok, false);
     assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
     assert.equal(payload.error_message.includes("queue is full"), true);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("paid monthly users get a separate 36-item daily Summary Mode allowance", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-paid-summary`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `quota-paid-summary-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_MONTHLY",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    for (let index = 0; index < 36; index += 1) {
+      const submission = await enqueueItem({
+        userId: user.id,
+        title: `Summary quota ${uniq}-${index}`,
+        mode: "summary",
+        sourceType: "HTML_SNAPSHOT",
+        sourceUrl: `https://example.com/quota/${uniq}-${index}`,
+        sourceHtml: `<html><body><article><h1>${uniq}-${index}</h1><p>summary quota test content ${uniq}-${index}</p></article></body></html>`,
+        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+      });
+      assert.equal(submission.queueMode, "IMMEDIATE");
+      assert.equal(submission.item.processingMode, "SUMMARY_ONLY");
+      assert.equal(submission.item.summaryStatus, "PROCESSING");
+    }
+
+    const snapshot = await getSubmissionQuotaSnapshot(user.id);
+    assert.equal(snapshot.remainingDailySummaries, 0);
+    assert.equal(snapshot.remainingDailyPodcasts, 12);
+
+    await assert.rejects(
+      () =>
+        enqueueItem({
+          userId: user.id,
+          title: `Summary quota ${uniq}-blocked`,
+          mode: "summary",
+          sourceType: "HTML_SNAPSHOT",
+          sourceUrl: `https://example.com/quota/${uniq}-blocked`,
+          sourceHtml: `<html><body><article><h1>${uniq}-blocked</h1><p>blocked summary quota content</p></article></body></html>`,
+          sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+        }),
+      /summary-mode item summaries/
+    );
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

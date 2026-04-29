@@ -72,6 +72,7 @@ export default async function AppSettingsPage({
           annualCheckoutConfigured={annualCheckoutConfigured}
           annualPitch={{
             dailyPodcastLimit: annualPlan.dailyPodcastLimit,
+            dailySummaryLimit: annualPlan.dailySummaryLimit,
             weeklySummaryLimit: annualPlan.weeklySummaryLimit,
             extraDailyPodcasts: annualAdvantage.extraDailyPodcasts,
             extraWeeklySummaries: annualAdvantage.extraWeeklySummaries,

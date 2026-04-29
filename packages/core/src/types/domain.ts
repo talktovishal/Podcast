@@ -41,10 +41,21 @@ export type SummaryRunStatus = (typeof summaryRunStatusValues)[number];
 export const summaryPodcastStatusValues = ["SUCCEEDED", "FAILED", "SKIPPED"] as const;
 export type SummaryPodcastStatus = (typeof summaryPodcastStatusValues)[number];
 
+export const itemProcessingModeValues = ["FULL_EPISODE", "SUMMARY_ONLY"] as const;
+export type ItemProcessingMode = (typeof itemProcessingModeValues)[number];
+
+export const itemJobKindValues = ["FULL_EPISODE", "SUMMARY_ONLY", "REQUEST_TTS"] as const;
+export type ItemJobKind = (typeof itemJobKindValues)[number];
+
+export const itemSummaryStatusValues = ["NOT_REQUESTED", "PROCESSING", "SUCCEEDED", "FAILED"] as const;
+export type ItemSummaryStatus = (typeof itemSummaryStatusValues)[number];
+
 export const digestDayOfWeekValues = [0, 1, 2, 3, 4, 5, 6] as const;
 export type DigestDayOfWeek = (typeof digestDayOfWeekValues)[number];
 
 const itemImportanceSchema = z.enum(itemPriorityValues);
+const submittedProcessingModeSchema = z.enum(["full", "summary"]);
+export const itemProcessingModeSchema = z.enum(itemProcessingModeValues);
 const itemTagsInputSchema = z.union([z.string(), z.array(z.string())]).optional();
 
 function resolveItemImportance(importance?: ItemImportance, priority?: ItemPriority): ItemImportance {
@@ -101,7 +112,7 @@ export const submitUrlSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     importance: itemImportanceSchema.optional(),
     priority: itemImportanceSchema.optional(),
-    mode: z.enum(["full", "summary"]).default("full"),
+    mode: submittedProcessingModeSchema.optional(),
     tags: itemTagsInputSchema
   })
   .transform((input) => ({
@@ -117,11 +128,13 @@ export const submitPdfSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     importance: itemImportanceSchema.optional(),
     priority: itemImportanceSchema.optional(),
+    mode: submittedProcessingModeSchema.optional(),
     tags: itemTagsInputSchema
   })
   .transform((input) => ({
     title: input.title,
     importance: resolveItemImportance(input.importance, input.priority),
+    mode: input.mode,
     tags: normalizeItemTags(input.tags)
   }));
 
@@ -251,6 +264,7 @@ export const submitHtmlSnapshotSchema = z
     capturedAt: z.string().datetime().optional(),
     importance: itemImportanceSchema.optional(),
     priority: itemImportanceSchema.optional(),
+    mode: submittedProcessingModeSchema.optional(),
     tags: itemTagsInputSchema
   })
   .transform((input) => ({
@@ -259,6 +273,7 @@ export const submitHtmlSnapshotSchema = z
     html: input.html,
     capturedAt: input.capturedAt,
     importance: resolveItemImportance(input.importance, input.priority),
+    mode: input.mode,
     tags: normalizeItemTags(input.tags)
   }));
 
@@ -323,6 +338,10 @@ export const rotateFeedTokenSchema = z.object({
 export const updateTtsSettingsSchema = z.object({
   providerId: z.string().trim().min(1).max(40).optional(),
   voice: z.string().trim().min(1).max(80)
+});
+
+export const updateItemProcessingModeSchema = z.object({
+  mode: itemProcessingModeSchema
 });
 
 function isValidIanaTimezone(value: string): boolean {
@@ -392,6 +411,7 @@ export type UpdateItemMetadataInput = z.infer<typeof updateItemMetadataSchema>;
 export type ExtensionConnectCodeInput = z.infer<typeof extensionConnectCodeSchema>;
 export type ExtensionTokenExchangeInput = z.infer<typeof extensionTokenExchangeSchema>;
 export type UpdateTtsSettingsInput = z.infer<typeof updateTtsSettingsSchema>;
+export type UpdateItemProcessingModeInput = z.infer<typeof updateItemProcessingModeSchema>;
 export type PreviewTtsInput = z.infer<typeof previewTtsSchema>;
 export type UpdateDigestSettingsInput = z.infer<typeof updateDigestSettingsSchema>;
 export type DigestSchedulerTickInput = z.infer<typeof digestSchedulerTickSchema>;

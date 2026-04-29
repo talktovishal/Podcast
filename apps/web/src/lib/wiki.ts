@@ -350,6 +350,34 @@ function buildSnippetSourceMarkdown(input: {
 async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSource[]> {
   const storage = getArtifactStorage();
 
+  async function readItemSummaryMarkdown(item: { summaryStatus?: string | null; summaryStorageKey?: string | null }): Promise<string | null> {
+    if (item.summaryStatus !== "SUCCEEDED" || !item.summaryStorageKey) {
+      return null;
+    }
+    const content = await storage.getObject(item.summaryStorageKey).catch(() => null);
+    return content ? normalizeMarkdownText(content.toString("utf8")) : null;
+  }
+
+  function combineItemMarkdownForWiki(input: { title: string | null; articleMarkdown: string; summaryMarkdown: string | null }): string {
+    if (!input.summaryMarkdown) {
+      return input.articleMarkdown;
+    }
+
+    return normalizeMarkdownText(
+      [
+        `# ${input.title || "Untitled item"}`,
+        "",
+        "## Item summary",
+        "",
+        input.summaryMarkdown,
+        "",
+        "## Full article markdown",
+        "",
+        input.articleMarkdown
+      ].join("\n")
+    );
+  }
+
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const store = webPrimaryStore;
     const items = await store.listItemsByUser(userId, Number.MAX_SAFE_INTEGER);
@@ -366,6 +394,12 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
         }
 
         const markdown = normalizeMarkdownText(content.toString("utf8"));
+        const summaryMarkdown = await readItemSummaryMarkdown(item);
+        const wikiMarkdown = combineItemMarkdownForWiki({
+          title: item.title,
+          articleMarkdown: markdown,
+          summaryMarkdown
+        });
         const rawPath = `items/${item.id}.md`;
         const hash = sha256(
           JSON.stringify({
@@ -375,7 +409,7 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
             sourceUrl: item.sourceUrl,
             createdAt: toIso(item.createdAt),
             updatedAt: toIso(item.updatedAt),
-            markdown
+            markdown: wikiMarkdown
           })
         );
 
@@ -389,7 +423,7 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
           updatedAt: toIso(item.updatedAt),
           rawPath,
           hash,
-          content: markdown
+          content: wikiMarkdown
         };
       })
     );
@@ -427,6 +461,12 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
       }
 
       const markdown = normalizeMarkdownText(content.toString("utf8"));
+      const summaryMarkdown = await readItemSummaryMarkdown(item);
+      const wikiMarkdown = combineItemMarkdownForWiki({
+        title: item.title,
+        articleMarkdown: markdown,
+        summaryMarkdown
+      });
       const rawPath = `items/${item.id}.md`;
       const hash = sha256(
         JSON.stringify({
@@ -437,7 +477,7 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
           createdAt: toIso(item.createdAt),
           updatedAt: toIso(item.updatedAt),
           tags: parseStoredItemTags(item.tagsJson),
-          markdown
+          markdown: wikiMarkdown
         })
       );
 
@@ -451,7 +491,7 @@ async function listWikiItemSourcesForUser(userId: string): Promise<WikiCorpusSou
         updatedAt: toIso(item.updatedAt),
         rawPath,
         hash,
-        content: markdown
+        content: wikiMarkdown
       };
     })
   );

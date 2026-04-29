@@ -10,10 +10,12 @@ import {
   type HtmlExtractionSelectionDiagnostics,
   type ReservedDispatchQueueMessage,
   buildUserItemMarkdownStorageKey,
+  buildUserItemSummaryStorageKey,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
   chunkText,
+  digestTargetWords,
   errorCodes,
   episodeAudioExpiryDate,
   extractHtmlFromUrlWithDiagnostics,
@@ -30,6 +32,7 @@ import {
   shouldSuggestHtmlSnapshotForError,
   withLogContext,
   sha256,
+  type ItemJobKind,
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
@@ -38,6 +41,7 @@ import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata
 import { assertNarrationChunkLimit } from "../lib/narrationLimits.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
+import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
 import { workerLogger } from "../lib/logger.js";
 import { recordWorkerAnalyticsEventBestEffort } from "../lib/analytics.js";
@@ -70,6 +74,7 @@ type ClaimedDispatchJob = {
   id: string;
   itemId: string;
   userId: string;
+  jobKind: string;
   attempt: number;
   status: string;
   lockedAt: Date | null;
@@ -85,6 +90,7 @@ type ClaimedDispatchJob = {
     userId: string;
     title: string | null;
     sourceType: string;
+    processingMode: string;
     sourceUrl: string | null;
     sourceFilePath: string | null;
     sourceHtml: string | null;
@@ -688,6 +694,35 @@ async function extractItemText(item: {
   };
 }
 
+async function loadStoredMarkdownArtifact(itemId: string): Promise<{ markdown: string; storageKey: string; bytes: number } | null> {
+  const artifact =
+    workerUsesAzureTablePrimary() && workerPrimaryStore
+      ? (await workerPrimaryStore.listItemArtifacts(itemId, "MARKDOWN"))[0]
+      : await prisma.itemArtifact.findFirst({
+          where: {
+            itemId,
+            kind: "MARKDOWN"
+          }
+        });
+
+  if (!artifact) {
+    return null;
+  }
+
+  const content = await getArtifactStorage()
+    .getObject(artifact.storageKey)
+    .catch(() => null);
+  if (!content) {
+    return null;
+  }
+
+  return {
+    markdown: cleanExtractedMarkdown(content.toString("utf8")),
+    storageKey: artifact.storageKey,
+    bytes: artifact.byteLength
+  };
+}
+
 export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage">): boolean {
   const message = error.userMessage.toLowerCase();
   if (error.code === errorCodes.PROCESSING_TIMEOUT) {
@@ -1260,6 +1295,7 @@ async function claimReservedItemJob(
       select: {
         id: true,
         itemId: true,
+        jobKind: true,
         attempt: true,
         status: true,
         lockedAt: true,
@@ -1278,6 +1314,7 @@ async function claimReservedItemJob(
             title: true,
             userId: true,
             sourceType: true,
+            processingMode: true,
             sourceUrl: true,
             sourceFilePath: true,
             sourceHtml: true,
@@ -1333,6 +1370,7 @@ async function claimReservedItemJob(
       id: next.id,
       itemId: next.itemId,
       userId: next.item.userId,
+      jobKind: next.jobKind,
       attempt: next.attempt + 1,
       status: "PROCESSING",
       lockedAt: claimAt,
@@ -1630,6 +1668,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     sourceType: item.sourceType
   });
 
+  const claimedJobKind = (claimResult.jobKind || item.processingMode || "FULL_EPISODE") as ItemJobKind;
   let stage: WorkerStage = "extract";
   try {
     return await withLogContext(
@@ -1640,14 +1679,25 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         item_id: item.id
       },
       async () => {
-    const extraction = await extractItemText({
-      id: item.id,
-      sourceType: item.sourceType,
-      sourceUrl: item.sourceUrl,
-      sourceFilePath: item.sourceFilePath,
-      sourceHtml: item.sourceHtml,
-      logs: extractionLogs
-    });
+    const itemJobKind = claimedJobKind;
+    const storedMarkdownArtifact = itemJobKind === "REQUEST_TTS" ? await loadStoredMarkdownArtifact(item.id) : null;
+    const extraction = storedMarkdownArtifact
+      ? {
+          title: item.title?.trim() || "",
+          text: markdownToNarrationText(storedMarkdownArtifact.markdown),
+          markdown: storedMarkdownArtifact.markdown,
+          sourceLabel: item.sourceUrl || "Stored article markdown",
+          sourceArtifact: null,
+          selectionDiagnostics: null
+        }
+      : await extractItemText({
+          id: item.id,
+          sourceType: item.sourceType,
+          sourceUrl: item.sourceUrl,
+          sourceFilePath: item.sourceFilePath,
+          sourceHtml: item.sourceHtml,
+          logs: extractionLogs
+        });
     const cleanedMarkdown = cleanExtractedMarkdown(extraction.markdown);
     const persistedHtmlExtractionSelection = extraction.selectionDiagnostics
       ? buildPersistedHtmlExtractionSelection(extraction.selectionDiagnostics)
@@ -1660,6 +1710,12 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       originalBytes: Buffer.byteLength(extraction.markdown, "utf8"),
       cleanedBytes: Buffer.byteLength(cleanedMarkdown, "utf8")
     });
+    if (storedMarkdownArtifact) {
+      appendExtractionLog(extractionLogs, "extract", "Loaded existing markdown artifact for requested TTS", {
+        storageKey: storedMarkdownArtifact.storageKey,
+        bytes: storedMarkdownArtifact.bytes
+      });
+    }
 
     if (extraction.sourceArtifact) {
       const storedRaw = await getArtifactStorage().putObject(extraction.sourceArtifact.storageKey, extraction.sourceArtifact.bytes, {
@@ -1706,48 +1762,50 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       });
     }
 
-    const markdownStorageKey = buildUserItemMarkdownStorageKey(item.userId, item.id);
-    const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(cleanedMarkdown, "utf8"), {
-      contentType: "text/markdown; charset=utf-8"
-    });
-    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
-      await workerPrimaryStore.upsertItemArtifact({
-        id: generateStoreId(),
-        itemId: item.id,
-        kind: "MARKDOWN",
-        storageKey: markdownStored.key,
-        contentType: "text/markdown; charset=utf-8",
-        byteLength: markdownStored.bytes,
-        expiresAt: null
+    if (!storedMarkdownArtifact) {
+      const markdownStorageKey = buildUserItemMarkdownStorageKey(item.userId, item.id);
+      const markdownStored = await getArtifactStorage().putObject(markdownStorageKey, Buffer.from(cleanedMarkdown, "utf8"), {
+        contentType: "text/markdown; charset=utf-8"
       });
-    } else {
-      await prisma.itemArtifact.upsert({
-        where: {
-          itemId_kind: {
-            itemId: item.id,
-            kind: "MARKDOWN"
-          }
-        },
-        update: {
-          storageKey: markdownStored.key,
-          contentType: "text/markdown; charset=utf-8",
-          byteLength: markdownStored.bytes,
-          expiresAt: null
-        },
-        create: {
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.upsertItemArtifact({
+          id: generateStoreId(),
           itemId: item.id,
           kind: "MARKDOWN",
           storageKey: markdownStored.key,
           contentType: "text/markdown; charset=utf-8",
           byteLength: markdownStored.bytes,
           expiresAt: null
-        }
+        });
+      } else {
+        await prisma.itemArtifact.upsert({
+          where: {
+            itemId_kind: {
+              itemId: item.id,
+              kind: "MARKDOWN"
+            }
+          },
+          update: {
+            storageKey: markdownStored.key,
+            contentType: "text/markdown; charset=utf-8",
+            byteLength: markdownStored.bytes,
+            expiresAt: null
+          },
+          create: {
+            itemId: item.id,
+            kind: "MARKDOWN",
+            storageKey: markdownStored.key,
+            contentType: "text/markdown; charset=utf-8",
+            byteLength: markdownStored.bytes,
+            expiresAt: null
+          }
+        });
+      }
+      appendExtractionLog(extractionLogs, "extract", "Markdown artifact persisted", {
+        storageKey: markdownStored.key,
+        bytes: markdownStored.bytes
       });
     }
-    appendExtractionLog(extractionLogs, "extract", "Markdown artifact persisted", {
-      storageKey: markdownStored.key,
-      bytes: markdownStored.bytes
-    });
 
     if (persistedHtmlExtractionSelection) {
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
@@ -1775,6 +1833,167 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       usedUserProvidedTitle: Boolean(userProvidedTitle),
       resolvedTitle
     });
+
+    if (itemJobKind === "SUMMARY_ONLY") {
+      stage = "persist";
+      await renewClaimLease(claimResult, "Creating article summary...");
+      assertLeaseHealthy();
+      const summaryProvider = makeSummaryProvider();
+      const sourceType =
+        item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT" ? item.sourceType : "URL";
+      const summary = await summaryProvider.summarize({
+        kind: "item_summary",
+        cadence: "DAILY",
+        timezone: "UTC",
+        periodKey: item.id,
+        windowStart: claimResult.createdAt,
+        windowEnd: now(),
+        targetLengthMinutes: 5,
+        targetWords: digestTargetWords(5),
+        requestedTitle: resolvedTitle,
+        sources: [
+          {
+            itemId: item.id,
+            title: resolvedTitle,
+            sourceType,
+            sourceUrl: item.sourceUrl,
+            createdAt: claimResult.createdAt,
+            markdown: cleanedMarkdown
+          }
+        ]
+      });
+      const summaryStorageKey = buildUserItemSummaryStorageKey(item.userId, item.id);
+      const storedSummary = await getArtifactStorage().putObject(summaryStorageKey, Buffer.from(summary.markdown, "utf8"), {
+        contentType: "text/markdown; charset=utf-8"
+      });
+      const completedAt = now();
+      const textHash = sha256([item.userId, item.id, cleanedMarkdown, summary.markdown].join("|"));
+
+      if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+        await workerPrimaryStore.updateItem(item.id, {
+          title: resolvedTitle,
+          status: "READY",
+          processingMode: "SUMMARY_ONLY",
+          textHash,
+          sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
+          errorCode: null,
+          errorMessage: null,
+          summaryStatus: "SUCCEEDED",
+          summaryTitle: summary.title,
+          summaryStorageKey: storedSummary.key,
+          summaryBytes: storedSummary.bytes,
+          summaryProvider: summary.provider,
+          summaryModel: summary.model,
+          summaryDeployment: summary.deployment ?? null,
+          summaryInputTokens: summary.inputTokens ?? null,
+          summaryOutputTokens: summary.outputTokens ?? null,
+          summaryErrorCode: null,
+          summaryErrorMessage: null,
+          summaryCompletedAt: completedAt
+        });
+        const completedJob = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
+          status: "SUCCEEDED",
+          errorCode: null,
+          errorMessage: null,
+          lockedAt: null,
+          nextRetryAt: null,
+          lastHeartbeatAt: completedAt,
+          clearLease: true
+        });
+        if (!completedJob) {
+          throw new LostJobLeaseError();
+        }
+      } else {
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+          const completedJob = await tx.job.updateMany({
+            where: {
+              id: claimResult.id,
+              leaseId: claimResult.leaseId,
+              status: "PROCESSING"
+            },
+            data: {
+              status: "SUCCEEDED",
+              lockedAt: null,
+              leaseId: null,
+              leaseOwner: null,
+              leaseExpiresAt: null,
+              lastHeartbeatAt: completedAt,
+              nextRetryAt: null,
+              errorCode: null,
+              errorMessage: null
+            }
+          });
+          if (completedJob.count !== 1) {
+            throw new LostJobLeaseError();
+          }
+
+          await tx.item.update({
+            where: { id: item.id },
+            data: {
+              title: resolvedTitle,
+              status: "READY",
+              processingMode: "SUMMARY_ONLY",
+              textHash,
+              sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
+              errorCode: null,
+              errorMessage: null,
+              summaryStatus: "SUCCEEDED",
+              summaryTitle: summary.title,
+              summaryStorageKey: storedSummary.key,
+              summaryBytes: storedSummary.bytes,
+              summaryProvider: summary.provider,
+              summaryModel: summary.model,
+              summaryDeployment: summary.deployment ?? null,
+              summaryInputTokens: summary.inputTokens ?? null,
+              summaryOutputTokens: summary.outputTokens ?? null,
+              summaryErrorCode: null,
+              summaryErrorMessage: null,
+              summaryCompletedAt: completedAt
+            }
+          });
+        });
+      }
+      appendExtractionLog(extractionLogs, "persist", "Item summary persisted", {
+        storageKey: storedSummary.key,
+        bytes: storedSummary.bytes
+      });
+      await deleteDispatchMessage(claimResult);
+
+      await appendJobEvent({
+        jobId: claimResult.id,
+        itemId: item.id,
+        stage: "job",
+        eventType: "success",
+        message: "Summary processing completed"
+      });
+      appendExtractionLog(extractionLogs, "job", "Summary job completed successfully");
+      await workerLogger.info("Summary-only item job completed", {
+        status: "SUCCEEDED",
+        sourceType: item.sourceType,
+        summaryProvider: summary.provider,
+        summaryModel: summary.model,
+        summaryDeployment: summary.deployment
+      });
+
+      const processingDurationMs = Math.max(0, completedAt.getTime() - lockedAtMs);
+      await recordWorkerAnalyticsEventBestEffort({
+        eventType: "ITEM_READY",
+        userId: item.userId,
+        itemId: item.id,
+        sourceType,
+        dedupeKey: `item_ready:${item.id}`,
+        occurredAt: completedAt,
+        metadata: {
+          queue_wait_ms: queueWaitMs,
+          processing_duration_ms: processingDurationMs,
+          job_id: claimResult.id,
+          processing_mode: "SUMMARY_ONLY"
+        }
+      });
+
+      await syncJobAndItemProjectionByJobId(claimResult.id);
+      return true;
+    }
 
     const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
     if (chunks.length === 0) {
@@ -2076,6 +2295,30 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       shouldRecommendRetry(err) && claimResult.attempt < workerEnv.maxRetryAttempts;
     const safeErrorMessage = toSafeErrorMessage(err.userMessage);
     const retryAt = retryRecommended ? buildRetryAt(Math.max(30_000, workerEnv.retryPollMs)) : null;
+    const failedItemPatch = {
+      status: "FAILED",
+      errorCode: err.code,
+      errorMessage: safeErrorMessage,
+      ...(claimedJobKind === "SUMMARY_ONLY"
+        ? {
+            summaryStatus: "FAILED",
+            summaryErrorCode: err.code,
+            summaryErrorMessage: safeErrorMessage
+          }
+        : {})
+    };
+    const fallbackFailedItemPatch = {
+      status: "FAILED",
+      errorCode: err.code,
+      errorMessage: "Processing failed. Please retry.",
+      ...(claimedJobKind === "SUMMARY_ONLY"
+        ? {
+            summaryStatus: "FAILED",
+            summaryErrorCode: err.code,
+            summaryErrorMessage: "Processing failed. Please retry."
+          }
+        : {})
+    };
 
     try {
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
@@ -2091,11 +2334,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         if (!failedJob) {
           throw new LostJobLeaseError();
         }
-        await workerPrimaryStore.updateItem(item.id, {
-          status: "FAILED",
-          errorCode: err.code,
-          errorMessage: safeErrorMessage
-        });
+        await workerPrimaryStore.updateItem(item.id, failedItemPatch);
       } else {
         const persisted = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           const failedJob = await tx.job.updateMany({
@@ -2122,11 +2361,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
 
           await tx.item.update({
             where: { id: item.id },
-            data: {
-              status: "FAILED",
-              errorCode: err.code,
-              errorMessage: safeErrorMessage
-            }
+            data: failedItemPatch
           });
           return true;
         });
@@ -2165,11 +2400,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
           clearLease: true
         });
         if (failedJob) {
-          await workerPrimaryStore.updateItem(item.id, {
-            status: "FAILED",
-            errorCode: err.code,
-            errorMessage: "Processing failed. Please retry."
-          });
+          await workerPrimaryStore.updateItem(item.id, fallbackFailedItemPatch);
         }
       } else {
         const failedJob = await prisma.job.updateMany({
@@ -2193,11 +2424,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         if (failedJob.count === 1) {
           await prisma.item.updateMany({
             where: { id: item.id },
-            data: {
-              status: "FAILED",
-              errorCode: err.code,
-              errorMessage: "Processing failed. Please retry."
-            }
+            data: fallbackFailedItemPatch
           });
         }
       }

@@ -130,6 +130,9 @@ export async function DELETE(request: NextRequest) {
         await storage.deleteObject(item.sourceFilePath);
       }
     }
+    if (item.summaryStorageKey) {
+      await storage.deleteObject(item.summaryStorageKey).catch(() => undefined);
+    }
     for (const artifact of item.artifacts) {
       await storage.deleteObject(artifact.storageKey).catch(() => undefined);
     }

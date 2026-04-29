@@ -74,6 +74,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     }
   }
 
+  if (item.summaryStorageKey) {
+    await storage.deleteObject(item.summaryStorageKey).catch(() => undefined);
+  }
+
   for (const artifact of item.artifacts) {
     await storage.deleteObject(artifact.storageKey).catch(() => undefined);
   }

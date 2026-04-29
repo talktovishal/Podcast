@@ -2,7 +2,7 @@ import { AppError, errorCodes } from "../errors/codes";
 import { summaryMarkdownToNarrationText } from "../extract/markdownCleanup";
 import type { DigestCadence, DigestLengthMinutes } from "../types/domain";
 
-export type SummaryGenerationKind = "digest" | "summary_studio";
+export type SummaryGenerationKind = "digest" | "summary_studio" | "item_summary";
 
 export type DigestSummarySource = {
   itemId: string;
@@ -90,6 +90,9 @@ function fallbackTitle(input: DigestSummaryRequest): string {
   if (input.kind === "summary_studio") {
     return `Summary Studio - ${input.periodKey}`;
   }
+  if (input.kind === "item_summary") {
+    return input.sources[0]?.title?.trim() || `Article summary - ${input.periodKey}`;
+  }
   return `${cadenceLabel(input.cadence)} Digest - ${input.periodKey}`;
 }
 
@@ -117,7 +120,23 @@ export class StubSummaryProvider implements SummaryProvider {
     const heading = `# ${title}`;
     const intro = `Generated from ${sorted.length} source item(s), target length ${input.targetLengthMinutes} minutes (${input.targetWords} words).`;
     const markdown =
-      input.kind === "summary_studio"
+      input.kind === "item_summary"
+        ? [
+            heading,
+            "",
+            sorted[0]
+              ? `Generated from ${sourceLabel(sorted[0].sourceType)} source item "${sorted[0].title?.trim() || "Untitled"}".`
+              : intro,
+            "",
+            "## Key points",
+            "",
+            ...(lines.length > 0 ? lines : ["- No source summary found."]),
+            "",
+            "## Why it matters",
+            "",
+            "- This placeholder summary uses the deterministic stub provider."
+          ].join("\n")
+        : input.kind === "summary_studio"
         ? [
             heading,
             "",
