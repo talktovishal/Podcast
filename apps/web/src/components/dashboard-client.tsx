@@ -1204,15 +1204,15 @@ export function DashboardClient({
   return (
     <div className="space-y-4 sm:space-y-6">
       {showWorkspaceHeader ? (
-        <section className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <section className="card p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0 space-y-0.5">
-              <h1 className="break-words text-2xl font-bold">{workspaceHeading}</h1>
+              <h1 className="break-words text-xl font-bold sm:text-2xl">{workspaceHeading}</h1>
               {workspaceSubheading ? <p className="text-sm text-[var(--muted)]">{workspaceSubheading}</p> : null}
             </div>
             {!readOnly ? (
-              <div className="w-full max-w-xl lg:w-[32rem]">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">New item mode</p>
+              <div className="w-full max-w-md lg:w-[27rem]">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">New item mode</p>
                 <div
                   aria-label="New item processing mode"
                   className="relative grid grid-cols-2 rounded-full border border-[rgba(31,122,90,0.2)] bg-[rgba(247,251,250,0.95)] p-1 shadow-inner"
@@ -1227,7 +1227,7 @@ export function DashboardClient({
                   />
                   <button
                     aria-pressed={!summaryModeEnabled}
-                    className={`relative z-10 flex min-h-[4.25rem] items-center justify-center rounded-full px-3 py-2 text-center text-xs font-semibold leading-snug transition sm:text-sm ${
+                    className={`relative z-10 flex min-h-[3rem] items-center justify-center rounded-full px-2.5 py-1.5 text-center text-[11px] font-semibold leading-tight transition sm:text-xs ${
                       !summaryModeEnabled ? "text-white" : "text-[var(--ink)] hover:text-[var(--accent)]"
                     }`}
                     disabled={isProcessingModeBusy}
@@ -1242,7 +1242,7 @@ export function DashboardClient({
                   </button>
                   <button
                     aria-pressed={summaryModeEnabled}
-                    className={`relative z-10 flex min-h-[4.25rem] flex-col items-center justify-center rounded-full px-3 py-2 text-center text-xs font-semibold leading-snug transition sm:text-sm ${
+                    className={`relative z-10 flex min-h-[3rem] flex-col items-center justify-center rounded-full px-2.5 py-1.5 text-center text-[11px] font-semibold leading-tight transition sm:text-xs ${
                       summaryModeEnabled ? "text-white" : "text-[var(--ink)] hover:text-[var(--accent)]"
                     }`}
                     disabled={isProcessingModeBusy}
@@ -1254,7 +1254,7 @@ export function DashboardClient({
                     type="button"
                   >
                     <span>Summaries only</span>
-                    <span className={`text-[11px] font-medium sm:text-xs ${summaryModeEnabled ? "text-white/85" : "text-[var(--muted)]"}`}>
+                    <span className={`text-[10px] font-medium sm:text-[11px] ${summaryModeEnabled ? "text-white/85" : "text-[var(--muted)]"}`}>
                       Daily and weekly podcasts
                     </span>
                   </button>
