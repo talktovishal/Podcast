@@ -4,7 +4,10 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { NextRequest } from "next/server";
-import { GET as adminQuotaGet, POST as adminQuotaPost } from "../src/app/api/admin/users/quota/route";
+import {
+  GET as adminQuotaGet,
+  POST as adminQuotaPost,
+} from "../src/app/api/admin/users/quota/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
 import { createSession } from "../src/lib/auth";
 import { enqueueItem } from "../src/lib/items";
@@ -21,10 +24,14 @@ function ensureDbBootstrap(): void {
 
   const here = fileURLToPath(new URL(".", import.meta.url));
   const repoRoot = resolve(here, "../../..");
-  const result = spawnSync("npx", ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"], {
-    cwd: repoRoot,
-    encoding: "utf8"
-  });
+  const result = spawnSync(
+    "npx",
+    ["pnpm", "--filter", "@articlepod/web", "run", "db:bootstrap"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
 
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || "db bootstrap failed");
@@ -33,19 +40,22 @@ function ensureDbBootstrap(): void {
   dbReady = true;
 }
 
-function htmlSnapshotRequest(sessionToken: string, suffix: string): NextRequest {
+function htmlSnapshotRequest(
+  sessionToken: string,
+  suffix: string,
+): NextRequest {
   return new NextRequest("http://localhost/api/items/html-snapshot", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      cookie: `articlepod_session=${sessionToken}`
+      cookie: `articlepod_session=${sessionToken}`,
     },
     body: JSON.stringify({
       url: `https://example.com/quota/${suffix}`,
       title: `Quota ${suffix}`,
       html: `<html><body><article><h1>${suffix}</h1><p>quota test content ${suffix}</p></article></body></html>`,
-      capturedAt: "2026-02-10T00:00:00.000Z"
-    })
+      capturedAt: "2026-02-10T00:00:00.000Z",
+    }),
   });
 }
 
@@ -58,8 +68,8 @@ test("enqueueItem creates a dispatch message for queued item jobs", async () => 
       email: `dispatch-${uniq}@articlepod.local`,
       role: "USER",
       ttsProvider: "kokoro",
-      ttsVoice: "af_heart"
-    }
+      ttsVoice: "af_heart",
+    },
   });
 
   try {
@@ -69,16 +79,16 @@ test("enqueueItem creates a dispatch message for queued item jobs", async () => 
       sourceType: "HTML_SNAPSHOT",
       sourceUrl: `https://example.com/dispatch/${uniq}`,
       sourceHtml: `<html><body><article><h1>${uniq}</h1><p>dispatch queue test content</p></article></body></html>`,
-      sourceCapturedAt: new Date("2026-03-29T00:00:00.000Z")
+      sourceCapturedAt: new Date("2026-03-29T00:00:00.000Z"),
     });
 
     const job = await prisma.job.findFirst({
       where: { itemId: submission.item.id },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
     const dispatchMessage = job?.id
       ? await prisma.dispatchQueueMessage.findUnique({
-          where: { jobId: job.id }
+          where: { jobId: job.id },
         })
       : null;
 
@@ -101,29 +111,38 @@ test("submission quota blocks free users after two submissions and admin can gra
         email: `quota-admin-${uniq}@articlepod.local`,
         role: "ADMIN",
         ttsProvider: "kokoro",
-        ttsVoice: "af_heart"
-      }
+        ttsVoice: "af_heart",
+      },
     }),
     prisma.user.create({
       data: {
         email: `quota-user-${uniq}@articlepod.local`,
         role: "USER",
         ttsProvider: "kokoro",
-        ttsVoice: "af_heart"
-      }
-    })
+        ttsVoice: "af_heart",
+      },
+    }),
   ]);
 
   try {
-    const [adminSession, userSession] = await Promise.all([createSession(admin.id), createSession(user.id)]);
+    const [adminSession, userSession] = await Promise.all([
+      createSession(admin.id),
+      createSession(user.id),
+    ]);
 
-    const first = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-1`));
+    const first = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-1`),
+    );
     assert.equal(first.status, 200);
 
-    const second = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-2`));
+    const second = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-2`),
+    );
     assert.equal(second.status, 200);
 
-    const third = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-3`));
+    const third = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-3`),
+    );
     assert.equal(third.status, 402);
     const thirdPayload = (await third.json()) as {
       ok: boolean;
@@ -132,29 +151,38 @@ test("submission quota blocks free users after two submissions and admin can gra
     assert.equal(thirdPayload.ok, false);
     assert.equal(thirdPayload.error_code, "USAGE_LIMIT_EXCEEDED");
 
-    const blockedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    const blockedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
     assert.equal(blockedUser?.submissionCount, 2);
     assert.equal(blockedUser?.extraSubmissionCredits, 0);
 
-    const grantRequest = new NextRequest("http://localhost/api/admin/users/quota", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        cookie: `articlepod_session=${adminSession}`
+    const grantRequest = new NextRequest(
+      "http://localhost/api/admin/users/quota",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${adminSession}`,
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          complimentaryPro: false,
+          extraSubmissionCredits: 3,
+        }),
       },
-      body: JSON.stringify({
-        userId: user.id,
-        complimentaryPro: false,
-        extraSubmissionCredits: 3
-      })
-    });
+    );
     const grantResponse = await adminQuotaPost(grantRequest);
     assert.equal(grantResponse.status, 200);
 
-    const fourth = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-4`));
+    const fourth = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-4`),
+    );
     assert.equal(fourth.status, 200);
 
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.id } });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
     assert.equal(updatedUser?.submissionCount, 3);
     assert.equal(updatedUser?.extraSubmissionCredits, 3);
     assert.equal(updatedUser?.complimentaryPro, false);
@@ -174,37 +202,43 @@ test("admin quota API is admin-only and returns quota rows", async () => {
         email: `quota-api-admin-${uniq}@articlepod.local`,
         role: "ADMIN",
         ttsProvider: "kokoro",
-        ttsVoice: "af_heart"
-      }
+        ttsVoice: "af_heart",
+      },
     }),
     prisma.user.create({
       data: {
         email: `quota-api-user-${uniq}@articlepod.local`,
         role: "USER",
         ttsProvider: "kokoro",
-        ttsVoice: "af_heart"
-      }
-    })
+        ttsVoice: "af_heart",
+      },
+    }),
   ]);
 
   try {
-    const [adminSession, userSession] = await Promise.all([createSession(admin.id), createSession(user.id)]);
+    const [adminSession, userSession] = await Promise.all([
+      createSession(admin.id),
+      createSession(user.id),
+    ]);
 
     const forbiddenGet = await adminQuotaGet(
       new NextRequest("http://localhost/api/admin/users/quota", {
         headers: {
-          cookie: `articlepod_session=${userSession}`
-        }
-      })
+          cookie: `articlepod_session=${userSession}`,
+        },
+      }),
     );
     assert.equal(forbiddenGet.status, 403);
 
     const listResponse = await adminQuotaGet(
-      new NextRequest(`http://localhost/api/admin/users/quota?q=${encodeURIComponent(user.email)}`, {
-        headers: {
-          cookie: `articlepod_session=${adminSession}`
-        }
-      })
+      new NextRequest(
+        `http://localhost/api/admin/users/quota?q=${encodeURIComponent(user.email)}`,
+        {
+          headers: {
+            cookie: `articlepod_session=${adminSession}`,
+          },
+        },
+      ),
     );
     assert.equal(listResponse.status, 200);
     const listPayload = (await listResponse.json()) as {
@@ -247,19 +281,23 @@ test("paid monthly users defer overflow submissions after 12 immediate starts", 
       billingEntitlementStatus: "ACTIVE",
       billingLastPaymentStatus: "PAID",
       ttsProvider: "kokoro",
-      ttsVoice: "af_heart"
-    }
+      ttsVoice: "af_heart",
+    },
   });
 
   try {
     const userSession = await createSession(user.id);
 
     for (let index = 0; index < 12; index += 1) {
-      const response = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-${index}`));
+      const response = await htmlSnapshotPost(
+        htmlSnapshotRequest(userSession, `${uniq}-${index}`),
+      );
       assert.equal(response.status, 200);
     }
 
-    const deferred = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-deferred`));
+    const deferred = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-deferred`),
+    );
     assert.equal(deferred.status, 200);
     const payload = (await deferred.json()) as {
       ok: boolean;
@@ -274,22 +312,35 @@ test("paid monthly users defer overflow submissions after 12 immediate starts", 
     };
     assert.equal(payload.ok, true);
     assert.equal(payload.queue_mode, "deferred");
-    assert.equal(payload.accepted_message.includes("queued for the next available Pro window"), true);
+    assert.equal(
+      payload.accepted_message.includes(
+        "queued for the next available Pro window",
+      ),
+      true,
+    );
     assert.equal(payload.submission_quota.remainingDailyPodcasts, 0);
     assert.equal(payload.submission_quota.queuedDeferredPodcasts, 1);
     assert.equal(payload.submission_quota.maxDeferredPodcasts, 24);
 
     const [item, job] = await Promise.all([
       prisma.item.findUnique({ where: { id: payload.item_id } }),
-      prisma.job.findFirst({ where: { itemId: payload.item_id } })
+      prisma.job.findFirst({ where: { itemId: payload.item_id } }),
     ]);
     assert.equal(item?.status, "QUEUED");
     assert.equal(item?.errorCode, "PRO_DAILY_LIMIT_DEFERRED");
-    assert.equal(item?.errorMessage?.includes("queued for the next available Pro window"), true);
+    assert.equal(
+      item?.errorMessage?.includes("queued for the next available Pro window"),
+      true,
+    );
     assert.equal(job?.status, "QUEUED");
     assert.ok(job?.scheduledFor instanceof Date);
-    assert.ok(job?.scheduledFor ? job.scheduledFor.getTime() > Date.now() : false);
-    assert.equal(job?.nextRetryAt?.toISOString(), job?.scheduledFor?.toISOString());
+    assert.ok(
+      job?.scheduledFor ? job.scheduledFor.getTime() > Date.now() : false,
+    );
+    assert.equal(
+      job?.nextRetryAt?.toISOString(),
+      job?.scheduledFor?.toISOString(),
+    );
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
@@ -309,19 +360,23 @@ test("paid annual users keep the higher 15-start daily limit and 30-slot overflo
       billingEntitlementStatus: "ACTIVE",
       billingLastPaymentStatus: "PAID",
       ttsProvider: "kokoro",
-      ttsVoice: "af_heart"
-    }
+      ttsVoice: "af_heart",
+    },
   });
 
   try {
     const userSession = await createSession(user.id);
 
     for (let index = 0; index < 15; index += 1) {
-      const response = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-${index}`));
+      const response = await htmlSnapshotPost(
+        htmlSnapshotRequest(userSession, `${uniq}-${index}`),
+      );
       assert.equal(response.status, 200);
     }
 
-    const deferred = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-deferred`));
+    const deferred = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-deferred`),
+    );
     assert.equal(deferred.status, 200);
     const payload = (await deferred.json()) as {
       ok: boolean;
@@ -356,8 +411,8 @@ test("paid monthly users are blocked once the deferred overflow queue reaches 24
       billingEntitlementStatus: "ACTIVE",
       billingLastPaymentStatus: "PAID",
       ttsProvider: "kokoro",
-      ttsVoice: "af_heart"
-    }
+      ttsVoice: "af_heart",
+    },
   });
 
   try {
@@ -370,12 +425,14 @@ test("paid monthly users are blocked once the deferred overflow queue reaches 24
         sourceType: "HTML_SNAPSHOT",
         sourceUrl: `https://example.com/quota/${uniq}-${index}`,
         sourceHtml: `<html><body><article><h1>${uniq}-${index}</h1><p>quota test content ${uniq}-${index}</p></article></body></html>`,
-        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z"),
       });
       assert.equal(submission.item.status, "QUEUED");
     }
 
-    const blocked = await htmlSnapshotPost(htmlSnapshotRequest(userSession, `${uniq}-blocked`));
+    const blocked = await htmlSnapshotPost(
+      htmlSnapshotRequest(userSession, `${uniq}-blocked`),
+    );
     assert.equal(blocked.status, 402);
     const payload = (await blocked.json()) as {
       ok: boolean;
@@ -404,8 +461,8 @@ test("paid monthly users get a separate 36-item daily Summary Mode allowance", a
       billingEntitlementStatus: "ACTIVE",
       billingLastPaymentStatus: "PAID",
       ttsProvider: "kokoro",
-      ttsVoice: "af_heart"
-    }
+      ttsVoice: "af_heart",
+    },
   });
 
   try {
@@ -416,8 +473,8 @@ test("paid monthly users get a separate 36-item daily Summary Mode allowance", a
         mode: "summary",
         sourceType: "HTML_SNAPSHOT",
         sourceUrl: `https://example.com/quota/${uniq}-${index}`,
-        sourceHtml: `<html><body><article><h1>${uniq}-${index}</h1><p>summary quota test content ${uniq}-${index}</p></article></body></html>`,
-        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+        sourceHtml: `<html><body><article><h1>${uniq}-${index}</h1><p>summary quota test content ${uniq}-${index} has enough article body text to exercise the same extraction and canonical markdown materialization path used by real summary-only submissions.</p><p>The queued summary task should only represent the remaining LLM summary generation work for this item.</p></article></body></html>`,
+        sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z"),
       });
       assert.equal(submission.queueMode, "IMMEDIATE");
       assert.equal(submission.item.processingMode, "SUMMARY_ONLY");
@@ -436,10 +493,10 @@ test("paid monthly users get a separate 36-item daily Summary Mode allowance", a
           mode: "summary",
           sourceType: "HTML_SNAPSHOT",
           sourceUrl: `https://example.com/quota/${uniq}-blocked`,
-          sourceHtml: `<html><body><article><h1>${uniq}-blocked</h1><p>blocked summary quota content</p></article></body></html>`,
-          sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z")
+          sourceHtml: `<html><body><article><h1>${uniq}-blocked</h1><p>blocked summary quota content has enough article body text to exercise the same extraction and canonical markdown materialization path used by real summary-only submissions.</p><p>This blocked item should fail because capacity is exhausted, not because the source body is too short.</p></article></body></html>`,
+          sourceCapturedAt: new Date("2026-02-10T00:00:00.000Z"),
         }),
-      /summary-mode item summaries/
+      /summary-mode item summaries/,
     );
   } finally {
     await prisma.user.delete({ where: { id: user.id } });

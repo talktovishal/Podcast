@@ -148,7 +148,7 @@
   - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
 - Summary Mode item summaries (`M121`) are implemented:
   - `/app` can persist `FULL_EPISODE` vs `SUMMARY_ONLY` as the default for future captures.
-  - summary-only submissions create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor stores canonical markdown plus item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later.
+  - summary-only submissions run the shared pre-audio path first, storing canonical markdown and resolving titles, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor stores item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later.
   - digest generation prefers item summaries, while wiki preparation keeps full article markdown with the summary as compact guidance.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
@@ -4005,7 +4005,7 @@ Milestone metadata contract:
 - evidence: local implementation + targeted typecheck/test pass (2026-04-29)
 - Scope:
   - Add a per-user `/app` workspace-header processing-mode slider for future URL/PDF/Chrome captures.
-  - Let `SUMMARY_ONLY` item jobs extract/store canonical markdown, generate per-item summary markdown, and skip TTS/RSS until explicit user request.
+  - Let `SUMMARY_ONLY` submissions extract/store canonical markdown, then queue `ArticleSummaryTask` rows for the remaining per-item summary generation while skipping TTS/RSS until explicit user request.
   - Add explicit `Request TTS` for summary items that generates the same full-article audio path as the existing episode flow.
   - Preserve digest/wiki synthesis quality by preferring item summaries for digests while still feeding full article markdown into wiki builds with the summary prepended as guidance.
   - Add separate paid daily Summary Mode capacity while keeping explicit TTS on normal podcast capacity.
@@ -4022,7 +4022,7 @@ Milestone metadata contract:
   - `apps/web/src/app/api/account/processing-mode/route.ts`
   - `apps/web/src/app/api/items/[id]/summary/route.ts`
   - `apps/web/src/app/api/items/[id]/request-tts/route.ts`
-  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/article-summary-task-processing.md`
   - `apps/worker/src/jobs/processDigestRunJob.ts`
   - `apps/web/src/lib/wiki.ts`
   - `docs/Prompts.md`
@@ -4031,7 +4031,8 @@ Milestone metadata contract:
   - `docs/env.md`
 - Acceptance criteria:
   - New users default to `FULL_EPISODE`; using the workspace-header mode slider persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
-  - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, `Job.jobKind=SUMMARY_ONLY`, canonical `MARKDOWN`, and `summaryStatus=SUCCEEDED` with summary metadata when complete.
+  - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, canonical `MARKDOWN`, and an `ArticleSummaryTask`; they do not create podcast/audio `Job` rows or dispatch messages.
+  - The future `processArticleSummaryTask` batch processor consumes stored canonical markdown and completes `summaryStatus=SUCCEEDED` with summary metadata when wired.
   - Summary Mode completion creates no `Episode`, audio object, RSS item, or media token.
   - Recent items shows summary state, opens summary markdown in a right-side drawer/full-screen mobile sheet, and closes on Escape.
   - `Request TTS` creates `Job.jobKind=REQUEST_TTS`, consumes podcast capacity, and prefers stored canonical markdown so audio requests are restartable without re-fetching when possible.
@@ -4043,7 +4044,7 @@ Milestone metadata contract:
   - Azure Table primary rows dual-read defaults when the new properties are absent, so existing users/items/jobs remain valid without a table reset.
   - Existing items remain `FULL_EPISODE` / `NOT_REQUESTED` until reprocessed or explicitly summarized through new work.
   - New summary blobs are additive under `users/<userId>/markdown/items/<itemId>/summary.md`; cleanup on item/account deletion removes these blobs.
-  - Rollback is safe-disable: hide the toggle and stop creating `SUMMARY_ONLY` jobs; existing summary metadata/blobs can remain inert.
+  - Rollback is safe-disable: hide the toggle and stop creating `ArticleSummaryTask` rows; existing summary metadata/blobs/tasks can remain inert.
 - Verification commands:
   - `npx pnpm --filter @articlepod/core run typecheck`
   - `npx pnpm --filter @articlepod/web run typecheck`

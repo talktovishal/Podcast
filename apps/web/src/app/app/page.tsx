@@ -68,7 +68,11 @@ export default async function AppDashboardPage() {
           isAdmin={user.role === "ADMIN"}
           isDemoAccount={isDemoUser}
           initialSubmissionQuota={submissionQuota}
-          initialProcessingMode={userRecord?.defaultItemProcessingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE"}
+          initialProcessingMode={
+            userRecord?.defaultItemProcessingMode === "SUMMARY_ONLY"
+              ? "SUMMARY_ONLY"
+              : "FULL_EPISODE"
+          }
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}
@@ -79,19 +83,27 @@ export default async function AppDashboardPage() {
             sourceType: item.sourceType,
             sourceUrl: item.sourceUrl,
             status: item.status,
-            processingMode: item.processingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE",
+            processingMode:
+              item.processingMode === "SUMMARY_ONLY"
+                ? "SUMMARY_ONLY"
+                : "FULL_EPISODE",
             importance: item.importance,
             tags: item.tags,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,
             summaryStatus:
-              item.summaryStatus === "PROCESSING" || item.summaryStatus === "SUCCEEDED" || item.summaryStatus === "FAILED"
+              item.summaryStatus === "PROCESSING" ||
+              item.summaryStatus === "SUCCEEDED" ||
+              item.summaryStatus === "FAILED"
                 ? item.summaryStatus
                 : "NOT_REQUESTED",
             summaryTitle: item.summaryTitle,
-            summaryCompletedAt: item.summaryCompletedAt ? item.summaryCompletedAt.toISOString() : null,
+            summaryCompletedAt: item.summaryCompletedAt
+              ? item.summaryCompletedAt.toISOString()
+              : null,
             summaryErrorCode: item.summaryErrorCode,
             summaryErrorMessage: item.summaryErrorMessage,
+            markdownBytes: item.markdownBytes,
             createdAt: item.createdAt.toISOString(),
             share: item.share,
             episode: item.episode

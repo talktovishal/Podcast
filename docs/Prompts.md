@@ -202,7 +202,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Summary Mode is implemented on the Episodes workspace:
   - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from the top `/app` workspace header slider through `GET/POST /api/account/processing-mode`.
   - URL, PDF, and Chrome extension captures inherit the user's default unless the web submit flow explicitly sends `mode=full` or `mode=summary`.
-  - summary-only submissions create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor will extract/store canonical article markdown, then write a per-item summary markdown artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
+  - summary-only submissions run the shared pre-audio path first, storing canonical article markdown and resolving the item title, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor only needs to turn stored markdown into the per-item summary artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
   - summary-only items do not synthesize TTS, create `Episode` rows, or publish to the main RSS feed until the user explicitly chooses `Request TTS`.
   - `Request TTS` queues a `REQUEST_TTS` item job that consumes normal podcast capacity and generates full-article audio using the stored canonical markdown when available.
   - Recent items shows summary status, opens finished summaries in a drawer/sheet, and keeps summary viewing separate from podcast audio playback.

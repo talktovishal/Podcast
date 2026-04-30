@@ -27,7 +27,7 @@ Fields:
 - `errorCode` / `errorMessage`: safe failure state for operators.
 - `createdAt` / `updatedAt`: durable timestamps.
 
-The UX does not read this table directly. User-visible state stays on `Item.summaryStatus`, `Item.summaryTitle`, `Item.summaryStorageKey`, `Item.summaryCompletedAt`, and summary error fields. The summary markdown API remains `/api/items/[id]/summary`.
+The UX does not read this table directly. User-visible state stays on `Item.summaryStatus`, `Item.summaryTitle`, `Item.summaryStorageKey`, `Item.summaryCompletedAt`, and summary error fields. The canonical article markdown is exposed through `/api/items/[id]/markdown` once the `MARKDOWN` artifact exists; the summary markdown API remains `/api/items/[id]/summary`.
 
 ## Pending Work Query
 
@@ -40,7 +40,7 @@ Order by the effective due time first, then `createdAt`, so old pending work is 
 
 ## Claim Behavior
 
-Before doing extraction or LLM work, claim the row atomically:
+Before doing LLM work, claim the row atomically:
 
 - Confirm the task is still eligible.
 - Set `status = "PROCESSING"`.
@@ -59,28 +59,23 @@ The future processor should perform these steps:
 1. Load the task and associated `Item`.
 2. If the task is missing, return `false`. If the item is missing, delete the task when possible because the source item was removed.
 3. Atomically claim the task using the claim behavior above.
-4. Extract source content from `Item.sourceType`:
-   - `URL`: fetch and extract article text/markdown using the same current item extraction behavior.
-   - `PDF`: load `sourceFilePath` and use the same PDF extraction behavior.
-   - `HTML_SNAPSHOT`: load captured HTML and use the same snapshot extraction behavior.
-5. Clean extracted markdown with the existing canonical markdown cleanup.
-6. Store canonical markdown at `users/<userId>/markdown/items/<itemId>/canonical.md`.
-7. Upsert the `ItemArtifact` row with `kind = "MARKDOWN"` and the canonical markdown storage metadata.
-8. Resolve the item title from the user title, extracted title, or article text.
-9. Call `makeSummaryProvider().summarize({ kind: "item_summary", ... })` with the cleaned markdown as the single source.
-10. Store summary markdown at `users/<userId>/markdown/items/<itemId>/summary.md`.
-11. Update the `Item`:
-    - `status = "READY"`
-    - `processingMode = "SUMMARY_ONLY"`
-    - `summaryStatus = "SUCCEEDED"`
-    - `summaryTitle`
-    - `summaryStorageKey`
-    - `summaryBytes`
-    - provider/model/deployment/token metadata
-    - `summaryCompletedAt`
-    - clear item and summary error fields
-12. Delete the `ArticleSummaryTask` row after the item update succeeds.
-13. Return `true`.
+4. Load the existing `ItemArtifact` row with `kind = "MARKDOWN"`.
+5. Read canonical markdown from `users/<userId>/markdown/items/<itemId>/canonical.md`.
+6. If the artifact is missing, fail the task with a safe operator error; the task processor should not re-fetch or re-extract source content.
+7. Call `makeSummaryProvider().summarize({ kind: "item_summary", ... })` with the cleaned markdown as the single source.
+8. Store summary markdown at `users/<userId>/markdown/items/<itemId>/summary.md`.
+9. Update the `Item`:
+   - `status = "READY"`
+   - `processingMode = "SUMMARY_ONLY"`
+   - `summaryStatus = "SUCCEEDED"`
+   - `summaryTitle`
+   - `summaryStorageKey`
+   - `summaryBytes`
+   - provider/model/deployment/token metadata
+   - `summaryCompletedAt`
+   - clear item and summary error fields
+10. Delete the `ArticleSummaryTask` row after the item update succeeds.
+11. Return `true`.
 
 ## Failure Handling
 
@@ -103,6 +98,8 @@ Never publish an episode, synthesize TTS, or touch RSS state from `processArticl
 
 ## Current Wiring
 
-Summary-only submissions now create an `ArticleSummaryTask` and do not create a podcast `Job` or `DispatchQueueMessage`.
+Summary-only submissions now run the shared pre-audio processing first: extract source content, clean markdown, resolve the title, store canonical markdown at `users/<userId>/markdown/items/<itemId>/canonical.md`, and upsert the `MARKDOWN` artifact. Only after that succeeds do they create an `ArticleSummaryTask`. They do not create a podcast `Job` or `DispatchQueueMessage`.
+
+Manual retry for a failed summary-only item follows the same boundary: rebuild canonical markdown if needed, requeue or reset the `ArticleSummaryTask`, and still avoid the podcast/audio `Job` queue.
 
 The batch processor is intentionally not wired into `apps/worker/src/index.ts` yet. A later change should add the processor module and decide whether it runs from a scheduled worker loop, a CLI command, or an external cron-triggered batch.

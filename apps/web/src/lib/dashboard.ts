@@ -1,7 +1,7 @@
 import { hashIncomingToken, parseStoredItemTags } from "@articlepod/core";
 import {
   type DemoExtractionDiagnostic,
-  normalizeExtractionLogEntries
+  normalizeExtractionLogEntries,
 } from "./demo-diagnostics";
 import type { UserDemographicSurveyView } from "./demographics";
 import { env } from "./env";
@@ -12,18 +12,26 @@ import {
   findPrimaryUserByFeedTokenHash,
   findPrimaryUserById,
   findPrimaryUserDemographicSurvey,
-  listPrimaryDigestRunsByUser
+  listPrimaryDigestRunsByUser,
 } from "./metadata-primary-auth";
-import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
+import {
+  webPrimaryStore,
+  webUsesAzureTablePrimary,
+} from "./metadata-primary-store";
 import { prisma } from "./prisma";
 import {
   buildPublicEpisodeShareUrl,
   parsePublicEpisodeShareItemId,
-  PUBLIC_EPISODE_SHARE_SCOPE_PREFIX
+  PUBLIC_EPISODE_SHARE_SCOPE_PREFIX,
 } from "./share-links";
-import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
+import {
+  filterUnexpiredAudioEpisodes,
+  isAudioAvailable,
+} from "./audio-retention";
 
-const ADMIN_MAX_RETRY_ATTEMPTS = Number(process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5);
+const ADMIN_MAX_RETRY_ATTEMPTS = Number(
+  process.env.WORKER_MAX_RETRY_ATTEMPTS ?? 5,
+);
 
 type DashboardItemImportance = "LOW" | "MEDIUM" | "HIGH";
 
@@ -50,38 +58,45 @@ type DashboardItemRecord = {
   summaryErrorCode: string | null;
   summaryErrorMessage: string | null;
   summaryCompletedAt: Date | null;
+  markdownBytes: number | null;
   createdAt: Date;
   updatedAt: Date;
-  share:
-    | {
-        shareId: string;
-        shareUrl: string;
-      }
-    | null;
-  episode:
-    | {
-        id: string;
-        itemId: string;
-        guid: string;
-        title: string;
-        description: string;
-        audioPath: string;
-        audioBytes: number;
-        mimeType: string;
-        publishedAt: Date;
-        createdAt: Date;
-      }
-    | null;
+  share: {
+    shareId: string;
+    shareUrl: string;
+  } | null;
+  episode: {
+    id: string;
+    itemId: string;
+    guid: string;
+    title: string;
+    description: string;
+    audioPath: string;
+    audioBytes: number;
+    mimeType: string;
+    publishedAt: Date;
+    createdAt: Date;
+  } | null;
 };
 
-export async function getActiveFeedTokenForUser(userId: string): Promise<string | null> {
+export async function getActiveFeedTokenForUser(
+  userId: string,
+): Promise<string | null> {
   const token = await findPrimaryActiveFeedTokenByUserId(userId, "item");
   return token?.tokenValue ?? null;
 }
 
-export async function getDashboardItems(userId: string): Promise<DashboardItemRecord[]> {
-  const shares = await listPrimaryShareTokensByUserIdAndScopePrefix(userId, PUBLIC_EPISODE_SHARE_SCOPE_PREFIX);
-  const sharesByItemId = new Map<string, { shareId: string; shareUrl: string }>();
+export async function getDashboardItems(
+  userId: string,
+): Promise<DashboardItemRecord[]> {
+  const shares = await listPrimaryShareTokensByUserIdAndScopePrefix(
+    userId,
+    PUBLIC_EPISODE_SHARE_SCOPE_PREFIX,
+  );
+  const sharesByItemId = new Map<
+    string,
+    { shareId: string; shareUrl: string }
+  >();
   for (const share of shares) {
     const itemId = parsePublicEpisodeShareItemId(share.scope);
     if (!itemId || sharesByItemId.has(itemId)) {
@@ -89,13 +104,32 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
     }
     sharesByItemId.set(itemId, {
       shareId: share.id,
-      shareUrl: buildPublicEpisodeShareUrl(share)
+      shareUrl: buildPublicEpisodeShareUrl(share),
     });
   }
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
-    const [items, episodes] = await Promise.all([webPrimaryStore.listItemsByUser(userId, 50), webPrimaryStore.listEpisodesForUser(userId)]);
-    const episodesByItemId = new Map(filterUnexpiredAudioEpisodes(episodes).map((episode) => [episode.itemId, episode]));
+    const primaryStore = webPrimaryStore;
+    const [items, episodes] = await Promise.all([
+      primaryStore.listItemsByUser(userId, 50),
+      primaryStore.listEpisodesForUser(userId),
+    ]);
+    const episodesByItemId = new Map(
+      filterUnexpiredAudioEpisodes(episodes).map((episode) => [
+        episode.itemId,
+        episode,
+      ]),
+    );
+    const markdownByItemId = new Map(
+      await Promise.all(
+        items.map(async (item) => {
+          const artifact =
+            (await primaryStore.listItemArtifacts(item.id, "MARKDOWN"))[0] ??
+            null;
+          return [item.id, artifact?.byteLength ?? null] as const;
+        }),
+      ),
+    );
     return items.map((item) => ({
       id: item.id,
       userId: item.userId,
@@ -119,20 +153,25 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
       summaryErrorCode: item.summaryErrorCode,
       summaryErrorMessage: item.summaryErrorMessage,
       summaryCompletedAt: item.summaryCompletedAt,
+      markdownBytes: markdownByItemId.get(item.id) ?? null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       share: sharesByItemId.get(item.id) ?? null,
-      episode: episodesByItemId.get(item.id) ?? null
+      episode: episodesByItemId.get(item.id) ?? null,
     }));
   }
 
   const items = await prisma.item.findMany({
     where: { userId },
     include: {
-      episode: true
+      episode: true,
+      artifacts: {
+        where: { kind: "MARKDOWN" },
+        take: 1,
+      },
     },
     orderBy: { createdAt: "desc" },
-    take: 50
+    take: 50,
   });
 
   return items.map((item) => ({
@@ -158,14 +197,21 @@ export async function getDashboardItems(userId: string): Promise<DashboardItemRe
     summaryErrorCode: item.summaryErrorCode,
     summaryErrorMessage: item.summaryErrorMessage,
     summaryCompletedAt: item.summaryCompletedAt,
+    markdownBytes: item.artifacts[0]?.byteLength ?? null,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     share: sharesByItemId.get(item.id) ?? null,
-    episode: item.episode && isAudioAvailable(item.episode.expiresAt) ? item.episode : null
+    episode:
+      item.episode && isAudioAvailable(item.episode.expiresAt)
+        ? item.episode
+        : null,
   }));
 }
 
-export async function getDemoExtractionDiagnostics(userId: string, limit = 10): Promise<DemoExtractionDiagnostic[]> {
+export async function getDemoExtractionDiagnostics(
+  userId: string,
+  limit = 10,
+): Promise<DemoExtractionDiagnostic[]> {
   if (!env.demoExtractionTraceEnabled) {
     return [];
   }
@@ -181,12 +227,12 @@ export async function getDemoExtractionDiagnostics(userId: string, limit = 10): 
           sourceUrl: true,
           status: true,
           errorCode: true,
-          errorMessage: true
-        }
-      }
+          errorMessage: true,
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
-    take: limit
+    take: limit,
   });
 
   return traces.map((trace) => ({
@@ -202,15 +248,17 @@ export async function getDemoExtractionDiagnostics(userId: string, limit = 10): 
     createdAt: trace.updatedAt.toISOString(),
     extractedText: trace.extractedText,
     extractedMarkdown: trace.extractedMarkdown,
-    logEntries: normalizeExtractionLogEntries(trace.extractionLogJson)
+    logEntries: normalizeExtractionLogEntries(trace.extractionLogJson),
   }));
 }
 
-export async function getUserTtsSettings(userId: string): Promise<{ providerId: string; voice: string }> {
+export async function getUserTtsSettings(
+  userId: string,
+): Promise<{ providerId: string; voice: string }> {
   const user = await findPrimaryUserById(userId);
   return {
     providerId: user?.ttsProvider || "kokoro",
-    voice: user?.ttsVoice || "af_heart"
+    voice: user?.ttsVoice || "af_heart",
   };
 }
 
@@ -222,7 +270,9 @@ export async function getRecentDigestRuns(userId: string, limit = 20) {
   return listPrimaryDigestRunsByUser(userId, Math.max(1, Math.min(limit, 50)));
 }
 
-export async function getUserDemographicSurvey(userId: string): Promise<UserDemographicSurveyView> {
+export async function getUserDemographicSurvey(
+  userId: string,
+): Promise<UserDemographicSurveyView> {
   const survey = await findPrimaryUserDemographicSurvey(userId);
 
   if (!survey) {
@@ -234,19 +284,23 @@ export async function getUserDemographicSurvey(userId: string): Promise<UserDemo
       completedAt: null,
       skippedAt: null,
       deletedAt: null,
-      updatedAt: null
+      updatedAt: null,
     };
   }
 
   return {
-    status: survey.status === "COMPLETED" || survey.status === "SKIPPED" ? survey.status : "PENDING",
+    status:
+      survey.status === "COMPLETED" || survey.status === "SKIPPED"
+        ? survey.status
+        : "PENDING",
     ageBand: survey.ageBand as UserDemographicSurveyView["ageBand"],
-    genderIdentity: survey.genderIdentity as UserDemographicSurveyView["genderIdentity"],
+    genderIdentity:
+      survey.genderIdentity as UserDemographicSurveyView["genderIdentity"],
     genderSelfDescribe: survey.genderSelfDescribe,
     completedAt: survey.completedAt ? survey.completedAt.toISOString() : null,
     skippedAt: survey.skippedAt ? survey.skippedAt.toISOString() : null,
     deletedAt: survey.deletedAt ? survey.deletedAt.toISOString() : null,
-    updatedAt: survey.updatedAt.toISOString()
+    updatedAt: survey.updatedAt.toISOString(),
   };
 }
 
@@ -254,37 +308,46 @@ export async function getAdminMetrics() {
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const store = webPrimaryStore;
     const nowTs = new Date();
-    const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentJobs, recentErrors] =
-      await Promise.all([
-        store.countUsers(),
-        store.countItems(),
-        store.countItems("READY"),
-        store.countItems("FAILED"),
-        store.countJobs({ status: "QUEUED" }),
-        store.countJobs({ status: "PROCESSING" }),
-        store.countJobs({
-          status: "FAILED",
-          retryableBefore: nowTs,
-          maxRetryAttempts: ADMIN_MAX_RETRY_ATTEMPTS
-        }),
-        store.listRecentJobs(20),
-        env.jobEventStorageMode === "off"
-          ? Promise.resolve([])
-          : prisma.jobEvent.findMany({
-              where: { eventType: "error" },
-              orderBy: { createdAt: "desc" },
-              take: 20
-            })
-      ]);
+    const [
+      activeUsers,
+      totalItems,
+      readyItems,
+      failedItems,
+      queuedJobs,
+      processingJobs,
+      retryableFailedJobs,
+      recentJobs,
+      recentErrors,
+    ] = await Promise.all([
+      store.countUsers(),
+      store.countItems(),
+      store.countItems("READY"),
+      store.countItems("FAILED"),
+      store.countJobs({ status: "QUEUED" }),
+      store.countJobs({ status: "PROCESSING" }),
+      store.countJobs({
+        status: "FAILED",
+        retryableBefore: nowTs,
+        maxRetryAttempts: ADMIN_MAX_RETRY_ATTEMPTS,
+      }),
+      store.listRecentJobs(20),
+      env.jobEventStorageMode === "off"
+        ? Promise.resolve([])
+        : prisma.jobEvent.findMany({
+            where: { eventType: "error" },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+          }),
+    ]);
 
     const recentJobsWithItems = await Promise.all(
       recentJobs.map(async (job) => {
         const item = await store.findItemById(job.itemId);
         return {
           ...job,
-          item
+          item,
         };
-      })
+      }),
     );
 
     const now = Date.now();
@@ -295,16 +358,28 @@ export async function getAdminMetrics() {
       .filter((job) => job.status === "PROCESSING")
       .map((job) => Math.max(0, now - job.updatedAt.getTime()));
     const avgQueueWaitMs =
-      queueAgeSamples.length > 0 ? Math.round(queueAgeSamples.reduce((sum, value) => sum + value, 0) / queueAgeSamples.length) : 0;
+      queueAgeSamples.length > 0
+        ? Math.round(
+            queueAgeSamples.reduce((sum, value) => sum + value, 0) /
+              queueAgeSamples.length,
+          )
+        : 0;
     const avgProcessingAgeMs =
       processingAgeSamples.length > 0
-        ? Math.round(processingAgeSamples.reduce((sum, value) => sum + value, 0) / processingAgeSamples.length)
+        ? Math.round(
+            processingAgeSamples.reduce((sum, value) => sum + value, 0) /
+              processingAgeSamples.length,
+          )
         : 0;
     const topErrorCodes = new Map<string, number>();
     for (const event of recentErrors) {
       const payload = event.payloadJson as Record<string, unknown> | null;
-      const candidate = payload?.error_code ?? payload?.errorCode ?? payload?.code;
-      const code = typeof candidate === "string" && candidate.trim() ? candidate.trim() : "UNKNOWN";
+      const candidate =
+        payload?.error_code ?? payload?.errorCode ?? payload?.code;
+      const code =
+        typeof candidate === "string" && candidate.trim()
+          ? candidate.trim()
+          : "UNKNOWN";
       topErrorCodes.set(code, (topErrorCodes.get(code) || 0) + 1);
     }
 
@@ -323,12 +398,21 @@ export async function getAdminMetrics() {
         .slice(0, 5)
         .map(([code, count]) => ({ code, count })),
       recentErrors,
-      recentJobs: recentJobsWithItems
+      recentJobs: recentJobsWithItems,
     };
   }
 
-  const [activeUsers, totalItems, readyItems, failedItems, queuedJobs, processingJobs, retryableFailedJobs, recentErrors, recentJobs] =
-    await Promise.all([
+  const [
+    activeUsers,
+    totalItems,
+    readyItems,
+    failedItems,
+    queuedJobs,
+    processingJobs,
+    retryableFailedJobs,
+    recentErrors,
+    recentJobs,
+  ] = await Promise.all([
     prisma.user.count(),
     prisma.item.count(),
     prisma.item.count({ where: { status: "READY" } }),
@@ -339,18 +423,22 @@ export async function getAdminMetrics() {
       where: {
         status: "FAILED",
         nextRetryAt: {
-          lte: new Date()
-        }
-      }
+          lte: new Date(),
+        },
+      },
     }),
     env.jobEventStorageMode === "off"
       ? Promise.resolve([])
       : prisma.jobEvent.findMany({
           where: { eventType: "error" },
           orderBy: { createdAt: "desc" },
-          take: 20
+          take: 20,
         }),
-    prisma.job.findMany({ orderBy: { createdAt: "desc" }, take: 20, include: { item: true } })
+    prisma.job.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: { item: true },
+    }),
   ]);
 
   const now = Date.now();
@@ -361,16 +449,28 @@ export async function getAdminMetrics() {
     .filter((job) => job.status === "PROCESSING")
     .map((job) => Math.max(0, now - job.updatedAt.getTime()));
   const avgQueueWaitMs =
-    queueAgeSamples.length > 0 ? Math.round(queueAgeSamples.reduce((sum, value) => sum + value, 0) / queueAgeSamples.length) : 0;
+    queueAgeSamples.length > 0
+      ? Math.round(
+          queueAgeSamples.reduce((sum, value) => sum + value, 0) /
+            queueAgeSamples.length,
+        )
+      : 0;
   const avgProcessingAgeMs =
     processingAgeSamples.length > 0
-      ? Math.round(processingAgeSamples.reduce((sum, value) => sum + value, 0) / processingAgeSamples.length)
+      ? Math.round(
+          processingAgeSamples.reduce((sum, value) => sum + value, 0) /
+            processingAgeSamples.length,
+        )
       : 0;
   const topErrorCodes = new Map<string, number>();
   for (const event of recentErrors) {
     const payload = event.payloadJson as Record<string, unknown> | null;
-    const candidate = payload?.error_code ?? payload?.errorCode ?? payload?.code;
-    const code = typeof candidate === "string" && candidate.trim() ? candidate.trim() : "UNKNOWN";
+    const candidate =
+      payload?.error_code ?? payload?.errorCode ?? payload?.code;
+    const code =
+      typeof candidate === "string" && candidate.trim()
+        ? candidate.trim()
+        : "UNKNOWN";
     topErrorCodes.set(code, (topErrorCodes.get(code) || 0) + 1);
   }
 
@@ -389,7 +489,7 @@ export async function getAdminMetrics() {
       .slice(0, 5)
       .map(([code, count]) => ({ code, count })),
     recentErrors,
-    recentJobs
+    recentJobs,
   };
 }
 
