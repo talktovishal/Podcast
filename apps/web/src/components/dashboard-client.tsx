@@ -2234,7 +2234,7 @@ export function DashboardClient({
                             download
                             href={`/api/items/${item.id}/markdown?download=1`}
                           >
-                            Download markdown
+                            Download article text
                           </a>
                         ) : null}
                         {canRequestTts ? (
