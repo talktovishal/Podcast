@@ -664,10 +664,7 @@ export function DashboardClient({
       void refreshItems();
     };
 
-    const intervalMs =
-      inProgressCount > 0
-        ? ACTIVE_REFRESH_INTERVAL_MS
-        : IDLE_REFRESH_INTERVAL_MS;
+    const intervalMs = inProgressCount > 0 ? ACTIVE_REFRESH_INTERVAL_MS : IDLE_REFRESH_INTERVAL_MS;
     const interval = window.setInterval(() => {
       refreshIfVisible();
     }, intervalMs);
