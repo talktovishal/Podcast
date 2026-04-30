@@ -200,7 +200,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - slower visible-tab polling while idle
   - immediate refresh on tab focus/visibility return for external captures (for example Chrome extension submits)
 - Summary Mode is implemented on the Episodes workspace:
-  - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from `/app` through `GET/POST /api/account/processing-mode`.
+  - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from the top `/app` workspace header slider through `GET/POST /api/account/processing-mode`.
   - URL, PDF, and Chrome extension captures inherit the user's default unless the web submit flow explicitly sends `mode=full` or `mode=summary`.
   - summary-only item jobs still extract and store canonical article markdown, then write a per-item summary markdown artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
   - summary-only items do not synthesize TTS, create `Episode` rows, or publish to the main RSS feed until the user explicitly chooses `Request TTS`.

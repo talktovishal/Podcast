@@ -4004,7 +4004,7 @@ Milestone metadata contract:
 - completed_on: 2026-04-29
 - evidence: local implementation + targeted typecheck/test pass (2026-04-29)
 - Scope:
-  - Add a per-user `/app` processing-mode toggle for future URL/PDF/Chrome captures.
+  - Add a per-user `/app` workspace-header processing-mode slider for future URL/PDF/Chrome captures.
   - Let `SUMMARY_ONLY` item jobs extract/store canonical markdown, generate per-item summary markdown, and skip TTS/RSS until explicit user request.
   - Add explicit `Request TTS` for summary items that generates the same full-article audio path as the existing episode flow.
   - Preserve digest/wiki synthesis quality by preferring item summaries for digests while still feeding full article markdown into wiki builds with the summary prepended as guidance.
@@ -4030,7 +4030,7 @@ Milestone metadata contract:
   - `docs/documentation.md`
   - `docs/env.md`
 - Acceptance criteria:
-  - New users default to `FULL_EPISODE`; toggling Summary Mode persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
+  - New users default to `FULL_EPISODE`; using the workspace-header mode slider persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
   - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, `Job.jobKind=SUMMARY_ONLY`, canonical `MARKDOWN`, and `summaryStatus=SUCCEEDED` with summary metadata when complete.
   - Summary Mode completion creates no `Episode`, audio object, RSS item, or media token.
   - Recent items shows summary state, opens summary markdown in a right-side drawer/full-screen mobile sheet, and closes on Escape.

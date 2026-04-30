@@ -13,7 +13,7 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 
 1. Sign in with local credentials (or OAuth when configured).
 2. Submit URL, upload PDF, or capture page from Chrome extension, with optional importance and comma-separated tags.
-3. On `/app`, choose the default processing mode: full episode or Summary Mode.
+3. On `/app`, use the top workspace mode slider to choose whether every new item becomes a podcast or new items save as summaries only.
 4. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 5. Full episode items create audio and appear in recent items and the private RSS feed.
 6. Summary Mode items create canonical markdown plus a per-item summary; users can read the summary from the recent-items drawer or explicitly choose `Request TTS` later.
@@ -66,6 +66,7 @@ Set passwords via environment variables before seeding (see `.env.example`):
 Available in `/app`:
 
 - `Summary Mode` is a per-user default for new URL/PDF/Chrome captures.
+- The `/app` workspace header exposes this as a two-position mode slider: `Every new item is a podcast` or `Summaries only / Daily and weekly podcasts`.
 - `FULL_EPISODE` keeps the existing extract -> TTS -> episode -> RSS behavior.
 - `SUMMARY_ONLY` extracts and stores canonical markdown, generates an item summary asynchronously, skips TTS/audio/RSS by default, and keeps the finished summary readable from Recent items.
 - `Request TTS` on a summary item queues a `REQUEST_TTS` job that consumes normal podcast capacity and generates full-article audio using stored canonical markdown when available.

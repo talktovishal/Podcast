@@ -59,18 +59,10 @@ export default async function AppDashboardPage() {
   return (
     <main className="py-5 sm:py-6">
       <div className="container-shell space-y-4 sm:space-y-5">
-        <section className="card p-4 sm:p-5">
-          <div className="space-y-0.5">
-            <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-            <p className="text-sm text-[var(--muted)]">
-              Create new episodes quickly, then keep an eye on processing and
-              playback below.
-            </p>
-          </div>
-        </section>
-
         <DashboardClient
           viewMode="workspace"
+          workspaceHeading={user.name || user.email}
+          workspaceSubheading="Create new episodes quickly, then keep an eye on processing and playback below."
           feedUrl={feedUrl}
           feedUrlMessage={feedUrl ? null : feedUrlMessage}
           isAdmin={user.role === "ADMIN"}

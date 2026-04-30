@@ -191,6 +191,8 @@ const DEFAULT_DEMOGRAPHIC_SURVEY: UserDemographicSurveyView = {
 type Props = {
   feedUrl: string | null;
   feedUrlMessage?: string | null;
+  workspaceHeading?: string;
+  workspaceSubheading?: string;
   isAdmin?: boolean;
   isDemoAccount?: boolean;
   initialSubmissionQuota?: SubmissionQuotaSnapshot | null;
@@ -306,6 +308,8 @@ function importanceLabel(importance: string): string {
 export function DashboardClient({
   feedUrl,
   feedUrlMessage = null,
+  workspaceHeading,
+  workspaceSubheading,
   isAdmin = false,
   isDemoAccount = false,
   initialSubmissionQuota = null,
@@ -406,6 +410,7 @@ export function DashboardClient({
   const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");
   const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");
   const showDemographicSection = showSettingsSection && requestedSettingsSections.has("demographics");
+  const showWorkspaceHeader = viewMode === "workspace" && Boolean(workspaceHeading);
 
   const newestFirst = useMemo(() => {
     return [...items].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -885,7 +890,7 @@ export function DashboardClient({
         return;
       }
       setProcessingMode(json.mode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE");
-      setStatusMessage(json.mode === "SUMMARY_ONLY" ? "Summary Mode enabled for new items." : "Full episode mode enabled for new items.");
+      setStatusMessage(json.mode === "SUMMARY_ONLY" ? "New items will save as summaries only." : "Every new item will be a podcast.");
     } finally {
       setIsProcessingModeBusy(false);
     }
@@ -1198,6 +1203,68 @@ export function DashboardClient({
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {showWorkspaceHeader ? (
+        <section className="card p-4 sm:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 space-y-0.5">
+              <h1 className="break-words text-2xl font-bold">{workspaceHeading}</h1>
+              {workspaceSubheading ? <p className="text-sm text-[var(--muted)]">{workspaceSubheading}</p> : null}
+            </div>
+            {!readOnly ? (
+              <div className="w-full max-w-xl lg:w-[32rem]">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">New item mode</p>
+                <div
+                  aria-label="New item processing mode"
+                  className="relative grid grid-cols-2 rounded-full border border-[rgba(31,122,90,0.2)] bg-[rgba(247,251,250,0.95)] p-1 shadow-inner"
+                  role="group"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="absolute bottom-1 left-1 top-1 w-[calc(50%-0.25rem)] rounded-full bg-[var(--accent)] shadow-sm transition-transform duration-200 ease-out"
+                    style={{
+                      transform: summaryModeEnabled ? "translateX(calc(100% + 0.5rem))" : "translateX(0)"
+                    }}
+                  />
+                  <button
+                    aria-pressed={!summaryModeEnabled}
+                    className={`relative z-10 flex min-h-[4.25rem] items-center justify-center rounded-full px-3 py-2 text-center text-xs font-semibold leading-snug transition sm:text-sm ${
+                      !summaryModeEnabled ? "text-white" : "text-[var(--ink)] hover:text-[var(--accent)]"
+                    }`}
+                    disabled={isProcessingModeBusy}
+                    onClick={() => {
+                      if (processingMode !== "FULL_EPISODE") {
+                        void saveProcessingMode("FULL_EPISODE");
+                      }
+                    }}
+                    type="button"
+                  >
+                    Every new item is a podcast
+                  </button>
+                  <button
+                    aria-pressed={summaryModeEnabled}
+                    className={`relative z-10 flex min-h-[4.25rem] flex-col items-center justify-center rounded-full px-3 py-2 text-center text-xs font-semibold leading-snug transition sm:text-sm ${
+                      summaryModeEnabled ? "text-white" : "text-[var(--ink)] hover:text-[var(--accent)]"
+                    }`}
+                    disabled={isProcessingModeBusy}
+                    onClick={() => {
+                      if (processingMode !== "SUMMARY_ONLY") {
+                        void saveProcessingMode("SUMMARY_ONLY");
+                      }
+                    }}
+                    type="button"
+                  >
+                    <span>Summaries only</span>
+                    <span className={`text-[11px] font-medium sm:text-xs ${summaryModeEnabled ? "text-white/85" : "text-[var(--muted)]"}`}>
+                      Daily and weekly podcasts
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       {showFeedSection ? (
         <section className="card scroll-mt-24 p-4 sm:p-5" id={isPodcastAppsView ? "podcast-apps" : undefined}>
           <h2 className="text-lg font-semibold">Set up your private feed</h2>
@@ -1689,30 +1756,11 @@ export function DashboardClient({
 
       {showItemsSection ? (
         <section className="card p-4 sm:p-5">
-          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-4">
             <div>
               <h2 className="text-lg font-semibold">Recent items</h2>
               <p className="text-sm text-[var(--muted)]">Track processing, play finished audio, and clean up older saves from one list.</p>
             </div>
-            {!readOnly ? (
-              <label className="mt-2 flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-[rgba(31,42,31,0.12)] bg-white px-3 py-2 text-sm sm:mt-0 sm:w-auto">
-                <span>
-                  <span className="block font-medium">Summary Mode</span>
-                  <span className="block text-xs text-[var(--muted)]">
-                    {summaryModeEnabled ? "New items save summaries first." : "New items become podcast episodes."}
-                  </span>
-                </span>
-                <input
-                  className="h-5 w-5 accent-[var(--accent)]"
-                  type="checkbox"
-                  checked={summaryModeEnabled}
-                  disabled={isProcessingModeBusy}
-                  onChange={(event) => {
-                    void saveProcessingMode(event.target.checked ? "SUMMARY_ONLY" : "FULL_EPISODE");
-                  }}
-                />
-              </label>
-            ) : null}
           </div>
 
           <div className="space-y-3">

@@ -17,8 +17,29 @@ test("app dashboard keeps the workspace content below the shared header", () => 
   assert.equal(source.includes("Demo mode ready"), false);
   assert.equal(source.includes("DeleteAccountButton"), false);
   assert.equal(source.includes("keep an eye on processing"), true);
+  assert.equal(source.includes("workspaceHeading={user.name || user.email}"), true);
+  assert.equal(source.includes("workspaceSubheading=\"Create new episodes quickly"), true);
+  assert.equal(source.includes('<h1 className="font-bold text-2xl">{user.name || user.email}</h1>'), false);
   assert.equal(source.includes("py-5 sm:py-6"), true);
   assert.equal(source.includes("container-shell space-y-4 sm:space-y-5"), true);
+});
+
+test("dashboard client surfaces the processing-mode slider in the workspace header", () => {
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("workspaceHeading"), true);
+  assert.equal(source.includes("New item mode"), true);
+  assert.equal(source.includes('role="group"'), true);
+  assert.equal(source.includes('aria-label="New item processing mode"'), true);
+  assert.equal(source.includes("Every new item is a podcast"), true);
+  assert.equal(source.includes("Summaries only"), true);
+  assert.equal(source.includes("Daily and weekly podcasts"), true);
+  assert.equal(source.includes("translateX(calc(100% + 0.5rem))"), true);
+  assert.equal(source.includes("New items become podcast episodes."), false);
+  assert.equal(source.includes("New items save summaries first."), false);
 });
 
 test("shared app layout owns the sticky workspace header", () => {
