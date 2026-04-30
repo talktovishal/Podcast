@@ -12,7 +12,7 @@
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
-- Local development launcher flow is now consolidated in `run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` shortcuts for repeat local testing; `run-web.sh` remains a compatibility shim.
+- Local development launcher flow is now consolidated in `run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` shortcuts for repeat local testing; simple-profile starts auto-clear stale `.next` vendor chunk caches, and `run-web.sh` remains a compatibility shim.
 - First live Azure VM deployment executed on `2026-02-15` in `rg-articlepod-prod`; public HTTPS health and podcast contract checks passed on `articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com`.
 - Azure runtime scripts now preserve python-tts virtualenv across promotions and auto-bootstrap missing language assets during VM deploy.
 - Stuck-job watchdog hardening (`M95`) is implemented: pinned-IP extraction socket failures no longer crash the worker, long TTS runs heartbeat their job lock, and stale jobs now fail cleanly after bounded retries instead of starving the queue indefinitely.

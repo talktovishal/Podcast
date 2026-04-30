@@ -32,6 +32,8 @@
 - Reset local dev caches before starting:
   - `./run.sh --clean --web --fast`
 
+`run.sh` automatically removes `apps/web/.next` when the simple-profile dev cache references missing generated Next.js vendor chunks. Use `--clean` when you want a full manual cache reset, including `.turbo` and TypeScript build info.
+
 `run-web.sh` remains available as a thin compatibility wrapper for `./run.sh --web`.
 
 ## Spec status workflow

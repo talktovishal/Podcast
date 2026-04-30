@@ -50,6 +50,34 @@ clean_dev_caches() {
     apps/worker/tsconfig.tsbuildinfo
 }
 
+repair_stale_next_cache() {
+  local next_server_dir="apps/web/.next/server"
+  local chunk_root="$next_server_dir/vendor-chunks"
+  local missing_chunk=""
+
+  if [[ ! -d "$next_server_dir" ]]; then
+    return
+  fi
+
+  while IFS= read -r chunk_path; do
+    if [[ ! -f "$next_server_dir/$chunk_path" ]]; then
+      missing_chunk="$chunk_path"
+      break
+    fi
+  done < <(
+    grep -RhoE "vendor-chunks/[^'\" ]+\\.js" \
+      "$next_server_dir/app" "$next_server_dir/pages" 2>/dev/null | sort -u || true
+  )
+
+  if [[ -n "$missing_chunk" || ( -d "$next_server_dir/app" && ! -d "$chunk_root" ) ]]; then
+    echo "Detected stale Next.js dev cache; removing apps/web/.next before start."
+    if [[ -n "$missing_chunk" ]]; then
+      echo "Missing generated chunk: $missing_chunk"
+    fi
+    rm -rf apps/web/.next
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --web|--web-only)
@@ -137,6 +165,8 @@ fi
 
 if [[ "$CLEAN" == "1" ]]; then
   clean_dev_caches
+elif [[ "$PROFILE" == "simple" ]]; then
+  repair_stale_next_cache
 fi
 
 if [[ "$SKIP_ENV_CHECK" == "1" ]]; then

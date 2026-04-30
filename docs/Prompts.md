@@ -54,7 +54,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - public marketing is now wiki-first: the homepage and product pages directly credit Andrej Karpathy's April 4, 2026 `LLM Wiki` gist as the inspiration anchor, and use a shared compact wiki snapshot to show the browse surface.
 - Durable Azure/parity implementation assets are in place:
   - profile-aware env validation (`simple`, `parity`, `azure`)
-  - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper.
+  - the local launcher is consolidated in `./run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` modes for faster repeat testing while `run-web.sh` stays as a compatibility wrapper; simple-profile starts also auto-remove `.next` when stale generated vendor chunks are detected.
   - Docker Compose parity stack (PostgreSQL + Azurite + python-tts + web + worker)
   - object storage abstraction (`local`, `azure_blob`) wired into uploads/audio/media
   - SQLite export/import migration scripts for PostgreSQL transition

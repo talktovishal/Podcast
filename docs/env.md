@@ -280,3 +280,5 @@ Fast repeat local testing after the initial bootstrap:
 - `./run.sh --fast`
 - `./run.sh --skip-bootstrap`
 - `./run.sh --clean --web --fast` to clear stale Next.js caches before restarting
+
+In the simple local profile, `run.sh` also checks the existing Next.js dev cache for compiled server pages that reference missing generated `vendor-chunks/*` files. When that stale-cache condition is detected, it removes `apps/web/.next` automatically before starting.

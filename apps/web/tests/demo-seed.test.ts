@@ -101,6 +101,8 @@ test("run.sh exposes fast single-script local launcher options", () => {
   assert.match(runSource, /--web\s+Start only the web app for the fastest UI loop\./);
   assert.match(runSource, /--fast\s+Skip env validation and app bootstrap, then start watchers immediately\./);
   assert.match(runSource, /--clean\s+Clear local dev caches before starting/);
+  assert.match(runSource, /repair_stale_next_cache/);
+  assert.match(runSource, /Detected stale Next\.js dev cache; removing apps\/web\/\.next before start\./);
   assert.match(runSource, /DEV_ARGS\+=\("--web-only"\)/);
   assert.match(runSource, /DEV_ARGS\+=\("--skip-bootstrap"\)/);
   assert.match(runSource, /exec node scripts\/dev\.mjs "\$\{DEV_ARGS\[@\]\}"/);
