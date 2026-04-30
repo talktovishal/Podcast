@@ -100,6 +100,7 @@ export async function DELETE(request: NextRequest) {
           item.episode ? store.deleteEpisode(item.episode.id) : Promise.resolve(),
           store.deleteItemArtifactsByItemId(item.id),
           store.deleteJobsByItemId(item.id),
+          store.deleteArticleSummaryTasksByItemId(item.id),
           store.deleteChunkCachesByItemId(item.id)
         ])
       ),

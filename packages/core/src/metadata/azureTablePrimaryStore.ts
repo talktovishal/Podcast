@@ -24,6 +24,7 @@ type TableKey =
   | "extensionTokens"
   | "snippets"
   | "items"
+  | "articleSummaryTasks"
   | "jobs"
   | "itemArtifacts"
   | "episodes"
@@ -268,6 +269,23 @@ export type AzureTablePrimaryJob = {
   dispatchMessageId: string | null;
   scheduledFor: Date | null;
   nextRetryAt: Date | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimaryArticleSummaryTask = {
+  id: string;
+  itemId: string;
+  userId: string;
+  status: string;
+  attempt: number;
+  scheduledFor: Date | null;
+  nextRetryAt: Date | null;
+  lockedAt: Date | null;
+  leaseId: string | null;
+  leaseOwner: string | null;
   errorCode: string | null;
   errorMessage: string | null;
   createdAt: Date;
@@ -732,6 +750,7 @@ export class AzureTablePrimaryStore {
       extensionTokens: createClient(buildTableName(input.tablePrefix, "extensiontokens")),
       snippets: createClient(buildTableName(input.tablePrefix, "snippets")),
       items: createClient(buildTableName(input.tablePrefix, "items")),
+      articleSummaryTasks: createClient(buildTableName(input.tablePrefix, "articlesummarytasks")),
       jobs: createClient(buildTableName(input.tablePrefix, "jobs")),
       itemArtifacts: createClient(buildTableName(input.tablePrefix, "artifacts")),
       episodes: createClient(buildTableName(input.tablePrefix, "episodes")),
@@ -1123,6 +1142,25 @@ export class AzureTablePrimaryStore {
       dispatchMessageId: parseString(entity.dispatchMessageId),
       scheduledFor: parseDate(entity.scheduledFor),
       nextRetryAt: parseDate(entity.nextRetryAt),
+      errorCode: parseString(entity.errorCode),
+      errorMessage: parseString(entity.errorMessage),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toArticleSummaryTask(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryArticleSummaryTask {
+    return {
+      id: String(entity.rowKey),
+      itemId: parseRequiredString(entity.itemId, "itemId"),
+      userId: parseRequiredString(entity.userId, "userId"),
+      status: parseRequiredString(entity.status, "status"),
+      attempt: parseNumber(entity.attempt, 0),
+      scheduledFor: parseDate(entity.scheduledFor),
+      nextRetryAt: parseDate(entity.nextRetryAt),
+      lockedAt: parseDate(entity.lockedAt),
+      leaseId: parseString(entity.leaseId),
+      leaseOwner: parseString(entity.leaseOwner),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
@@ -2487,6 +2525,162 @@ export class AzureTablePrimaryStore {
       "jobs",
       joinFilters(filterEquals("PartitionKey", "job"), filterEquals("itemId", itemId)) as string,
       "job"
+    );
+  }
+
+  async createArticleSummaryTask(input: {
+    id: string;
+    itemId: string;
+    userId: string;
+    status?: string | null;
+    attempt?: number;
+    scheduledFor?: Date | null;
+    nextRetryAt?: Date | null;
+    lockedAt?: Date | null;
+    leaseId?: string | null;
+    leaseOwner?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimaryArticleSummaryTask> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "articleSummaryTask",
+      rowKey: input.id,
+      itemId: input.itemId,
+      userId: input.userId,
+      status: input.status ?? "QUEUED",
+      attempt: input.attempt ?? 0,
+      scheduledFor: isoOrNull(input.scheduledFor ?? null),
+      nextRetryAt: isoOrNull(input.nextRetryAt ?? null),
+      lockedAt: isoOrNull(input.lockedAt ?? null),
+      leaseId: input.leaseId ?? null,
+      leaseOwner: input.leaseOwner ?? null,
+      errorCode: input.errorCode ?? null,
+      errorMessage: input.errorMessage ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("articleSummaryTasks", entity);
+    return this.toArticleSummaryTask(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async findArticleSummaryTaskById(taskId: string): Promise<EntityWithEtag<AzureTablePrimaryArticleSummaryTask> | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("articleSummaryTasks", "articleSummaryTask", taskId);
+    return entity ? { ...this.toArticleSummaryTask(entity), etag: entity.etag } : null;
+  }
+
+  async findArticleSummaryTaskByItemId(itemId: string): Promise<AzureTablePrimaryArticleSummaryTask | null> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("itemId", itemId))
+    );
+    const sorted = rows
+      .map((row) => this.toArticleSummaryTask(row))
+      .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+    return sorted[0] ?? null;
+  }
+
+  async listArticleSummaryTasksByUser(userId: string, limit = 100): Promise<AzureTablePrimaryArticleSummaryTask[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toArticleSummaryTask(row)), (entry) => entry.createdAt).slice(0, limit);
+  }
+
+  async listNextEligibleArticleSummaryTasks(
+    now: Date,
+    maxRetryAttempts: number,
+    limit = 100
+  ): Promise<AzureTablePrimaryArticleSummaryTask[]> {
+    const queued = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("status", "QUEUED"))
+    );
+    const retryable = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(
+        filterEquals("PartitionKey", "articleSummaryTask"),
+        filterEquals("status", "FAILED"),
+        filterLessThan("attempt", maxRetryAttempts),
+        filterLessThanOrEqual("nextRetryAt", now)
+      )
+    );
+
+    return [
+      ...queued.map((row) => this.toArticleSummaryTask(row)).filter((task) => task.scheduledFor === null || task.scheduledFor.getTime() <= now.getTime()),
+      ...retryable.map((row) => this.toArticleSummaryTask(row))
+    ]
+      .sort((left, right) => {
+        const leftPrimary =
+          left.status === "FAILED"
+            ? (left.nextRetryAt ?? left.createdAt).getTime()
+            : (left.scheduledFor ?? left.createdAt).getTime();
+        const rightPrimary =
+          right.status === "FAILED"
+            ? (right.nextRetryAt ?? right.createdAt).getTime()
+            : (right.scheduledFor ?? right.createdAt).getTime();
+        if (leftPrimary !== rightPrimary) {
+          return leftPrimary - rightPrimary;
+        }
+        return left.createdAt.getTime() - right.createdAt.getTime();
+      })
+      .slice(0, Math.max(0, limit));
+  }
+
+  async updateArticleSummaryTask(
+    taskId: string,
+    input: Partial<{
+      status: string;
+      attempt: number;
+      scheduledFor: Date | null;
+      nextRetryAt: Date | null;
+      lockedAt: Date | null;
+      leaseId: string | null;
+      leaseOwner: string | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryArticleSummaryTask | null> {
+    const current = await this.getEntity<Record<string, unknown>>("articleSummaryTasks", "articleSummaryTask", taskId);
+    if (!current) {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "articleSummaryTask",
+      rowKey: taskId,
+      status: input.status ?? current.status,
+      attempt: input.attempt ?? current.attempt,
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
+      nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
+      lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.leaseId === undefined ? current.leaseId : input.leaseId,
+      leaseOwner: input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
+      errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("articleSummaryTasks", entity, current.etag);
+    if (!success) {
+      const latest = await this.findArticleSummaryTaskById(taskId);
+      return latest ? { ...latest } : null;
+    }
+    return this.toArticleSummaryTask(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async deleteArticleSummaryTask(taskId: string): Promise<void> {
+    await this.deleteEntity("articleSummaryTasks", "articleSummaryTask", taskId);
+  }
+
+  async deleteArticleSummaryTasksByItemId(itemId: string): Promise<number> {
+    return this.deleteEntitiesByFilter<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("itemId", itemId)) as string,
+      "articleSummaryTask"
     );
   }
 

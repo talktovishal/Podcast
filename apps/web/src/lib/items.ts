@@ -75,6 +75,22 @@ export async function enqueueItem(input: {
             errorCode: initialDeferredErrorCode,
             errorMessage: initialAcceptedMessage
           });
+          if (processingMode === "SUMMARY_ONLY") {
+            await webPrimaryStore.createArticleSummaryTask({
+              id: randomUUID(),
+              itemId: createdItem.id,
+              userId: input.userId,
+              status: "QUEUED",
+              scheduledFor: initialScheduledFor,
+              nextRetryAt: initialQueueMode === "DEFERRED" ? initialScheduledFor : null,
+              errorCode: initialDeferredErrorCode,
+              errorMessage: initialAcceptedMessage
+            });
+            return {
+              ...createdItem,
+              jobs: []
+            };
+          }
           const createdJob = await webPrimaryStore.createJob({
             id: randomUUID(),
             itemId: createdItem.id,
@@ -157,16 +173,31 @@ export async function enqueueItem(input: {
               summaryStatus: processingMode === "SUMMARY_ONLY" ? "PROCESSING" : "NOT_REQUESTED",
               errorCode: deferredErrorCode,
               errorMessage: acceptedMessage,
-              jobs: {
-                create: {
-                  jobKind,
-                  status: "QUEUED",
-                  nextRetryAt: queueMode === "DEFERRED" ? scheduledFor : null,
-                  scheduledFor,
-                  errorCode: deferredErrorCode,
-                  errorMessage: acceptedMessage
-                }
-              }
+              ...(processingMode === "SUMMARY_ONLY"
+                ? {
+                    articleSummaryTask: {
+                      create: {
+                        userId: input.userId,
+                        status: "QUEUED",
+                        nextRetryAt: queueMode === "DEFERRED" ? scheduledFor : null,
+                        scheduledFor,
+                        errorCode: deferredErrorCode,
+                        errorMessage: acceptedMessage
+                      }
+                    }
+                  }
+                : {
+                    jobs: {
+                      create: {
+                        jobKind,
+                        status: "QUEUED",
+                        nextRetryAt: queueMode === "DEFERRED" ? scheduledFor : null,
+                        scheduledFor,
+                        errorCode: deferredErrorCode,
+                        errorMessage: acceptedMessage
+                      }
+                    }
+                  })
             }
           });
 

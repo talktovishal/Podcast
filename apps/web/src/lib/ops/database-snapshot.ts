@@ -91,6 +91,13 @@ export const databaseSnapshotModelConfigs = [
     dateFields: ["sourceCapturedAt", "createdAt", "updatedAt"]
   },
   {
+    modelName: "ArticleSummaryTask",
+    exportKey: "articleSummaryTasks",
+    delegate: "articleSummaryTask",
+    orderByField: "id",
+    dateFields: ["scheduledFor", "nextRetryAt", "lockedAt", "createdAt", "updatedAt"]
+  },
+  {
     modelName: "Snippet",
     exportKey: "snippets",
     delegate: "snippet",

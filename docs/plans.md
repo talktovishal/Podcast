@@ -148,7 +148,7 @@
   - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
 - Summary Mode item summaries (`M121`) are implemented:
   - `/app` can persist `FULL_EPISODE` vs `SUMMARY_ONLY` as the default for future captures.
-  - summary-only item jobs store canonical markdown plus item summary markdown, skip TTS/RSS by default, and support explicit `Request TTS` later.
+  - summary-only submissions create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor stores canonical markdown plus item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later.
   - digest generation prefers item summaries, while wiki preparation keeps full article markdown with the summary as compact guidance.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema

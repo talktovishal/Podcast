@@ -46,6 +46,7 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
       item.episode ? webPrimaryStore.deleteEpisode(item.episode.id) : Promise.resolve(),
       webPrimaryStore.deleteItemArtifactsByItemId(item.id),
       webPrimaryStore.deleteJobsByItemId(item.id),
+      webPrimaryStore.deleteArticleSummaryTasksByItemId(item.id),
       webPrimaryStore.deleteChunkCachesByItemId(item.id)
     ]);
   } else {

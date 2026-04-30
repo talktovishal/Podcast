@@ -216,6 +216,94 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
   assert.equal(item?.extractionSelectionRecordedAt?.toISOString(), "2026-03-25T09:45:00.000Z");
 });
 
+test("article summary task store creates and lists eligible work across users", async () => {
+  const store = createStore();
+  const createdEntities: Record<string, unknown>[] = [];
+  let seenFilters: string[] = [];
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntities.push(entity);
+  };
+
+  const created = await store.createArticleSummaryTask({
+    id: "task-created",
+    itemId: "item-created",
+    userId: "user-created",
+    scheduledFor: new Date("2026-04-30T09:00:00.000Z")
+  });
+
+  assert.equal(createdEntities[0]?.partitionKey, "articleSummaryTask");
+  assert.equal(createdEntities[0]?.rowKey, "task-created");
+  assert.equal(createdEntities[0]?.itemId, "item-created");
+  assert.equal(createdEntities[0]?.status, "QUEUED");
+  assert.equal(created.status, "QUEUED");
+  assert.equal(created.scheduledFor?.toISOString(), "2026-04-30T09:00:00.000Z");
+
+  (
+    store as unknown as {
+      listEntities: (key: string, filter?: string) => Promise<Array<Record<string, unknown>>>;
+    }
+  ).listEntities = async (_key, filter) => {
+    seenFilters.push(filter || "");
+    if (String(filter).includes("status eq 'QUEUED'")) {
+      return [
+        {
+          partitionKey: "articleSummaryTask",
+          rowKey: "task-queued-ready",
+          itemId: "item-1",
+          userId: "user-1",
+          status: "QUEUED",
+          attempt: 0,
+          scheduledFor: "2026-04-30T08:59:00.000Z",
+          createdAt: "2026-04-30T08:00:00.000Z",
+          updatedAt: "2026-04-30T08:00:00.000Z"
+        },
+        {
+          partitionKey: "articleSummaryTask",
+          rowKey: "task-queued-future",
+          itemId: "item-2",
+          userId: "user-2",
+          status: "QUEUED",
+          attempt: 0,
+          scheduledFor: "2026-04-30T10:00:00.000Z",
+          createdAt: "2026-04-30T08:05:00.000Z",
+          updatedAt: "2026-04-30T08:05:00.000Z"
+        }
+      ];
+    }
+    return [
+      {
+        partitionKey: "articleSummaryTask",
+        rowKey: "task-failed-ready",
+        itemId: "item-3",
+        userId: "user-3",
+        status: "FAILED",
+        attempt: 1,
+        nextRetryAt: "2026-04-30T08:30:00.000Z",
+        createdAt: "2026-04-30T07:30:00.000Z",
+        updatedAt: "2026-04-30T08:30:00.000Z"
+      }
+    ];
+  };
+
+  const eligible = await store.listNextEligibleArticleSummaryTasks(new Date("2026-04-30T09:00:00.000Z"), 3);
+
+  assert.deepEqual(
+    eligible.map((task) => task.id),
+    ["task-failed-ready", "task-queued-ready"]
+  );
+  assert.equal(seenFilters.length, 2);
+  assert.equal(seenFilters[0], "(PartitionKey eq 'articleSummaryTask') and (status eq 'QUEUED')");
+  assert.equal(
+    seenFilters[1],
+    "(PartitionKey eq 'articleSummaryTask') and (status eq 'FAILED') and (attempt lt 3) and (nextRetryAt le '2026-04-30T09:00:00.000Z')"
+  );
+});
+
 test("createSnippet stores rich snippet capture fields alongside selected text", async () => {
   const store = createStore();
   let createdEntity: Record<string, unknown> | undefined;

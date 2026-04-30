@@ -211,9 +211,27 @@ async function getPaidSubmissionScheduleState(
   kind: PaidCapacityKind,
   tx?: QuotaDbClient
 ): Promise<PaidSubmissionScheduleState> {
-  const acceptedJobKinds = new Set(jobKindsForCapacityKind(kind));
   if (env.metadataPrimaryBackend === "azure_table") {
     const lookbackLimit = Math.max(maxPaidDailyPodcastLimit() * 6, maxPaidDailySummaryLimit() * 3, 120);
+    if (kind === "summary") {
+      const tasks = (await webPrimaryStore?.listArticleSummaryTasksByUser(userId, lookbackLimit)) ?? [];
+      const entries = tasks.map((task) => {
+        const scheduledFor = resolveSubmissionScheduledFor({
+          status: task.status,
+          scheduledFor: task.scheduledFor,
+          nextRetryAt: task.nextRetryAt,
+          itemCreatedAt: task.createdAt,
+          now
+        });
+        return {
+          scheduledFor,
+          isDeferredQueue: task.status === "QUEUED" && scheduledFor.getTime() > now.getTime()
+        } satisfies SubmissionScheduleEntry;
+      });
+      return buildPaidSubmissionScheduleState(entries, now);
+    }
+
+    const acceptedJobKinds = new Set(jobKindsForCapacityKind(kind));
     const jobs = (await webPrimaryStore?.listJobsByUser(userId, lookbackLimit)) ?? [];
     const items = (await webPrimaryStore?.listItemsByUser(userId, lookbackLimit)) ?? [];
     const itemCreatedAtById = new Map(items.map((item) => [item.id, item.createdAt]));
@@ -239,6 +257,64 @@ async function getPaidSubmissionScheduleState(
   }
 
   const db = tx ?? prisma;
+  if (kind === "summary") {
+    const tasks = await db.articleSummaryTask.findMany({
+      where: {
+        userId,
+        OR: [
+          {
+            scheduledFor: {
+              gte: paidPodcastWindowStart(now)
+            }
+          },
+          {
+            status: "QUEUED",
+            scheduledFor: {
+              gt: now
+            }
+          },
+          {
+            scheduledFor: null,
+            createdAt: {
+              gte: paidPodcastWindowStart(now)
+            }
+          },
+          {
+            status: "QUEUED",
+            scheduledFor: null,
+            nextRetryAt: {
+              gt: now
+            }
+          }
+        ]
+      },
+      select: {
+        status: true,
+        scheduledFor: true,
+        nextRetryAt: true,
+        createdAt: true
+      }
+    });
+
+    return buildPaidSubmissionScheduleState(
+      tasks.map((task) => {
+        const scheduledFor = resolveSubmissionScheduledFor({
+          status: task.status,
+          scheduledFor: task.scheduledFor,
+          nextRetryAt: task.nextRetryAt,
+          itemCreatedAt: task.createdAt,
+          now
+        });
+        return {
+          scheduledFor,
+          isDeferredQueue: task.status === "QUEUED" && scheduledFor.getTime() > now.getTime()
+        };
+      }),
+      now
+    );
+  }
+
+  const acceptedJobKinds = new Set(jobKindsForCapacityKind(kind));
   const jobs = await db.job.findMany({
     where: {
       item: { userId },

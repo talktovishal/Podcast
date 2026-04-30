@@ -308,6 +308,32 @@ export const azureTablePrimaryBackfillConfigs = [
     }
   },
   {
+    modelName: "ArticleSummaryTask",
+    delegate: "articleSummaryTask",
+    orderByField: "id",
+    tableKey: "articleSummaryTasks",
+    buildEntity(row) {
+      return {
+        partitionKey: "articleSummaryTask",
+        rowKey: row.id,
+        id: row.id,
+        itemId: row.itemId,
+        userId: row.userId,
+        status: row.status,
+        attempt: row.attempt,
+        scheduledFor: isoOrNull(row.scheduledFor),
+        nextRetryAt: isoOrNull(row.nextRetryAt),
+        lockedAt: isoOrNull(row.lockedAt),
+        leaseId: row.leaseId ?? null,
+        leaseOwner: row.leaseOwner ?? null,
+        errorCode: row.errorCode ?? null,
+        errorMessage: row.errorMessage ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
     modelName: "Snippet",
     delegate: "snippet",
     orderByField: "id",

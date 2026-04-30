@@ -171,12 +171,36 @@ model Item {
   jobEvents     JobEvent[]
   episode       Episode?
   artifacts     ItemArtifact[]
+  articleSummaryTask ArticleSummaryTask?
   chunkCaches   ChunkCache[]
   summaryRunItems SummaryRunItem[]
   demoExtractionTrace DemoExtractionTrace?
   analyticsEvents AnalyticsEvent[]
 
   @@index([userId, status])
+}
+
+model ArticleSummaryTask {
+  id           String    @id @default(cuid())
+  itemId       String    @unique
+  userId       String
+  status       String    @default("QUEUED")
+  attempt      Int       @default(0)
+  scheduledFor DateTime?
+  nextRetryAt  DateTime?
+  lockedAt     DateTime?
+  leaseId      String?
+  leaseOwner   String?
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
+  @@index([userId, createdAt])
 }
 
 model Snippet {

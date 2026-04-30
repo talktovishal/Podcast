@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildUserItemMarkdownStorageKey, buildUserItemSummaryStorageKey } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as processingModeGet, POST as processingModePost } from "../src/app/api/account/processing-mode/route";
@@ -91,14 +91,256 @@ test("processing mode setting makes new captures summary-only by default", async
     const capturePayload = (await captureResponse.json()) as { item_id: string };
     const item = await prisma.item.findUnique({
       where: { id: capturePayload.item_id },
-      include: { jobs: true }
+      include: { jobs: true, articleSummaryTask: true }
     });
     assert.equal(item?.processingMode, "SUMMARY_ONLY");
     assert.equal(item?.summaryStatus, "PROCESSING");
-    assert.equal(item?.jobs[0]?.jobKind, "SUMMARY_ONLY");
+    assert.equal(item?.jobs.length, 0);
+    assert.equal(item?.articleSummaryTask?.status, "QUEUED");
+    assert.equal(item?.articleSummaryTask?.userId, user.id);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
+});
+
+test("full-episode captures still enqueue podcast jobs and dispatch messages", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-full-mode-default`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `full-mode-default-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const captureResponse = await htmlSnapshotPost(
+      new NextRequest("http://localhost/api/items/html-snapshot", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`
+        },
+        body: JSON.stringify({
+          url: `https://example.com/full-mode/${uniq}`,
+          title: `Full mode ${uniq}`,
+          html: `<html><body><article><h1>${uniq}</h1><p>full episode capture content</p></article></body></html>`,
+          capturedAt: "2026-04-29T00:00:00.000Z"
+        })
+      })
+    );
+    assert.equal(captureResponse.status, 200);
+    const capturePayload = (await captureResponse.json()) as { item_id: string };
+    const item = await prisma.item.findUnique({
+      where: { id: capturePayload.item_id },
+      include: { jobs: true, articleSummaryTask: true }
+    });
+    assert.equal(item?.processingMode, "FULL_EPISODE");
+    assert.equal(item?.summaryStatus, "NOT_REQUESTED");
+    assert.equal(item?.articleSummaryTask, null);
+    assert.equal(item?.jobs.length, 1);
+    assert.equal(item?.jobs[0]?.jobKind, "FULL_EPISODE");
+
+    const dispatchMessage = await prisma.dispatchQueueMessage.findFirst({
+      where: { jobId: item?.jobs[0]?.id }
+    });
+    assert.ok(dispatchMessage);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("summary-mode azure primary submission creates an article summary task without a job", () => {
+  const here = fileURLToPath(new URL(".", import.meta.url));
+  const repoRoot = resolve(here, "../../..");
+  const itemsModuleUrl = pathToFileURL(resolve(repoRoot, "apps/web/src/lib/items.ts")).href;
+  const metadataModuleUrl = pathToFileURL(resolve(repoRoot, "apps/web/src/lib/metadata-primary-store.ts")).href;
+  const script = `
+    delete process.env.DATABASE_URL;
+    process.env.RUNTIME_PROFILE = "azure";
+    process.env.METADATA_PRIMARY_BACKEND = "azure_table";
+    process.env.AZURE_TABLE_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=ZmFrZQ==;EndpointSuffix=core.windows.net";
+    process.env.AZURE_TABLE_CREATE_TABLES = "0";
+    process.env.STORAGE_BACKEND = "azure_blob";
+    process.env.AZURE_STORAGE_CONTAINER = "articlepod";
+    process.env.MEDIA_SIGNING_KEY = "12345678901234567890123456789012";
+    process.env.DIGEST_SCHEDULER_SECRET = "12345678901234567890123456789012";
+    process.env.ANALYTICS_STORAGE_MODE = "off";
+    (async () => {
+      const metadataModule = await import(${JSON.stringify(metadataModuleUrl)});
+      const store = metadataModule.webPrimaryStore;
+      const now = new Date("2026-04-30T09:00:00.000Z");
+      const calls = { items: [], articleSummaryTasks: [], jobs: [] };
+      let user = {
+        id: "azure-summary-user",
+        email: "azure-summary-user@articlepod.local",
+        passwordHash: null,
+        name: null,
+        role: "USER",
+        billingLanePreference: "LIVE",
+        complimentaryPro: false,
+        billingProvider: null,
+        billingCustomerId: null,
+        billingSubscriptionId: null,
+        billingPriceId: null,
+        billingPlanCode: "STARTER",
+        billingStatus: "NONE",
+        billingEntitlementStatus: "INACTIVE",
+        billingLastPaymentStatus: "NONE",
+        billingLastInvoiceId: null,
+        billingCurrentPeriodEnd: null,
+        billingCancelAtPeriodEnd: false,
+        billingLastStripeEventId: null,
+        billingLastStripeEventCreatedAt: null,
+        billingLastSubscriptionEventAt: null,
+        billingLastInvoiceEventAt: null,
+        billingUpdatedAt: null,
+        isPaid: false,
+        submissionCount: 0,
+        extraSubmissionCredits: 0,
+        defaultItemProcessingMode: "SUMMARY_ONLY",
+        ttsProvider: "kokoro",
+        ttsVoice: "af_heart",
+        firstSeenAt: null,
+        firstSeenCountryCode: null,
+        firstSeenRegionCode: null,
+        firstSeenCity: null,
+        lastSeenAt: null,
+        lastSeenCountryCode: null,
+        lastSeenRegionCode: null,
+        lastSeenCity: null,
+        createdAt: now,
+        updatedAt: now
+      };
+      Object.assign(store, {
+        findUserById: async () => user,
+        updateUser: async (_id, patch) => {
+          user = { ...user, ...patch, updatedAt: now };
+          return user;
+        },
+        findSandboxBillingAccountByUserId: async () => null,
+        listArticleSummaryTasksByUser: async () => [],
+        listJobsByUser: async () => [],
+        listItemsByUser: async () => [],
+        listOAuthIdentitiesByUser: async () => [],
+        createItem: async (input) => {
+          calls.items.push(input);
+          return {
+            id: input.id,
+            userId: input.userId,
+            title: input.title ?? null,
+            sourceType: input.sourceType,
+            sourceUrl: input.sourceUrl ?? null,
+            sourceFilePath: input.sourceFilePath ?? null,
+            sourceHtml: input.sourceHtml ?? null,
+            sourceCapturedAt: input.sourceCapturedAt ?? null,
+            status: input.status,
+            processingMode: input.processingMode,
+            priority: input.priority ?? "LOW",
+            tags: input.tags ?? [],
+            errorCode: input.errorCode ?? null,
+            errorMessage: input.errorMessage ?? null,
+            textHash: null,
+            summaryStatus: input.summaryStatus,
+            summaryTitle: null,
+            summaryStorageKey: null,
+            summaryBytes: null,
+            summaryProvider: null,
+            summaryModel: null,
+            summaryDeployment: null,
+            summaryInputTokens: null,
+            summaryOutputTokens: null,
+            summaryErrorCode: null,
+            summaryErrorMessage: null,
+            summaryCompletedAt: null,
+            extractionEngine: null,
+            extractionSelectionMode: null,
+            extractionScoreMargin: null,
+            extractionSummaryJson: null,
+            extractionSelectionRecordedAt: null,
+            createdAt: now,
+            updatedAt: now
+          };
+        },
+        createArticleSummaryTask: async (input) => {
+          calls.articleSummaryTasks.push(input);
+          return {
+            id: input.id,
+            itemId: input.itemId,
+            userId: input.userId,
+            status: input.status ?? "QUEUED",
+            attempt: input.attempt ?? 0,
+            scheduledFor: input.scheduledFor ?? null,
+            nextRetryAt: input.nextRetryAt ?? null,
+            lockedAt: input.lockedAt ?? null,
+            leaseId: input.leaseId ?? null,
+            leaseOwner: input.leaseOwner ?? null,
+            errorCode: input.errorCode ?? null,
+            errorMessage: input.errorMessage ?? null,
+            createdAt: now,
+            updatedAt: now
+          };
+        },
+        createJob: async (input) => {
+          calls.jobs.push(input);
+          throw new Error("summary mode should not create jobs");
+        }
+      });
+      const itemsModule = await import(${JSON.stringify(itemsModuleUrl)});
+      const result = await itemsModule.enqueueItem({
+        userId: user.id,
+        title: "Azure summary task",
+        mode: "summary",
+        sourceType: "HTML_SNAPSHOT",
+        sourceUrl: "https://example.com/azure-summary",
+        sourceHtml: "<article><p>summary</p></article>",
+        sourceCapturedAt: now
+      });
+      console.log(JSON.stringify({
+        itemProcessingMode: result.item.processingMode,
+        itemSummaryStatus: result.item.summaryStatus,
+        itemCount: calls.items.length,
+        taskCount: calls.articleSummaryTasks.length,
+        jobCount: calls.jobs.length,
+        taskItemId: calls.articleSummaryTasks[0]?.itemId,
+        taskUserId: calls.articleSummaryTasks[0]?.userId
+      }));
+    })().catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+  `;
+
+  const result = spawnSync("npx", ["tsx", "--eval", script], {
+    cwd: resolve(repoRoot, "apps/web"),
+    encoding: "utf8",
+    env: process.env
+  });
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || "azure summary-mode enqueue script failed");
+  }
+
+  const payload = JSON.parse(result.stdout.trim()) as {
+    itemProcessingMode: string;
+    itemSummaryStatus: string;
+    itemCount: number;
+    taskCount: number;
+    jobCount: number;
+    taskItemId: string;
+    taskUserId: string;
+  };
+  assert.equal(payload.itemProcessingMode, "SUMMARY_ONLY");
+  assert.equal(payload.itemSummaryStatus, "PROCESSING");
+  assert.equal(payload.itemCount, 1);
+  assert.equal(payload.taskCount, 1);
+  assert.equal(payload.jobCount, 0);
+  assert.ok(payload.taskItemId);
+  assert.equal(payload.taskUserId, "azure-summary-user");
 });
 
 test("summary items expose markdown and can request full-article TTS later", async () => {
