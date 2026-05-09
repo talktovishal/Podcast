@@ -1396,7 +1396,7 @@ export function DashboardClient({
                 >
                   <span
                     aria-hidden="true"
-                    className="absolute bottom-1 left-1 top-1 w-[calc(50%-0.25rem)] rounded-full bg-[var(--accent)] shadow-sm transition-transform duration-200 ease-out"
+                    className="absolute bottom-1 left-1 top-1 w-[calc(50%-0.25rem)] rounded-full border border-[rgba(31,122,90,0.32)] bg-[rgba(223,243,236,0.92)] shadow-[0_8px_20px_rgba(31,122,90,0.12)] transition-transform duration-200 ease-out"
                     style={{
                       transform: summaryModeEnabled
                         ? "translateX(calc(100% + 0.5rem))"
@@ -1407,7 +1407,7 @@ export function DashboardClient({
                     aria-pressed={!summaryModeEnabled}
                     className={`relative z-10 flex min-h-[3rem] items-center justify-center rounded-full px-2.5 py-1.5 text-center text-[11px] font-semibold leading-tight transition sm:text-xs ${
                       !summaryModeEnabled
-                        ? "text-white"
+                        ? "text-[var(--ink)]"
                         : "text-[var(--ink)] hover:text-[var(--accent)]"
                     }`}
                     disabled={isProcessingModeBusy}
@@ -1424,7 +1424,7 @@ export function DashboardClient({
                     aria-pressed={summaryModeEnabled}
                     className={`relative z-10 flex min-h-[3rem] flex-col items-center justify-center rounded-full px-2.5 py-1.5 text-center text-[11px] font-semibold leading-tight transition sm:text-xs ${
                       summaryModeEnabled
-                        ? "text-white"
+                        ? "text-[var(--ink)]"
                         : "text-[var(--ink)] hover:text-[var(--accent)]"
                     }`}
                     disabled={isProcessingModeBusy}
@@ -1437,7 +1437,7 @@ export function DashboardClient({
                   >
                     <span>Summaries only</span>
                     <span
-                      className={`text-[10px] font-medium sm:text-[11px] ${summaryModeEnabled ? "text-white/85" : "text-[var(--muted)]"}`}
+                      className={`text-[10px] font-medium sm:text-[11px] ${summaryModeEnabled ? "text-[var(--accent)]" : "text-[var(--muted)]"}`}
                     >
                       Daily and weekly podcasts
                     </span>

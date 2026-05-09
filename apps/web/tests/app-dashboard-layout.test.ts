@@ -37,7 +37,10 @@ test("dashboard client surfaces the processing-mode slider in the workspace head
   assert.equal(source.includes("Every new item is a podcast"), true);
   assert.equal(source.includes("Summaries only"), true);
   assert.equal(source.includes("Daily and weekly podcasts"), true);
+  assert.equal(source.includes("bg-[rgba(223,243,236,0.92)]"), true);
   assert.equal(source.includes("translateX(calc(100% + 0.5rem))"), true);
+  assert.equal(source.includes("bg-[var(--accent)] shadow-sm transition-transform"), false);
+  assert.equal(source.includes("text-white/85"), false);
   assert.equal(source.includes("New items become podcast episodes."), false);
   assert.equal(source.includes("New items save summaries first."), false);
 });
