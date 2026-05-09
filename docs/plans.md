@@ -94,8 +94,8 @@
   - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
   - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
   - snippet rows now also persist richer structured capture fields as optional metadata/context, including selection HTML, derived markdown, and a reusable template markdown view.
-  - `/app/snippets` provides review, comment editing, and delete actions without entering the podcast queue or RSS/feed pipeline.
-  - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, and the page redirects back to `/app` if the last snippet is removed.
+  - `/app/snippets` provides compact review, on-demand comment editing, capture detail toggles, and delete actions without entering the podcast queue or RSS/feed pipeline.
+  - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, shows the snippet count on desktop, and the page redirects back to `/app` if the last snippet is removed.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
 - Signed-in workspace chrome is now shared across all `/app` routes as a sticky header: the ArticlePod icon leads, the compact billing pill sits beside it, active destinations stay visible, and `Feedback`, `Settings`, plus `Logout` are grouped as compact utilities while `Snippets` remains conditional.
@@ -3749,7 +3749,7 @@ Milestone metadata contract:
   - `packages/core/src/snippets/richCapture.ts`
 - Acceptance criteria:
   - A selected text range can be saved from the extension immediately or through a comment-first flow.
-  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and now also retain reusable context markdown plus normalized page metadata.
+  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and retain reusable context markdown plus normalized page metadata behind a collapsed capture-details action.
   - Existing snippet rows remain readable even when they predate the richer capture fields.
   - Saving a snippet does not create `Item` rows, does not enqueue `Job`s, and does not make the snippet available in summary item selection.
   - Feed/media auth and RSS behavior remain unchanged.

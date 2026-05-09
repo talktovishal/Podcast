@@ -75,6 +75,17 @@ export async function hasSnippetsForUser(userId: string): Promise<boolean> {
   return Boolean(snippet);
 }
 
+export async function countSnippetsForUser(userId: string): Promise<number> {
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const snippets = await webPrimaryStore.listSnippetsByUser(userId, Number.MAX_SAFE_INTEGER);
+    return snippets.length;
+  }
+
+  return prisma.snippet.count({
+    where: { userId }
+  });
+}
+
 export async function findSnippetForUser(userId: string, snippetId: string): Promise<SnippetListEntry | null> {
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const snippet = await webPrimaryStore.findSnippetById(snippetId);

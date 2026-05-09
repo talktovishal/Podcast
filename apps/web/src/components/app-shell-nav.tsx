@@ -162,16 +162,24 @@ function UtilityLink({
       title={title}
     >
       {icon}
-      <span className={compact ? "sr-only" : "text-sm md:sr-only"}>{label}</span>
+      <span className={compact ? "sr-only" : "text-sm md:sr-only"}>
+        {label}
+      </span>
     </Link>
   );
 }
 
+function formatSnippetCount(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
 export function AppShellNav({
+  snippetCount = 0,
   showSnippets = false,
   showWiki = false,
   mobileLeading,
 }: {
+  snippetCount?: number;
   showSnippets?: boolean;
   showWiki?: boolean;
   mobileLeading?: ReactNode;
@@ -185,9 +193,7 @@ export function AppShellNav({
 
   const primaryItems = items.filter((item) => item.kind === "primary");
   const mobilePrimaryItems = primaryItems.filter(
-    (item) =>
-      item.key !== "chrome-extension" &&
-      item.key !== "snippets",
+    (item) => item.key !== "chrome-extension" && item.key !== "snippets",
   );
   const utilityItems = items.filter((item) => item.kind === "utility");
 
@@ -195,9 +201,7 @@ export function AppShellNav({
     <nav aria-label="Workspace navigation" className="w-full">
       <div className="flex flex-col gap-2 lg:hidden">
         <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            {mobileLeading}
-          </div>
+          <div className="min-w-0 flex-1">{mobileLeading}</div>
           <div className="flex shrink-0 items-center gap-2">
             {utilityItems.map((item) => {
               const active = matchesPath(pathname, item.href);
@@ -261,6 +265,11 @@ export function AppShellNav({
               title={item.title}
             >
               {item.label}
+              {item.key === "snippets" && snippetCount > 0 ? (
+                <span className="ml-2 rounded-full border border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.7)] px-1.5 py-0.5 text-xs font-semibold leading-none text-[var(--accent)]">
+                  {formatSnippetCount(snippetCount)}
+                </span>
+              ) : null}
             </Link>
           );
         })}

@@ -4,7 +4,7 @@ import { BRAND_ICON_512_PATH } from "@/lib/brand-assets";
 import { AppShellNav } from "@/components/app-shell-nav";
 import { WorkspaceBillingSummary } from "@/components/workspace-billing-summary";
 import type { BillingAccountSnapshot } from "@/lib/billing-contract";
-import { hasSnippetsForUser } from "@/lib/snippets";
+import { countSnippetsForUser } from "@/lib/snippets";
 import { hasWikiForUser } from "@/lib/wiki";
 
 export async function AppShellHeader({
@@ -20,8 +20,8 @@ export async function AppShellHeader({
   showWikiSurface?: boolean;
   userId: string;
 }) {
-  const [showSnippets, hasPublishedWiki] = await Promise.all([
-    hasSnippetsForUser(userId),
+  const [snippetCount, hasPublishedWiki] = await Promise.all([
+    countSnippetsForUser(userId),
     hasWikiForUser(userId),
   ]);
 
@@ -63,7 +63,8 @@ export async function AppShellHeader({
                   variant="mobile-header"
                 />
               }
-              showSnippets={showSnippets}
+              showSnippets={snippetCount > 0}
+              snippetCount={snippetCount}
               showWiki={showWikiSurface || hasPublishedWiki}
             />
           </div>

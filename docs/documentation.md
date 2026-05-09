@@ -118,8 +118,9 @@ Connect flow:
   - setup notes and future walkthrough/video space below the live tools
 - `/app/snippets` is the saved-selection review page:
   - newest-first snippet cards
-  - comment editing and delete actions
-  - richer structured context, section path, and page metadata when available from the extension capture
+  - compact cards with comment editing collapsed until the user opens it
+  - capture details collapsed behind an explicit action when richer structured context, section path, or page metadata is available from the extension capture
+  - delete actions
 - `/app/settings` is the account/configuration home:
   - voice settings first, then digest scheduling, then billing
   - demographic profile and digest history follow the core settings

@@ -66,7 +66,8 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(headerSource.includes('variant="header"'), true);
   assert.equal(headerSource.includes('variant="mobile-header"'), true);
   assert.equal(headerSource.includes("AppShellNav"), true);
-  assert.equal(headerSource.includes("hasSnippetsForUser"), true);
+  assert.equal(headerSource.includes("countSnippetsForUser"), true);
+  assert.equal(headerSource.includes("snippetCount={snippetCount}"), true);
   assert.equal(headerSource.includes("hasWikiForUser"), true);
   assert.equal(headerSource.includes("showWikiSurface = false"), true);
   assert.equal(headerSource.includes("showWiki={showWikiSurface || hasPublishedWiki}"), true);
@@ -117,6 +118,8 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("usePathname"), true);
   assert.equal(source.includes("aria-current"), true);
   assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("snippetCount = 0"), true);
+  assert.equal(source.includes("formatSnippetCount"), true);
   assert.equal(source.includes("showWiki = false"), true);
   assert.equal(source.includes("mobileLeading"), true);
   assert.equal(source.includes("mobilePrimaryItems"), true);
@@ -456,10 +459,10 @@ test("podcast apps and chrome extension pages exist as dedicated setup pages", (
   assert.equal(podcastPageSource.includes("Private feed setup"), false);
   assert.equal(extensionPageSource.includes("Capture setup"), false);
   assert.equal(snippetsPageSource.includes("Selection workspace"), false);
-  assert.equal(
-    snippetsClientSource.includes("to fold these into your personal wiki."),
-    true,
-  );
+  assert.equal(snippetsClientSource.includes("Saved snippets"), false);
+  assert.equal(snippetsClientSource.includes("Add comment"), true);
+  assert.equal(snippetsClientSource.includes("Capture details"), true);
+  assert.equal(snippetsClientSource.includes("openCommentIds"), true);
 });
 
 test("feedback and settings pages keep their headings below the shared header", () => {
