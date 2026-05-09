@@ -4,15 +4,16 @@ import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
 import { deleteSnippetForUser, updateSnippetForUser } from "@/lib/snippets";
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
     const payload = updateSnippetSchema.parse(await request.json());
-    const snippet = await updateSnippetForUser(user.id, context.params.id, payload);
+    const snippet = await updateSnippetForUser(user.id, id, payload);
     if (!snippet) {
       return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Snippet not found." }, { status: 404 });
     }
@@ -33,14 +34,15 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const deleted = await deleteSnippetForUser(user.id, context.params.id);
+    const deleted = await deleteSnippetForUser(user.id, id);
     if (!deleted) {
       return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Snippet not found." }, { status: 404 });
     }

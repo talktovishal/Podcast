@@ -3,14 +3,15 @@ import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
 import { getSummaryRunMarkdown } from "@/lib/summaries";
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const result = await getSummaryRunMarkdown(user.id, context.params.id);
+    const result = await getSummaryRunMarkdown(user.id, id);
     return NextResponse.json({
       ok: true,
       title: result.title,

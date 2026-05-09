@@ -183,7 +183,7 @@ run_pnpm_install_if_needed() {
 
   if [[ -n "$install_reason" ]]; then
     echo "[deploy-vm-runtime] running pnpm install (${install_reason})"
-    run_app_cmd "npx pnpm install --frozen-lockfile"
+    run_app_cmd "corepack pnpm install --frozen-lockfile"
     write_state_value "$LOCK_HASH_FILE" "$current_lock_hash"
   else
     echo "[deploy-vm-runtime] skipping pnpm install (lockfile unchanged)"
@@ -319,7 +319,7 @@ run_python_tts_setup_if_needed() {
 }
 
 run_tts_preview_precompute() {
-  if ! run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run tts:precompute"; then
+  if ! run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run tts:precompute"; then
     echo "[deploy-vm-runtime] warning: tts preview precompute failed; previews will be generated on demand" >&2
   fi
 }
@@ -341,7 +341,7 @@ run_demo_seed_if_needed() {
 
   if [[ "$run_seed" == "1" ]]; then
     echo "[deploy-vm-runtime] running demo seed (${seed_reason})"
-    run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run seed:demo"
+    run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run seed:demo"
     write_state_value "$DEMO_SEED_MARKER_FILE" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   else
     echo "[deploy-vm-runtime] skipping demo seed (mode=${DEPLOY_DEMO_SEED_MODE})"
@@ -383,13 +383,13 @@ ensure_runtime_dirs
 ensure_deploy_state_dir
 sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
 run_pnpm_install_if_needed
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run build"
-run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run build"
+run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run prisma:generate"
+run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run prisma:generate"
+run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run build"
+run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run build"
 run_python_tts_setup_if_needed
 if [[ "$metadata_primary_backend" != "azure_table" ]]; then
-  run_app_cmd "RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run db:bootstrap"
+  run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run db:bootstrap"
 fi
 run_demo_seed_if_needed
 

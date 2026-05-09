@@ -20,8 +20,9 @@ export const metadata: Metadata = {
 export default async function AppSettingsPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await getAuthUserFromCookies();
   if (!user) {
     redirect("/");
@@ -45,9 +46,9 @@ export default async function AppSettingsPage({
     "PRO_ANNUAL",
     billingState.mode.effectiveLane,
   );
-  const billingSearchParam = Array.isArray(searchParams?.billing)
-    ? searchParams?.billing[0]
-    : searchParams?.billing;
+  const billingSearchParam = Array.isArray(resolvedSearchParams.billing)
+    ? resolvedSearchParams.billing[0]
+    : resolvedSearchParams.billing;
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
     voice: ttsSettings.voice,

@@ -5,9 +5,10 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -15,9 +16,9 @@ export async function GET(request: NextRequest, context: { params: { id: string 
 
     const item =
       webUsesAzureTablePrimary() && webPrimaryStore
-        ? await webPrimaryStore.findItemById(context.params.id)
+        ? await webPrimaryStore.findItemById(id)
         : await prisma.item.findUnique({
-            where: { id: context.params.id },
+            where: { id },
             select: {
               id: true,
               userId: true,

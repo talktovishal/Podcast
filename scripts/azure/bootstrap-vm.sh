@@ -45,7 +45,7 @@ if ! command -v node >/dev/null 2>&1; then
   apt-get install -y nodejs
 fi
 
-npm install -g pnpm@9.15.4
+npm install -g pnpm@11.0.9
 
 "$ROOT_DIR/scripts/azure/ensure-swap.sh"
 "$ROOT_DIR/scripts/azure/configure-journald.sh"

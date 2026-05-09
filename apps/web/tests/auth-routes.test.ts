@@ -984,7 +984,7 @@ test("item metadata patch accepts priority alias and canonical tags response", a
       }),
     });
 
-    const response = await itemPatch(request, { params: { id: item.id } });
+    const response = await itemPatch(request, { params: Promise.resolve({ id: item.id }) });
     assert.equal(response.status, 200);
 
     const payload = (await response.json()) as {
@@ -1058,7 +1058,7 @@ test("item markdown route returns markdown for the item owner", async () => {
     );
 
     const response = await itemMarkdownGet(request, {
-      params: { id: item.id },
+      params: Promise.resolve({ id: item.id }),
     });
     assert.equal(response.status, 200);
     const payload = (await response.json()) as {
@@ -1077,7 +1077,7 @@ test("item markdown route returns markdown for the item owner", async () => {
           },
         },
       ),
-      { params: { id: item.id } },
+      { params: Promise.resolve({ id: item.id }) },
     );
     assert.equal(downloadResponse.status, 200);
     assert.match(
@@ -1152,7 +1152,7 @@ test("item markdown route returns markdown for admin", async () => {
     );
 
     const response = await itemMarkdownGet(request, {
-      params: { id: item.id },
+      params: Promise.resolve({ id: item.id }),
     });
     assert.equal(response.status, 200);
     const payload = (await response.json()) as {

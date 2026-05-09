@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { BRAND_SLUG, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 import { DEFAULT_TTS_MAX_CHUNKS } from "./narrationLimits.js";
 
-config({ path: resolve(process.cwd(), ".env") });
+config({ path: resolve(process.cwd(), ".env"), quiet: true });
 const repoRoot = resolve(process.cwd(), "../..");
 const defaultLogRoot = resolve(repoRoot, ".runtime/logs");
 type WorkerRole = "primary" | "overflow";

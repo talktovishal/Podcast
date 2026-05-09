@@ -173,7 +173,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
           cookie: `articlepod_session=${session}`
         }
       }),
-      { params: { id: createPayload.run.id } }
+      { params: Promise.resolve({ id: createPayload.run.id }) }
     );
     assert.equal(markdownResponse.status, 200);
     const markdownPayload = (await markdownResponse.json()) as { ok: boolean; markdown: string };

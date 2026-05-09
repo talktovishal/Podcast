@@ -8,7 +8,8 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -18,10 +19,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await (async () => {
           const [itemRow, episode, artifacts, jobs] = await Promise.all([
-            webPrimaryStore.findItemById(context.params.id),
-            webPrimaryStore.findEpisodeByItemId(context.params.id),
-            webPrimaryStore.listItemArtifacts(context.params.id),
-            webPrimaryStore.listJobsByItemId(context.params.id)
+            webPrimaryStore.findItemById(id),
+            webPrimaryStore.findEpisodeByItemId(id),
+            webPrimaryStore.listItemArtifacts(id),
+            webPrimaryStore.listJobsByItemId(id)
           ]);
           return itemRow
             ? {
@@ -33,7 +34,7 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
             : null;
         })()
       : await prisma.item.findUnique({
-          where: { id: context.params.id },
+          where: { id },
           include: { episode: true, artifacts: true, jobs: { select: { id: true } } }
         });
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
@@ -86,9 +87,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
   return NextResponse.json({ ok: true });
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -97,21 +99,21 @@ export async function PATCH(request: NextRequest, context: { params: { id: strin
     const { importance, tags } = updateItemMetadataSchema.parse(await request.json());
 
     const item = webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findItemById(context.params.id)
-      : await prisma.item.findUnique({ where: { id: context.params.id } });
+      ? await webPrimaryStore.findItemById(id)
+      : await prisma.item.findUnique({ where: { id } });
 
     if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
 
     if (webUsesAzureTablePrimary() && webPrimaryStore) {
-      await webPrimaryStore.updateItem(context.params.id, {
+      await webPrimaryStore.updateItem(id, {
         ...(importance !== undefined ? { priority: importance } : {}),
         ...(tags !== undefined ? { tags } : {})
       });
     } else {
       await prisma.item.update({
-        where: { id: context.params.id },
+        where: { id },
         data: {
           ...(importance !== undefined ? { priority: importance } : {}),
           ...(tags !== undefined ? { tagsJson: serializeItemTags(tags) } : {})

@@ -48,9 +48,17 @@ function schemaSignature() {
   const schemaPath = resolvePrismaSchemaPath();
   const absoluteSchemaPath = path.isAbsolute(schemaPath) ? schemaPath : path.resolve(repoRoot, schemaPath);
   const stats = fs.statSync(absoluteSchemaPath);
+  let prismaClientVersion = "unknown";
+  try {
+    const packageJsonPath = require.resolve("@prisma/client/package.json");
+    prismaClientVersion = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")).version || prismaClientVersion;
+  } catch {
+    // Missing package state is handled by generatedClientExists().
+  }
   return {
     schemaPath: absoluteSchemaPath,
-    schemaMtimeMs: stats.mtimeMs
+    schemaMtimeMs: stats.mtimeMs,
+    prismaClientVersion
   };
 }
 
@@ -115,7 +123,8 @@ function main() {
     !generatedClientExists() ||
     !cached ||
     cached.schemaPath !== signature.schemaPath ||
-    cached.schemaMtimeMs !== signature.schemaMtimeMs;
+    cached.schemaMtimeMs !== signature.schemaMtimeMs ||
+    cached.prismaClientVersion !== signature.prismaClientVersion;
 
   if (!needsGenerate) {
     console.log(`[ensure-prisma-generated] up to date for ${cacheKey}`);

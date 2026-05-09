@@ -449,7 +449,7 @@ test("summary-mode retry rebuilds markdown and requeues article summary task wit
           cookie: `articlepod_session=${session}`,
         },
       }),
-      { params: { id: item.id } },
+      { params: Promise.resolve({ id: item.id }) },
     );
     assert.equal(response.status, 200);
 
@@ -549,7 +549,7 @@ test("summary items expose markdown and can request full-article TTS later", asy
           cookie: `articlepod_session=${session}`,
         },
       }),
-      { params: { id: item.id } },
+      { params: Promise.resolve({ id: item.id }) },
     );
     assert.equal(summaryResponse.status, 200);
     const summaryPayload = (await summaryResponse.json()) as {
@@ -566,7 +566,7 @@ test("summary items expose markdown and can request full-article TTS later", asy
           cookie: `articlepod_session=${session}`,
         },
       }),
-      { params: { id: item.id } },
+      { params: Promise.resolve({ id: item.id }) },
     );
     assert.equal(requestResponse.status, 200);
     const requestPayload = (await requestResponse.json()) as {

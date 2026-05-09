@@ -89,10 +89,11 @@ async function authorizeScopedEpisode(path: string, digestEpisodeId: string | nu
   return Boolean(await resolveScopedEpisode(path, digestEpisodeId, summaryEpisodeId));
 }
 
-export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
+export async function HEAD(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const rawKey = context.params.path.join("/");
+  const { path } = await context.params;
+  const rawKey = path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -188,10 +189,11 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   }
 }
 
-export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const rawKey = context.params.path.join("/");
+  const { path } = await context.params;
+  const rawKey = path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {

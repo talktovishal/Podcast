@@ -62,14 +62,14 @@ fi
 
 echo "[migration] exporting from SQLite: $SQLITE_URL"
 RUNTIME_PROFILE=simple DATABASE_URL="$SQLITE_URL" node ./scripts/prisma-profile.mjs generate
-RUNTIME_PROFILE=simple DATABASE_URL="$SQLITE_URL" npx pnpm --filter @articlepod/web run db:export-json -- --out "$OUT_FILE"
+RUNTIME_PROFILE=simple DATABASE_URL="$SQLITE_URL" corepack pnpm --filter @articlepod/web run db:export-json -- --out "$OUT_FILE"
 
 echo "[migration] importing into PostgreSQL"
 RUNTIME_PROFILE=parity DATABASE_URL="$POSTGRES_URL" node ./scripts/prisma-profile.mjs generate
 if [[ "$TRUNCATE_TARGET" == "1" ]]; then
-  RUNTIME_PROFILE=parity DATABASE_URL="$POSTGRES_URL" npx pnpm --filter @articlepod/web run db:import-json -- --in "$OUT_FILE" --truncate
+  RUNTIME_PROFILE=parity DATABASE_URL="$POSTGRES_URL" corepack pnpm --filter @articlepod/web run db:import-json -- --in "$OUT_FILE" --truncate
 else
-  RUNTIME_PROFILE=parity DATABASE_URL="$POSTGRES_URL" npx pnpm --filter @articlepod/web run db:import-json -- --in "$OUT_FILE"
+  RUNTIME_PROFILE=parity DATABASE_URL="$POSTGRES_URL" corepack pnpm --filter @articlepod/web run db:import-json -- --in "$OUT_FILE"
 fi
 
 echo "[migration] completed"

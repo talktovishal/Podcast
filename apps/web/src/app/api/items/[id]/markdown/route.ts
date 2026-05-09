@@ -10,10 +10,11 @@ import { getArtifactStorage } from "@/lib/storage";
 
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json(
@@ -30,8 +31,8 @@ export async function GET(
       webUsesAzureTablePrimary() && webPrimaryStore
         ? await (async () => {
             const [itemRow, artifacts] = await Promise.all([
-              webPrimaryStore.findItemById(context.params.id),
-              webPrimaryStore.listItemArtifacts(context.params.id, "MARKDOWN"),
+              webPrimaryStore.findItemById(id),
+              webPrimaryStore.listItemArtifacts(id, "MARKDOWN"),
             ]);
             return itemRow
               ? {
@@ -41,7 +42,7 @@ export async function GET(
               : null;
           })()
         : await prisma.item.findUnique({
-            where: { id: context.params.id },
+            where: { id },
             include: {
               artifacts: {
                 where: { kind: "MARKDOWN" },

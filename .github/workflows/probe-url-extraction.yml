@@ -96,7 +96,7 @@ jobs:
             curl -I --max-time 25 \"\$TARGET_URL\" || true; \
             echo '== VM extraction probe =='; \
             cd /opt/articlepod; \
-            npx pnpm --filter @articlepod/web exec tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
+            corepack pnpm --filter @articlepod/web exec tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
           escaped_remote_cmd="$(printf '%q' "$remote_cmd")"
 
           set +e

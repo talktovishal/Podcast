@@ -31,7 +31,7 @@ fi
 attempt=1
 while [[ "${attempt}" -le "${PRECOMPUTE_MAX_ATTEMPTS}" ]]; do
   output=""
-  if output="$(npx pnpm --filter @articlepod/web run tts:precompute 2>&1)"; then
+  if output="$(corepack pnpm --filter @articlepod/web run tts:precompute 2>&1)"; then
     printf '%s\n' "${output}"
     echo "[prewarm] Kokoro preview cache is ready."
     exit 0

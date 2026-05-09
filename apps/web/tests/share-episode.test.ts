@@ -144,13 +144,13 @@ test("share episode route enforces ownership and shareable state", async () => {
         cookie: `articlepod_session=${ownerSession}`
       }
     });
-    const created = await postEpisodeShare(createRequest, { params: { itemId: ready.item.id } });
+    const created = await postEpisodeShare(createRequest, { params: Promise.resolve({ itemId: ready.item.id }) });
     assert.equal(created.status, 200);
     const createdJson = (await created.json()) as { ok: boolean; share_url: string; created: boolean };
     assert.equal(createdJson.ok, true);
     assert.equal(createdJson.created, true);
 
-    const repeated = await postEpisodeShare(createRequest, { params: { itemId: ready.item.id } });
+    const repeated = await postEpisodeShare(createRequest, { params: Promise.resolve({ itemId: ready.item.id }) });
     const repeatedJson = (await repeated.json()) as { ok: boolean; share_url: string; created: boolean };
     assert.equal(repeated.status, 200);
     assert.equal(repeatedJson.created, false);
@@ -163,7 +163,7 @@ test("share episode route enforces ownership and shareable state", async () => {
           cookie: `articlepod_session=${otherSession}`
         }
       }),
-      { params: { itemId: ready.item.id } }
+      { params: Promise.resolve({ itemId: ready.item.id }) }
     );
     assert.equal(unauthorized.status, 404);
 
@@ -174,7 +174,7 @@ test("share episode route enforces ownership and shareable state", async () => {
           cookie: `articlepod_session=${ownerSession}`
         }
       }),
-      { params: { itemId: notReady.id } }
+      { params: Promise.resolve({ itemId: notReady.id }) }
     );
     assert.equal(invalidState.status, 409);
 
@@ -185,7 +185,7 @@ test("share episode route enforces ownership and shareable state", async () => {
           cookie: `articlepod_session=${ownerSession}`
         }
       }),
-      { params: { itemId: ready.item.id } }
+      { params: Promise.resolve({ itemId: ready.item.id }) }
     );
     assert.equal(deleted.status, 200);
     const deletedJson = (await deleted.json()) as { ok: boolean; revoked: number };
@@ -223,7 +223,7 @@ test("expired episodes cannot be shared", async () => {
           cookie: `articlepod_session=${session}`
         }
       }),
-      { params: { itemId: seeded.item.id } }
+      { params: Promise.resolve({ itemId: seeded.item.id }) }
     );
     assert.equal(response.status, 409);
   } finally {
@@ -246,11 +246,11 @@ test("shared episode page renders branded playback with noindex metadata", async
   try {
     const share = await ensurePublicEpisodeShareLink(user.id, seeded.item.id);
     const { shareId, sig } = parseShareUrl(share.shareUrl);
-    const metadata = await generateMetadata({ params: { shareId, sig } });
+    const metadata = await generateMetadata({ params: Promise.resolve({ shareId, sig }) });
     assert.equal(metadata.robots && typeof metadata.robots === "object" ? metadata.robots.index : undefined, false);
     assert.equal(metadata.title, `${seeded.episode.title} | Shared Episode`);
 
-    const html = renderToStaticMarkup(await SharedEpisodePage({ params: { shareId, sig } }));
+    const html = renderToStaticMarkup(await SharedEpisodePage({ params: Promise.resolve({ shareId, sig }) }));
     assert.match(html, /Shared episode/);
     assert.match(html, /Download audio/);
     assert.match(html, /Create account/);
@@ -287,20 +287,20 @@ test("shared media route supports HEAD, downloads, byte ranges, and revoke", asy
     const share = await ensurePublicEpisodeShareLink(user.id, seeded.item.id);
     const mediaUrl = new URL(buildPublicEpisodeMediaUrl(share.share, seeded.episode));
     const headResponse = await shareMediaHead(new NextRequest(mediaUrl.toString(), { method: "HEAD" }), {
-      params: { path: seeded.audioPath.split("/") }
+      params: Promise.resolve({ path: seeded.audioPath.split("/") })
     });
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), String(seeded.payload.byteLength));
 
     const fullResponse = await shareMediaGet(new NextRequest(mediaUrl.toString()), {
-      params: { path: seeded.audioPath.split("/") }
+      params: Promise.resolve({ path: seeded.audioPath.split("/") })
     });
     assert.equal(fullResponse.status, 200);
     assert.equal(Buffer.from(await fullResponse.arrayBuffer()).toString("utf8"), seeded.payload.toString("utf8"));
 
     const downloadUrl = new URL(buildPublicEpisodeMediaUrl(share.share, seeded.episode, { download: true }));
     const downloadResponse = await shareMediaGet(new NextRequest(downloadUrl.toString()), {
-      params: { path: seeded.audioPath.split("/") }
+      params: Promise.resolve({ path: seeded.audioPath.split("/") })
     });
     assert.equal(downloadResponse.status, 200);
     assert.match(downloadResponse.headers.get("content-disposition") || "", /attachment/);
@@ -312,7 +312,7 @@ test("shared media route supports HEAD, downloads, byte ranges, and revoke", asy
         }
       }),
       {
-        params: { path: seeded.audioPath.split("/") }
+        params: Promise.resolve({ path: seeded.audioPath.split("/") })
       }
     );
     assert.equal(rangeResponse.status, 206);
@@ -328,7 +328,7 @@ test("shared media route supports HEAD, downloads, byte ranges, and revoke", asy
 
     await revokePublicEpisodeShareLink(user.id, seeded.item.id);
     const revokedResponse = await shareMediaGet(new NextRequest(mediaUrl.toString()), {
-      params: { path: seeded.audioPath.split("/") }
+      params: Promise.resolve({ path: seeded.audioPath.split("/") })
     });
     assert.equal(revokedResponse.status, 401);
   } finally {

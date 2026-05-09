@@ -26,8 +26,9 @@ function retryJobKindForItem(
 
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } },
+  context: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await context.params;
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json(
@@ -40,8 +41,8 @@ export async function POST(
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await (async () => {
           const [itemRow, jobs] = await Promise.all([
-            webPrimaryStore.findItemById(context.params.id),
-            webPrimaryStore.listJobsByItemId(context.params.id),
+            webPrimaryStore.findItemById(id),
+            webPrimaryStore.listJobsByItemId(id),
           ]);
           return itemRow
             ? {
@@ -51,7 +52,7 @@ export async function POST(
             : null;
         })()
       : await prisma.item.findUnique({
-          where: { id: context.params.id },
+          where: { id },
           include: {
             jobs: {
               select: {

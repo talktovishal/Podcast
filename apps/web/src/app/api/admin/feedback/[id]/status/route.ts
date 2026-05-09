@@ -9,21 +9,22 @@ const updateStatusSchema = z.object({
   status: z.enum(FEEDBACK_STATUSES)
 });
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { id } = await params;
     const user = await getAuthUserFromRequest(request);
     if (!user || user.role !== "ADMIN") {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
 
     const payload = updateStatusSchema.parse(await request.json());
-    const existing = await findFeedbackById(params.id);
+    const existing = await findFeedbackById(id);
     if (!existing) {
       return NextResponse.json({ ok: false, error_code: "NOT_FOUND", error_message: "Feedback item not found." }, { status: 404 });
     }
 
-    const feedback = await updateFeedback(params.id, {
+    const feedback = await updateFeedback(id, {
       status: payload.status
     });
     if (!feedback) {

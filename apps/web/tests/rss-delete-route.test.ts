@@ -86,7 +86,7 @@ test("deleted item is removed from RSS feed output", async () => {
 
   try {
     const beforeDelete = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(beforeDelete.status, 200);
     const beforeXml = await beforeDelete.text();
@@ -99,12 +99,12 @@ test("deleted item is removed from RSS feed output", async () => {
           cookie: `articlepod_session=${session}`
         }
       }),
-      { params: { id: item.id } }
+      { params: Promise.resolve({ id: item.id }) }
     );
     assert.equal(deleteResponse.status, 200);
 
     const afterDelete = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(afterDelete.status, 200);
     const afterXml = await afterDelete.text();
@@ -165,7 +165,7 @@ test("expired episodes are omitted from RSS feed output", async () => {
 
   try {
     const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(response.status, 200);
     const xml = await response.text();
@@ -263,10 +263,10 @@ test("main rss merges manual summary episodes and serves them through the main m
     });
 
     const firstResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     const secondResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(firstResponse.status, 200);
     assert.equal(secondResponse.status, 200);
@@ -288,7 +288,7 @@ test("main rss merges manual summary episodes and serves them through the main m
 
     const headResponse = await mediaHead(
       new NextRequest(`http://localhost/api/media/${enclosurePath}${enclosureSearch}`, { method: "HEAD" }),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), "16");
@@ -299,7 +299,7 @@ test("main rss merges manual summary episodes and serves them through the main m
           range: "bytes=0-1"
         }
       }),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
@@ -360,13 +360,13 @@ test("rss feed keeps enclosure URLs stable and HEAD mirrors feed headers", async
 
   try {
     const firstResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     const secondResponse = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     const headResponse = await rssHead(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`, { method: "HEAD" }), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
 
     assert.equal(firstResponse.status, 200);
@@ -438,7 +438,7 @@ test("rss feed self-heals mismatched feed token hashes without changing the URL"
 
   try {
     const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(response.status, 200);
     const xml = await response.text();
@@ -454,7 +454,7 @@ test("rss feed self-heals mismatched feed token hashes without changing the URL"
     const enclosureUrl = new URL(enclosure!);
     const mediaResponse = await mediaHead(
       new NextRequest(`http://localhost${enclosureUrl.pathname}${enclosureUrl.search}`, { method: "HEAD" }),
-      { params: { path: enclosureUrl.pathname.replace("/api/media/", "").split("/") } }
+      { params: Promise.resolve({ path: enclosureUrl.pathname.replace("/api/media/", "").split("/") }) }
     );
     assert.equal(mediaResponse.status, 200);
   } finally {
@@ -517,7 +517,7 @@ test("rss feed skips missing media episodes and enqueues repair", async () => {
 
   try {
     const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(response.status, 200);
     const xml = await response.text();
@@ -604,7 +604,7 @@ test("rss feed keeps episode when alternate media path exists", async () => {
 
   try {
     const response = await rssGet(new NextRequest(`http://localhost/rss/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(response.status, 200);
     const xml = await response.text();

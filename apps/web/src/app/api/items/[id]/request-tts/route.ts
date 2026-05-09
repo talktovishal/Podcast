@@ -17,7 +17,8 @@ function isActiveAudioJob(job: { jobKind?: string | null; status: string }): boo
   );
 }
 
-async function handleRequestTts(request: NextRequest, context: { params: { id: string } }) {
+async function handleRequestTts(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -25,9 +26,9 @@ async function handleRequestTts(request: NextRequest, context: { params: { id: s
 
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
     const [item, episode, jobs] = await Promise.all([
-      webPrimaryStore.findItemById(context.params.id),
-      webPrimaryStore.findEpisodeByItemId(context.params.id),
-      webPrimaryStore.listJobsByItemId(context.params.id)
+      webPrimaryStore.findItemById(id),
+      webPrimaryStore.findEpisodeByItemId(id),
+      webPrimaryStore.listJobsByItemId(id)
     ]);
 
     if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
@@ -113,7 +114,7 @@ async function handleRequestTts(request: NextRequest, context: { params: { id: s
   }
 
   const item = await prisma.item.findUnique({
-    where: { id: context.params.id },
+    where: { id },
     include: {
       episode: true,
       jobs: {
@@ -261,7 +262,7 @@ async function handleRequestTts(request: NextRequest, context: { params: { id: s
   });
 }
 
-export async function POST(request: NextRequest, context: { params: { id: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
     return await handleRequestTts(request, context);

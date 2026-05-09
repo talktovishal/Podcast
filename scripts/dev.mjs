@@ -53,9 +53,9 @@ if (skipBootstrap) {
   // eslint-disable-next-line no-console
   console.log('[dev] skipping prisma/db/demo bootstrap');
 } else {
-  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
-  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
-  runOrFail('npx', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
+  runOrFail('corepack', ['pnpm', '--filter', '@articlepod/web', 'run', 'prisma:generate']);
+  runOrFail('corepack', ['pnpm', '--filter', '@articlepod/web', 'run', 'db:bootstrap']);
+  runOrFail('corepack', ['pnpm', '--filter', '@articlepod/web', 'run', 'seed:demo']);
 }
 
 const commandNames = ['web'];
@@ -66,7 +66,7 @@ if (!webOnly) {
   commandNames.push('worker');
   prefixColors.push('blue');
   if (!skipBootstrap) {
-    runOrFail('npx', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
+    runOrFail('corepack', ['pnpm', '--filter', '@articlepod/worker', 'run', 'prisma:generate']);
   }
   commandList.push(skipBootstrap ? 'npm run dev:fast --workspace @articlepod/worker' : 'npm run dev --workspace @articlepod/worker');
 
@@ -88,7 +88,9 @@ if (!webOnly) {
   }
 }
 
-const child = spawn('npx', [
+const child = spawn('corepack', [
+  'pnpm',
+  'exec',
   'concurrently',
   '--names',
   commandNames.join(','),

@@ -55,8 +55,9 @@ async function authorizeShareMedia(request: NextRequest, path: string) {
   return context;
 }
 
-async function handle(request: NextRequest, context: { params: { path: string[] } }, headOnly: boolean) {
-  const rawPath = context.params.path.join("/");
+async function handle(request: NextRequest, context: { params: Promise<{ path: string[] }> }, headOnly: boolean) {
+  const { path } = await context.params;
+  const rawPath = path.join("/");
   if (rawPath.includes("..")) {
     return new NextResponse(headOnly ? null : "Bad Request", { status: 400 });
   }
@@ -150,10 +151,10 @@ async function handle(request: NextRequest, context: { params: { path: string[] 
   });
 }
 
-export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
+export async function HEAD(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return handle(request, context, true);
 }
 
-export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return handle(request, context, false);
 }

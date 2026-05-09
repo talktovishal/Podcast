@@ -190,8 +190,9 @@ function renderComparisonCell(cell: ComparisonCell, emphasis = false) {
 export default async function PricingPage({
   searchParams
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await getAuthUserFromCookies();
   const billingState = user ? await getBillingSettingsState(user.id) : null;
   const billing = billingState?.selectedBilling ?? null;
@@ -203,7 +204,7 @@ export default async function PricingPage({
     "PRO_ANNUAL",
     billingState?.mode.effectiveLane ?? "LIVE"
   );
-  const billingSearchParam = Array.isArray(searchParams?.billing) ? searchParams?.billing[0] : searchParams?.billing;
+  const billingSearchParam = Array.isArray(resolvedSearchParams.billing) ? resolvedSearchParams.billing[0] : resolvedSearchParams.billing;
 
   return (
     <>

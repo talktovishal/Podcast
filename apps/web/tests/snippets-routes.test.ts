@@ -138,7 +138,7 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
           comment: "steal"
         })
       }),
-      { params: { id: createPayload.snippet.id } }
+      { params: Promise.resolve({ id: createPayload.snippet.id }) }
     );
     assert.equal(forbiddenPatch.status, 404);
 
@@ -153,7 +153,7 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
           comment: "updated note"
         })
       }),
-      { params: { id: createPayload.snippet.id } }
+      { params: Promise.resolve({ id: createPayload.snippet.id }) }
     );
     assert.equal(patchResponse.status, 200);
     const patchPayload = (await patchResponse.json()) as {
@@ -170,7 +170,7 @@ test("snippets routes support session CRUD, ownership checks, and do not enqueue
           cookie: `articlepod_session=${session}`
         }
       }),
-      { params: { id: createPayload.snippet.id } }
+      { params: Promise.resolve({ id: createPayload.snippet.id }) }
     );
     assert.equal(deleteResponse.status, 200);
     assert.equal(await prisma.snippet.findUnique({ where: { id: createPayload.snippet.id } }), null);

@@ -10,20 +10,20 @@
     "start": "npm run prisma:generate:ensure && tsx src/index.ts",
     "lint": "npm run prisma:generate:ensure && tsc --noEmit -p tsconfig.json",
     "typecheck": "npm run prisma:generate:ensure && tsc --noEmit -p tsconfig.json",
-    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/**/*.test.ts",
-    "test:observability": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite npx pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/queue-resilience.test.ts",
+    "test": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite corepack pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/**/*.test.ts",
+    "test:observability": "DATABASE_URL=file:${PWD}/.data/db.sqlite npm run prisma:generate:ensure && DATABASE_URL=file:${PWD}/.data/db.sqlite corepack pnpm --filter @articlepod/web run db:bootstrap && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 tsx --test --test-concurrency=1 tests/queue-resilience.test.ts",
     "prisma:generate": "node ../../scripts/prisma-profile.mjs generate",
     "prisma:generate:ensure": "node ../../scripts/ensure-prisma-generated.mjs"
   },
   "dependencies": {
     "@articlepod/core": "workspace:*",
-    "@prisma/client": "6.2.1",
-    "dotenv": "^16.4.7"
+    "@prisma/client": "6.19.3",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "prisma": "6.2.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "@types/node": "^22.19.18",
+    "prisma": "6.19.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

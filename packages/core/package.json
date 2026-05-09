@@ -13,22 +13,22 @@
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "@azure/data-tables": "^13.3.1",
-    "@azure/storage-blob": "^12.28.0",
+    "@azure/data-tables": "^13.3.2",
+    "@azure/storage-blob": "^12.31.0",
     "@azure/storage-queue": "^12.29.0",
     "@mozilla/readability": "^0.6.0",
-    "@prisma/client": "6.2.1",
-    "defuddle": "0.15.0",
-    "jsdom": "^29.0.1",
+    "@prisma/client": "6.19.3",
+    "defuddle": "0.18.1",
+    "jsdom": "^29.1.1",
     "pdfjs-dist": "^4.10.38",
-    "turndown": "^7.2.2",
-    "zod": "^3.24.1"
+    "turndown": "^7.2.4",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/jsdom": "^21.1.7",
-    "@types/node": "^22.10.2",
+    "@types/jsdom": "^28.0.1",
+    "@types/node": "^22.19.18",
     "@types/turndown": "^5.0.5",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }

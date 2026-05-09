@@ -38,9 +38,10 @@ async function getValidatedContext(shareId: string, sig: string) {
 export async function generateMetadata({
   params
 }: {
-  params: { shareId: string; sig: string };
+  params: Promise<{ shareId: string; sig: string }>;
 }): Promise<Metadata> {
-  const context = await getValidatedContext(params.shareId, params.sig);
+  const { shareId, sig } = await params;
+  const context = await getValidatedContext(shareId, sig);
   if (!context) {
     return {
       title: "Shared episode unavailable",
@@ -84,9 +85,10 @@ export async function generateMetadata({
 export default async function SharedEpisodePage({
   params
 }: {
-  params: { shareId: string; sig: string };
+  params: Promise<{ shareId: string; sig: string }>;
 }) {
-  const context = await getValidatedContext(params.shareId, params.sig);
+  const { shareId, sig } = await params;
+  const context = await getValidatedContext(shareId, sig);
   if (!context) {
     return (
       <main className="min-h-screen py-6 sm:py-10">
@@ -120,8 +122,8 @@ export default async function SharedEpisodePage({
 
   const mediaUrl = buildPublicEpisodeMediaUrl(context.share, context.episode);
   const downloadUrl = buildPublicEpisodeMediaUrl(context.share, context.episode, { download: true });
-  const loginCta = `/api/share/cta?sid=${encodeURIComponent(context.share.id)}&sig=${encodeURIComponent(params.sig)}&target=login`;
-  const pricingCta = `/api/share/cta?sid=${encodeURIComponent(context.share.id)}&sig=${encodeURIComponent(params.sig)}&target=pricing`;
+  const loginCta = `/api/share/cta?sid=${encodeURIComponent(context.share.id)}&sig=${encodeURIComponent(sig)}&target=login`;
+  const pricingCta = `/api/share/cta?sid=${encodeURIComponent(context.share.id)}&sig=${encodeURIComponent(sig)}&target=pricing`;
   const showSourceLink =
     Boolean(context.item.sourceUrl) && (context.item.sourceType === "URL" || context.item.sourceType === "HTML_SNAPSHOT");
 

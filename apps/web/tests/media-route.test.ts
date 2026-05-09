@@ -54,7 +54,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       method: "HEAD"
     });
 
-    const headResponse = await HEAD(headRequest, { params: { path: key.split("/") } });
+    const headResponse = await HEAD(headRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-type"), "audio/mpeg");
     assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
@@ -64,7 +64,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       method: "GET"
     });
 
-    const fullResponse = await GET(fullRequest, { params: { path: key.split("/") } });
+    const fullResponse = await GET(fullRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(fullResponse.status, 200);
     assert.equal(fullResponse.headers.get("content-length"), String(payload.byteLength));
     const fullBody = Buffer.from(await fullResponse.arrayBuffer()).toString("utf8");
@@ -77,7 +77,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       }
     });
 
-    const rangeResponse = await GET(rangeRequest, { params: { path: key.split("/") } });
+    const rangeResponse = await GET(rangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), `bytes 2-5/${payload.byteLength}`);
     const rangeBody = Buffer.from(await rangeResponse.arrayBuffer()).toString("utf8");
@@ -89,7 +89,7 @@ test("media route supports HEAD and byte-range responses", async () => {
         range: "bytes=-4"
       }
     });
-    const suffixRangeResponse = await GET(suffixRangeRequest, { params: { path: key.split("/") } });
+    const suffixRangeResponse = await GET(suffixRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), `bytes 6-9/${payload.byteLength}`);
     const suffixRangeBody = Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8");
@@ -102,7 +102,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       }
     });
 
-    const invalidRangeResponse = await GET(invalidRangeRequest, { params: { path: key.split("/") } });
+    const invalidRangeResponse = await GET(invalidRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(invalidRangeResponse.status, 416);
 
     const invalidSuffixRangeRequest = new NextRequest(`http://localhost/api/media/${key}?mt=${testMediaToken}`, {
@@ -111,13 +111,13 @@ test("media route supports HEAD and byte-range responses", async () => {
         range: "bytes=-0"
       }
     });
-    const invalidSuffixRangeResponse = await GET(invalidSuffixRangeRequest, { params: { path: key.split("/") } });
+    const invalidSuffixRangeResponse = await GET(invalidSuffixRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(invalidSuffixRangeResponse.status, 416);
 
     const unauthorizedRequest = new NextRequest(`http://localhost/api/media/${key}`, {
       method: "GET"
     });
-    const unauthorizedResponse = await GET(unauthorizedRequest, { params: { path: key.split("/") } });
+    const unauthorizedResponse = await GET(unauthorizedRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(unauthorizedResponse.status, 401);
   } finally {
     await storage.deleteObject(key);
@@ -174,20 +174,20 @@ test("media route accepts legacy feed_token for matching owner and rejects other
   try {
     const authorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(authorizedResponse.status, 200);
     assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
 
     const unauthorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(unauthorizedResponse.status, 401);
 
     const headResponse = await HEAD(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
@@ -254,20 +254,20 @@ test("media route accepts legacy feed_token for main-feed summary episodes", asy
   try {
     const authorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(authorizedResponse.status, 200);
     assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
 
     const unauthorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(unauthorizedResponse.status, 401);
 
     const headResponse = await HEAD(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
@@ -320,7 +320,7 @@ test("media route rejects expired episodes even when the owner feed token is val
 
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(feedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(response.status, 401);
   } finally {
@@ -353,14 +353,14 @@ test("media route rejects path traversal attempts", async () => {
       const getRequest = new NextRequest(
         `http://localhost/api/media/${pathSegments.join("/")}?mt=${testMediaToken}`
       );
-      const getResponse = await GET(getRequest, { params: { path: pathSegments } });
+      const getResponse = await GET(getRequest, { params: Promise.resolve({ path: pathSegments }) });
       assert.equal(getResponse.status, 400, `GET should reject traversal: ${pathSegments.join("/")}`);
 
       const headRequest = new NextRequest(
         `http://localhost/api/media/${pathSegments.join("/")}?mt=${testMediaToken}`,
         { method: "HEAD" }
       );
-      const headResponse = await HEAD(headRequest, { params: { path: pathSegments } });
+      const headResponse = await HEAD(headRequest, { params: Promise.resolve({ path: pathSegments }) });
       assert.equal(headResponse.status, 400, `HEAD should reject traversal: ${pathSegments.join("/")}`);
     }
   } finally {
@@ -417,7 +417,7 @@ test("media route 404 enqueues repair for missing episode media", async () => {
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 404);
 
@@ -490,7 +490,7 @@ test("media route reconciles alternate audio path when expected media is missing
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "audio/mp4");
@@ -562,7 +562,7 @@ test("media route does not enqueue repair jobs for non-regenerable items", async
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 404);
 

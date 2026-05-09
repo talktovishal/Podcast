@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
-export default function LoginAliasPage({
+export default async function LoginAliasPage({
   searchParams
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = (await searchParams) ?? {};
   const params = new URLSearchParams();
 
-  for (const [key, rawValue] of Object.entries(searchParams ?? {})) {
+  for (const [key, rawValue] of Object.entries(resolvedSearchParams)) {
     if (Array.isArray(rawValue)) {
       for (const value of rawValue) {
         if (value) {

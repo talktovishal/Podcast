@@ -243,8 +243,8 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
       }
     });
 
-    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
-    const repeatRssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
+    const repeatRssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
     assert.equal(rssResponse.status, 200);
     assert.equal(repeatRssResponse.status, 200);
     const xml = await rssResponse.text();
@@ -267,7 +267,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
 
     const headResponse = await digestMediaHead(
       new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-type"), "audio/mpeg");
@@ -283,7 +283,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
           }
         }
       ),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
@@ -297,7 +297,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
           }
         }
       ),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), "bytes 12-15/16");
@@ -388,7 +388,7 @@ test("digest rss omits expired digest episodes and does not list summary episode
       }
     });
 
-    const response = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const response = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
     assert.equal(response.status, 200);
     const xml = await response.text();
     assert.equal(xml.includes("Expired Digest Episode"), false);
@@ -466,7 +466,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
     });
 
     const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(rssResponse.status, 200);
 
@@ -533,7 +533,7 @@ test("digest rss excludes manual summary episodes now that summary podcasts publ
       }
     });
 
-    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
     assert.equal(rssResponse.status, 200);
     const xml = await rssResponse.text();
     assert.equal(xml.includes("Manual summary run"), false);

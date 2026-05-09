@@ -315,7 +315,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
 
     const feedToken = await ensureUserFeedToken(user.id);
     const feedRequest = new NextRequest(`http://localhost/rss/${feedToken}.xml`);
-    const feedResponse = await rssGet(feedRequest, { params: { token: feedToken } });
+    const feedResponse = await rssGet(feedRequest, { params: Promise.resolve({ token: feedToken }) });
     assert.equal(feedResponse.status, 200);
 
     const feedXml = await feedResponse.text();

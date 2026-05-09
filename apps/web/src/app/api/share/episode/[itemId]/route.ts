@@ -37,15 +37,16 @@ async function findOwnerItemWithEpisode(itemId: string, userId: string) {
   };
 }
 
-export async function POST(request: NextRequest, context: { params: { itemId: string } }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ itemId: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { itemId } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       throw new Error("UNAUTHORIZED");
     }
 
-    const owned = await findOwnerItemWithEpisode(context.params.itemId, user.id);
+    const owned = await findOwnerItemWithEpisode(itemId, user.id);
     if (!owned) {
       return ok({ ok: false, error_code: "NOT_FOUND", error_message: "Item not found." }, { status: 404 });
     }
@@ -86,15 +87,16 @@ export async function POST(request: NextRequest, context: { params: { itemId: st
   }
 }
 
-export async function DELETE(request: NextRequest, context: { params: { itemId: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ itemId: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { itemId } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       throw new Error("UNAUTHORIZED");
     }
 
-    const owned = await findOwnerItemWithEpisode(context.params.itemId, user.id);
+    const owned = await findOwnerItemWithEpisode(itemId, user.id);
     if (!owned) {
       return ok({ ok: false, error_code: "NOT_FOUND", error_message: "Item not found." }, { status: 404 });
     }

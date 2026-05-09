@@ -23,9 +23,9 @@ export const metadata: Metadata = buildPublicMetadata({
 export default async function SharePage({
   searchParams,
 }: {
-  searchParams: { token?: string };
+  searchParams: Promise<{ token?: string }>;
 }) {
-  const shareToken = searchParams.token;
+  const { token: shareToken } = await searchParams;
   if (!shareToken) {
     return (
       <main className="container-shell py-8">

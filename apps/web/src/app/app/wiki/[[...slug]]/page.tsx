@@ -92,8 +92,9 @@ function WikiEmptyState({
 export default async function WikiPage({
   params,
 }: {
-  params: { slug?: string[] };
+  params: Promise<{ slug?: string[] }>;
 }) {
+  const resolvedParams = await params;
   const user = await getAuthUserFromCookies();
   if (!user) {
     redirect("/");
@@ -133,7 +134,7 @@ export default async function WikiPage({
     );
   }
 
-  const page = await getUserWikiPageForApp(user.id, { slug: params.slug });
+  const page = await getUserWikiPageForApp(user.id, { slug: resolvedParams.slug });
   if (!page) {
     notFound();
   }

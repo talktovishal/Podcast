@@ -39,10 +39,11 @@ async function resolveDigestFeedAccess(token: string) {
   };
 }
 
-export async function GET(request: NextRequest, context: { params: { token: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const token = normalizeFeedToken(context.params.token);
+  const { token: rawToken } = await context.params;
+  const token = normalizeFeedToken(rawToken);
   const resolvedAccess = await resolveDigestFeedAccess(token);
 
   if (!resolvedAccess) {
@@ -122,10 +123,11 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   });
 }
 
-export async function HEAD(request: NextRequest, context: { params: { token: string } }) {
+export async function HEAD(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const token = normalizeFeedToken(context.params.token);
+  const { token: rawToken } = await context.params;
+  const token = normalizeFeedToken(rawToken);
   const tokenHash = hashIncomingToken(token);
   const exists = Boolean(await resolveDigestFeedAccess(token));
   if (env.podcastRequestLoggingEnabled) {
