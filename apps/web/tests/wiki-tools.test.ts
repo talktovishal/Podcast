@@ -352,6 +352,14 @@ Topic page linking back to [item source](../sources/items/${items[0]!.id}.md).
 
     assert.equal(runTwo.workspaces[0]?.buildMode, "incremental");
     assert.equal(runTwo.workspaces[0]?.changedSourceIds.includes(`item:${items[0]!.id}`), true);
+    assert.equal(
+      await readFile(join(runTwo.workspaces[0]!.wikiDir, "overview.md"), "utf8").then((value) =>
+        value.includes('updated: "') &&
+        value.includes("This wiki collects **5 sources**") &&
+        value.includes("[Topic](concepts/topic.md)")
+      ),
+      true
+    );
 
     const verifyTwo = await verifyPreparedWikiRun({ runId: runTwo.runId });
     assert.equal(verifyTwo[0]?.ok, true);

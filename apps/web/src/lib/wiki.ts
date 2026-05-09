@@ -41,6 +41,11 @@ const REQUIRED_WIKI_PAGE_PATHS = ["index.md", "log.md"];
 const SUPPORTED_WIKI_ITEM_SOURCE_TYPES = new Set(["URL", "PDF", "HTML_SNAPSHOT"]);
 const CONCEPT_SYNTHESIS_TARGET_MIN_WORDS = 1500;
 const CONCEPT_SYNTHESIS_TARGET_MAX_WORDS = 3000;
+const HUMAN_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric"
+});
 
 type WikiCorpusSource = {
   sourceKey: string;
@@ -108,6 +113,13 @@ type LocalWikiBuildState = {
 type StoredWikiPage = {
   meta: WikiPageMeta;
   content: string;
+};
+
+type OverviewSeedPage = {
+  path: string;
+  title: string;
+  summary: string | null;
+  type: string;
 };
 
 function toIso(value: Date): string {
@@ -748,6 +760,157 @@ function buildSourceCatalogMarkdown(userId: string, sources: WikiCorpusSource[],
   return `${lines.join("\n")}\n`;
 }
 
+function formatIsoDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatHumanDate(input: string | null): string | null {
+  if (!input) {
+    return null;
+  }
+
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return HUMAN_DATE_FORMATTER.format(parsed);
+}
+
+function toSentenceList(values: string[]): string {
+  if (values.length === 0) {
+    return "";
+  }
+  if (values.length === 1) {
+    return values[0]!;
+  }
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function summarizeThemeTitles(pages: OverviewSeedPage[]): string {
+  const titles = pages
+    .filter((page) => page.type === "concept")
+    .map((page) => page.title)
+    .slice(0, 3);
+  if (titles.length > 0) {
+    return toSentenceList(titles);
+  }
+
+  const fallbackTitles = pages.map((page) => page.title).slice(0, 3);
+  return fallbackTitles.length > 0 ? toSentenceList(fallbackTitles) : "the current saved reading";
+}
+
+function buildOverviewPageContent(input: {
+  sources: WikiCorpusSource[];
+  sourceState: WikiSourceState;
+  readerPages: OverviewSeedPage[];
+  generatedAt: Date;
+}): string {
+  const updated = formatIsoDateOnly(input.generatedAt);
+  const latestSourceUpdate = input.sources.reduce<string | null>((latest, source) => {
+    if (!latest || source.updatedAt > latest) {
+      return source.updatedAt;
+    }
+    return latest;
+  }, null);
+  const latestSourceDate = formatHumanDate(latestSourceUpdate);
+  const themeTitles = summarizeThemeTitles(input.readerPages);
+  const featuredPages = input.readerPages
+    .filter((page) => page.type === "concept" || page.type === "entity" || page.type === "output")
+    .slice(0, 5);
+
+  const lines: string[] = [
+    "---",
+    'title: "Overview"',
+    `summary: "Overview of a ${input.sourceState.counts.total}-source personal corpus built from saved articles and snippets."`,
+    'tags: ["overview"]',
+    `updated: "${updated}"`,
+    'type: "overview"',
+    "---",
+    "# Overview",
+    "",
+    `This wiki collects **${input.sourceState.counts.total} sources** into a reading map built from saved articles and snippets. Right now, its strongest recurring threads are **${themeTitles}**.`,
+    "",
+    "It is meant to work as a practical entry point: first orient the reader to the shape of the corpus, then point toward the pages that best capture the themes that keep resurfacing.",
+    "",
+    "## At a glance",
+    "",
+    "| Signal | Value |",
+    "| --- | --- |",
+    `| Total sources | ${input.sourceState.counts.total} |`,
+    `| Articles | ${input.sourceState.counts.items} |`,
+    `| Snippets | ${input.sourceState.counts.snippets} |`,
+    `| Reader-facing pages | ${input.readerPages.length + 1} |`,
+    `| Latest source update | ${latestSourceDate || "Unknown"} |`
+  ];
+
+  if (featuredPages.length > 0) {
+    lines.push("", "## Where to start", "");
+    for (const page of featuredPages) {
+      lines.push(`- [${page.title}](${page.path})${page.summary ? ` - ${page.summary}` : ""}`);
+    }
+  }
+
+  lines.push("", "## Reading strategy", "");
+  if (featuredPages.length > 0) {
+    lines.push(
+      "Start with one of the main synthesis pages, then branch into entities or source pages only when you want more texture, evidence, or a sharper edge on the argument."
+    );
+  } else {
+    lines.push(
+      "Use the index as the top-level map, then move outward from the strongest concept or entity pages as the corpus gets rebuilt and expanded."
+    );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+async function listOverviewSeedPages(wikiDir: string): Promise<OverviewSeedPage[]> {
+  const pagePaths = await listWorkspaceMarkdownFiles(wikiDir);
+  const pages = await Promise.all(
+    pagePaths.map(async (pagePath) => {
+      if (pagePath === "overview.md" || pagePath === "index.md" || pagePath === "log.md") {
+        return null;
+      }
+
+      const type = inferWikiPageType(pagePath);
+      if (!isReaderFacingWikiPage({ path: pagePath, type })) {
+        return null;
+      }
+
+      const content = await readUtf8File(join(wikiDir, pagePath));
+      const { data, body } = parseSimpleFrontmatter(content);
+
+      return {
+        path: pagePath,
+        title: typeof data.title === "string" ? data.title : extractMarkdownTitle(body, pagePath),
+        summary: typeof data.summary === "string" ? data.summary : extractMarkdownSummary(body),
+        type
+      } satisfies OverviewSeedPage;
+    })
+  );
+
+  return pages.filter(isPresent);
+}
+
+async function refreshOverviewPage(
+  wikiDir: string,
+  sources: WikiCorpusSource[],
+  sourceState: WikiSourceState,
+  generatedAt: Date
+): Promise<void> {
+  const readerPages = await listOverviewSeedPages(wikiDir);
+  const content = buildOverviewPageContent({
+    sources,
+    sourceState,
+    readerPages,
+    generatedAt
+  });
+  await writeUtf8File(join(wikiDir, "overview.md"), content);
+}
+
 function buildWorkspaceAgentsMd(buildMode: WikiBuildMode): string {
   return [
     "# AGENTS.md",
@@ -1375,6 +1538,7 @@ export async function prepareUserWikiBuild(input: WikiPrepareOptions): Promise<W
     }
 
     await ensureWikiSkeleton(wikiDir, buildDecision.mode, buildDecision.reason);
+    await refreshOverviewPage(wikiDir, sources, sourceState, new Date());
     await writeUtf8File(join(workspaceDir, "KARPATHY_LLM_WIKI.md"), prompt.content);
     await writeUtf8File(join(workspaceDir, "AGENTS.md"), `${buildWorkspaceAgentsMd(buildDecision.mode)}\n`);
     await writeUtf8File(join(workspaceDir, WIKI_CONVENTIONS_FILENAME), `${buildWorkspaceConventionsMd()}\n`);

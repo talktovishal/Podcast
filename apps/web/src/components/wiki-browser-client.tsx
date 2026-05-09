@@ -150,13 +150,28 @@ function relatedSourceReferences(manifest: WikiManifest, activePage: WikiPageMet
     .sort((left, right) => left.title.localeCompare(right.title));
 }
 
-function formatUpdatedDate(value: string | null): string | null {
+function parseUpdatedDate(value: string): Date | null {
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (dateOnlyMatch) {
+    const [, yearText, monthText, dayText] = dateOnlyMatch;
+    const year = Number.parseInt(yearText, 10);
+    const month = Number.parseInt(monthText, 10);
+    const day = Number.parseInt(dayText, 10);
+    const date = new Date(year, month - 1, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function formatUpdatedDate(value: string | null): string | null {
   if (!value) {
     return null;
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseUpdatedDate(value);
+  if (!date) {
     return value;
   }
 
