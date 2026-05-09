@@ -208,6 +208,22 @@ export async function getDashboardItems(
   }));
 }
 
+export async function countDashboardItemsForUser(
+  userId: string,
+): Promise<number> {
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const items = await webPrimaryStore.listItemsByUser(
+      userId,
+      Number.MAX_SAFE_INTEGER,
+    );
+    return items.length;
+  }
+
+  return prisma.item.count({
+    where: { userId },
+  });
+}
+
 export async function getDemoExtractionDiagnostics(
   userId: string,
   limit = 10,

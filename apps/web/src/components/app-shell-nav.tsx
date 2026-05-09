@@ -169,16 +169,31 @@ function UtilityLink({
   );
 }
 
-function formatSnippetCount(count: number): string {
+function formatNavCount(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
+function navCountForItem(
+  item: NavItem,
+  counts: { episodeCount: number; snippetCount: number },
+): number | null {
+  if (item.key === "workspace") {
+    return counts.episodeCount;
+  }
+  if (item.key === "snippets" && counts.snippetCount > 0) {
+    return counts.snippetCount;
+  }
+  return null;
+}
+
 export function AppShellNav({
+  episodeCount = 0,
   snippetCount = 0,
   showSnippets = false,
   showWiki = false,
   mobileLeading,
 }: {
+  episodeCount?: number;
   snippetCount?: number;
   showSnippets?: boolean;
   showWiki?: boolean;
@@ -253,6 +268,10 @@ export function AppShellNav({
       <div className="hidden w-full lg:flex lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end lg:gap-2">
         {primaryItems.map((item) => {
           const active = matchesPath(pathname, item.href);
+          const navCount = navCountForItem(item, {
+            episodeCount,
+            snippetCount,
+          });
 
           return (
             <Link
@@ -265,9 +284,9 @@ export function AppShellNav({
               title={item.title}
             >
               {item.label}
-              {item.key === "snippets" && snippetCount > 0 ? (
+              {navCount !== null ? (
                 <span className="ml-2 rounded-full border border-[rgba(31,122,90,0.18)] bg-[rgba(223,243,236,0.7)] px-1.5 py-0.5 text-xs font-semibold leading-none text-[var(--accent)]">
-                  {formatSnippetCount(snippetCount)}
+                  {formatNavCount(navCount)}
                 </span>
               ) : null}
             </Link>

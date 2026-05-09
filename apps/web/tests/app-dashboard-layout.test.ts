@@ -66,6 +66,8 @@ test("shared app layout owns the sticky workspace header", () => {
   assert.equal(headerSource.includes('variant="header"'), true);
   assert.equal(headerSource.includes('variant="mobile-header"'), true);
   assert.equal(headerSource.includes("AppShellNav"), true);
+  assert.equal(headerSource.includes("countDashboardItemsForUser"), true);
+  assert.equal(headerSource.includes("episodeCount={episodeCount}"), true);
   assert.equal(headerSource.includes("countSnippetsForUser"), true);
   assert.equal(headerSource.includes("snippetCount={snippetCount}"), true);
   assert.equal(headerSource.includes("hasWikiForUser"), true);
@@ -118,8 +120,10 @@ test("app shell nav keeps active destinations visible and groups utility icons",
   assert.equal(source.includes("usePathname"), true);
   assert.equal(source.includes("aria-current"), true);
   assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("episodeCount = 0"), true);
   assert.equal(source.includes("snippetCount = 0"), true);
-  assert.equal(source.includes("formatSnippetCount"), true);
+  assert.equal(source.includes("formatNavCount"), true);
+  assert.equal(source.includes('item.key === "workspace"'), true);
   assert.equal(source.includes("showWiki = false"), true);
   assert.equal(source.includes("mobileLeading"), true);
   assert.equal(source.includes("mobilePrimaryItems"), true);

@@ -98,7 +98,7 @@
   - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, shows the snippet count on desktop, and the page redirects back to `/app` if the last snippet is removed.
 - `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
 - `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
-- Signed-in workspace chrome is now shared across all `/app` routes as a sticky header: the ArticlePod icon leads, the compact billing pill sits beside it, active destinations stay visible, and `Feedback`, `Settings`, plus `Logout` are grouped as compact utilities while `Snippets` remains conditional.
+- Signed-in workspace chrome is now shared across all `/app` routes as a sticky header: the ArticlePod icon leads, the compact billing pill sits beside it, active destinations stay visible, `Episodes` and `Snippets` show desktop count badges, and `Feedback`, `Settings`, plus `Logout` are grouped as compact utilities while `Snippets` remains conditional.
 - `/` now uses the social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
 - Public marketing SEO hardening (`M107`) is implemented:
   - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.

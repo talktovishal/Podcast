@@ -177,7 +177,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - `Podcast Apps` and `Chrome Extension` now have dedicated setup pages at `/app/podcast-apps` and `/app/chrome-extension`.
   - `/app/snippets` is now a dedicated review workspace for extension-saved text selections with compact cards, on-demand comment editing, on-demand capture details, and delete actions.
   - the `Snippets` nav entry only appears after a user has at least one saved snippet; users without snippets do not see that workspace in navigation yet, and desktop nav shows a snippet count badge.
-  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, conditional `Wiki`, `Feedback`, and `Settings`.
+  - signed-in nav labels are now `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets`, conditional `Wiki`, `Feedback`, and `Settings`; desktop nav shows count badges for `Episodes` and `Snippets`.
   - `/app/settings` is now reserved for account, billing, digest cadence, demographic profile, and voice settings.
   - private feed URL and extension connect code boxes now use direct tap/click copy interactions with inline confirmation feedback across desktop and mobile layouts.
   - signed-in `/app/chrome-extension` now prepares a fresh connect code on page load, and the Chrome Web Store CTA also attempts to copy the current code so pairing takes fewer clicks.
@@ -465,7 +465,7 @@ E) Web UI (polished)
 - `/`: social-first continue page with Google/Facebook/Apple buttons first and email login/signup fallback, plus a homepage-style marketing side focused on private feed listening and the Karpathy-inspired personal wiki
 - `/app` episodes workspace:
   - compact signed-in header stays visible while the workspace scrolls, with the ArticlePod icon first and the compact billing pill immediately beside it
-  - dedicated top-nav links for `Episodes`, `Podcast Apps`, `Chrome Extension`, conditional `Snippets` with count badge, and conditional `Wiki`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
+  - dedicated top-nav links for `Episodes` and conditional `Snippets` with count badges, `Podcast Apps`, `Chrome Extension`, and conditional `Wiki`, plus icon-first `Feedback`, `Settings`, and `Logout` utilities; the active destination stays visible and selected instead of disappearing from the nav
   - signed-in nav stays on one row on desktop; on mobile it compacts into two rows with `Upgrade to Pro` plus the utility icons on top and `Episodes`, `Podcast Apps`, plus conditional `Wiki` beneath
   - mobile signed-in nav hides `Chrome Extension` and `Snippets` to keep the workspace chrome dense and preserve more reading area
   - compact workspace billing control inside the header itself: free users see a single subtly highlighted `Upgrade to Pro` action that jumps straight to the billing section of `/app/settings` without extra upsell copy underneath it, while paid users see one clickable billing pill that opens Stripe billing; fuller billing details remain on `/app/settings`
