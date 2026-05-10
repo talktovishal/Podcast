@@ -8,16 +8,14 @@ declare global {
 
 export async function register() {
   // Only run in the Node.js runtime (not Edge), where Prisma and bcrypt are available.
-  if (process.env.NEXT_RUNTIME !== "nodejs") {
-    return;
-  }
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    if (process.env.ARTICLEPOD_SERVER_KEEPALIVE === "1" && !global.__articlepodServerKeepalive__) {
+      global.__articlepodServerKeepalive__ = setInterval(() => undefined, 60 * 60 * 1000);
+    }
 
-  if (process.env.ARTICLEPOD_SERVER_KEEPALIVE === "1" && !global.__articlepodServerKeepalive__) {
-    global.__articlepodServerKeepalive__ = setInterval(() => undefined, 60 * 60 * 1000);
-  }
-
-  if (process.env.ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0") {
-    const { ensureAdminUser } = await import("./lib/user-bootstrap");
-    await ensureAdminUser();
+    if (process.env.ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0") {
+      const { ensureAdminUser } = await import("./lib/user-bootstrap");
+      await ensureAdminUser();
+    }
   }
 }
