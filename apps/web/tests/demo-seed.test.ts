@@ -187,9 +187,14 @@ test("azure vm deploy disables admin bootstrap during web startup", () => {
   const root = resolve(process.cwd(), "../..");
   const instrumentationSource = readFileSync(resolve(root, "apps/web/src/instrumentation.ts"), "utf8");
   const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
+  const serverSource = readFileSync(resolve(root, "scripts/azure/run-next-server.mjs"), "utf8");
 
   assert.match(instrumentationSource, /ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0"/);
   assert.match(instrumentationSource, /ARTICLEPOD_SERVER_KEEPALIVE === "1"/);
+  assert.match(serverSource, /http\.createServer/);
+  assert.match(serverSource, /suppressed clean process\.exit/);
+  assert.match(serverSource, /processKeepalive = setInterval/);
+  assert.match(serverSource, /server\.listen\(port, hostname/);
   assert.match(renderEnvSource, /^ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=\$\{ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP:-0\}$/m);
   assert.match(renderEnvSource, /^ARTICLEPOD_SERVER_KEEPALIVE=\$\{ARTICLEPOD_SERVER_KEEPALIVE:-1\}$/m);
 });
@@ -204,7 +209,11 @@ test("azure systemd services exec long-running processes directly", () => {
 
   for (const serviceFile of serviceFiles) {
     const serviceSource = readFileSync(resolve(root, serviceFile), "utf8");
-    assert.match(serviceSource, /npm run prisma:generate:ensure && exec \.\/node_modules\/\.bin\/(?:next start|tsx src\/index\.ts)/);
+    if (serviceFile.endsWith("articlepod-web.service")) {
+      assert.match(serviceSource, /npm run prisma:generate:ensure && exec node \.\.\/\.\.\/scripts\/azure\/run-next-server\.mjs/);
+    } else {
+      assert.match(serviceSource, /npm run prisma:generate:ensure && exec \.\/node_modules\/\.bin\/tsx src\/index\.ts/);
+    }
     assert.doesNotMatch(serviceSource, /pnpm --filter @articlepod\/(?:web|worker) run start/);
     assert.doesNotMatch(serviceSource, /npx pnpm/);
   }
