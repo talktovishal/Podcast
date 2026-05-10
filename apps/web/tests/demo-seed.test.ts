@@ -189,7 +189,9 @@ test("azure vm deploy disables admin bootstrap during web startup", () => {
   const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
 
   assert.match(instrumentationSource, /ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0"/);
+  assert.match(instrumentationSource, /ARTICLEPOD_SERVER_KEEPALIVE === "1"/);
   assert.match(renderEnvSource, /^ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=\$\{ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP:-0\}$/m);
+  assert.match(renderEnvSource, /^ARTICLEPOD_SERVER_KEEPALIVE=\$\{ARTICLEPOD_SERVER_KEEPALIVE:-1\}$/m);
 });
 
 test("azure systemd services exec long-running processes directly", () => {

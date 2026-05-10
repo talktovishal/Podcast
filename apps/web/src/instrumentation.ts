@@ -2,9 +2,21 @@
  * Next.js instrumentation hook — runs once when the server starts.
  * https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
+declare global {
+  var __articlepodServerKeepalive__: ReturnType<typeof setInterval> | undefined;
+}
+
 export async function register() {
   // Only run in the Node.js runtime (not Edge), where Prisma and bcrypt are available.
-  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0") {
+  if (process.env.NEXT_RUNTIME !== "nodejs") {
+    return;
+  }
+
+  if (process.env.ARTICLEPOD_SERVER_KEEPALIVE === "1" && !global.__articlepodServerKeepalive__) {
+    global.__articlepodServerKeepalive__ = setInterval(() => undefined, 60 * 60 * 1000);
+  }
+
+  if (process.env.ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0") {
     const { ensureAdminUser } = await import("./lib/user-bootstrap");
     await ensureAdminUser();
   }
