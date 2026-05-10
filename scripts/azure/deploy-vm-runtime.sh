@@ -183,7 +183,7 @@ run_pnpm_install_if_needed() {
 
   if [[ -n "$install_reason" ]]; then
     echo "[deploy-vm-runtime] running pnpm install (${install_reason})"
-    run_app_cmd "corepack pnpm install --frozen-lockfile"
+    run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"
     write_state_value "$LOCK_HASH_FILE" "$current_lock_hash"
   else
     echo "[deploy-vm-runtime] skipping pnpm install (lockfile unchanged)"

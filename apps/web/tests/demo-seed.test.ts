@@ -175,3 +175,10 @@ test("azure runtime defaults guard python-tts memory on production deploys", () 
   assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_RSS_MB"/);
   assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_IDLE_SECONDS"/);
 });
+
+test("azure vm deploy keeps pnpm install noninteractive", () => {
+  const root = resolve(process.cwd(), "../..");
+  const deploySource = readFileSync(resolve(root, "scripts/azure/deploy-vm-runtime.sh"), "utf8");
+
+  assert.match(deploySource, /run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"/);
+});
