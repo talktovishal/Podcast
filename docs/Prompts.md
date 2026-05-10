@@ -42,6 +42,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - release tooling now verifies packaged popup module dependencies before upload, and the live-site smoke harness can target the packaged artifact from `dist/extension/package` for release-candidate testing.
   - production deploys can now seed a dedicated Chrome Web Store reviewer account from env secrets, but reviewer pairing still uses the normal one-time 24-hour connect code generated after login instead of a permanent shared code.
   - the extension now also supports right-click selection capture into a dedicated `Snippets` workspace, with both instant-save and save-with-comment flows backed by the same long-lived paired extension token.
+  - right-click instant snippet saves now show a lightweight in-page status toast for saving/saved/reconnect/failure states when Chrome allows injection, while keeping the toolbar badge as fallback and avoiding notification permissions.
   - saved snippets persist in a first-class `Snippet` record separate from episode `Item`s, so selection capture does not enqueue podcast jobs or alter RSS/feed behavior.
   - snippet capture now stores a richer, Obsidian-inspired bundle by default: selected text plus sanitized selection HTML, derived selection/context markdown, normalized page metadata, and a reusable structured markdown template for later review or summarization.
 - Per-user LLM wiki browsing is implemented as an operator-run local workflow:

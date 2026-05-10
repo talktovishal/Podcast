@@ -18,14 +18,16 @@ function runStep(label, command, args) {
   }
 }
 
-runStep("Running extension capture unit tests", "corepack", [
+runStep("Running extension capture and snippet unit tests", "corepack", [
   "pnpm",
   "--filter",
   "@articlepod/core",
   "exec",
   "tsx",
   "--test",
-  "tests/extension-capture.test.ts"
+  "tests/extension-capture.test.ts",
+  "tests/extension-feedback.test.ts",
+  "tests/extension-snippets.test.ts"
 ]);
 
 runStep("Running extension auth and integration tests", "corepack", [

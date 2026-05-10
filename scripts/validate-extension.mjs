@@ -20,12 +20,20 @@ const DIST_DIR = path.join(ROOT, "dist", "extension");
 
 const REQUIRED_FILES = [
   "manifest.json",
+  "background.js",
+  "connection-state.mjs",
   "popup.html",
   "runtime-config.js",
   "popup.js",
   "capture-page.mjs",
   "pdf-capture.mjs",
   "target-tab.mjs",
+  "snippet-capture.mjs",
+  "snippet-comment.css",
+  "snippet-comment.html",
+  "snippet-comment.js",
+  "snippet-feedback.mjs",
+  "snippet-service.mjs",
   "popup.css",
 ];
 const REQUIRED_ICONS = [16, 32, 48, 128];
@@ -231,6 +239,31 @@ if (popupRelativeImports.length === 0) {
   }
 }
 
+const backgroundJs = fs.readFileSync(path.join(EXT_DIR, "background.js"), "utf8");
+if (/\beval\s*\(/.test(backgroundJs)) {
+  fail("background.js uses eval() (violates MV3 CSP)");
+} else {
+  pass("background.js: no eval()");
+}
+
+const runtimeEntryFiles = ["popup.js", "background.js", "snippet-comment.js", "snippet-feedback.mjs"];
+const runtimeRelativeImports = [
+  ...new Set(
+    runtimeEntryFiles.flatMap((entry) =>
+      extractRelativeImports(fs.readFileSync(path.join(EXT_DIR, entry), "utf8")),
+    ),
+  ),
+].sort();
+
+for (const relativeImport of runtimeRelativeImports) {
+  const importPath = path.join(EXT_DIR, relativeImport.replace(/^\.\//, ""));
+  if (fs.existsSync(importPath)) {
+    pass(`runtime import present: ${relativeImport}`);
+  } else {
+    fail(`runtime imports missing file: ${relativeImport}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 5. Webstore listing metadata
 // ---------------------------------------------------------------------------
@@ -315,15 +348,15 @@ if (checkZip && manifestVersion) {
     const packageDir = path.join(DIST_DIR, "package");
     if (fs.existsSync(packageDir)) {
       pass("Packaged extension directory present");
-      for (const relativeImport of popupRelativeImports) {
+      for (const relativeImport of runtimeRelativeImports) {
         const packagedImportPath = path.join(
           packageDir,
           relativeImport.replace(/^\.\//, ""),
         );
         if (fs.existsSync(packagedImportPath)) {
-          pass(`Packaged popup dependency present: ${relativeImport}`);
+          pass(`Packaged runtime dependency present: ${relativeImport}`);
         } else {
-          fail(`Packaged popup dependency missing: ${relativeImport}`);
+          fail(`Packaged runtime dependency missing: ${relativeImport}`);
         }
       }
     } else {

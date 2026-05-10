@@ -62,3 +62,27 @@ declare module "../../../apps/extension/snippet-capture.mjs" {
     pageMetadata?: Record<string, unknown>;
   };
 }
+
+declare module "../../../apps/extension/snippet-feedback.mjs" {
+  export const SNIPPET_TOAST_MESSAGES: {
+    saving: string;
+    saved: string;
+    connect: string;
+    failed: string;
+  };
+
+  export function handleImmediateSave(
+    info: Record<string, unknown>,
+    tab: Record<string, unknown> | undefined,
+    options?: {
+      chromeApi?: any;
+      setTimeoutImpl?: (...args: any[]) => any;
+      getConnectionState?: () => Promise<{
+        activeServerUrl: string;
+        extensionToken: string;
+      }>;
+      clearToken?: () => Promise<void>;
+      submitSnippet?: (payload: Record<string, unknown>) => Promise<unknown>;
+    },
+  ): Promise<void>;
+}

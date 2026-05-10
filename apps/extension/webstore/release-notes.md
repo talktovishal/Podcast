@@ -1,5 +1,9 @@
 # Release Notes
 
+## v0.1.8
+- Added a lightweight in-page toast for right-click instant snippet saves so users can see saving, saved, and reconnect/failure states without opening a popup.
+- Expanded packaged-extension validation so background snippet runtime files are included before release upload.
+
 ## v0.1.7
 - Made the popup's optional capture details start collapsed by default and remember the user's last expanded state in the current Chrome profile.
 - Added packaged-extension smoke coverage so release builds must prove the optional details panel behaves correctly after reopening the popup.

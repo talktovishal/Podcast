@@ -92,6 +92,7 @@
 - `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with `/app/podcast-apps` folding quick-start guidance into the main setup copy, keeping walkthroughs directly below, and hiding private feed replacement inside a collapsed disclosure within Step 1 instead of a separate advanced block.
 - Chrome selection snippets (`M113`) are implemented:
   - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
+  - instant right-click saves now provide lightweight in-page status feedback with toolbar badge fallback and no notification permission.
   - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
   - snippet rows now also persist richer structured capture fields as optional metadata/context, including selection HTML, derived markdown, and a reusable template markdown view.
   - `/app/snippets` provides compact review, on-demand comment editing, capture detail toggles, and delete actions without entering the podcast queue or RSS/feed pipeline.

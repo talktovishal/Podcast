@@ -117,7 +117,7 @@ This flow works the same whether you are using the local development server or y
    - select text on any HTTP/HTTPS page
    - right-click and choose **Save selection to ArticlePod** for an immediate save
    - or choose **Save selection with comment to ArticlePod...** to add a note before saving
-   Saved selections land in the web app's **Snippets** workspace instead of the podcast queue.
+   The immediate save flow shows a small in-page status toast when Chrome allows page injection, with the toolbar badge as a fallback. Saved selections land in the web app's **Snippets** workspace instead of the podcast queue.
 
 ### Capture size guardrail
 
