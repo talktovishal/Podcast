@@ -3728,6 +3728,7 @@ Milestone metadata contract:
 - completed_on: 2026-04-06
 - evidence: local validation + snippet persistence, `/app/snippets`, and extension context-menu capture pass (2026-04-06)
 - follow-up evidence: local validation + rich snippet capture metadata/context/template persistence pass (2026-04-08)
+- production follow-up evidence: Azure log triage + long-title extension normalization pass for X/Twitter snippet saves (2026-05-10 UTC)
 - Scope:
   - Add a dedicated `Snippet` persistence contract separate from episode `Item`s so saved text selections never enqueue podcast generation work.
   - Extend the MV3 Chrome extension with selection-only right-click actions for immediate save and save-with-comment flows using the existing paired extension token.
@@ -3737,6 +3738,7 @@ Milestone metadata contract:
   - No backfill is required because snippets are net-new data; existing accounts keep working without token rotation, queue mutation, or RSS regeneration.
   - Existing extension tokens remain valid and unchanged; the new snippet create path accepts the same paired extension token used for HTML snapshot capture.
   - Rich snippet follow-up remains expand-only: add optional snippet capture columns/fields (`selectedHtml`, `selectionMarkdown`, `contextMarkdown`, `captureMarkdown`, `pageMetadataJson`) while older snippet rows continue to load with null rich fields.
+  - Long-title/rich-field normalization remains client-only and schema-preserving; no persisted snippet schema or token contract changes are required.
   - Safe-disable path: hide `/app/snippets` and remove extension context menus while leaving stored snippet rows intact and isolated from podcast flows.
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`

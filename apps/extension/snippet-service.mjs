@@ -5,6 +5,24 @@ export const SNIPPET_CONTEXT_MENU_IDS = {
 
 export const SNIPPET_DRAFT_STORAGE_PREFIX = "articlepod_snippet_draft_";
 
+export const SNIPPET_PAYLOAD_LIMITS = {
+  sourceUrl: 2048,
+  sourceTitle: 200,
+  selectedText: 20_000,
+  comment: 2_000,
+  selectedHtml: 12_000,
+  contextHtml: 24_000,
+  metadataUrl: 2048,
+  siteName: 200,
+  description: 1500,
+  author: 200,
+  byline: 400,
+  publishedAt: 120,
+  language: 40,
+  sectionHeadings: 6,
+  sectionHeading: 200,
+};
+
 export function createSnippetContextMenuItems() {
   return [
     {
@@ -39,33 +57,103 @@ export function normalizeSnippetComment(value) {
   return trimmed ? trimmed : null;
 }
 
+function clampText(value, maxChars) {
+  const normalized = normalizeSnippetText(value);
+  if (!normalized) {
+    return "";
+  }
+  return normalized.slice(0, maxChars).trim();
+}
+
+function clampOptionalText(value, maxChars) {
+  const clamped = clampText(value, maxChars);
+  return clamped || undefined;
+}
+
+function normalizeOptionalMetadataUrl(
+  value,
+  maxChars = SNIPPET_PAYLOAD_LIMITS.metadataUrl,
+) {
+  const normalized = normalizeSnippetText(value);
+  if (!normalized || normalized.length > maxChars) {
+    return undefined;
+  }
+  try {
+    return new URL(normalized).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeSnippetPageMetadata(input) {
+  if (!input || typeof input !== "object") {
+    return undefined;
+  }
+
+  const pageMetadata = {
+    canonicalUrl: normalizeOptionalMetadataUrl(input.canonicalUrl),
+    siteName: clampOptionalText(
+      input.siteName,
+      SNIPPET_PAYLOAD_LIMITS.siteName,
+    ),
+    description: clampOptionalText(
+      input.description,
+      SNIPPET_PAYLOAD_LIMITS.description,
+    ),
+    author: clampOptionalText(input.author, SNIPPET_PAYLOAD_LIMITS.author),
+    byline: clampOptionalText(input.byline, SNIPPET_PAYLOAD_LIMITS.byline),
+    publishedAt: clampOptionalText(
+      input.publishedAt,
+      SNIPPET_PAYLOAD_LIMITS.publishedAt,
+    ),
+    language: clampOptionalText(
+      input.language,
+      SNIPPET_PAYLOAD_LIMITS.language,
+    ),
+    imageUrl: normalizeOptionalMetadataUrl(input.imageUrl),
+    sectionHeadings: Array.isArray(input.sectionHeadings)
+      ? input.sectionHeadings
+          .map((value) =>
+            clampOptionalText(value, SNIPPET_PAYLOAD_LIMITS.sectionHeading),
+          )
+          .filter(Boolean)
+          .slice(0, SNIPPET_PAYLOAD_LIMITS.sectionHeadings)
+      : undefined,
+  };
+
+  return Object.fromEntries(
+    Object.entries(pageMetadata).filter(([, value]) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return value != null;
+    }),
+  );
+}
+
 export function buildSnippetPayload(input = {}) {
-  const sourceUrl = typeof input.sourceUrl === "string" ? input.sourceUrl.trim() : "";
+  const sourceUrl =
+    typeof input.sourceUrl === "string" ? input.sourceUrl.trim() : "";
   const sourceTitle =
     typeof input.sourceTitle === "string" && input.sourceTitle.trim()
-      ? input.sourceTitle.trim()
+      ? clampText(input.sourceTitle, SNIPPET_PAYLOAD_LIMITS.sourceTitle)
       : undefined;
-  const selectedText = normalizeSnippetText(input.selectedText);
-  const comment = normalizeSnippetComment(input.comment);
-  const selectedHtml =
-    typeof input.selectedHtml === "string" && input.selectedHtml.trim()
-      ? input.selectedHtml.trim()
-      : undefined;
-  const contextHtml =
-    typeof input.contextHtml === "string" && input.contextHtml.trim()
-      ? input.contextHtml.trim()
-      : undefined;
-  const pageMetadata =
-    input.pageMetadata && typeof input.pageMetadata === "object"
-      ? Object.fromEntries(
-          Object.entries(input.pageMetadata).filter(([, value]) => {
-            if (Array.isArray(value)) {
-              return value.length > 0;
-            }
-            return typeof value === "string" ? value.trim().length > 0 : value != null;
-          }),
-        )
-      : undefined;
+  const selectedText = clampText(
+    input.selectedText,
+    SNIPPET_PAYLOAD_LIMITS.selectedText,
+  );
+  const comment = normalizeSnippetComment(
+    clampOptionalText(input.comment, SNIPPET_PAYLOAD_LIMITS.comment),
+  );
+  const selectedHtml = clampOptionalText(
+    input.selectedHtml,
+    SNIPPET_PAYLOAD_LIMITS.selectedHtml,
+  );
+  const contextHtml = clampOptionalText(
+    input.contextHtml,
+    SNIPPET_PAYLOAD_LIMITS.contextHtml,
+  );
+  const pageMetadata = normalizeSnippetPageMetadata(input.pageMetadata);
 
   if (!sourceUrl) {
     throw new Error("A page URL is required to save a snippet.");
@@ -81,7 +169,9 @@ export function buildSnippetPayload(input = {}) {
     selectedText,
     ...(selectedHtml ? { selectedHtml } : {}),
     ...(contextHtml ? { contextHtml } : {}),
-    ...(pageMetadata && Object.keys(pageMetadata).length > 0 ? { pageMetadata } : {}),
+    ...(pageMetadata && Object.keys(pageMetadata).length > 0
+      ? { pageMetadata }
+      : {}),
     ...(comment ? { comment } : {}),
   };
 }
@@ -90,7 +180,10 @@ export function buildSnippetDraft(input = {}) {
   const payload = buildSnippetPayload(input);
   return {
     ...payload,
-    createdAt: typeof input.createdAt === "string" ? input.createdAt : new Date().toISOString(),
+    createdAt:
+      typeof input.createdAt === "string"
+        ? input.createdAt
+        : new Date().toISOString(),
   };
 }
 
@@ -103,8 +196,12 @@ async function readJson(response) {
 }
 
 export async function submitSelectionSnippet(input = {}) {
-  const serverUrl = typeof input.serverUrl === "string" ? input.serverUrl.trim().replace(/\/$/, "") : "";
-  const extensionToken = typeof input.extensionToken === "string" ? input.extensionToken.trim() : "";
+  const serverUrl =
+    typeof input.serverUrl === "string"
+      ? input.serverUrl.trim().replace(/\/$/, "")
+      : "";
+  const extensionToken =
+    typeof input.extensionToken === "string" ? input.extensionToken.trim() : "";
 
   if (!serverUrl) {
     throw new Error("ArticlePod server URL is not available.");
@@ -114,7 +211,8 @@ export async function submitSelectionSnippet(input = {}) {
   }
 
   const payload = buildSnippetPayload(input);
-  const fetchImpl = typeof input.fetchImpl === "function" ? input.fetchImpl : fetch;
+  const fetchImpl =
+    typeof input.fetchImpl === "function" ? input.fetchImpl : fetch;
   const response = await fetchImpl(`${serverUrl}/api/snippets`, {
     method: "POST",
     headers: {
@@ -130,6 +228,9 @@ export async function submitSelectionSnippet(input = {}) {
       responseBody.error_message || "Unable to save snippet right now.",
     );
     error.status = response.status;
+    error.errorCode = responseBody.error_code;
+    error.retryRecommended = responseBody.retry_recommended;
+    error.supportId = responseBody.support_id;
     throw error;
   }
 

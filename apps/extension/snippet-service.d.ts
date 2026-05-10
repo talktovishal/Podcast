@@ -5,6 +5,24 @@ export declare const SNIPPET_CONTEXT_MENU_IDS: {
 
 export declare const SNIPPET_DRAFT_STORAGE_PREFIX: string;
 
+export declare const SNIPPET_PAYLOAD_LIMITS: {
+  sourceUrl: number;
+  sourceTitle: number;
+  selectedText: number;
+  comment: number;
+  selectedHtml: number;
+  contextHtml: number;
+  metadataUrl: number;
+  siteName: number;
+  description: number;
+  author: number;
+  byline: number;
+  publishedAt: number;
+  language: number;
+  sectionHeadings: number;
+  sectionHeading: number;
+};
+
 export declare function createSnippetContextMenuItems(): Array<{
   id: string;
   title: string;
@@ -22,11 +40,37 @@ export declare function buildSnippetPayload(input?: {
   sourceTitle?: string;
   selectedText?: string;
   comment?: string | null;
+  selectedHtml?: string;
+  contextHtml?: string;
+  pageMetadata?: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  };
 }): {
   sourceUrl: string;
   sourceTitle?: string;
   selectedText: string;
   comment?: string;
+  selectedHtml?: string;
+  contextHtml?: string;
+  pageMetadata?: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  };
 };
 
 export declare function buildSnippetDraft(input?: {
@@ -34,12 +78,38 @@ export declare function buildSnippetDraft(input?: {
   sourceTitle?: string;
   selectedText?: string;
   comment?: string | null;
+  selectedHtml?: string;
+  contextHtml?: string;
+  pageMetadata?: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  };
   createdAt?: string;
 }): {
   sourceUrl: string;
   sourceTitle?: string;
   selectedText: string;
   comment?: string;
+  selectedHtml?: string;
+  contextHtml?: string;
+  pageMetadata?: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  };
   createdAt: string;
 };
 
@@ -50,7 +120,23 @@ export declare function submitSelectionSnippet(input?: {
   sourceTitle?: string;
   selectedText?: string;
   comment?: string | null;
-  fetchImpl?: (url: string, init: RequestInit) => Promise<{
+  selectedHtml?: string;
+  contextHtml?: string;
+  pageMetadata?: {
+    canonicalUrl?: string;
+    siteName?: string;
+    description?: string;
+    author?: string;
+    byline?: string;
+    publishedAt?: string;
+    language?: string;
+    imageUrl?: string;
+    sectionHeadings?: string[];
+  };
+  fetchImpl?: (
+    url: string,
+    init: RequestInit,
+  ) => Promise<{
     ok: boolean;
     status?: number;
     json: () => Promise<any>;
