@@ -183,7 +183,7 @@ test("azure vm deploy keeps pnpm install noninteractive", () => {
   assert.match(deploySource, /run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"/);
 });
 
-test("azure systemd services launch pnpm through corepack", () => {
+test("azure systemd services exec long-running processes directly", () => {
   const root = resolve(process.cwd(), "../..");
   const serviceFiles = [
     "infra/systemd/articlepod-web.service",
@@ -193,7 +193,8 @@ test("azure systemd services launch pnpm through corepack", () => {
 
   for (const serviceFile of serviceFiles) {
     const serviceSource = readFileSync(resolve(root, serviceFile), "utf8");
-    assert.match(serviceSource, /corepack pnpm --filter @articlepod\/(?:web|worker) run start/);
+    assert.match(serviceSource, /npm run prisma:generate:ensure && exec \.\/node_modules\/\.bin\/(?:next start|tsx src\/index\.ts)/);
+    assert.doesNotMatch(serviceSource, /pnpm --filter @articlepod\/(?:web|worker) run start/);
     assert.doesNotMatch(serviceSource, /npx pnpm/);
   }
 });
