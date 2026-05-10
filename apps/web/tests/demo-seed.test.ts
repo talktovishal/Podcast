@@ -183,6 +183,15 @@ test("azure vm deploy keeps pnpm install noninteractive", () => {
   assert.match(deploySource, /run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"/);
 });
 
+test("azure vm deploy disables admin bootstrap during web startup", () => {
+  const root = resolve(process.cwd(), "../..");
+  const instrumentationSource = readFileSync(resolve(root, "apps/web/src/instrumentation.ts"), "utf8");
+  const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
+
+  assert.match(instrumentationSource, /ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0"/);
+  assert.match(renderEnvSource, /^ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=\$\{ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP:-0\}$/m);
+});
+
 test("azure systemd services exec long-running processes directly", () => {
   const root = resolve(process.cwd(), "../..");
   const serviceFiles = [

@@ -4,7 +4,7 @@
  */
 export async function register() {
   // Only run in the Node.js runtime (not Edge), where Prisma and bcrypt are available.
-  if (process.env.NEXT_RUNTIME === "nodejs") {
+  if (process.env.NEXT_RUNTIME === "nodejs" && process.env.ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP !== "0") {
     const { ensureAdminUser } = await import("./lib/user-bootstrap");
     await ensureAdminUser();
   }

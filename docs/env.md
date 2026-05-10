@@ -79,6 +79,7 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `WEBSTORE_REVIEWER_PASSWORD` (optional; when set, production deploy seeds a dedicated Chrome Web Store reviewer account with complimentary Pro access)
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP` (defaults to `0` in the Azure VM env render because deploy seeding runs admin bootstrap before service start; set `1` to run admin bootstrap from the Next.js instrumentation hook)
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
 - `PRO_MONTHLY_DAILY_PODCAST_LIMIT` (default `12`; `Pro monthly` guardrail for new podcast episodes created in the last 24 hours)
 - `PRO_MONTHLY_DAILY_SUMMARY_LIMIT` (default `36`; `Pro monthly` guardrail for Summary Mode item summaries created in the last 24 hours)
