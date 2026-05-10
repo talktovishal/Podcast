@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`ArticleSummaryTask` is the explicit pending-work queue for per-article summaries. It is separate from the podcast/audio `Job` queue so a batch process can discover every article summary that needs to be generated across all users without scanning item jobs or triggering the existing worker loop.
+`ArticleSummaryTask` is the explicit pending-work queue for per-article summaries. It is separate from the podcast/audio `Job` queue so the worker can discover every article summary that needs to be generated across all users without scanning item jobs or triggering audio/RSS work.
 
 Local development stores tasks in Prisma SQLite. Production metadata stores the same task contract in Azure Table through `AzureTablePrimaryStore`.
 
@@ -54,7 +54,7 @@ The processor must only write success or failure if the current row still has th
 
 ## `processArticleSummaryTask(taskId)`
 
-The future processor should perform these steps:
+The processor performs these steps:
 
 1. Load the task and associated `Item`.
 2. If the task is missing, return `false`. If the item is missing, delete the task when possible because the source item was removed.
@@ -94,12 +94,14 @@ For terminal failures:
 - Set `nextRetryAt = null`.
 - Update the item with the same safe failure fields.
 
-Never publish an episode, synthesize TTS, or touch RSS state from `processArticleSummaryTask`. A summary-only item becomes podcast audio only through the separate `Request TTS` flow.
+Never publish an episode, synthesize TTS, or touch RSS state from `processArticleSummaryTask`. A normal summary-only item becomes podcast audio only through the separate `Request TTS` flow. Internal `PODCAST_TRANSCRIPT` items are rejected by `Request TTS` and stay transcript summary items.
 
 ## Current Wiring
 
 Summary-only submissions now run the shared pre-audio processing first: extract source content, clean markdown, resolve the title, store canonical markdown at `users/<userId>/markdown/items/<itemId>/canonical.md`, and upsert the `MARKDOWN` artifact. Only after that succeeds do they create an `ArticleSummaryTask`. They do not create a podcast `Job` or `DispatchQueueMessage`.
 
+Podcast transcript imports follow the same task boundary after transcript resolution: they store normalized transcript markdown as canonical `MARKDOWN`, create `ArticleSummaryTask`, and never create audio/RSS work.
+
 Manual retry for a failed summary-only item follows the same boundary: rebuild canonical markdown if needed, requeue or reset the `ArticleSummaryTask`, and still avoid the podcast/audio `Job` queue.
 
-The batch processor is intentionally not wired into `apps/worker/src/index.ts` yet. A later change should add the processor module and decide whether it runs from a scheduled worker loop, a CLI command, or an external cron-triggered batch.
+`apps/worker/src/index.ts` now runs the article summary task processor in the primary polling loop after manual summary runs and before digest scheduling/runs. This keeps item summary work in the worker without crossing into the episode `Job` queue.

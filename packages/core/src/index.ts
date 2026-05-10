@@ -28,6 +28,7 @@ export * from "./logging/redaction";
 export * from "./logging/context";
 export * from "./logging/structured";
 export * from "./rss/buildFeed";
+export * from "./transcripts/podcastTranscript";
 export * from "./digest/summary";
 export * from "./digest/summaryUserFacing";
 export * from "./digest/email";

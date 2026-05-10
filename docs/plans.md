@@ -149,8 +149,12 @@
   - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
 - Summary Mode item summaries (`M121`) are implemented:
   - `/app` can persist `FULL_EPISODE` vs `SUMMARY_ONLY` as the default for future captures.
-  - summary-only submissions run the shared pre-audio path first, storing canonical markdown and resolving titles, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor stores item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later.
+  - summary-only submissions run the shared pre-audio path first, storing canonical markdown and resolving titles, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the worker task processor stores item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later for normal summary items.
   - digest generation prefers item summaries, while wiki preparation keeps full article markdown with the summary as compact guidance.
+- Internal podcast transcript auto-detection (`M122`) is implemented:
+  - URL paste and Chrome extension capture internally detect Apple Podcasts episode URLs and direct public transcript files without adding a visible podcast submit mode.
+  - successful public transcripts become `PODCAST_TRANSCRIPT` summary-only items with canonical markdown plus `ArticleSummaryTask`; failed confident podcast detections remain visible in Recent items with a clear extraction error.
+  - transcript imports do not create audio, `Job`, `Episode`, RSS/media artifacts, feed-token changes, ASR work, or request-TTS eligibility.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
@@ -4036,7 +4040,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - New users default to `FULL_EPISODE`; using the workspace-header mode slider persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
   - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, canonical `MARKDOWN`, and an `ArticleSummaryTask`; they do not create podcast/audio `Job` rows or dispatch messages.
-  - The future `processArticleSummaryTask` batch processor consumes stored canonical markdown and completes `summaryStatus=SUCCEEDED` with summary metadata when wired.
+  - `processArticleSummaryTask` consumes stored canonical markdown and completes `summaryStatus=SUCCEEDED` with summary metadata from the worker loop.
   - Summary Mode completion creates no `Episode`, audio object, RSS item, or media token.
   - Recent items shows summary state, opens summary markdown in a right-side drawer/full-screen mobile sheet, and closes on Escape.
   - `Request TTS` creates `Job.jobKind=REQUEST_TTS`, consumes podcast capacity, and prefers stored canonical markdown so audio requests are restartable without re-fetching when possible.
@@ -4057,6 +4061,56 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts`
   - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/web exec tsx --test tests/submission-quota.test.ts`
   - `cd apps/worker && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/summary-jobs.test.ts tests/digest-jobs.test.ts`
+
+---
+
+### M122 - Internal Podcast Transcript Auto-Detection
+
+- status: Done
+- target_finish: 2026-05-10
+- completed_on: 2026-05-10
+- evidence: local implementation + targeted typecheck/test pass (2026-05-10)
+- Scope:
+  - Keep the existing URL paste and Chrome extension capture UX while internally detecting Apple Podcasts episode URLs and direct public transcript files.
+  - Resolve Apple episode pages through Apple lookup, publisher RSS feeds, and `podcast:transcript` tags; require the Apple `i=` episode id and prefer transcript formats in VTT, SRT, TXT, HTML order.
+  - Normalize VTT/SRT/TXT/HTML transcript content into canonical markdown, create `PODCAST_TRANSCRIPT` summary-only items, and queue `ArticleSummaryTask`.
+  - Create failed `PODCAST_TRANSCRIPT` items for confident podcast detections when no usable public transcript can be found.
+  - Block `Request TTS` for transcript items and keep transcript imports out of podcast episode/audio/RSS/media/feed-token paths.
+- Key files/modules:
+  - `packages/core/src/transcripts/podcastTranscript.ts`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/errors/codes.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/app/api/items/url/route.ts`
+  - `apps/web/src/app/api/items/html-snapshot/route.ts`
+  - `apps/web/src/app/api/items/[id]/request-tts/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/worker/src/jobs/processArticleSummaryTask.ts`
+  - `apps/worker/src/index.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/article-summary-task-processing.md`
+- Acceptance criteria:
+  - Pasting an Apple Podcasts episode URL with a public RSS transcript creates `Item.sourceType=PODCAST_TRANSCRIPT`, forces `processingMode=SUMMARY_ONLY`, stores canonical markdown, and creates `ArticleSummaryTask`.
+  - Capturing the same Apple Podcasts page through `/api/items/html-snapshot` bypasses HTML snapshot storage and creates the same transcript summary item.
+  - Apple show pages without `i=` and episode pages without usable public transcript return success at the API boundary while leaving a failed Recent item with a clear extraction message.
+  - Direct public VTT/SRT/TXT/HTML transcript URLs import as transcript summary items; unsupported, private/internal, oversized, or empty transcripts fail clearly.
+  - Non-podcast URL paste and normal Chrome extension captures continue through existing article behavior unchanged.
+  - Transcript imports consume summary quota, remain eligible for digest/wiki synthesis, and do not create `Job`, `Episode`, audio blobs, RSS items, media tokens, or feed-token rotations.
+  - UI labels stay plain, hide audio/play/download/share/request-TTS affordances for transcript items, and reuse the summary drawer for successful summaries.
+- Migration/backfill plan:
+  - No schema migration is required because `Item.sourceType` is stored as a durable string contract in Prisma and Azure Table primary.
+  - Existing items remain unchanged; only new detected transcript submissions write `PODCAST_TRANSCRIPT`.
+  - Rollback is safe-disable: turn off podcast/direct transcript classification in submit routes; existing transcript items remain readable as summary-only markdown artifacts.
+  - Old and new code remain compatible because unknown source types already surface safely in labels, while the new code explicitly includes `PODCAST_TRANSCRIPT` in summary/digest/wiki/analytics allowlists.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/podcast-transcript.test.ts tests/domain.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 corepack pnpm --filter @articlepod/web exec tsx --test tests/summary-mode-routes.test.ts`
+  - `cd apps/worker && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/summary-jobs.test.ts`
 
 ---
 

@@ -34,6 +34,16 @@ async function handleRequestTts(request: NextRequest, context: { params: Promise
     if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
+    if (item.sourceType === "PODCAST_TRANSCRIPT") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error_code: "INVALID_STATE",
+          error_message: "Podcast transcript items can be summarized, but they can't be turned into audio episodes."
+        },
+        { status: 409 }
+      );
+    }
     if (episode && isAudioAvailable(episode.expiresAt)) {
       return NextResponse.json({ ok: true, status: "ready", already_ready: true });
     }
@@ -132,6 +142,16 @@ async function handleRequestTts(request: NextRequest, context: { params: Promise
 
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
+  }
+  if (item.sourceType === "PODCAST_TRANSCRIPT") {
+    return NextResponse.json(
+      {
+        ok: false,
+        error_code: "INVALID_STATE",
+        error_message: "Podcast transcript items can be summarized, but they can't be turned into audio episodes."
+      },
+      { status: 409 }
+    );
   }
   if (item.episode && isAudioAvailable(item.episode.expiresAt)) {
     return NextResponse.json({ ok: true, status: "ready", already_ready: true });

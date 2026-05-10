@@ -6,6 +6,7 @@ import {
   webUsesPrismaDispatchQueue,
 } from "@/lib/item-dispatch-queue";
 import { materializeSummaryMarkdown } from "@/lib/items";
+import type { EnqueueItemSourceType } from "@/lib/items";
 import { logger } from "@/lib/logger";
 import {
   webPrimaryStore,
@@ -76,7 +77,7 @@ export async function POST(
       itemId: item.id,
       userId: item.userId,
       title: item.title,
-      sourceType: item.sourceType as "URL" | "PDF" | "HTML_SNAPSHOT",
+      sourceType: item.sourceType as EnqueueItemSourceType,
       sourceUrl: item.sourceUrl,
       sourceFilePath: item.sourceFilePath,
       sourceHtml: item.sourceHtml,

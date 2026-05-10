@@ -204,10 +204,17 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Summary Mode is implemented on the Episodes workspace:
   - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from the top `/app` workspace header slider through `GET/POST /api/account/processing-mode`.
   - URL, PDF, and Chrome extension captures inherit the user's default unless the web submit flow explicitly sends `mode=full` or `mode=summary`.
-  - summary-only submissions run the shared pre-audio path first, storing canonical article markdown and resolving the item title, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the future summary batch processor only needs to turn stored markdown into the per-item summary artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
+  - summary-only submissions run the shared pre-audio path first, storing canonical article markdown and resolving the item title, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the worker now processes those tasks by turning stored markdown into the per-item summary artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
   - summary-only items do not synthesize TTS, create `Episode` rows, or publish to the main RSS feed until the user explicitly chooses `Request TTS`.
   - `Request TTS` queues a `REQUEST_TTS` item job that consumes normal podcast capacity and generates full-article audio using the stored canonical markdown when available.
   - Recent items shows summary status, opens finished summaries in a drawer/sheet, and keeps summary viewing separate from podcast audio playback.
+- Internal podcast transcript auto-detection (`M122`) is implemented without adding a visible Podcast mode:
+  - `POST /api/items/url` and `POST /api/items/html-snapshot` internally detect Apple Podcasts episode URLs and direct public transcript files before falling back to article extraction.
+  - Apple Podcasts pages require an episode id from the `i=` query parameter, use Apple lookup to find the publisher feed, match the RSS item, read `podcast:transcript`, and normalize public VTT/SRT/TXT/HTML transcripts into canonical markdown.
+  - detected transcript imports are stored as `Item.sourceType=PODCAST_TRANSCRIPT`, forced to `processingMode=SUMMARY_ONLY`, and queued through `ArticleSummaryTask`; they consume summary capacity, not podcast episode capacity.
+  - transcript imports never scrape Apple's in-app transcript UI, fetch audio enclosures, run ASR, create `Job`/`Episode`/audio/RSS/media artifacts, rotate feed/media tokens, or support Spotify/YouTube Music in v1.
+  - if a URL is confidently a podcast episode but no usable public transcript is discoverable, Recent items shows a failed transcript item with a clear extraction message.
+  - `POST /api/items/:id/request-tts` rejects `PODCAST_TRANSCRIPT` items so a podcast transcript cannot be turned into another podcast episode.
 - Capture metadata track (`M100`) is implemented:
   - URL, PDF, and Chrome extension capture now accept user-facing `Importance` (`Low`, `Medium`, `High`) instead of `Priority`.
   - Capture forms support optional freeform comma-separated tags, normalized and stored per item.

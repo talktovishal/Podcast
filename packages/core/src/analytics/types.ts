@@ -13,7 +13,7 @@ export const analyticsEventTypes = [
 
 export type AnalyticsEventType = (typeof analyticsEventTypes)[number];
 
-export const analyticsSourceTypes = ["URL", "PDF", "HTML_SNAPSHOT"] as const;
+export const analyticsSourceTypes = ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"] as const;
 export type AnalyticsSourceType = (typeof analyticsSourceTypes)[number];
 
 export const analyticsAuthMethods = ["LOCAL", "OAUTH_LINKED", "GOOGLE", "FACEBOOK", "APPLE"] as const;

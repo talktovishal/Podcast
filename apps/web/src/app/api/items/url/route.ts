@@ -1,4 +1,4 @@
-import { canonicalizeFetchableUrl, submitUrlSchema } from "@articlepod/core";
+import { canonicalizeFetchableUrl, classifyTranscriptCandidate, submitUrlSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromRequest } from "@/lib/auth";
 import { fromError } from "@/lib/http";
@@ -17,6 +17,35 @@ export async function POST(request: NextRequest) {
     const payload = submitUrlSchema.parse(await request.json());
     const ip = getClientIp(request);
     await enforceSubmitRateLimits(user.id, ip);
+
+    const transcriptCandidate = classifyTranscriptCandidate({ url: payload.url });
+    if (transcriptCandidate.kind !== "none") {
+      const submission = await enqueueItem({
+        userId: user.id,
+        title: payload.title,
+        importance: payload.importance,
+        tags: payload.tags,
+        mode: "summary",
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: payload.url
+      });
+      await logger.info("Podcast transcript item enqueued", {
+        requestId,
+        itemId: submission.item.id,
+        userId: user.id,
+        transcriptCandidate: transcriptCandidate.kind
+      });
+
+      return NextResponse.json({
+        ok: true,
+        item_id: submission.item.id,
+        status: submission.item.status.toLowerCase(),
+        queue_mode: submission.queueMode.toLowerCase(),
+        accepted_message: submission.acceptedMessage,
+        scheduled_for: submission.scheduledFor.toISOString(),
+        submission_quota: submission.submissionQuota
+      });
+    }
 
     const canonical = await canonicalizeFetchableUrl(payload.url);
 

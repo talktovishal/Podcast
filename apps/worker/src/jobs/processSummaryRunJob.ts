@@ -277,9 +277,14 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
           return {
             itemId: item.id,
             title: item.title,
-            sourceType: (item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT"
+            sourceType: ([
+              "URL",
+              "PDF",
+              "HTML_SNAPSHOT",
+              "PODCAST_TRANSCRIPT"
+            ].includes(item.sourceType)
               ? item.sourceType
-              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT",
+              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT" | "PODCAST_TRANSCRIPT",
             sourceUrl: item.sourceUrl,
             createdAt: item.createdAt,
             markdown

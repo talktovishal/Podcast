@@ -15,6 +15,7 @@ import {
   markdownToNarrationText,
   normalizeStorageKey,
   resolveEpisodeTitle,
+  resolvePodcastTranscript,
   serializeItemTags,
   summarizeHtmlExtractionSelection,
   type HtmlExtractionSelectionDiagnostics,
@@ -40,10 +41,20 @@ import { syncQueueProjectionFromEnqueue } from "./metadata-projection";
 import { webPrimaryStore } from "./metadata-primary-store";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "./storage";
 
+export type EnqueueItemSourceType =
+  | "URL"
+  | "PDF"
+  | "HTML_SNAPSHOT"
+  | "PODCAST_TRANSCRIPT";
+
 async function resolveItemProcessingMode(
   userId: string,
   mode?: "full" | "summary",
+  sourceType?: EnqueueItemSourceType,
 ): Promise<ItemProcessingMode> {
+  if (sourceType === "PODCAST_TRANSCRIPT") {
+    return "SUMMARY_ONLY";
+  }
   if (mode === "summary") {
     return "SUMMARY_ONLY";
   }
@@ -96,11 +107,27 @@ function safeProcessingError(error: unknown): {
 
 async function extractSummarySource(input: {
   itemId: string;
-  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
+  sourceType: EnqueueItemSourceType;
   sourceUrl?: string | null;
   sourceFilePath?: string | null;
   sourceHtml?: string | null;
 }) {
+  if (input.sourceType === "PODCAST_TRANSCRIPT") {
+    if (!input.sourceUrl) {
+      throw new AppError(errorCodes.INVALID_INPUT, "Missing podcast transcript URL", 400);
+    }
+    const transcript = await resolvePodcastTranscript({
+      url: input.sourceUrl,
+      html: input.sourceHtml,
+    });
+    return {
+      title: transcript.title,
+      markdown: transcript.markdown,
+      sourceArtifact: null,
+      selectionDiagnostics: null,
+    };
+  }
+
   if (input.sourceType === "URL") {
     if (!input.sourceUrl) {
       throw new AppError(errorCodes.INVALID_INPUT, "Missing source URL", 400);
@@ -202,7 +229,7 @@ export async function materializeSummaryMarkdown(input: {
   itemId: string;
   userId: string;
   title?: string | null;
-  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
+  sourceType: EnqueueItemSourceType;
   sourceUrl?: string | null;
   sourceFilePath?: string | null;
   sourceHtml?: string | null;
@@ -222,13 +249,15 @@ export async function materializeSummaryMarkdown(input: {
       input.title?.trim() ||
       resolveEpisodeTitle(extracted.title, narrationText);
     const storage = getArtifactStorage();
-    const rawStored = await storage.putObject(
-      extracted.sourceArtifact.storageKey,
-      extracted.sourceArtifact.bytes,
-      {
-        contentType: extracted.sourceArtifact.contentType,
-      },
-    );
+    const rawStored = extracted.sourceArtifact
+      ? await storage.putObject(
+          extracted.sourceArtifact.storageKey,
+          extracted.sourceArtifact.bytes,
+          {
+            contentType: extracted.sourceArtifact.contentType,
+          },
+        )
+      : null;
     const markdownStored = await storage.putObject(
       buildUserItemMarkdownStorageKey(input.userId, input.itemId),
       Buffer.from(cleanedMarkdown, "utf8"),
@@ -239,15 +268,17 @@ export async function materializeSummaryMarkdown(input: {
       : {};
 
     if (env.metadataPrimaryBackend === "azure_table" && webPrimaryStore) {
-      await webPrimaryStore.upsertItemArtifact({
-        id: randomUUID(),
-        itemId: input.itemId,
-        kind: extracted.sourceArtifact.kind,
-        storageKey: rawStored.key,
-        contentType: extracted.sourceArtifact.contentType,
-        byteLength: rawStored.bytes,
-        expiresAt: null,
-      });
+      if (extracted.sourceArtifact && rawStored) {
+        await webPrimaryStore.upsertItemArtifact({
+          id: randomUUID(),
+          itemId: input.itemId,
+          kind: extracted.sourceArtifact.kind,
+          storageKey: rawStored.key,
+          contentType: extracted.sourceArtifact.contentType,
+          byteLength: rawStored.bytes,
+          expiresAt: null,
+        });
+      }
       await webPrimaryStore.upsertItemArtifact({
         id: randomUUID(),
         itemId: input.itemId,
@@ -270,28 +301,30 @@ export async function materializeSummaryMarkdown(input: {
       });
     } else {
       await prisma.$transaction(async (tx) => {
-        await tx.itemArtifact.upsert({
-          where: {
-            itemId_kind: {
+        if (extracted.sourceArtifact && rawStored) {
+          await tx.itemArtifact.upsert({
+            where: {
+              itemId_kind: {
+                itemId: input.itemId,
+                kind: extracted.sourceArtifact.kind,
+              },
+            },
+            update: {
+              storageKey: rawStored.key,
+              contentType: extracted.sourceArtifact.contentType,
+              byteLength: rawStored.bytes,
+              expiresAt: null,
+            },
+            create: {
               itemId: input.itemId,
               kind: extracted.sourceArtifact.kind,
+              storageKey: rawStored.key,
+              contentType: extracted.sourceArtifact.contentType,
+              byteLength: rawStored.bytes,
+              expiresAt: null,
             },
-          },
-          update: {
-            storageKey: rawStored.key,
-            contentType: extracted.sourceArtifact.contentType,
-            byteLength: rawStored.bytes,
-            expiresAt: null,
-          },
-          create: {
-            itemId: input.itemId,
-            kind: extracted.sourceArtifact.kind,
-            storageKey: rawStored.key,
-            contentType: extracted.sourceArtifact.contentType,
-            byteLength: rawStored.bytes,
-            expiresAt: null,
-          },
-        });
+          });
+        }
         await tx.itemArtifact.upsert({
           where: {
             itemId_kind: {
@@ -378,7 +411,7 @@ export async function enqueueItem(input: {
   importance?: string;
   tags?: string[];
   mode?: "full" | "summary";
-  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
+  sourceType: EnqueueItemSourceType;
   sourceUrl?: string;
   sourceFilePath?: string;
   sourceHtml?: string;
@@ -387,6 +420,7 @@ export async function enqueueItem(input: {
   const processingMode = await resolveItemProcessingMode(
     input.userId,
     input.mode,
+    input.sourceType,
   );
   const jobKind: ItemJobKind =
     processingMode === "SUMMARY_ONLY" ? "SUMMARY_ONLY" : "FULL_EPISODE";

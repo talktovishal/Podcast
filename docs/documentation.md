@@ -7,7 +7,7 @@ Related indexes:
 
 ## What ArticlePod does
 
-ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes or per-item summaries, compounds saved reading into a personal wiki, and publishes the listening side through private RSS feeds.
+ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private podcast episodes or per-item summaries, imports public podcast transcripts as summaries only, compounds saved reading into a personal wiki, and publishes the listening side through private RSS feeds.
 
 ## User flow
 
@@ -17,10 +17,11 @@ ArticlePod converts URLs, PDFs, and Chrome-captured HTML snapshots into private 
 4. Item enters `QUEUED` -> `PROCESSING` -> `READY/FAILED`.
 5. Full episode items create audio and appear in recent items and the private RSS feed.
 6. Summary Mode items create canonical markdown plus a per-item summary; users can read the summary from the recent-items drawer or explicitly choose `Request TTS` later.
-7. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
-8. Logged-in users can submit message-first product feedback at `/app/feedback`.
-9. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
-10. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
+7. Apple Podcasts episode URLs and direct public transcript URLs are auto-detected internally and imported as summary-only transcript items when a usable public transcript exists.
+8. Optional digest automation generates daily/weekly summary runs (email stub + optional digest podcast) based on user settings.
+9. Logged-in users can submit message-first product feedback at `/app/feedback`.
+10. Logged-in users can save highlighted text from the Chrome extension into `/app/snippets`, where ArticlePod keeps the excerpt plus richer context and page metadata for later review.
+11. After an operator publishes a personal wiki for that account, logged-in users can browse it at `/app/wiki`.
 
 ## Accounts
 
@@ -70,8 +71,18 @@ Available in `/app`:
 - `FULL_EPISODE` keeps the existing extract -> TTS -> episode -> RSS behavior.
 - `SUMMARY_ONLY` extracts and stores canonical markdown, generates an item summary asynchronously, skips TTS/audio/RSS by default, and keeps the finished summary readable from Recent items.
 - `Request TTS` on a summary item queues a `REQUEST_TTS` job that consumes normal podcast capacity and generates full-article audio using stored canonical markdown when available.
+- `PODCAST_TRANSCRIPT` items are created only by internal auto-detection, forced to `SUMMARY_ONLY`, and cannot use `Request TTS`.
 - Daily/weekly digest generation prefers the stored item summary when present and falls back to canonical article markdown.
 - Wiki preparation keeps full article markdown as the authoritative source body while prepending the item summary as compact guidance for that source.
+
+## Internal podcast transcript auto-detection
+
+- There is no visible Podcast submit mode. Users still paste into `Submit URL` or capture a page with the Chrome extension.
+- Apple Podcasts episode pages are detected from the pasted URL or the active captured tab URL. Show pages without an `i=` episode id become failed transcript items with a clear extraction message.
+- Successful Apple imports use Apple lookup plus the publisher RSS feed's `podcast:transcript` tag, prefer VTT/SRT/TXT/HTML transcript formats, normalize the transcript into canonical markdown, and run the item-summary processor.
+- Direct public transcript files are supported only when the URL or content type clearly identifies VTT, SRT, TXT, or HTML.
+- Transcript imports consume summary quota, do not create podcast jobs, audio, episodes, RSS items, media URLs, feed-token changes, or ASR work, and never scrape Apple's in-app transcript UI.
+- Recent items labels these entries as podcast transcripts, hides audio/play/download/share/request-TTS actions, and reuses the summary drawer for completed summaries.
 
 Summary Mode APIs:
 
@@ -93,9 +104,10 @@ Connect flow:
 2. Paste code in extension popup and connect; runtime config still points to `https://articlepod.com`, while the packaged manifest keeps broad HTTP/HTTPS host access so users can capture arbitrary pages without a second Chrome site-access prompt.
 3. The popup keeps capture metadata inside a compact optional box with a visible `Optional` badge, includes a small footer `articlepod.com` hyperlink, and after capture the queued button state disables repeat clicks for that same page so the capture feels complete without extra page-level overlays.
 4. Browser-opened remote PDFs on normal HTTP/HTTPS tabs now upload through the existing PDF ingest path directly from the extension. Local `file://` PDFs are intentionally not captured there; the popup tells the user to sign in on `articlepod.com/app` and upload the PDF from the web app instead.
-5. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page, including lightweight Cloudflare `Verifying...` challenge shells; the popup itself stays mostly focused on DOM capture and cleanup.
-6. Chrome Web Store reviewers should use the dedicated reviewer login, then open `/app/chrome-extension`; the page auto-prepares a fresh one-time connect code on load. The installed extension token remains long-lived after pairing, but the connect code itself intentionally stays one-time and time-limited.
-7. The right-click snippet actions now save more than flat text: each snippet can include sanitized selection HTML, derived markdown context, section-heading path, and normalized page metadata so later review has more structure.
+5. The server classifies the captured tab URL before storing an HTML snapshot; Apple Podcasts episode pages bypass snapshot extraction and follow the internal podcast-transcript path.
+6. The server classifies the uploaded snapshot as a readable article vs. a block/interstitial page, including lightweight Cloudflare `Verifying...` challenge shells; the popup itself stays mostly focused on DOM capture and cleanup.
+7. Chrome Web Store reviewers should use the dedicated reviewer login, then open `/app/chrome-extension`; the page auto-prepares a fresh one-time connect code on load. The installed extension token remains long-lived after pairing, but the connect code itself intentionally stays one-time and time-limited.
+8. The right-click snippet actions now save more than flat text: each snippet can include sanitized selection HTML, derived markdown context, section-heading path, and normalized page metadata so later review has more structure.
 
 ## Workspace layout
 
@@ -361,6 +373,7 @@ Current (`M57`-`M64` implemented):
 - cleaned extracted markdown is the canonical `MARKDOWN` artifact used for narration text, chunk hashing, and episode descriptions.
 - canonical item, digest, and summary markdown now lives under `users/<userId>/markdown/...`; raw source artifacts, uploads, and audio continue to use their existing namespaces.
 - Summary Mode item summaries are stored at `users/<userId>/markdown/items/<itemId>/summary.md`; canonical full-article markdown remains at `users/<userId>/markdown/items/<itemId>/canonical.md`.
+- Podcast transcript imports store normalized transcript text at the same canonical item markdown path and then use the item summary path; they do not store audio/RSS/media artifacts.
 - source-item persistence cleanup is now conservative: it removes obvious wrapper junk plus footer/legal/navigation/share noise while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in `MARKDOWN`.
 - malformed leaked image wrapper fragments are normalized into URL-bearing stored content instead of being dropped outright, so the durable artifact keeps useful references while narration still suppresses them.
 - cleanup also removes isolated ISO/display timestamps, read-time pills, subscriber upsell paragraphs, and short trailing tag-list blocks; footer/legal detection is intentionally narrower so normal article prose is not flagged just for mentioning privacy/terms.

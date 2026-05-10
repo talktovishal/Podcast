@@ -47,7 +47,7 @@ function responseFallbackTitle(input: DigestSummaryRequest): string {
 type SerializedSummarySource = {
   itemId: string;
   title: string;
-  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
+  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT" | "PODCAST_TRANSCRIPT";
   sourceUrl: string;
   createdAt: string;
   markdownSnippet: string;

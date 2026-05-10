@@ -11,6 +11,7 @@ import {
 
 test("sourceTypeValues includes html_snapshot", () => {
   assert.ok(sourceTypeValues.includes("html_snapshot"));
+  assert.ok(sourceTypeValues.includes("podcast_transcript"));
 });
 
 test("submitHtmlSnapshotSchema accepts valid payload", () => {

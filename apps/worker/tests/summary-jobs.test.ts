@@ -9,6 +9,7 @@ import { prisma } from "../src/lib/prisma.js";
 import { resetSummaryProviderForTests } from "../src/lib/summary.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
 import { processJob } from "../src/jobs/processItemJob.js";
+import { processArticleSummaryTask } from "../src/jobs/processArticleSummaryTask.js";
 import { processSummaryRun } from "../src/jobs/processSummaryRunJob.js";
 
 let dbReady = false;
@@ -260,6 +261,218 @@ test("summary-only item job stores an item summary without creating an episode",
     assert.match(summaryMarkdown, /## Key points/);
     assert.match(summaryMarkdown, /Item summary/);
   } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processArticleSummaryTask completes a podcast transcript item without creating audio", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-article-summary-task`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `article-summary-task-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Podcast transcript ${uniq}`,
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: `https://podcasts.apple.com/us/podcast/example/id123?i=${uniq}`,
+        status: "QUEUED",
+        processingMode: "SUMMARY_ONLY",
+        summaryStatus: "PROCESSING"
+      }
+    });
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
+    const stored = await storage.putObject(
+      markdownKey,
+      Buffer.from(
+        `# Podcast transcript ${uniq}\n\nThis transcript contains enough useful detail for a summary. The speaker explains the topic, gives examples, and closes with practical implications for listeners.`,
+        "utf8"
+      ),
+      { contentType: "text/markdown; charset=utf-8" }
+    );
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+    const task = await prisma.articleSummaryTask.create({
+      data: {
+        itemId: item.id,
+        userId: user.id,
+        status: "QUEUED",
+        scheduledFor: new Date()
+      }
+    });
+
+    const processed = await processArticleSummaryTask(task.id);
+    assert.equal(processed, true);
+
+    const refreshed = await prisma.item.findUnique({
+      where: { id: item.id },
+      include: { episode: true, jobs: true, articleSummaryTask: true }
+    });
+    assert.equal(refreshed?.status, "READY");
+    assert.equal(refreshed?.summaryStatus, "SUCCEEDED");
+    assert.equal(refreshed?.summaryStorageKey, buildUserItemSummaryStorageKey(user.id, item.id));
+    assert.equal(refreshed?.episode, null);
+    assert.equal(refreshed?.jobs.length, 0);
+    assert.equal(refreshed?.articleSummaryTask, null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processArticleSummaryTask marks missing markdown failures retryable", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-article-summary-task-failed`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `article-summary-task-failed-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Missing markdown ${uniq}`,
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: `https://podcasts.apple.com/us/podcast/example/id123?i=${uniq}`,
+        status: "QUEUED",
+        processingMode: "SUMMARY_ONLY",
+        summaryStatus: "PROCESSING"
+      }
+    });
+    const task = await prisma.articleSummaryTask.create({
+      data: {
+        itemId: item.id,
+        userId: user.id,
+        status: "QUEUED",
+        scheduledFor: new Date()
+      }
+    });
+
+    const processed = await processArticleSummaryTask(task.id);
+    assert.equal(processed, false);
+
+    const [refreshedItem, refreshedTask] = await Promise.all([
+      prisma.item.findUnique({ where: { id: item.id } }),
+      prisma.articleSummaryTask.findUnique({ where: { id: task.id } })
+    ]);
+    assert.equal(refreshedItem?.status, "FAILED");
+    assert.equal(refreshedItem?.summaryStatus, "FAILED");
+    assert.equal(refreshedTask?.status, "FAILED");
+    assert.equal(refreshedTask?.attempt, 1);
+    assert.ok(refreshedTask?.nextRetryAt);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processArticleSummaryTask does not update item after lease mismatch", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-article-summary-task-lease`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `article-summary-task-lease-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  const originalFetch = globalThis.fetch;
+  workerEnv.digestSummaryProvider = "azure_openai";
+  workerEnv.azureOpenAiBaseUrl = "https://example.openai.azure.com";
+  workerEnv.azureOpenAiApiKey = "test-key";
+  resetSummaryProviderForTests();
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Lease mismatch ${uniq}`,
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: `https://podcasts.apple.com/us/podcast/example/id123?i=${uniq}`,
+        status: "QUEUED",
+        processingMode: "SUMMARY_ONLY",
+        summaryStatus: "PROCESSING"
+      }
+    });
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
+    const stored = await storage.putObject(
+      markdownKey,
+      Buffer.from(
+        `# Lease mismatch ${uniq}\n\nThis transcript has enough content to reach the summary provider before the lease is changed underneath the processor.`,
+        "utf8"
+      ),
+      { contentType: "text/markdown; charset=utf-8" }
+    );
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+    const task = await prisma.articleSummaryTask.create({
+      data: {
+        itemId: item.id,
+        userId: user.id,
+        status: "QUEUED",
+        scheduledFor: new Date()
+      }
+    });
+
+    globalThis.fetch = (async () => {
+      await prisma.articleSummaryTask.update({
+        where: { id: task.id },
+        data: { leaseId: "stolen-lease" }
+      });
+      return new Response(
+        JSON.stringify({
+          title: "Should not persist",
+          markdown: "# Should not persist\n\nA summary that must not update the item.",
+          plainText: "Should not persist"
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        }
+      );
+    }) as typeof fetch;
+
+    const processed = await processArticleSummaryTask(task.id);
+    assert.equal(processed, false);
+
+    const refreshed = await prisma.item.findUnique({ where: { id: item.id } });
+    assert.equal(refreshed?.status, "QUEUED");
+    assert.equal(refreshed?.summaryStatus, "PROCESSING");
+    assert.equal(refreshed?.summaryStorageKey, null);
+  } finally {
+    globalThis.fetch = originalFetch;
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

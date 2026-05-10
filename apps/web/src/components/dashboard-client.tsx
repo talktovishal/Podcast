@@ -260,6 +260,9 @@ function itemStatusHelpText(item: DashboardItem): string | null {
     !item.episode
   ) {
     if (item.summaryStatus === "SUCCEEDED") {
+      if (item.sourceType === "PODCAST_TRANSCRIPT") {
+        return "Summary is ready.";
+      }
       return "Summary is ready. TTS is available on request.";
     }
     if (item.summaryStatus === "FAILED") {
@@ -2086,11 +2089,15 @@ export function DashboardClient({
                 !recommendsChromeExtensionCapture(item.errorMessage);
               const hasSummary = item.summaryStatus === "SUCCEEDED";
               const isSummaryItem = item.processingMode === "SUMMARY_ONLY";
+              const isPodcastTranscript =
+                item.sourceType === "PODCAST_TRANSCRIPT";
               const hasMarkdown = item.markdownBytes !== null;
+              const canDownloadMarkdown = hasMarkdown && !isPodcastTranscript;
               const canRequestTts =
                 !readOnly &&
                 isSummaryItem &&
                 hasSummary &&
+                !isPodcastTranscript &&
                 !item.episode &&
                 !isPendingStatus(item.status);
               const isViewingSummary = summaryBusyItemId === item.id;
@@ -2112,7 +2119,7 @@ export function DashboardClient({
               const itemActionClassName =
                 "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs text-[var(--ink)] transition hover:border-slate-300 hover:bg-white";
               const hasActionRow =
-                Boolean(mediaUrl) || hasSummary || hasMarkdown || !readOnly;
+                Boolean(mediaUrl) || hasSummary || canDownloadMarkdown || !readOnly;
               const isDeletingItem = deleteBusyItemId === item.id;
 
               return (
@@ -2144,13 +2151,16 @@ export function DashboardClient({
                   </h3>
                   <p className="mt-1 break-words text-xs text-[var(--muted)]">
                     {item.sourceType === "URL" ||
-                    item.sourceType === "HTML_SNAPSHOT" ? (
+                    item.sourceType === "HTML_SNAPSHOT" ||
+                    item.sourceType === "PODCAST_TRANSCRIPT" ? (
                       item.sourceUrl ? (
                         <>
                           Source:{" "}
                           {item.sourceType === "HTML_SNAPSHOT"
                             ? "Captured via Chrome extension from "
-                            : ""}
+                            : item.sourceType === "PODCAST_TRANSCRIPT"
+                              ? "Podcast transcript from "
+                              : ""}
                           <a
                             className="break-all underline"
                             href={item.sourceUrl}
@@ -2225,7 +2235,7 @@ export function DashboardClient({
                               : "View summary"}
                           </button>
                         ) : null}
-                        {hasMarkdown ? (
+                        {canDownloadMarkdown ? (
                           <a
                             className={itemActionClassName}
                             download

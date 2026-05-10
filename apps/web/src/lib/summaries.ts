@@ -77,7 +77,7 @@ function toUserFacingSummaryRun(run: SummaryRunListEntry): SummaryRunListEntry {
 }
 
 function isSupportedSummarySourceType(sourceType: string): boolean {
-  return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT";
+  return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT" || sourceType === "PODCAST_TRANSCRIPT";
 }
 
 function compareNewestFirst<T extends { createdAt: Date; id: string }>(a: T, b: T): number {
@@ -149,7 +149,7 @@ export async function listSelectableSummaryItems(
       userId,
       status: "READY",
       sourceType: {
-        in: ["URL", "PDF", "HTML_SNAPSHOT"]
+        in: ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"]
       }
     },
     include: {
@@ -257,7 +257,7 @@ export async function createSummaryRunForUser(userId: string, input: CreateSumma
       userId,
       status: "READY",
       sourceType: {
-        in: ["URL", "PDF", "HTML_SNAPSHOT"]
+        in: ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"]
       }
     },
     include: {

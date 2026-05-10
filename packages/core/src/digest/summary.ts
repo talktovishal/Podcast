@@ -7,7 +7,7 @@ export type SummaryGenerationKind = "digest" | "summary_studio" | "item_summary"
 export type DigestSummarySource = {
   itemId: string;
   title: string | null;
-  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT";
+  sourceType: "URL" | "PDF" | "HTML_SNAPSHOT" | "PODCAST_TRANSCRIPT";
   sourceUrl: string | null;
   createdAt: Date;
   markdown: string;
@@ -70,6 +70,8 @@ function sourceLabel(sourceType: DigestSummarySource["sourceType"]): string {
       return "PDF";
     case "HTML_SNAPSHOT":
       return "Chrome extension";
+    case "PODCAST_TRANSCRIPT":
+      return "Podcast transcript";
     default:
       return sourceType;
   }

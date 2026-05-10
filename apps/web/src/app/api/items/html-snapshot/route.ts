@@ -1,4 +1,4 @@
-import { HTML_SNAPSHOT_MAX_BYTES, makeToken, submitHtmlSnapshotSchema } from "@articlepod/core";
+import { HTML_SNAPSHOT_MAX_BYTES, classifyTranscriptCandidate, makeToken, submitHtmlSnapshotSchema } from "@articlepod/core";
 import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserFromExtensionTokenRequest, getAuthUserFromRequest } from "@/lib/auth";
@@ -21,6 +21,39 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = submitHtmlSnapshotSchema.parse(await request.json());
+    const ip = getClientIp(request);
+    await enforceSubmitRateLimits(user.id, ip);
+
+    const transcriptCandidate = classifyTranscriptCandidate({ url: payload.url, html: payload.html });
+    if (transcriptCandidate.kind !== "none") {
+      const submission = await enqueueItem({
+        userId: user.id,
+        title: payload.title,
+        importance: payload.importance,
+        tags: payload.tags,
+        mode: "summary",
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: payload.url,
+        sourceCapturedAt: payload.capturedAt ? new Date(payload.capturedAt) : undefined
+      });
+      await logger.info("Podcast transcript capture item enqueued", {
+        requestId,
+        itemId: submission.item.id,
+        userId: user.id,
+        transcriptCandidate: transcriptCandidate.kind
+      });
+
+      return NextResponse.json({
+        ok: true,
+        item_id: submission.item.id,
+        status: submission.item.status.toLowerCase(),
+        queue_mode: submission.queueMode.toLowerCase(),
+        accepted_message: submission.acceptedMessage,
+        scheduled_for: submission.scheduledFor.toISOString(),
+        submission_quota: submission.submissionQuota
+      });
+    }
+
     const htmlBytes = Buffer.byteLength(payload.html, "utf8");
     if (htmlBytes > HTML_SNAPSHOT_MAX_BYTES) {
       return NextResponse.json(
@@ -32,9 +65,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const ip = getClientIp(request);
-    await enforceSubmitRateLimits(user.id, ip);
 
     const snapshotKey = normalizeStorageKey(join("uploads", user.id, `snapshot-${Date.now()}-${makeToken(8)}.html`));
     await getArtifactStorage().putObject(snapshotKey, Buffer.from(payload.html, "utf8"), {

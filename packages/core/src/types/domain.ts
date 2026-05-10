@@ -11,7 +11,7 @@ export type ItemImportance = ItemPriority;
 export const jobStatusValues = ["queued", "processing", "succeeded", "failed"] as const;
 export type JobStatus = (typeof jobStatusValues)[number];
 
-export const sourceTypeValues = ["url", "pdf", "html_snapshot"] as const;
+export const sourceTypeValues = ["url", "pdf", "html_snapshot", "podcast_transcript"] as const;
 export type SourceType = (typeof sourceTypeValues)[number];
 
 export const userRoleValues = ["user", "admin"] as const;

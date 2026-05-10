@@ -59,11 +59,13 @@ Monetization/quota fields on `User`:
 - `URL`
 - `PDF`
 - `HTML_SNAPSHOT` (Chrome extension captured HTML)
+- `PODCAST_TRANSCRIPT` (internal-only Apple Podcasts/direct transcript import; not a visible submit mode)
 
 The worker extraction adapter branches by source type:
 - URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + dual-candidate extraction (`Readability` and `defuddle`) + scored selection + cleanup, with fetched challenge/interstitial HTML classified before generic extraction fallback messaging
 - PDF: uploaded bytes from artifact storage + text extraction
 - HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup, including lightweight verification shells
+- Podcast transcript: web submit/capture routes detect Apple Podcasts episode pages and direct transcript files before normal article handling, resolve a public RSS `podcast:transcript` or direct VTT/SRT/TXT/HTML transcript, normalize it into canonical markdown, and enqueue only `ArticleSummaryTask` work
 
 ## Extraction Artifact Plane
 Current behavior (`M57`-`M64` implemented):
@@ -75,6 +77,7 @@ Current behavior (`M57`-`M64` implemented):
   - digest summary/email markdown retained under `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`
   - manual summary markdown retained under `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`
   - generated item/digest/summary episode audio retained for 60 days from `publishedAt` before purge removes the blob/object and episode row
+- `PODCAST_TRANSCRIPT` items store normalized transcript markdown as the canonical item `MARKDOWN` artifact only; they do not store Apple page snapshots, transcript raw-source artifacts, audio objects, or RSS/media state.
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
 - extracted-item markdown passes through shared rule-based cleanup before persistence:
@@ -92,14 +95,14 @@ Current behavior (`M57`-`M64` implemented):
 - extraction-quality verification lives in `testing/extraction-quality/`, which reuses the same core URL and snapshot extraction code paths but stops before DB writes and TTS.
 
 ## Async pipeline
-1. Web validates request and enqueues `Item` + `Job`.
+1. Web validates request and enqueues `Item` + `Job` for full episode and explicit TTS work. Summary-only URL/PDF/snapshot captures and internal podcast transcript imports materialize canonical markdown first, then enqueue `ArticleSummaryTask` instead of a podcast/audio `Job`.
    - before enqueue, submission quota is consumed atomically for non-paid users.
    - item episode jobs also enqueue a tiny dispatch message (`jobId`, `kind`) so workers can use a competing-consumer pull model without scanning the durable job table.
 2. Worker reserves one visible dispatch message and then claims the matching durable job lease.
    - the durable job row carries `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
    - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
-4. For `SUMMARY_ONLY`, worker generates and stores item summary markdown, marks the item ready, and skips TTS/audio/RSS publication.
+4. For `ArticleSummaryTask`, worker reads the existing canonical `MARKDOWN` artifact, generates and stores item summary markdown, marks the item ready, and skips TTS/audio/RSS publication.
 5. For `FULL_EPISODE` and `REQUEST_TTS`, worker chunks text deterministically and rejects sources above `WORKER_TTS_MAX_CHUNKS` before TTS starts.
 6. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
 7. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
@@ -108,13 +111,24 @@ Current behavior (`M57`-`M64` implemented):
 
 ## Summary Mode pipeline
 1. User toggles `/app` between `FULL_EPISODE` and `SUMMARY_ONLY`; the default persists on `User.defaultItemProcessingMode`.
-2. Submit routes pass an explicit `mode` from the web form or inherit the persisted default for Chrome/PDF/API captures.
-3. `SUMMARY_ONLY` jobs store canonical item markdown exactly like full episodes, then call the summary provider with `kind=item_summary`.
+2. Submit routes pass an explicit `mode` from the web form or inherit the persisted default for Chrome/PDF/API captures. Internal `PODCAST_TRANSCRIPT` detection overrides the effective mode to `SUMMARY_ONLY`.
+3. `SUMMARY_ONLY` captures store canonical item markdown exactly like full episodes, then enqueue `ArticleSummaryTask`.
 4. Summary output is stored at `users/<userId>/markdown/items/<itemId>/summary.md` and reflected on the `Item.summary*` metadata fields.
 5. No `Episode`, audio object, RSS item, or media token is created for summary-only completion.
-6. `POST /api/items/:id/request-tts` queues a `REQUEST_TTS` job, consumes normal podcast capacity, and the worker prefers the stored canonical markdown so explicit audio requests do not depend on re-fetching the original page.
+6. `POST /api/items/:id/request-tts` queues a `REQUEST_TTS` job, consumes normal podcast capacity, and the worker prefers the stored canonical markdown so explicit audio requests do not depend on re-fetching the original page. `PODCAST_TRANSCRIPT` items are rejected here.
 7. Retry preserves the last job kind, so summary failures retry as summaries and failed explicit TTS requests retry as TTS.
 8. Downstream synthesis reads summary artifacts selectively: digests prefer them as compact source inputs, while wiki preparation prepends them to the full article markdown instead of replacing the source.
+
+## Internal Podcast Transcript Detection
+
+This is an extraction/synthesis path, not an RSS/media feature. The user still pastes into `Submit URL` or uses extension capture/upload page. The server internally detects:
+
+- Apple Podcasts episode URLs from the URL itself or from the captured tab URL, requiring the `i=` episode id.
+- Direct public transcript URLs when the extension or content type is clearly VTT, SRT, TXT, or HTML.
+
+Apple episode resolution uses Apple lookup to find the publisher RSS feed, matches the episode by GUID first and conservative title/date fallback second, then reads `podcast:transcript` tags from the matched item. Transcript formats are preferred in order: `text/vtt`, `application/x-subrip`, `text/plain`, then `text/html`. The resolver rejects private/internal transcript URLs, unsupported formats, oversized files, empty/garbage text, Apple show pages without an episode id, and podcast episodes with no public transcript. It does not scrape Apple's transcript UI, fetch enclosures, run ASR, launch a browser, or support Spotify/YouTube Music in v1.
+
+Successful transcript imports create `Item.sourceType=PODCAST_TRANSCRIPT`, force `processingMode=SUMMARY_ONLY`, write canonical markdown, and create `ArticleSummaryTask`. Failed confident podcast detections create a failed `PODCAST_TRANSCRIPT` item so Recent items can show the extraction message.
 
 ## Billing flow
 1. Authenticated user starts `Pro monthly` or `Pro annual` checkout from `/pricing` or `/app/settings`.

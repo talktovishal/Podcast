@@ -13,6 +13,7 @@ import {
   POST as processingModePost,
 } from "../src/app/api/account/processing-mode/route";
 import { POST as htmlSnapshotPost } from "../src/app/api/items/html-snapshot/route";
+import { POST as urlPost } from "../src/app/api/items/url/route";
 import { POST as retryPost } from "../src/app/api/items/[id]/retry/route";
 import { POST as requestTtsPost } from "../src/app/api/items/[id]/request-tts/route";
 import { GET as itemSummaryGet } from "../src/app/api/items/[id]/summary/route";
@@ -21,6 +22,11 @@ import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 
 let dbReady = false;
+const originalFetch = globalThis.fetch;
+
+test.afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 function ensureDbBootstrap(): void {
   if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
@@ -44,6 +50,88 @@ function ensureDbBootstrap(): void {
   }
 
   dbReady = true;
+}
+
+const LONG_TRANSCRIPT_TEXT = [
+  "Speaker: This public transcript contains enough useful detail for ArticlePod to summarize from an Apple Podcasts page.",
+  "The host introduces the question, the guest gives a concrete answer, and the discussion includes practical implications.",
+  "A later section adds caveats, examples, and a clear closing reflection that should survive transcript cleanup."
+].join(" ");
+
+function transcriptResponse(body: string, contentType = "text/plain; charset=utf-8"): Response {
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": contentType,
+      "content-length": String(Buffer.byteLength(body, "utf8")),
+    },
+  });
+}
+
+function mockAppleTranscriptFetch(input?: { includeTranscript?: boolean }) {
+  const includeTranscript = input?.includeTranscript !== false;
+  globalThis.fetch = (async (request: RequestInfo | URL) => {
+    const url =
+      request instanceof URL
+        ? request.toString()
+        : typeof request === "string"
+          ? request
+          : request.url;
+    if (url.startsWith("https://itunes.apple.com/lookup")) {
+      return transcriptResponse(
+        JSON.stringify({
+          results: [
+            {
+              wrapperType: "track",
+              kind: "podcast",
+              collectionId: 123456789,
+              trackId: 123456789,
+              collectionName: "Example Show",
+              feedUrl: "https://example.com/podcast-feed.xml",
+            },
+            {
+              wrapperType: "podcastEpisode",
+              kind: "podcast-episode",
+              collectionId: 123456789,
+              trackId: 1000000001,
+              collectionName: "Example Show",
+              trackName: "Episode One",
+              feedUrl: "https://example.com/podcast-feed.xml",
+              episodeGuid: "episode-guid-1",
+              releaseDate: "2026-05-01T00:00:00Z",
+            },
+          ],
+        }),
+        "application/json",
+      );
+    }
+    if (url === "https://example.com/podcast-feed.xml") {
+      return transcriptResponse(
+        `<?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0" xmlns:podcast="https://podcastindex.org/namespace/1.0">
+          <channel>
+            <item>
+              <title>Episode One</title>
+              <guid>episode-guid-1</guid>
+              ${
+                includeTranscript
+                  ? '<podcast:transcript url="https://example.com/episode-one.vtt" type="text/vtt" />'
+                  : ""
+              }
+            </item>
+          </channel>
+        </rss>`,
+        "application/rss+xml",
+      );
+    }
+    if (url === "https://example.com/episode-one.vtt") {
+      return transcriptResponse(
+        `WEBVTT\n\n00:00:00.000 --> 00:00:04.000\n${LONG_TRANSCRIPT_TEXT}`,
+        "text/vtt",
+      );
+    }
+    throw new Error(`Unexpected fetch ${url}`);
+  }) as typeof fetch;
 }
 
 test("processing mode setting makes new captures summary-only by default", async () => {
@@ -125,6 +213,211 @@ test("processing mode setting makes new captures summary-only by default", async
     });
     assert.ok(markdownArtifact);
     assert.ok(markdownArtifact.byteLength > 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("Apple podcast episode URL imports as an internal transcript summary item", async () => {
+  ensureDbBootstrap();
+  mockAppleTranscriptFetch();
+  const uniq = `${Date.now().toString(36)}-podcast-url`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `podcast-url-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart",
+    },
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const response = await urlPost(
+      new NextRequest("http://localhost/api/items/url", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`,
+        },
+        body: JSON.stringify({
+          url: "https://podcasts.apple.com/us/podcast/example-show/id123456789?i=1000000001",
+          title: `Podcast transcript ${uniq}`,
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as { item_id: string };
+    const item = await prisma.item.findUnique({
+      where: { id: payload.item_id },
+      include: { jobs: true, articleSummaryTask: true, episode: true },
+    });
+    assert.equal(item?.sourceType, "PODCAST_TRANSCRIPT");
+    assert.equal(item?.processingMode, "SUMMARY_ONLY");
+    assert.equal(item?.summaryStatus, "PROCESSING");
+    assert.equal(item?.jobs.length, 0);
+    assert.equal(item?.episode, null);
+    assert.equal(item?.articleSummaryTask?.status, "QUEUED");
+
+    const markdownArtifact = await prisma.itemArtifact.findUnique({
+      where: { itemId_kind: { itemId: payload.item_id, kind: "MARKDOWN" } },
+    });
+    assert.ok(markdownArtifact);
+    const markdown = (
+      await getArtifactStorage().getObject(
+        buildUserItemMarkdownStorageKey(user.id, payload.item_id),
+      )
+    ).toString("utf8");
+    assert.match(markdown, /# Episode One/);
+    assert.match(markdown, /practical implications/);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("Apple podcast page capture bypasses HTML snapshot storage and imports transcript", async () => {
+  ensureDbBootstrap();
+  mockAppleTranscriptFetch();
+  const uniq = `${Date.now().toString(36)}-podcast-capture`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `podcast-capture-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart",
+    },
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const response = await htmlSnapshotPost(
+      new NextRequest("http://localhost/api/items/html-snapshot", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`,
+        },
+        body: JSON.stringify({
+          url: "https://podcasts.apple.com/us/podcast/example-show/id123456789?i=1000000001",
+          title: `Captured podcast transcript ${uniq}`,
+          html: "<html><body><main>Apple Podcasts episode page shell</main></body></html>",
+          capturedAt: "2026-05-10T00:00:00.000Z",
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as { item_id: string };
+    const item = await prisma.item.findUnique({
+      where: { id: payload.item_id },
+      include: { jobs: true, articleSummaryTask: true, artifacts: true },
+    });
+    assert.equal(item?.sourceType, "PODCAST_TRANSCRIPT");
+    assert.equal(item?.sourceFilePath, null);
+    assert.equal(item?.sourceHtml, null);
+    assert.equal(item?.jobs.length, 0);
+    assert.equal(item?.articleSummaryTask?.status, "QUEUED");
+    assert.deepEqual(
+      item?.artifacts.map((artifact) => artifact.kind).sort(),
+      ["MARKDOWN"],
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("Apple podcast episode without a public transcript creates a failed visible item", async () => {
+  ensureDbBootstrap();
+  mockAppleTranscriptFetch({ includeTranscript: false });
+  const uniq = `${Date.now().toString(36)}-podcast-missing-transcript`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `podcast-missing-transcript-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart",
+    },
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const response = await urlPost(
+      new NextRequest("http://localhost/api/items/url", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`,
+        },
+        body: JSON.stringify({
+          url: "https://podcasts.apple.com/us/podcast/example-show/id123456789?i=1000000001",
+        }),
+      }),
+    );
+    assert.equal(response.status, 200);
+    const payload = (await response.json()) as { item_id: string };
+    const item = await prisma.item.findUnique({
+      where: { id: payload.item_id },
+      include: { jobs: true, articleSummaryTask: true, episode: true },
+    });
+    assert.equal(item?.sourceType, "PODCAST_TRANSCRIPT");
+    assert.equal(item?.status, "FAILED");
+    assert.equal(item?.summaryStatus, "FAILED");
+    assert.equal(item?.errorCode, "PODCAST_TRANSCRIPT_NOT_FOUND");
+    assert.equal(
+      item?.errorMessage,
+      "Could not find a public transcript for this podcast episode.",
+    );
+    assert.equal(item?.jobs.length, 0);
+    assert.equal(item?.articleSummaryTask, null);
+    assert.equal(item?.episode, null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("request TTS rejects podcast transcript summary items", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-podcast-request-tts`;
+  const user = await prisma.user.create({
+    data: {
+      email: `podcast-request-tts-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart",
+    },
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        sourceType: "PODCAST_TRANSCRIPT",
+        sourceUrl: "https://podcasts.apple.com/us/podcast/example-show/id123456789?i=1000000001",
+        status: "READY",
+        processingMode: "SUMMARY_ONLY",
+        summaryStatus: "SUCCEEDED",
+      },
+    });
+
+    const response = await requestTtsPost(
+      new NextRequest(`http://localhost/api/items/${item.id}/request-tts`, {
+        method: "POST",
+        headers: {
+          cookie: `articlepod_session=${session}`,
+        },
+      }),
+      { params: Promise.resolve({ id: item.id }) },
+    );
+    assert.equal(response.status, 409);
+    const payload = (await response.json()) as {
+      error_code: string;
+      error_message: string;
+    };
+    assert.equal(payload.error_code, "INVALID_STATE");
+    assert.match(payload.error_message, /can't be turned into audio episodes/);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
