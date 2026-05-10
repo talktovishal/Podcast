@@ -9,6 +9,7 @@ import { resolvePrismaSchemaPath } from "./prisma-profile.mjs";
 const repoRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const cacheDir = path.resolve(repoRoot, ".cache");
 const cachePath = path.resolve(cacheDir, "prisma-generate-state.json");
+const activeCacheKey = "__active";
 const require = createRequire(import.meta.url);
 
 function parseArgs(argv) {
@@ -117,14 +118,20 @@ function main() {
   const signature = schemaSignature();
   const cacheKey = `${process.env.RUNTIME_PROFILE || "simple"}:${process.env.METADATA_PRIMARY_BACKEND || "prisma"}`;
   const cached = cache[cacheKey];
+  const active = cache[activeCacheKey];
 
   const needsGenerate =
     options.force ||
     !generatedClientExists() ||
     !cached ||
+    !active ||
+    active.cacheKey !== cacheKey ||
     cached.schemaPath !== signature.schemaPath ||
     cached.schemaMtimeMs !== signature.schemaMtimeMs ||
-    cached.prismaClientVersion !== signature.prismaClientVersion;
+    cached.prismaClientVersion !== signature.prismaClientVersion ||
+    active.schemaPath !== signature.schemaPath ||
+    active.schemaMtimeMs !== signature.schemaMtimeMs ||
+    active.prismaClientVersion !== signature.prismaClientVersion;
 
   if (!needsGenerate) {
     console.log(`[ensure-prisma-generated] up to date for ${cacheKey}`);
@@ -135,6 +142,7 @@ function main() {
   runGenerate();
 
   cache[cacheKey] = signature;
+  cache[activeCacheKey] = { cacheKey, ...signature };
   saveCache(cache);
 }
 

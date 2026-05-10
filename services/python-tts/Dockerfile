@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg wget git
 COPY services/python-tts/requirements.txt ./requirements.txt
 COPY services/python-tts/requirements.providers.txt ./requirements.providers.txt
 
-RUN pip install --no-cache-dir -r requirements.txt -r requirements.providers.txt
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.10.0 torchaudio==2.10.0 \
+    && PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu pip install --no-cache-dir -r requirements.txt -r requirements.providers.txt
 RUN mkdir -p /usr/local/share/nltk_data /usr/local/share/unidic
 COPY services/python-tts/bootstrap_assets.py ./bootstrap_assets.py
 RUN python ./bootstrap_assets.py

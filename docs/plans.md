@@ -4005,7 +4005,7 @@ Milestone metadata contract:
 - status: Done
 - target_finish: 2026-04-29
 - completed_on: 2026-04-29
-- evidence: local implementation + targeted typecheck/test pass (2026-04-29)
+- evidence: local implementation + targeted typecheck/test pass (2026-04-29); Postgres parity schema alignment + regression pass (2026-05-10)
 - Scope:
   - Add a per-user `/app` workspace-header processing-mode slider for future URL/PDF/Chrome captures.
   - Let `SUMMARY_ONLY` submissions extract/store canonical markdown, then queue `ArticleSummaryTask` rows for the remaining per-item summary generation while skipping TTS/RSS until explicit user request.
@@ -4014,6 +4014,7 @@ Milestone metadata contract:
   - Add separate paid daily Summary Mode capacity while keeping explicit TTS on normal podcast capacity.
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
   - `apps/web/prisma/migrations/20260429120000_add_summary_mode/migration.sql`
   - `packages/core/src/types/domain.ts`
   - `packages/core/src/digest/summary.ts`
@@ -4044,6 +4045,7 @@ Milestone metadata contract:
   - Paid plan defaults are updated: monthly `12` podcast/day + `36` summary-mode/day + `15` manual summaries/7 days; annual `15` podcast/day + `45` summary-mode/day + `30` manual summaries/7 days.
 - Migration/backfill plan:
   - Expand-only Prisma migration adds `User.defaultItemProcessingMode`, `Item.processingMode`, `Item.summary*`, and `Job.jobKind` with backward-compatible defaults.
+  - Postgres parity/fallback schema mirrors the same additive fields and `ArticleSummaryTask` model; `db:bootstrap`/deploy schema sync applies them without resets.
   - Azure Table primary rows dual-read defaults when the new properties are absent, so existing users/items/jobs remain valid without a table reset.
   - Existing items remain `FULL_EPISODE` / `NOT_REQUESTED` until reprocessed or explicitly summarized through new work.
   - New summary blobs are additive under `users/<userId>/markdown/items/<itemId>/summary.md`; cleanup on item/account deletion removes these blobs.

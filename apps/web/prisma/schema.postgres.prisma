@@ -34,6 +34,7 @@ model User {
   isPaid       Boolean     @default(false)
   submissionCount Int      @default(0)
   extraSubmissionCredits Int @default(0)
+  defaultItemProcessingMode String @default("FULL_EPISODE")
   ttsProvider  String      @default("kokoro")
   ttsVoice     String      @default("af_heart")
   firstSeenAt  DateTime?
@@ -139,11 +140,24 @@ model Item {
   sourceHtml    String?
   sourceCapturedAt DateTime?
   status        String      @default("QUEUED")
+  processingMode String     @default("FULL_EPISODE")
   priority      String      @default("LOW")
   tagsJson      String      @default("[]")
   errorCode     String?
   errorMessage  String?
   textHash      String?
+  summaryStatus String      @default("NOT_REQUESTED")
+  summaryTitle  String?
+  summaryStorageKey String?
+  summaryBytes  Int?
+  summaryProvider String?
+  summaryModel String?
+  summaryDeployment String?
+  summaryInputTokens Int?
+  summaryOutputTokens Int?
+  summaryErrorCode String?
+  summaryErrorMessage String?
+  summaryCompletedAt DateTime?
   extractionEngine String?
   extractionSelectionMode String?
   extractionScoreMargin Float?
@@ -157,12 +171,36 @@ model Item {
   jobEvents     JobEvent[]
   episode       Episode?
   artifacts     ItemArtifact[]
+  articleSummaryTask ArticleSummaryTask?
   chunkCaches   ChunkCache[]
   summaryRunItems SummaryRunItem[]
   demoExtractionTrace DemoExtractionTrace?
   analyticsEvents AnalyticsEvent[]
 
   @@index([userId, status])
+}
+
+model ArticleSummaryTask {
+  id           String    @id @default(cuid())
+  itemId       String    @unique
+  userId       String
+  status       String    @default("QUEUED")
+  attempt      Int       @default(0)
+  scheduledFor DateTime?
+  nextRetryAt  DateTime?
+  lockedAt     DateTime?
+  leaseId      String?
+  leaseOwner   String?
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
+  @@index([userId, createdAt])
 }
 
 model Snippet {
@@ -270,6 +308,7 @@ model Episode {
 model Job {
   id          String    @id @default(cuid())
   itemId      String
+  jobKind     String    @default("FULL_EPISODE")
   attempt     Int       @default(0)
   status      String    @default("QUEUED")
   lockedAt    DateTime?
