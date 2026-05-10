@@ -10,7 +10,7 @@ Group=articlepod
 WorkingDirectory=/opt/articlepod
 EnvironmentFile=/etc/articlepod/articlepod.env
 ExecStartPre=/usr/bin/env bash -lc 'for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:8010/health >/dev/null && exit 0; sleep 2; done; echo "python-tts did not become healthy before worker startup" >&2; exit 1'
-ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/worker run start'
+ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run start'
 Restart=always
 RestartSec=5
 TimeoutStartSec=60

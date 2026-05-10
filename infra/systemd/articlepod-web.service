@@ -9,7 +9,7 @@ User=articlepod
 Group=articlepod
 WorkingDirectory=/opt/articlepod
 EnvironmentFile=/etc/articlepod/articlepod.env
-ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure npx pnpm --filter @articlepod/web run start'
+ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod && RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run start'
 Restart=always
 RestartSec=5
 TimeoutStartSec=60
