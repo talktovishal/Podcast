@@ -21,6 +21,7 @@ Use this as the entry point for repo documentation.
 ## Supporting Docs
 - OAuth setup: `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 - Branding notes: `/Users/vishalchowdhary/Documents/Podcast/docs/branding.md`
+- Future podcast transcript coverage options: `/Users/vishalchowdhary/Documents/Podcast/docs/podcast-transcript-future-options.md`
 - Third-party attribution: `/Users/vishalchowdhary/Documents/Podcast/docs/THIRD_PARTY.md`
 - Cost model notes: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-cost-model.md`
 - Billing handoff and Stripe setup checklist: `/Users/vishalchowdhary/Documents/Podcast/docs/billing/README.md`
