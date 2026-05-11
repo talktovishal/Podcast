@@ -18,6 +18,10 @@ Use this as the entry point for repo documentation.
 - Implementation status and helper flows: `/Users/vishalchowdhary/Documents/Podcast/docs/implement.md`
 - Milestone tracking: `/Users/vishalchowdhary/Documents/Podcast/docs/plans.md`
 
+## Launch And Marketing
+- Short-form launch production kit: `/Users/vishalchowdhary/Documents/Podcast/docs/launch/short-form-launch-kit.md`
+- Short-form launch calendar CSV: `/Users/vishalchowdhary/Documents/Podcast/docs/launch/short-form-calendar.csv`
+
 ## Supporting Docs
 - OAuth setup: `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 - Branding notes: `/Users/vishalchowdhary/Documents/Podcast/docs/branding.md`
