@@ -103,7 +103,7 @@ Current behavior (`M57`-`M64` implemented):
    - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
 4. For `ArticleSummaryTask`, worker reads the existing canonical `MARKDOWN` artifact, generates and stores item summary markdown, marks the item ready, and skips TTS/audio/RSS publication.
-5. For `FULL_EPISODE` and `REQUEST_TTS`, worker chunks text deterministically and rejects sources above `WORKER_TTS_MAX_CHUNKS` before TTS starts.
+5. For `FULL_EPISODE` and `REQUEST_TTS`, worker chunks text deterministically. If full-episode narration exceeds `WORKER_TTS_MAX_CHUNKS` and no matching full-audio cache exists, the worker generates a shorter item summary, prepends a spoken disclosure that the transcript was summarized because it was too long, stores the summary artifact, and synthesizes the episode from that summarized narration. If the summary provider is rate-limited/unavailable or returns narration that still exceeds the ceiling, the worker falls back to a bounded deterministic abridged summary before TTS. `SOURCE_TOO_LONG` is reserved for the final invariant safety-net case where narration still cannot fit.
 6. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
 7. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
 8. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.

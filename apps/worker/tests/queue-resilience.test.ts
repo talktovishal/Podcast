@@ -3,12 +3,23 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chunkText, cleanExtractedMarkdown, errorCodes, hasNarratableText, markdownToNarrationText, sha256 } from "@articlepod/core";
+import {
+  StubSummaryProvider,
+  chunkText,
+  cleanExtractedMarkdown,
+  digestTargetWords,
+  errorCodes,
+  hasNarratableText,
+  markdownToNarrationText,
+  resolveEpisodeTitle,
+  sha256
+} from "@articlepod/core";
 import { extractHtmlSnapshot } from "@articlepod/core/src/extract/html";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
 import { processJob, processNextQueuedJob } from "../src/jobs/processItemJob.js";
+import { LONG_SOURCE_SUMMARY_NOTICE, automaticSummaryTargetLengthMinutes } from "../src/lib/narrationLimits.js";
 
 let dbReady = false;
 
@@ -63,6 +74,58 @@ async function seedCacheForHtml(itemId: string, userId: string, html: string, ur
       hash: cacheKey,
       filePath: `items/test-${itemId}/episode.mp3`,
       audioBytes: 1024,
+      mimeType: "audio/mpeg"
+    }
+  });
+
+  return cacheKey;
+}
+
+async function seedAutomaticSummaryCacheForHtml(input: {
+  itemId: string;
+  userId: string;
+  title?: string | null;
+  html: string;
+  url: string;
+  jobCreatedAt: Date;
+}): Promise<string> {
+  const extracted = extractHtmlSnapshot({ html: input.html, url: input.url });
+  const cleanedMarkdown = cleanExtractedMarkdown(extracted.markdown);
+  const narrationText = markdownToNarrationText(cleanedMarkdown);
+  const resolvedTitle = input.title?.trim() || resolveEpisodeTitle(extracted.title, narrationText);
+  const targetLengthMinutes = automaticSummaryTargetLengthMinutes(workerEnv.ttsMaxChunks);
+  const summary = await new StubSummaryProvider().summarize({
+    kind: "item_summary",
+    cadence: "DAILY",
+    timezone: "UTC",
+    periodKey: input.itemId,
+    windowStart: input.jobCreatedAt,
+    windowEnd: input.jobCreatedAt,
+    targetLengthMinutes,
+    targetWords: digestTargetWords(targetLengthMinutes),
+    requestedTitle: resolvedTitle,
+    sources: [
+      {
+        itemId: input.itemId,
+        title: resolvedTitle,
+        sourceType: "HTML_SNAPSHOT",
+        sourceUrl: input.url,
+        createdAt: input.jobCreatedAt,
+        markdown: cleanedMarkdown
+      }
+    ]
+  });
+  const summaryNarration = [LONG_SOURCE_SUMMARY_NOTICE, summary.plainText].join("\n\n");
+  const chunks = chunkText(summaryNarration, workerEnv.ttsChunkMaxChars);
+  const cacheKey = sha256([input.userId, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
+
+  await prisma.chunkCache.create({
+    data: {
+      itemId: input.itemId,
+      chunkIndex: 0,
+      hash: cacheKey,
+      filePath: `items/test-summary-${input.itemId}/episode.mp3`,
+      audioBytes: 2048,
       mimeType: "audio/mpeg"
     }
   });
@@ -492,7 +555,7 @@ test("processes oversized snapshot when chunk cache is available", async () => {
   }
 });
 
-test("fails oversized snapshot before synthesis when chunk cache is unavailable", async () => {
+test("summarizes oversized snapshot before synthesis when full-audio cache is unavailable", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-oversize-no-cache`;
 
@@ -527,21 +590,33 @@ test("fails oversized snapshot before synthesis when chunk cache is unavailable"
       attempt: 0
     }
   });
+  const summaryCacheKey = await seedAutomaticSummaryCacheForHtml({
+    itemId: item.id,
+    userId: user.id,
+    title: item.title,
+    html: oversizedHtml,
+    url: item.sourceUrl ?? "",
+    jobCreatedAt: job.createdAt
+  });
 
   try {
     const processed = await processJob(job.id);
-    assert.equal(processed, false);
+    assert.equal(processed, true);
 
     const finishedJob = await prisma.job.findUnique({ where: { id: job.id } });
     const finishedItem = await prisma.item.findUnique({ where: { id: item.id } });
     const episode = await prisma.episode.findUnique({ where: { itemId: item.id } });
 
-    assert.equal(finishedJob?.status, "FAILED");
-    assert.equal(finishedJob?.errorCode, errorCodes.SOURCE_TOO_LONG);
-    assert.equal(finishedItem?.status, "FAILED");
-    assert.equal(finishedItem?.errorCode, errorCodes.SOURCE_TOO_LONG);
-    assert.match(finishedItem?.errorMessage ?? "", /too long to narrate/);
-    assert.equal(episode, null);
+    assert.equal(finishedJob?.status, "SUCCEEDED");
+    assert.equal(finishedJob?.errorCode, null);
+    assert.equal(finishedItem?.status, "READY");
+    assert.equal(finishedItem?.errorCode, null);
+    assert.equal(finishedItem?.textHash, summaryCacheKey);
+    assert.equal(finishedItem?.summaryStatus, "SUCCEEDED");
+    assert.match(finishedItem?.summaryStorageKey ?? "", /summary\.md$/);
+    assert.ok((finishedItem?.summaryBytes ?? 0) > 0);
+    assert.equal(episode?.audioPath, `items/test-summary-${item.id}/episode.mp3`);
+    assert.match(episode?.description ?? "", /summarized transcript/i);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }

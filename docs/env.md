@@ -176,7 +176,7 @@ Behavior:
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `AUDIO_RETENTION_DAYS` (default `60`; stamps item/digest/summary episode audio expiry from `publishedAt` for feed/media hiding + purge)
 - `WORKER_TTS_CHUNK_MAX_CHARS` (default `1800`; Azure production env rendering defaults this to `1200` for steadier Kokoro chunk latency)
-- `WORKER_TTS_MAX_CHUNKS` (default `24`; fail extracted/narration content before TTS when one episode would exceed this chunk count)
+- `WORKER_TTS_MAX_CHUNKS` (default `24`; full-episode narration above this chunk count triggers the automatic summarized-transcript podcast fallback before TTS. If the summary provider is unavailable or still returns too much text, the worker uses a bounded deterministic abridged summary so the episode can fit; `SOURCE_TOO_LONG` remains a final invariant safety net.)
 - `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)
 
 ## Metadata primary + mirror controls

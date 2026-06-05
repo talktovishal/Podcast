@@ -32,13 +32,21 @@ import {
   shouldSuggestHtmlSnapshotForError,
   withLogContext,
   sha256,
+  type DigestSummaryResponse,
   type ItemJobKind,
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
 import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
-import { assertNarrationChunkLimit } from "../lib/narrationLimits.js";
+import {
+  LONG_SOURCE_SUMMARY_NOTICE,
+  assertNarrationChunkLimit,
+  automaticSummaryTargetLengthMinutes,
+  buildLongSourceSummaryNarration,
+  fitLongSourceSummaryNarration,
+  shouldSummarizeLongSource
+} from "../lib/narrationLimits.js";
 import { prisma } from "../lib/prisma.js";
 import { makeTtsProvider } from "../lib/providers.js";
 import { makeSummaryProvider } from "../lib/summary.js";
@@ -103,6 +111,21 @@ type ClaimedDispatchJob = {
   dispatchMessage: ReservedDispatchQueueMessage | null;
 };
 
+type CompletedItemSummaryPatch = {
+  summaryStatus: "SUCCEEDED";
+  summaryTitle: string;
+  summaryStorageKey: string;
+  summaryBytes: number;
+  summaryProvider: string;
+  summaryModel: string;
+  summaryDeployment: string | null;
+  summaryInputTokens: number | null;
+  summaryOutputTokens: number | null;
+  summaryErrorCode: null;
+  summaryErrorMessage: null;
+  summaryCompletedAt: Date;
+};
+
 const DEMO_TRACE_LIMIT = 10;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 const PUBLISHED_AUDIO_FORMAT = "mp3" as const;
@@ -131,6 +154,20 @@ function generateTraceId(): string {
 
 function generateSpanId(): string {
   return randomBytes(8).toString("hex");
+}
+
+function buildTtsCacheKey(
+  userId: string,
+  selection: { providerId: string; voice: string },
+  chunks: ReturnType<typeof chunkText>
+): string {
+  return sha256([userId, selection.providerId, selection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
+}
+
+async function findChunkCacheByHash(cacheKey: string) {
+  return workerUsesAzureTablePrimary() && workerPrimaryStore
+    ? workerPrimaryStore.findChunkCacheByHash(cacheKey)
+    : prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
 }
 
 function logNow() {
@@ -720,6 +757,56 @@ async function loadStoredMarkdownArtifact(itemId: string): Promise<{ markdown: s
     markdown: cleanExtractedMarkdown(content.toString("utf8")),
     storageKey: artifact.storageKey,
     bytes: artifact.byteLength
+  };
+}
+
+function buildPlainTextSummaryMarkdown(title: string, plainText: string): string {
+  const heading = title.trim() || "Summarized transcript";
+  const body = plainText.trim() || "The original source was too long to fit into one podcast episode.";
+  return [`# ${heading}`, "", body].join("\n");
+}
+
+function buildDeterministicLongSourceSummary(input: {
+  title: string;
+  sourceNarrationText: string;
+  maxChunks: number;
+  chunkMaxChars: number;
+}): {
+  summary: DigestSummaryResponse;
+  narrationText: string;
+  chunks: ReturnType<typeof chunkText>;
+  wasClamped: boolean;
+  originalChunkCount: number;
+} {
+  const fallbackBody = [
+    "Here is an abridged version of the source, condensed to fit this podcast episode.",
+    input.sourceNarrationText.trim()
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const fitted = fitLongSourceSummaryNarration({
+    summaryBody: fallbackBody,
+    maxChunks: Math.max(1, Math.min(input.maxChunks, 8)),
+    chunkMaxChars: input.chunkMaxChars
+  });
+  const title = input.title.trim() || "Summarized transcript";
+  const plainText = fitted.summaryBody || "The original source was too long to fit into one podcast episode.";
+
+  return {
+    summary: {
+      title,
+      markdown: buildPlainTextSummaryMarkdown(title, plainText),
+      plainText,
+      provider: "deterministic",
+      model: "long-source-abridged-v1",
+      deployment: null,
+      inputTokens: null,
+      outputTokens: null
+    },
+    narrationText: fitted.narrationText,
+    chunks: fitted.chunks,
+    wasClamped: fitted.wasClamped,
+    originalChunkCount: fitted.originalChunkCount
   };
 }
 
@@ -1995,7 +2082,9 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       return true;
     }
 
-    const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
+    let episodeNarrationText = narrationText;
+    let chunks = chunkText(episodeNarrationText, workerEnv.ttsChunkMaxChars);
+    let automaticSummaryItemPatch: CompletedItemSummaryPatch | null = null;
     if (chunks.length === 0) {
       throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
     }
@@ -2013,13 +2102,190 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       voice: ttsSelection.voice
     });
 
-    const cacheKey = sha256([item.userId, ttsSelection.providerId, ttsSelection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
-    const cacheHit =
-      workerUsesAzureTablePrimary() && workerPrimaryStore
-        ? await workerPrimaryStore.findChunkCacheByHash(cacheKey)
-        : await prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
+    let cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
+    let cacheHit = await findChunkCacheByHash(cacheKey);
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
+    if (!cacheHit && shouldSummarizeLongSource(chunks.length, workerEnv.ttsMaxChunks)) {
+      const originalChunkCount = chunks.length;
+      await workerLogger.warn("Narration exceeds configured audio chunk limit; generating summarized podcast", {
+        chunkCount: originalChunkCount,
+        maxChunks: workerEnv.ttsMaxChunks,
+        sourceType: item.sourceType
+      });
+      appendExtractionLog(extractionLogs, "tts", "Narration exceeds chunk limit; generating summarized podcast", {
+        chunkCount: originalChunkCount,
+        maxChunks: workerEnv.ttsMaxChunks,
+        chunkMaxChars: workerEnv.ttsChunkMaxChars
+      });
+
+      stage = "tts";
+      await renewClaimLease(claimResult, "Creating summarized podcast...");
+      assertLeaseHealthy();
+
+      const summaryProvider = makeSummaryProvider();
+      const preferredTargetLengthMinutes = automaticSummaryTargetLengthMinutes(workerEnv.ttsMaxChunks);
+      const targetLengthCandidates = preferredTargetLengthMinutes === 15 ? ([15, 5] as const) : ([5] as const);
+      const summarySourceType =
+        item.sourceType === "URL" ||
+        item.sourceType === "PDF" ||
+        item.sourceType === "HTML_SNAPSHOT"
+          ? item.sourceType
+          : "URL";
+      let selectedSummary: DigestSummaryResponse | null = null;
+      let selectedSummaryTargetLengthMinutes: 5 | 15 = preferredTargetLengthMinutes;
+      let selectedSummaryBody = "";
+      let selectedNarrationText = "";
+      let selectedChunks: ReturnType<typeof chunkText> = [];
+      let lastSummaryProviderError: unknown = null;
+
+      for (const targetLengthMinutes of targetLengthCandidates) {
+        let summary: DigestSummaryResponse;
+        try {
+          summary = await summaryProvider.summarize({
+            kind: "item_summary",
+            cadence: "DAILY",
+            timezone: "UTC",
+            periodKey: item.id,
+            windowStart: claimResult.createdAt,
+            windowEnd: now(),
+            targetLengthMinutes,
+            targetWords: digestTargetWords(targetLengthMinutes),
+            requestedTitle: resolvedTitle,
+            sources: [
+              {
+                itemId: item.id,
+                title: resolvedTitle,
+                sourceType: summarySourceType,
+                sourceUrl: item.sourceUrl,
+                createdAt: claimResult.createdAt,
+                markdown: cleanedMarkdown
+              }
+            ]
+          });
+        } catch (error) {
+          lastSummaryProviderError = error;
+          await workerLogger.warn("Automatic long-source summary provider failed; trying bounded fallback", {
+            itemId: item.id,
+            targetLengthMinutes,
+            error: formatDiagnostic(error)
+          });
+          appendExtractionLog(extractionLogs, "tts", "Automatic summary provider failed", {
+            targetLengthMinutes,
+            error: formatDiagnostic(error)
+          });
+          continue;
+        }
+
+        const summaryBody = (summary.plainText || markdownToNarrationText(summary.markdown)).trim();
+        if (!hasNarratableText(summaryBody)) {
+          throw new AppError(errorCodes.EXTRACTION_EMPTY, "The automatic summary was empty.", 502);
+        }
+
+        const summaryNarrationText = buildLongSourceSummaryNarration(summaryBody);
+        const summaryChunks = chunkText(summaryNarrationText, workerEnv.ttsChunkMaxChars);
+        selectedSummary = summary;
+        selectedSummaryTargetLengthMinutes = targetLengthMinutes;
+        selectedSummaryBody = summaryBody;
+        selectedNarrationText = summaryNarrationText;
+        selectedChunks = summaryChunks;
+
+        if (!shouldSummarizeLongSource(summaryChunks.length, workerEnv.ttsMaxChunks)) {
+          break;
+        }
+
+        appendExtractionLog(extractionLogs, "tts", "Generated summary still exceeds chunk limit", {
+          targetLengthMinutes,
+          chunkCount: summaryChunks.length,
+          maxChunks: workerEnv.ttsMaxChunks
+        });
+      }
+
+      if (!selectedSummary || selectedChunks.length === 0) {
+        const fallback = buildDeterministicLongSourceSummary({
+          title: resolvedTitle,
+          sourceNarrationText: episodeNarrationText,
+          maxChunks: workerEnv.ttsMaxChunks,
+          chunkMaxChars: workerEnv.ttsChunkMaxChars
+        });
+        selectedSummary = fallback.summary;
+        selectedSummaryTargetLengthMinutes = 5;
+        selectedSummaryBody = fallback.summary.plainText;
+        selectedNarrationText = fallback.narrationText;
+        selectedChunks = fallback.chunks;
+        await workerLogger.warn("Using deterministic bounded summary for long source", {
+          itemId: item.id,
+          originalChunkCount,
+          summarizedChunkCount: selectedChunks.length,
+          providerError: lastSummaryProviderError ? formatDiagnostic(lastSummaryProviderError) : null
+        });
+        appendExtractionLog(extractionLogs, "tts", "Using deterministic bounded summary", {
+          originalChunkCount,
+          summarizedChunkCount: selectedChunks.length,
+          providerError: lastSummaryProviderError ? formatDiagnostic(lastSummaryProviderError) : null
+        });
+      }
+
+      if (shouldSummarizeLongSource(selectedChunks.length, workerEnv.ttsMaxChunks)) {
+        const fitted = fitLongSourceSummaryNarration({
+          summaryBody: selectedSummaryBody,
+          maxChunks: workerEnv.ttsMaxChunks,
+          chunkMaxChars: workerEnv.ttsChunkMaxChars
+        });
+        selectedSummaryBody = fitted.summaryBody;
+        selectedNarrationText = fitted.narrationText;
+        selectedChunks = fitted.chunks;
+        selectedSummary = {
+          ...selectedSummary,
+          markdown: buildPlainTextSummaryMarkdown(selectedSummary.title, selectedSummaryBody),
+          plainText: selectedSummaryBody
+        };
+        await workerLogger.warn("Clamped generated long-source summary to fit audio chunk limit", {
+          itemId: item.id,
+          originalSummaryChunkCount: fitted.originalChunkCount,
+          clampedChunkCount: selectedChunks.length,
+          maxChunks: workerEnv.ttsMaxChunks
+        });
+        appendExtractionLog(extractionLogs, "tts", "Clamped generated summary to fit chunk limit", {
+          originalSummaryChunkCount: fitted.originalChunkCount,
+          clampedChunkCount: selectedChunks.length,
+          maxChunks: workerEnv.ttsMaxChunks
+        });
+      }
+      assertNarrationChunkLimit(selectedChunks.length, workerEnv.ttsMaxChunks);
+
+      const summaryStorageKey = buildUserItemSummaryStorageKey(item.userId, item.id);
+      const storedSummary = await getArtifactStorage().putObject(summaryStorageKey, Buffer.from(selectedSummary.markdown, "utf8"), {
+        contentType: "text/markdown; charset=utf-8"
+      });
+      const summaryCompletedAt = now();
+      automaticSummaryItemPatch = {
+        summaryStatus: "SUCCEEDED",
+        summaryTitle: selectedSummary.title,
+        summaryStorageKey: storedSummary.key,
+        summaryBytes: storedSummary.bytes,
+        summaryProvider: selectedSummary.provider,
+        summaryModel: selectedSummary.model,
+        summaryDeployment: selectedSummary.deployment ?? null,
+        summaryInputTokens: selectedSummary.inputTokens ?? null,
+        summaryOutputTokens: selectedSummary.outputTokens ?? null,
+        summaryErrorCode: null,
+        summaryErrorMessage: null,
+        summaryCompletedAt
+      };
+      episodeNarrationText = selectedNarrationText;
+      chunks = selectedChunks;
+      cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
+      cacheHit = await findChunkCacheByHash(cacheKey);
+      appendExtractionLog(extractionLogs, "tts", "Summarized podcast narration prepared", {
+        originalChunkCount,
+        summarizedChunkCount: chunks.length,
+        targetLengthMinutes: selectedSummaryTargetLengthMinutes,
+        storageKey: storedSummary.key,
+        bytes: storedSummary.bytes
+      });
+    }
+
     if (cacheHit) {
       await workerLogger.info("TTS cache hit", {
         cacheKey,
@@ -2110,7 +2376,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     }
 
     const guid = `episode-${item.id}`;
-    const description = buildEpisodeDescription(narrationText);
+    const description = buildEpisodeDescription(episodeNarrationText);
     const publishedAt = now();
     const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
@@ -2138,7 +2404,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         textHash: cacheKey,
         sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
         errorCode: null,
-        errorMessage: null
+        errorMessage: null,
+        ...(automaticSummaryItemPatch ?? {})
       });
       const completedJob = await workerPrimaryStore.updateJobIfLeaseMatches(claimResult.id, claimResult.leaseId ?? "", {
         status: "SUCCEEDED",
@@ -2209,7 +2476,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
             textHash: cacheKey,
             sourceHtml: item.sourceType === "HTML_SNAPSHOT" ? null : undefined,
             errorCode: null,
-            errorMessage: null
+            errorMessage: null,
+            ...(automaticSummaryItemPatch ?? {})
           }
         });
       });
