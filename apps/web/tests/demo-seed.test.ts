@@ -162,6 +162,8 @@ test("azure runtime defaults guard python-tts memory on production deploys", () 
 
   assert.match(renderEnvSource, /^WORKER_TTS_CHUNK_MAX_CHARS=\$\{WORKER_TTS_CHUNK_MAX_CHARS:-1200\}$/m);
   assert.match(renderEnvSource, /^WORKER_TTS_MAX_CHUNKS=\$\{WORKER_TTS_MAX_CHUNKS:-24\}$/m);
+  assert.match(renderEnvSource, /^WORKER_TTS_SEGMENT_MAX_ATTEMPTS=\$\{WORKER_TTS_SEGMENT_MAX_ATTEMPTS:-3\}$/m);
+  assert.match(renderEnvSource, /^WORKER_TTS_SEGMENT_RETRY_BASE_MS=\$\{WORKER_TTS_SEGMENT_RETRY_BASE_MS:-2000\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_RSS_MB=\$\{PYTHON_TTS_RECYCLE_RSS_MB:-4096\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_RECYCLE_IDLE_SECONDS=\$\{PYTHON_TTS_RECYCLE_IDLE_SECONDS:-10\}$/m);
   assert.match(renderEnvSource, /^PYTHON_TTS_SYSTEMD_MEMORY_HIGH=\$\{PYTHON_TTS_SYSTEMD_MEMORY_HIGH:-5G\}$/m);
@@ -173,6 +175,8 @@ test("azure runtime defaults guard python-tts memory on production deploys", () 
   assert.match(pythonTtsUnitSource, /StartLimitIntervalSec=0/);
   assert.match(pythonTtsUnitSource, /RestartSec=3/);
   assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_RSS_MB"/);
+  assert.match(overflowDeploySource, /"WORKER_TTS_SEGMENT_MAX_ATTEMPTS"/);
+  assert.match(overflowDeploySource, /"WORKER_TTS_SEGMENT_RETRY_BASE_MS"/);
   assert.match(overflowDeploySource, /"PYTHON_TTS_RECYCLE_IDLE_SECONDS"/);
 });
 

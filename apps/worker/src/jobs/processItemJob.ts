@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
@@ -34,6 +35,7 @@ import {
   sha256,
   type DigestSummaryResponse,
   type ItemJobKind,
+  type TtsProvider,
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
@@ -124,6 +126,12 @@ type CompletedItemSummaryPatch = {
   summaryErrorCode: null;
   summaryErrorMessage: null;
   summaryCompletedAt: Date;
+};
+
+type SynthesizeEpisodeAudioOptions = {
+  provider?: TtsProvider;
+  maxSegmentAttempts?: number;
+  segmentRetryBaseMs?: number;
 };
 
 const DEMO_TRACE_LIMIT = 10;
@@ -388,22 +396,64 @@ export async function synthesizeEpisodeAudio(
   selection: { providerId: TtsProviderId; voice: string },
   onProgress?: (current: number, total: number) => Promise<void> | void,
   outputKey?: string,
-  outputFormat: "mp3" | "m4a" = PUBLISHED_AUDIO_FORMAT
+  outputFormat: "mp3" | "m4a" = PUBLISHED_AUDIO_FORMAT,
+  options?: SynthesizeEpisodeAudioOptions
 ): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
-  const provider = makeTtsProvider({ providerId: selection.providerId });
+  const provider = options?.provider ?? makeTtsProvider({ providerId: selection.providerId });
   const extension = outputFormat === "mp3" ? "mp3" : "m4a";
   const mimeType = outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
   const relativePath = normalizeStorageKey(outputKey || join("items", itemId, `episode.${extension}`));
   const tempDir = await mkdtemp(join(tmpdir(), "articlepod-worker-"));
   const tempOutputPath = join(tempDir, `episode.${extension}`);
+  const maxSegmentAttempts = Math.max(1, options?.maxSegmentAttempts ?? workerEnv.ttsSegmentMaxAttempts);
+  const segmentRetryBaseMs = Math.max(0, options?.segmentRetryBaseMs ?? workerEnv.ttsSegmentRetryBaseMs);
+
+  const synthesizeSegment = async (input: {
+    text: string;
+    outPath: string;
+    segmentIndex: number;
+    totalSegments: number;
+  }) => {
+    for (let attempt = 1; attempt <= maxSegmentAttempts; attempt += 1) {
+      try {
+        await provider.synthesizeToFile({
+          text: input.text,
+          voice: selection.voice,
+          format: outputFormat,
+          outPath: input.outPath
+        });
+        return;
+      } catch (error) {
+        const canRetry = attempt < maxSegmentAttempts && isRetryableTtsSegmentError(error);
+        if (!canRetry) {
+          throw error;
+        }
+        const delayMs = ttsSegmentRetryDelayMs(attempt, segmentRetryBaseMs);
+        await workerLogger.warn("TTS segment synthesis failed; retrying", {
+          itemId,
+          providerId: selection.providerId,
+          voice: selection.voice,
+          segmentIndex: input.segmentIndex,
+          totalSegments: input.totalSegments,
+          attempt,
+          maxAttempts: maxSegmentAttempts,
+          delayMs,
+          error: formatDiagnostic(error)
+        });
+        if (delayMs > 0) {
+          await sleep(delayMs);
+        }
+      }
+    }
+  };
 
   try {
     if (chunks.length === 1) {
-      await provider.synthesizeToFile({
+      await synthesizeSegment({
         text: chunks[0]?.text ?? "",
-        voice: selection.voice,
-        format: outputFormat,
-        outPath: tempOutputPath
+        outPath: tempOutputPath,
+        segmentIndex: 0,
+        totalSegments: 1
       });
       if (onProgress) {
         await onProgress(1, 1);
@@ -413,11 +463,11 @@ export async function synthesizeEpisodeAudio(
       for (let index = 0; index < chunks.length; index += 1) {
         const segmentPath = join(tempDir, `segment-${index}.${extension}`);
         const segmentText = chunks[index]?.text ?? "";
-        await provider.synthesizeToFile({
+        await synthesizeSegment({
           text: segmentText,
-          voice: selection.voice,
-          format: outputFormat,
-          outPath: segmentPath
+          outPath: segmentPath,
+          segmentIndex: index,
+          totalSegments: chunks.length
         });
         if (onProgress) {
           await onProgress(index + 1, chunks.length);
@@ -440,6 +490,30 @@ export async function synthesizeEpisodeAudio(
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
+}
+
+export function isRetryableTtsSegmentError(error: unknown): boolean {
+  if (!(error instanceof AppError)) {
+    return true;
+  }
+  if (error.code !== errorCodes.TTS_FAILED) {
+    return false;
+  }
+
+  const message = error.userMessage.toLowerCase();
+  if (message.includes("timed out") || message.includes("finalizing the episode")) {
+    return false;
+  }
+  return error.status >= 500;
+}
+
+function ttsSegmentRetryDelayMs(attempt: number, baseDelayMs: number): number {
+  if (baseDelayMs <= 0) {
+    return 0;
+  }
+  const exponential = Math.min(30_000, baseDelayMs * 2 ** Math.max(0, attempt - 1));
+  const jitter = Math.floor(Math.random() * Math.min(baseDelayMs, 1_000));
+  return exponential + jitter;
 }
 
 function runBinary(cmd: string, args: string[]): Promise<void> {

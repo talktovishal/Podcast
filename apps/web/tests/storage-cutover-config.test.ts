@@ -63,7 +63,7 @@ test("article summary task README documents the implemented storage contract", (
     "listNextEligibleArticleSummaryTasks(now, maxRetryAttempts, limit)",
     "users/<userId>/markdown/items/<itemId>/canonical.md",
     "users/<userId>/markdown/items/<itemId>/summary.md",
-    "not wired into `apps/worker/src/index.ts` yet"
+    "`apps/worker/src/index.ts` now runs the article summary task processor in the primary polling loop"
   ]) {
     assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

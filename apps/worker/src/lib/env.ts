@@ -184,6 +184,8 @@ export const workerEnv = {
   audioRetentionDays: toPositiveInt(process.env.AUDIO_RETENTION_DAYS ?? process.env.WORKER_AUDIO_RETENTION_DAYS, 60),
   ttsChunkMaxChars: Number(process.env.WORKER_TTS_CHUNK_MAX_CHARS ?? 1800),
   ttsMaxChunks: toPositiveInt(process.env.WORKER_TTS_MAX_CHUNKS, DEFAULT_TTS_MAX_CHUNKS),
+  ttsSegmentMaxAttempts: toPositiveInt(process.env.WORKER_TTS_SEGMENT_MAX_ATTEMPTS, 3),
+  ttsSegmentRetryBaseMs: toNonNegativeInt(process.env.WORKER_TTS_SEGMENT_RETRY_BASE_MS, 2_000),
   digestInternalSchedulerEnabled: (process.env.DIGEST_INTERNAL_SCHEDULER_ENABLED ?? "1") !== "0",
   digestSchedulerTickMs: Number(process.env.DIGEST_SCHEDULER_TICK_MS ?? 60_000),
   digestSchedulerSecret: process.env.DIGEST_SCHEDULER_SECRET ?? "",
