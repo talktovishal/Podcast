@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Building Scalable Microservices: Lessons from Five Years in Production | by Alex Rivera | Medium</title>
+  <meta property="og:title" content="Building Scalable Microservices: Lessons from Five Years in Production" />
+  <meta property="og:site_name" content="Medium" />
+  <meta property="article:author" content="Alex Rivera" />
+  <style>
+    .metabar { background: #fff; border-bottom: 1px solid #e0e0e0; }
+    .postArticle { max-width: 680px; margin: 0 auto; }
+    .section-inner { padding: 0 20px; }
+    .graf--trailing { opacity: 0.5; }
+  </style>
+  <script>
+    window.__APOLLO_STATE__ = {};
+  </script>
+</head>
+<body>
+  <header class="metabar">
+    <nav>
+      <a href="/">Medium</a>
+      <a href="/membership">Membership</a>
+      <button>Write</button>
+      <button>Sign In</button>
+    </nav>
+  </header>
+
+  <main>
+    <article class="postArticle">
+      <div class="postArticle-header">
+        <h1>Building Scalable Microservices: Lessons from Five Years in Production</h1>
+        <div class="postMeta">
+          <a href="/@alexrivera" class="author">Alex Rivera</a>
+          <span>Published in <a href="/better-programming">Better Programming</a></span>
+          <time datetime="2026-03-10">Mar 10, 2026</time>
+          <span>12 min read</span>
+        </div>
+      </div>
+
+      <div class="section-inner">
+        <p>Five years ago, our team made the decision to migrate from a monolithic architecture to microservices. It was one of the most challenging and rewarding technical decisions we have ever made. Along the way, we learned lessons that no architecture document or conference talk could have prepared us for. This is the story of what worked, what failed spectacularly, and what we would do differently if we started over today.</p>
+
+        <h2>The Starting Point</h2>
+        <p>Our monolith was a Rails application that had grown organically over eight years. It handled everything from user authentication to payment processing to real-time notifications. At its peak, it contained over two million lines of code, had a test suite that took forty-five minutes to run, and deployments required coordination across three teams. Any change, no matter how small, carried the risk of unexpected side effects in unrelated parts of the system.</p>
+
+        <p>We did not set out to build microservices because it was trendy. We chose this path because our deployment bottleneck was costing us real money. Feature velocity had dropped by sixty percent over two years, and our best engineers were spending more time managing complexity than building new capabilities.</p>
+
+        <h2>Lesson One: Start with the Domain, Not the Technology</h2>
+        <p>Our first mistake was letting technology choices drive our service boundaries. We created services based on technology stacks rather than business domains. We had a "Python ML Service," a "Node Real-time Service," and a "Go Performance Service." This led to overlapping responsibilities, circular dependencies, and services that did not map cleanly to any business capability.</p>
+
+        <p>After six months of pain, we reorganized around domain-driven design principles. Services were redrawn to align with business capabilities: User Identity, Order Management, Payment Processing, Inventory, Notifications, and Analytics. This single change eliminated most of our inter-service coupling issues and made the system dramatically easier to reason about.</p>
+
+        <h2>Lesson Two: Invest in Observability from Day One</h2>
+        <p>In a monolith, when something goes wrong, you have one set of logs to search and one process to debug. In a microservice architecture, a single user request might touch fifteen services, and a failure in any one of them can cascade in unexpected ways.</p>
+
+        <p>We initially underinvested in observability and paid the price. Our mean time to resolution for production incidents doubled in the first three months after migration. We eventually built a comprehensive observability stack that included distributed tracing, structured logging with correlation IDs, service mesh metrics, and automated anomaly detection. These tools transformed our ability to diagnose and resolve issues quickly.</p>
+
+        <h2>Lesson Three: The Network Is Not Reliable</h2>
+        <p>This seems obvious in retrospect, but the practical implications of unreliable network communication are enormous. In a monolith, a function call either succeeds or throws an exception. In a distributed system, a request might succeed on the remote end but fail to deliver the response, leaving you in an ambiguous state.</p>
+
+        <p>We learned to design every inter-service communication to be idempotent and to implement robust retry strategies with exponential backoff and circuit breakers. We adopted event sourcing for critical business operations so that we could always reconstruct the current state from a sequence of immutable events, even if individual service calls failed or were delivered out of order.</p>
+
+        <h2>Lesson Four: Automate Everything or Drown</h2>
+        <p>Managing one application is straightforward. Managing thirty-seven services, each with its own deployment pipeline, configuration, scaling rules, and monitoring alerts, is a full-time job for multiple engineers unless you automate aggressively.</p>
+
+        <p>We built an internal platform team whose sole mission was to make it easy for product teams to deploy, monitor, and operate their services. They created standardized service templates, automated CI/CD pipelines, infrastructure as code templates, and self-service dashboards that let any engineer deploy to production with confidence.</p>
+
+        <h2>What We Would Do Differently</h2>
+        <p>If we started over today, we would begin with a well-structured modular monolith and only extract services when specific scaling or organizational needs demanded it. We would invest in contract testing from the very beginning. We would establish an internal developer platform before extracting the first service, not after. And we would be much more conservative about our initial service boundaries, erring on the side of fewer, larger services rather than many small ones.</p>
+
+        <p>Microservices are a powerful architectural pattern, but they are not a silver bullet. The complexity they introduce is real and significant. They make sense when your organization has the scale, the engineering culture, and the operational maturity to support them. For everyone else, a well-designed monolith is not just acceptable, it is often the right choice.</p>
+      </div>
+
+      <div class="tags">
+        <a href="/tag/microservices">Microservices</a>
+        <a href="/tag/software-architecture">Software Architecture</a>
+        <a href="/tag/devops">DevOps</a>
+        <a href="/tag/engineering">Engineering</a>
+      </div>
+
+      <div class="postActions">
+        <button>Clap</button>
+        <span>4.2K claps</span>
+        <button>Respond</button>
+        <button>Share</button>
+      </div>
+    </article>
+
+    <section class="related-posts">
+      <h3>More from Better Programming</h3>
+      <div class="stream-item">
+        <a href="/post1">Understanding Event-Driven Architecture</a>
+      </div>
+      <div class="stream-item">
+        <a href="/post2">The Case for Modular Monoliths</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <nav>
+      <a href="/about">About</a>
+      <a href="/help">Help</a>
+      <a href="/terms">Terms</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+  </footer>
+</body>
+</html>
