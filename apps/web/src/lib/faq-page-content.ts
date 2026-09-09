@@ -186,18 +186,18 @@ export function buildFaqPageContent(input: {
             question: "Does ArticlePod build a personal wiki too?",
             chips: ["getting-started"],
             schemaAnswer:
-              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is hand-curated, so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
             blocks: [
               {
                 type: "paragraph",
-                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is hand-curated, so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
               },
               {
                 type: "bullets",
                 items: [
                   "Articles, PDFs, and snippets can all contribute to the same evolving knowledge base.",
                   "The wiki is available on Pro Annual rather than Starter or Pro Monthly.",
-                  "The wiki is rebuilt daily so the durable artifact keeps compounding instead of going stale.",
+                  "The wiki is hand-curated so the durable artifact keeps compounding instead of going stale.",
                   "That makes the product feel closer to a living reading system than a one-time conversion tool.",
                 ],
               },
