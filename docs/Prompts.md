@@ -156,7 +156,7 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - The bot user-agent now advertises the canonical `articlepod.com` domain instead of a local-only hostname.
   - Only confirmed server-blocked URL failures (for example pinned and hostname fetches both `403`) now steer users toward Chrome extension capture; generic extraction failures keep the normal retry path.
 - Production URL extraction diagnostics automation is implemented:
-  - manual GitHub Actions workflow `Probe URL Extraction (VM)` runs DNS/HEAD/extraction probes for an arbitrary URL from the production VM path using existing SSH secrets (no new public debug endpoint).
+  - manual GitHub Actions workflow `Probe URL Extraction (VM)` runs DNS/HEAD/extraction probes for public article URLs from the production VM path (no new public debug endpoint). It requires original-repository `main`, saved host pins, and the legacy environment guard, and shares deployment concurrency. Temporary keys and remote probe files are cleaned up. It is not migrated to vault mode. Inputs/logs/artifacts must not contain private links.
 - Podcast compatibility and feed quality hardening are implemented:
   - published item and digest episodes default to MP3 (`audio/mpeg`) enclosures for broader client compatibility.
   - episode descriptions are normalized to sentence-based summaries to avoid raw markdown/noise in podcast app episode cards.

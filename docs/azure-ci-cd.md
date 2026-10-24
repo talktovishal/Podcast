@@ -108,6 +108,23 @@ Recommended daily flow:
 7. Use `full-ci` or manual dispatch when you want parity before merge
 8. Let `Nightly Full CI` catch deep build/export/observability/parity regressions on `main`
 
+### VM extraction diagnostics
+
+**Probe URL Extraction (VM)** is a separate, manual legacy-only diagnostic.
+It requires original-repository `main`, independently saved host pins, and the
+legacy configuration guard before transferring or executing probe code. It
+shares production deployment concurrency, uses job-owned temporary SSH files,
+and removes its unique temporary remote script on exit. `fail_on_error=false`
+can tolerate an extraction failure, not failed SSH or missing structured output.
+It is not a vault diagnostic or an alternative access path around migration
+gates. After vault cutover, keep it blocked until separately integrated.
+
+Only supply public article URLs. Inputs, response headers, extraction metadata,
+logs, and artifacts are retained and may be visible after repository
+publication. Do not submit private feeds, credential-bearing URLs, or private
+customer material. Historical runs/artifacts need a separate exposure review;
+hardening the current workflow does not sanitize old records.
+
 ## Deployment Process
 
 The workflow performs:

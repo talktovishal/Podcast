@@ -237,7 +237,7 @@
 - URL extraction error semantics now normalize invalid pinned-address failures to explicit connection guidance (instead of generic fetch-failed wording) for clearer user retry behavior and operator triage.
 - The extraction bot user-agent now points to the canonical `https://articlepod.com` domain.
 - Only confirmed server-blocked URL failures now surface Chrome extension capture guidance and suppress retry affordances; broader extraction failures still use the standard retry messaging.
-- Production URL extraction diagnostics now include a manual GitHub Actions VM probe workflow (`Probe URL Extraction (VM)`) that executes DNS/HEAD/core extraction checks from the VM network path without exposing public debug endpoints.
+- Production URL extraction diagnostics include a manual VM probe for public article URLs. It now requires original-repository `main`, explicit host pins, guarded legacy configuration, shared deployment concurrency, and temporary credential/probe cleanup. It remains legacy-only pending a separate vault-mode diagnostic integration. Historical logs/artifacts and private-link exposure still require publication review.
 - Geo + demographics profile track (`M83`) is implemented:
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.

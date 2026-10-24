@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: "Target URL to validate/extract from the production VM"
+        description: "Public article URL only. URL and diagnostics are retained in logs/artifacts; never supply private links."
         required: true
         type: string
       fail_on_error:
@@ -16,8 +16,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: deploy-azure-main
+  cancel-in-progress: false
+
 jobs:
   probe:
+    if: github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
@@ -37,6 +42,20 @@ jobs:
             echo "::error::URL input is required"
             exit 1
           fi
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+          value = os.environ["TARGET_URL"]
+          try:
+              url = urlsplit(value)
+              valid = (url.scheme in ("http", "https") and url.hostname and
+                       url.username is None and url.password is None and
+                       not any(ord(char) < 32 or ord(char) == 127 for char in value))
+          except ValueError:
+              valid = False
+          if not valid:
+              raise SystemExit("A public HTTP(S) article URL without embedded credentials is required")
+          PY
           if [ -z "$TARGET_HOST" ]; then
             echo "::error::AZURE_VM_HOST secret is not configured"
             exit 1
@@ -53,18 +72,8 @@ jobs:
       - name: Setup SSH credentials
         env:
           AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-          printf "%s\n" "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
-          chmod 600 ~/.ssh/articlepod_azure
-          {
-            echo "Host *"
-            echo "    StrictHostKeyChecking no"
-            echo "    UserKnownHostsFile=/dev/null"
-            echo "    LogLevel QUIET"
-          } > ~/.ssh/config
-          chmod 600 ~/.ssh/config
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+        run: bash scripts/azure/setup-deployment-ssh.sh
 
       - name: Run VM URL probe
         id: probe
@@ -76,38 +85,52 @@ jobs:
         run: |
           set -euo pipefail
 
-          TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure"
-          PROBE_FILE="/tmp/articlepod-probe-url-extract.ts"
-          LOG_FILE="/tmp/probe-url-extraction.log"
+          TARGET_SSH_KEY="$RUNNER_TEMP/articlepod-ssh/identity"
+          TARGET_KNOWN_HOSTS_FILE="$RUNNER_TEMP/articlepod-ssh/known_hosts"
+          TARGET_PORT=22
+          source scripts/azure/deployment-ssh.sh
+          configure_deployment_ssh 15 15 4
+          REMOTE="${TARGET_USER}@${TARGET_HOST}"
+          ssh "${SSH_ARGS[@]}" "$REMOTE" "sudo -n python3 - /etc/articlepod/articlepod.env" \
+            < scripts/azure/assert-legacy-deploy.py
+
           ARTIFACT_DIR="$RUNNER_TEMP/probe-url-extraction"
+          LOG_FILE="$ARTIFACT_DIR/probe.log"
           JSON_FILE="$ARTIFACT_DIR/probe.json"
           mkdir -p "$ARTIFACT_DIR"
-
-          scp -i "$TARGET_SSH_KEY" scripts/azure/probe-url-extract.ts "${TARGET_USER}@${TARGET_HOST}:${PROBE_FILE}"
 
           url_host="$(python3 -c 'from urllib.parse import urlparse; import sys; print(urlparse(sys.argv[1]).hostname or "")' "$TARGET_URL")"
           escaped_target_url="$(printf '%q' "$TARGET_URL")"
           escaped_url_host="$(printf '%q' "$url_host")"
-          escaped_probe_file="$(printf '%q' "$PROBE_FILE")"
-          remote_cmd="set -euo pipefail; \
-            echo '== VM host DNS check =='; \
-            if [ -n \"\$URL_HOST\" ]; then getent hosts \"\$URL_HOST\" || true; fi; \
-            echo '== VM direct HEAD check =='; \
-            curl -I --max-time 25 \"\$TARGET_URL\" || true; \
-            echo '== VM extraction probe =='; \
-            cd /opt/articlepod; \
-            corepack pnpm --filter @articlepod/web exec tsx \"\$PROBE_FILE\" \"\$TARGET_URL\""
+          remote_cmd="$(cat <<'SH'
+          set -euo pipefail
+          probe_dir="$(mktemp -d /tmp/articlepod-probe.XXXXXXXXXX)"
+          trap 'rm -f -- "$probe_dir/probe.ts"; rmdir -- "$probe_dir"' EXIT
+          cat > "$probe_dir/probe.ts"
+          echo '== VM host DNS check =='
+          if [ -n "$URL_HOST" ]; then getent hosts "$URL_HOST" || true; fi
+          echo '== VM direct HEAD check =='
+          curl -I --max-time 25 "$TARGET_URL" || true
+          echo '== VM extraction probe =='
+          cd /opt/articlepod
+          corepack pnpm --filter @articlepod/web exec tsx "$probe_dir/probe.ts" "$TARGET_URL"
+          SH
+          )"
           escaped_remote_cmd="$(printf '%q' "$remote_cmd")"
 
           set +e
-          ssh -i "$TARGET_SSH_KEY" "${TARGET_USER}@${TARGET_HOST}" \
-            "TARGET_URL=$escaped_target_url URL_HOST=$escaped_url_host PROBE_FILE=$escaped_probe_file bash -lc $escaped_remote_cmd" > "$LOG_FILE" 2>&1
+          ssh "${SSH_ARGS[@]}" "$REMOTE" \
+            "TARGET_URL=$escaped_target_url URL_HOST=$escaped_url_host bash -lc $escaped_remote_cmd" \
+            < scripts/azure/probe-url-extract.ts > "$LOG_FILE" 2>&1
           probe_status=$?
           set -e
 
           cat "$LOG_FILE"
 
-          cp "$LOG_FILE" "$ARTIFACT_DIR/probe.log"
+          if [ "$probe_status" -eq 255 ]; then
+            echo "::error::SSH transport failed; fail_on_error cannot bypass trusted access"
+            exit "$probe_status"
+          fi
 
           python3 - "$LOG_FILE" "$JSON_FILE" <<'PY'
           import json
@@ -127,7 +150,7 @@ jobs:
                   continue
               try:
                   payload, _ = decoder.raw_decode(text[start:])
-              except Exception:
+              except json.JSONDecodeError:
                   continue
               json_path.write_text(json.dumps(payload, indent=2) + "\n")
               break
@@ -139,6 +162,7 @@ jobs:
                       "message": "Could not extract structured probe JSON from workflow log"
                   }
               }, indent=2) + "\n")
+              raise SystemExit("The probe did not return structured extraction output")
           PY
 
           if [ "$probe_status" -ne 0 ] && [ "$FAIL_ON_ERROR" = "true" ]; then
@@ -150,15 +174,20 @@ jobs:
             echo "::warning::URL extraction probe failed but workflow is configured to continue"
           fi
 
+      - name: Remove temporary SSH credentials
+        if: always()
+        run: bash scripts/azure/setup-deployment-ssh.sh cleanup
+
       - name: Probe summary
         if: always()
         env:
           TARGET_URL: ${{ inputs.url }}
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
         run: |
           echo "## URL Probe Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: \`$TARGET_URL\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- VM host: \`${{ secrets.AZURE_VM_HOST }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- VM host: \`$TARGET_HOST\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Fail on error: \`${{ inputs.fail_on_error }}\`" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload probe artifact

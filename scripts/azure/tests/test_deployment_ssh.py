@@ -5,6 +5,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 
 
@@ -14,6 +15,22 @@ BASH = shutil.which("bash")
 
 
 class WorkflowTransportTests(unittest.TestCase):
+    def test_probe_is_main_only_pinned_and_guarded_before_execution(self):
+        workflow = (ROOT / ".github/workflows/probe-url-extraction.yml").read_text(encoding="utf-8")
+        self.assertIn("github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("group: deploy-azure-main", workflow)
+        self.assertIn("AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}", workflow)
+        self.assertIn("configure_deployment_ssh 15 15 4", workflow)
+        self.assertEqual(workflow.count('ssh "${SSH_ARGS[@]}"'), 2)
+        self.assertLess(workflow.index("assert-legacy-deploy.py"), workflow.index('remote_cmd='))
+        self.assertIn("mktemp -d /tmp/articlepod-probe.XXXXXXXXXX", workflow)
+        self.assertIn("setup-deployment-ssh.sh cleanup", workflow)
+        self.assertIn('if [ "$probe_status" -eq 255 ]', workflow)
+        self.assertNotIn("StrictHostKeyChecking no", workflow)
+        self.assertNotIn("ssh-keyscan", workflow)
+        self.assertNotIn("~/.ssh/config", workflow)
+        self.assertNotIn("scp ", workflow)
+
     def test_production_is_main_only_and_pinned(self):
         workflow = (ROOT / ".github" / "workflows" / "deploy-azure.yml").read_text(encoding="utf-8")
         self.assertIn(
@@ -76,6 +93,75 @@ class DeploymentTransportTests(unittest.TestCase):
 
     def write_pin(self, host):
         self.pins.write_text(f"{host} {self.public_key}\n")
+
+    def run_probe_step(self, status=0, guard_failure=False):
+        workflow = (ROOT / ".github/workflows/probe-url-extraction.yml").read_text(encoding="utf-8")
+        step = workflow.split("      - name: Run VM URL probe\n", 1)[1].split("\n      - name:", 1)[0]
+        script = textwrap.dedent(step.split("        run: |\n", 1)[1])
+        directory = self.base / "articlepod-ssh"
+        directory.mkdir()
+        shutil.copyfile(self.key, directory / "identity")
+        shutil.copyfile(self.pins, directory / "known_hosts")
+        self.key = directory / "identity"
+        self.pins = directory / "known_hosts"
+        fake = self.bin / "ssh"
+        fake.write_text(f"#!{sys.executable}\n" + textwrap.dedent(f"""
+            import json, sys
+            from pathlib import Path
+            with Path({str(self.record)!r}).open("a") as output:
+                output.write(json.dumps({{"tool": "ssh", "args": sys.argv[1:]}}) + "\\n")
+            guard = sys.argv[-1].startswith("sudo -n python3")
+            expected = "assert-legacy-deploy.py" if guard else "probe-url-extract.ts"
+            assert sys.stdin.read() == (Path({str(ROOT)!r}) / "scripts/azure" / expected).read_text()
+            if guard:
+                sys.exit(1 if {guard_failure!r} else 0)
+            if {status} != 255:
+                print("== VM extraction probe ==")
+                print(json.dumps({{"ok": {status} == 0, "fixture": True}}))
+            sys.exit({status})
+        """))
+        fake.chmod(0o700)
+        return subprocess.run(
+            [BASH, "-c", script], cwd=ROOT,
+            env=dict(self.env, RUNNER_TEMP=str(self.base), TARGET_URL="https://fixture.example/article",
+                     FAIL_ON_ERROR="false"),
+            capture_output=True, text=True, timeout=30,
+        )
+
+    def test_probe_step_uses_pins_for_guard_and_transmitted_code(self):
+        result = self.run_probe_step()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.calls()
+        self.assertEqual(len(calls), 2)
+        for call in calls:
+            self.assert_pinned(call["args"])
+        payload = json.loads((self.base / "probe-url-extraction/probe.json").read_text())
+        self.assertTrue(payload["ok"])
+
+    def test_probe_step_refuses_unmatched_pins_before_network(self):
+        self.write_pin("unrelated.invalid")
+        result = self.run_probe_step()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no stored host pin matches", result.stderr)
+        self.assertEqual(self.calls(), [])
+
+    def test_probe_step_stops_at_vault_configuration_guard(self):
+        result = self.run_probe_step(guard_failure=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.calls()), 1)
+        self.assertFalse((self.base / "probe-url-extraction").exists())
+
+    def test_probe_step_transport_failure_cannot_be_tolerated(self):
+        result = self.run_probe_step(status=255)
+        self.assertEqual(result.returncode, 255)
+        self.assertIn("fail_on_error cannot bypass trusted access", result.stdout)
+
+    def test_probe_step_can_still_tolerate_a_structured_extraction_failure(self):
+        result = self.run_probe_step(status=1)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("configured to continue", result.stdout)
+        payload = json.loads((self.base / "probe-url-extraction/probe.json").read_text())
+        self.assertFalse(payload["ok"])
 
     def fake_tool(self, name, exit_on_server=False):
         path = self.bin / name
