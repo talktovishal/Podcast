@@ -19,6 +19,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-secret-migration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/secret-migration
+            .github/workflows
+      - name: Test isolated secret migration with synthetic values
+        run: |
+          set -euo pipefail
+          python3.12 -m venv "$RUNNER_TEMP/articlepod-secret-migration-venv"
+          "$RUNNER_TEMP/articlepod-secret-migration-venv/bin/python" -I -m pip --isolated install \
+            --index-url https://pypi.org/simple --require-hashes --only-binary=:all: \
+            --no-deps --no-cache-dir --disable-pip-version-check \
+            -r scripts/secret-migration/requirements.txt
+          "$RUNNER_TEMP/articlepod-secret-migration-venv/bin/python" -I -m unittest \
+            discover -s scripts/secret-migration/tests -v
+
   plan:
     runs-on: ubuntu-latest
     outputs:

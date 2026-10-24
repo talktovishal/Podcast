@@ -888,6 +888,25 @@ No item may be marked Done without passing the verification commands listed in i
   modules and scaffold material retain their existing notices in
   `docs/THIRD_PARTY.md` and `docs/licenses/`; this is not publication clearance.
 
+### Private operational repository separation (staged, not activated)
+
+- Deployment credentials and operational orchestration move to private
+  `talktovishal/Podcast-Deploy`; source remains private and retains code CI and
+  application runtime support. No deployment, Azure sign-in, source publication,
+  or credential invalidation is implied by this migration.
+- The one-time source export must be manual, source-main-only, production-gated,
+  bound to the reviewed expected source SHA, and fixed to the destination
+  environment's public encryption key. Inject only the 37 explicitly allowlisted
+  values after isolated, hash-pinned cryptographic installation and synthetic
+  tests. Export only ciphertext and a fresh read-only source checkout public key.
+- The coordinator authenticates exporter provenance and verifies destination
+  bindings, exact secret names, all HMAC equality proofs, and source checkout
+  before retiring source entrypoints or credentials. Preserve the live version,
+  durable data, and existing RSS/media/signing behavior throughout.
+- Historical credentials and retained portrait metadata remain independent
+  publication blockers. See `docs/azure-ci-cd.md` for the transfer contract,
+  staged ownership boundary, forward rollout, rollback, and cleanup checkpoints.
+
 ## Verification Prompts
 
 Before marking any milestone complete, run and record the results for:
@@ -937,5 +956,15 @@ Before marking any milestone complete, run and record the results for:
 - Confirm starter item plays in browser and seek works.
 - Confirm tabbed admin dashboard loads and shows investor + reliability + users metrics.
 - Confirm CSV export works from admin dashboard.
+
+8. Private operational repository migration gate (offline preparation)
+
+- In the isolated hash-pinned migration environment, run:
+  `python -I -m unittest discover -s scripts/secret-migration/tests -v`.
+- Validate workflow syntax and confirm only the final encryption step references
+  the exact source secret allowlist. No dispatch, retirement, or deployment is
+  part of this offline gate.
+- Treat destination proof/checkout verification and live continuity as separate
+  coordinator cutover gates. Do not mark the migration complete from unit tests.
 
 If any gate fails, fix and re-run all impacted gates before committing.

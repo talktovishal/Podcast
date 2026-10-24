@@ -9,6 +9,19 @@
 
 ## Spec Consistency Notes (Current)
 
+- Private operational repository separation is staged, not cut over. The
+  manual source-main production export fixes destination identity/key, checks
+  the expected reviewed source SHA, seals exactly 37 existing credentials plus
+  a fresh read-only source checkout key and two HMAC proof fields, and exports
+  only bounded ciphertext/public-key artifacts. Isolated crypto dependencies
+  and synthetic CI tests do not consume production credentials. No source
+  operational entrypoint or secret is retired in this slice. The coordinator
+  must verify private proof/checkout, unchanged source secret snapshots, and
+  live-version/data/private-link continuity before cutover. Runtime support
+  remains in source; exact operational moves require the agreed ownership list
+  in `docs/azure-ci-cd.md`. This adds a GitHub secret-store transfer contract,
+  not an application schema migration, and does not complete credential
+  invalidation or clear retained-content publication blockers.
 - Credential migration remains incomplete: the narrowly scoped vault module and
   version-pinned managed-identity launcher are staged, not activated. VM unit
   templates now have opt-in routing with unchanged legacy defaults, and the env

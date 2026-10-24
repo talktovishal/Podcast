@@ -296,6 +296,15 @@ Policy guardrails:
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
 ## Durable Azure target (M35-M46)
+Operational repository separation is staged: private `Podcast-Deploy` will own
+production orchestration, verified SSH transport/inventory, source revision
+selection, remote sync, and ingress deployment. Source retains application
+runtime execution, service units/assets, and required build/maintenance support.
+The one-time source exporter is a fixed-recipient sealed-box transfer, not a
+runtime deployment or schema/data migration. Existing source operations remain
+until destination proof/checkout and live continuity are verified. See
+`docs/azure-ci-cd.md` for the gated cutover and exact transfer contract.
+
 Locked target architecture:
 - Primary compute: `eastus` Linux VM running `web`, primary `worker`, and local `python-tts` as `systemd` services (`Standard_D2as_v5`, `TTS_WORKERS=1`)
 - Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, `1Gi` default worker memory, and no public ingress

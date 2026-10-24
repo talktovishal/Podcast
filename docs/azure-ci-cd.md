@@ -9,6 +9,124 @@ already-provisioned environment-mode VM. The separate
 `deploy-azure-keyvault.yml` workflow supports routine deployment only after
 the controlled Key Vault bootstrap and consumer migration are complete.
 
+## Private deployment repository migration (staged, not cut over)
+
+Production orchestration and GitHub-held credentials are moving to the private
+`talktovishal/Podcast-Deploy` repository. The source repository stays private.
+The one-time `.github/workflows/migrate-deployment-secrets.yml` prepares an
+encrypted transfer only. It does not deploy, contact the VM, sign in to Azure,
+rotate runtime credentials, retire source secrets, or change the live app version.
+Existing source deployment entrypoints remain available until the coordinator
+confirms the private replacement is verified.
+
+### Fixed transfer and provenance
+
+- The export is a manual source-`main` production-environment job, restricted to
+  source repository ID `1152527211`. Its required `expected_source_sha` must
+  exactly match the dispatched full commit SHA and workflow SHA before secret
+  consumption. This is the reviewed exporter revision, not a request to deploy
+  that revision. It shares `deploy-azure-main` concurrency without cancellation.
+- `scripts/secret-migration/sealed_export.py` contains the fixed allowlist of
+  36 production-environment secrets and repository secret `APP_SMOKE_FEED_TOKEN`.
+  The workflow injects those 37 values individually only in the encryption step,
+  after isolated dependency installation and synthetic tests. No full secret
+  context, broad GitHub token, or arbitrary recipient is accepted.
+- Every value is sealed using PyNaCl/libsodium sealed boxes to the fixed
+  `Podcast-Deploy` repository ID `1431956894`, environment `production`, public
+  key ID `3380204578043523366`. The public key is fixed in the reviewed helper.
+  If the destination key changes, stop and review a new exporter before retrying.
+- A fresh Ed25519 source-checkout key is generated on the ephemeral runner.
+  Its private key becomes encrypted `ARTICLEPOD_SOURCE_READ_KEY`; only its public
+  key is exported. Key generation inherits no credentials, uses a `0700`
+  directory and `0600` private file, and cleans its known temporary files in
+  `finally` plus an always-run cleanup step. Abrupt runner loss relies on
+  ephemeral runner teardown, never reuse of that identity.
+- A separate random 32-byte key becomes encrypted `MIGRATION_PROOF_KEY` as base64.
+  Encrypted `MIGRATION_PROOF_EXPECTED` contains the exact migration bindings and
+  38 HMAC-SHA256 hex digests: the 37 existing values plus the source-read private
+  key, excluding both proof fields. The digest input is
+  `UTF8("ArticlePod GitHub secret migration v1") || NUL || UTF8(name) || NUL || UTF8(value)`.
+  Values, whitespace, line endings, and UTF-8 bytes are not normalized.
+- The manifest contains integer `schema_version` (`1`), UUID v4 `manifest_id`,
+  `source_repository`, integer `source_repository_id`, full `source_sha`,
+  decimal-string `source_run_id`, positive integer `source_run_attempt`,
+  `destination_repository`, integer `destination_repository_id`,
+  `destination_environment`, `destination_environment_public_key_id`, and
+  `encrypted_values` (exactly 40 name-to-base64-ciphertext entries).
+  Proof JSON repeats all these bindings except `source_repository_id`,
+  `destination_environment_public_key_id`, and `encrypted_values`; it adds
+  `digests`. Neither the proof key nor proof digests appear unencrypted.
+- The only artifact is `articlepod-sealed-secret-transfer`, containing exactly
+  `sealed-secrets.json` and `articlepod-source-read.pub`. Retention is one day,
+  overwrite is disabled, the manifest is bounded to 4 MiB, the public key to
+  1024 bytes, and each plaintext to GitHub's 49152-byte secret limit. Missing or
+  empty allowlisted values fail the entire export without an artifact.
+
+Sealed boxes provide confidentiality, not source authentication. The coordinator
+must retrieve the artifact from an authenticated, successful run of this exact
+workflow at the approved SHA and verify run ID/attempt, source/destination
+identities, environment key ID, field types, exact names, and byte bounds before
+any destination write. Do not import a user-supplied lookalike artifact or trust
+only its self-declared metadata. Compare source secret-name/`updatedAt` snapshots
+before and after export and again before retirement; any change requires review.
+The coordinator grants the exported public key read-only source deploy-key access.
+The destination's `verify-migrated-secrets.yml` must verify all proof bindings and
+HMACs with constant-time comparison and prove source checkout using that key.
+
+### Forward migration, ownership, and rollback
+
+This is an additive GitHub secret-store migration, not an application schema,
+database, queue, or blob-layout migration. First copy encrypted values to the
+private production environment, verify proof/checkout, and verify the replacement
+operations against the actual live revision without deploying source `main`.
+No database resets, account reseeding, token regeneration, signing-key changes,
+service restarts, or data backfills are part of this export.
+
+The approved ownership boundary is: private ops owns production orchestration,
+SSH setup/pins/inventory, source revision verification, remote sync, and ingress
+deployment. Source retains `runtime-exec.sh`, `keyvault-exec.py`,
+`run-next-server.mjs`, `runtime-naming.sh`, `install-systemd.sh`, service
+units/assets, and application build/maintenance support needed by the installed
+runtime. An exact move/retain list must be agreed before deleting shared helpers.
+Do not duplicate operational implementations between repositories.
+
+After verified replacement and coordinator approval, retire the source
+`deploy-azure.yml`, `deploy-azure-keyvault.yml`, `probe-url-extraction.yml`, and the
+production inventory portion of `publication-preflight.yml`. Retain secret-free
+code CI and its offline checks. Remove source secret copies only at that explicit
+cutover, accounting for historical workflow reruns; then remove the temporary
+export workflow, encrypted transfer artifact, and destination proof secrets at
+the agreed checkpoint. Keep the source checkout private key in private ops.
+Until that approval, none of these retirements is active.
+
+On partial import or failed verification, stop without altering the source
+credentials or live runtime. Retry only the same authenticated artifact while
+its bindings and destination encryption key remain valid, or review a fresh
+export. Do not overwrite the live app to test rollback. Moving secret copies does
+not invalidate historical admin/demo passwords or clear retained portrait GPS
+metadata; both remain separate publication blockers.
+
+### Offline validation and dependency isolation
+
+Use a dedicated virtual environment, not the application Python/Node dependency
+graph. `requirements.txt` pins wheel hashes for PyNaCl `1.6.2` (Apache-2.0,
+bundled libsodium ISC), cffi `2.0.0` (MIT), and pycparser `2.23` (BSD-3-Clause).
+These permissive dependencies implement GitHub-compatible sealed boxes; no
+application dependency or lockfile changes are required. Supported lock targets
+are CPython 3.12/3.14 on x86_64 Linux and CPython 3.14 on Windows.
+The workflow selects Ubuntu 24.04's Python 3.12 explicitly. For local synthetic
+tests on Windows, put Git for Windows' `usr\bin` first in `PATH` to use its
+OpenSSH tooling. The real exporter refuses Windows and non-GitHub-hosted contexts.
+
+Install with the isolated virtual environment's interpreter:
+`python -I -m pip --isolated install --require-hashes --only-binary=:all: --no-deps -r scripts/secret-migration/requirements.txt`.
+Run `python -I -m unittest discover -s scripts/secret-migration/tests -v`.
+Tests use only synthetic values and ephemeral test keys, cover exact encryption
+and proof schemas, byte preservation, bounds, context rejection, redacted
+failures, key cleanup, and workflow credential placement. CI runs these tests
+without production access. Live podcast gates remain a coordinator cutover gate,
+not authorization for this exporter to consume private feed links.
+
 ## Prerequisites
 
 1. Azure infrastructure must already be provisioned (see `docs/azure-deploy.md`)
