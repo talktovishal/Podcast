@@ -150,6 +150,23 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(values["ARTICLEPOD_KEYVAULT_MANIFEST"], "/etc/articlepod/keyvault-secrets.json")
         self.assertEqual(values["DIGEST_SUMMARY_PROVIDER"], "azure_openai")
         self.assertEqual(values["APP_URL"], "https://fixture.example")
+        public = launcher.parse_public_environment(content)
+        self.assertEqual(public["METADATA_PRIMARY_BACKEND"], "azure_table")
+        self.assertFalse(set(public) & launcher.SECRET_ENV_NAMES)
+
+    def test_vault_mode_preserves_every_rendered_nonsecret_setting(self):
+        legacy_result, legacy = self.render()
+        vault_result, vault = self.render({"ARTICLEPOD_SECRET_SOURCE": "keyvault"})
+        self.assertEqual(legacy_result.returncode, 0, legacy_result.stderr)
+        self.assertEqual(vault_result.returncode, 0, vault_result.stderr)
+        public = launcher.parse_public_environment(vault)
+        public.pop("ARTICLEPOD_SECRET_SOURCE")
+        public.pop("ARTICLEPOD_KEYVAULT_MANIFEST")
+        legacy_values = dict(line.split("=", 1) for line in legacy.splitlines())
+        self.assertEqual(public, {
+            name: value for name, value in legacy_values.items()
+            if name not in launcher.SECRET_ENV_NAMES
+        })
 
     def test_invalid_configuration_does_not_overwrite_existing_output(self):
         for settings in (
@@ -158,12 +175,17 @@ class RenderingTests(unittest.TestCase):
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "ARTICLEPOD_KEYVAULT_MANIFEST": "relative.json"},
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "ARTICLEPOD_KEYVAULT_MANIFEST": "/etc/fixture\nINJECTED=value"},
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "AZURE_OPENAI_BASE_URL": "https://fixture.openai.azure.com", "DIGEST_SUMMARY_PROVIDER": ""},
+            {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "AZURE_STORAGE_ACCOUNT_URL": "https://fixture.blob.core.windows.net?sig=fixture-sensitive-url"},
+            {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\nADMIN_PASSWORD=fixture-sensitive-injection"},
+            {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\nNEXT_PHASE=phase-production-build"},
+            {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\x85#fixture-sensitive-hidden"},
             {"ADMIN_PASSWORD": ""},
         ):
             with self.subTest(settings=settings):
                 result, content = self.render(settings, existing="preserve-existing-output")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(content, "preserve-existing-output")
+                self.assertNotIn("fixture-sensitive", result.stdout + result.stderr)
 
 
 class UnitWiringTests(unittest.TestCase):

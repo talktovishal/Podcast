@@ -818,6 +818,14 @@ No item may be marked Done without passing the verification commands listed in i
 - Vault runtime access must remain read-only and separate from administrative
   provisioning/rotation privileges. Secret loading must fail explicitly without
   response bodies, credential output, or a plaintext fallback.
+- The launcher can execute standalone commands using a protected public
+  configuration file, without shell-sourcing it. Public-only commands perform
+  no manifest or vault lookup; operational commands resolve the selected pinned
+  service map before execution. Public settings must reject nonempty secrets,
+  unknown or duplicate fields, interpreter overrides, and credential-bearing
+  endpoints. The renderer validates vault-mode candidates before overwriting
+  output. Host-environment filtering and file protections do not sandbox child
+  commands or migrate existing deployment/service call sites automatically.
 - Read-only access diagnostics retain strict SSH host verification. A comparison
   with saved pins emits booleans only and cannot repair pins, accept advertised
   keys, or turn a blocked connection into a successful inventory.

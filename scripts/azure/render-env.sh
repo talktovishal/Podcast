@@ -129,8 +129,8 @@ fi
 
 mkdir -p "$(dirname "$OUT_FILE")"
 
-cat > "$OUT_FILE" <<ENVFILE
-RUNTIME_PROFILE=azure
+render_environment() {
+  printf '%s\n' "RUNTIME_PROFILE=azure
 DATABASE_URL=${DATABASE_URL:-}
 APP_URL=${APP_URL}
 STORAGE_BACKEND=${STORAGE_BACKEND}
@@ -237,11 +237,19 @@ VM_JOURNAL_KEEP_FREE=${VM_JOURNAL_KEEP_FREE:-1G}
 VM_JOURNAL_RETENTION=${VM_JOURNAL_RETENTION:-7day}
 VM_CLEANUP_MIN_FREE_MB=${VM_CLEANUP_MIN_FREE_MB:-3072}
 DIGEST_SCHEDULER_SECRET=${DIGEST_SCHEDULER_SECRET:-}
-MEDIA_SIGNING_KEY=${MEDIA_SIGNING_KEY:-}
-ENVFILE
+MEDIA_SIGNING_KEY=${MEDIA_SIGNING_KEY:-}"
+
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    printf 'ARTICLEPOD_SECRET_SOURCE=keyvault\nARTICLEPOD_KEYVAULT_MANIFEST=%s\n' "$KEYVAULT_MANIFEST"
+  fi
+}
 
 if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
-  printf 'ARTICLEPOD_SECRET_SOURCE=keyvault\nARTICLEPOD_KEYVAULT_MANIFEST=%s\n' "$KEYVAULT_MANIFEST" >> "$OUT_FILE"
+  rendered_environment="$(render_environment)"
+  printf '%s\n' "$rendered_environment" | python3 "$ROOT_DIR/scripts/azure/keyvault-exec.py" --check-public-env-stdin
+  printf '%s\n' "$rendered_environment" > "$OUT_FILE"
+else
+  render_environment > "$OUT_FILE"
 fi
 
 echo "[render-env] wrote $OUT_FILE"

@@ -237,9 +237,9 @@ directory only after the rollout gates below pass. Command arguments must never
 contain secret values.
 
 For VM services, the router reads `ARTICLEPOD_KEYVAULT_MANIFEST` (default
-`/etc/articlepod/keyvault-secrets.json`). Operators can use the same routing with
-`bash scripts/azure/runtime-exec.sh ops <command>` after loading only public
-settings. Keep deployment credentials out of that inherited environment.
+`/etc/articlepod/keyvault-secrets.json`). The explicit public-file launcher below
+provides an operations entrypoint without sourcing environment files. Existing
+service units still use their original routing and environment overrides.
 Installing units checks that both routing files are present; it does not prove
 that the live identity can read the required secrets.
 
@@ -252,6 +252,53 @@ behavior. When a vault-mode Azure OpenAI endpoint is supplied, select
 `DIGEST_SUMMARY_PROVIDER` explicitly rather than relying on API-key presence.
 Manifest paths must be absolute and contain only letters, digits, `_`, `.`, `/`,
 or `-`.
+
+**Protected public configuration:** The launcher accepts `--env-file` with an
+absolute path to reviewed vault-mode output from the renderer. It parses literal,
+unquoted `KEY=value` lines, never shell code or interpolation. The file must
+declare the Azure runtime profile, selected metadata backend, required public
+endpoints/container, vault source, and an absolute VM manifest path. Empty
+registered secret slots are removed; nonempty secrets, duplicate or unknown names,
+control-character injection, quoted/escaped values, and endpoint userinfo,
+queries, or fragments are rejected. Additional live settings must be reviewed
+and explicitly supported, not silently discarded during migration.
+
+Before writing vault-mode output, the renderer checks its complete candidate in
+memory with `--check-public-env-stdin`. Invalid candidates leave existing output
+unchanged and are not echoed or written to temporary files. This validation-only
+mode reads at most 64 KiB plus one overflow-detection byte and makes no identity
+or vault requests. It does not bypass the protected-file checks for execution.
+Legacy rendering is unchanged.
+
+Both public configuration and manifests require bounded regular files,
+root ownership, and no group/world write permission on Linux. Final symlinks
+are refused; nonblocking opens reject FIFOs without waiting for a writer. Keep
+their parent directories protected and grant the service account only the read
+access it needs. "Public" means non-credential configuration, not approval to
+publish actual production settings or operational metadata.
+
+These standalone execution forms are prerequisites, not a deployment cutover:
+
+```text
+python3 scripts/azure/keyvault-exec.py --env-file /etc/articlepod/articlepod.env --public-only -- <build-command>
+python3 scripts/azure/keyvault-exec.py --env-file /etc/articlepod/articlepod.env --service ops -- <operational-command>
+```
+
+The public-only form does not read the manifest or contact IMDS/Key Vault. The
+operations form uses the manifest selected by the protected file and resolves
+all pinned secrets for the selected map before executing. An explicit
+`--manifest` cannot be combined with `--env-file`. Both forms inherit only
+allowlisted host settings such as `PATH` and `HOME`; the file supplies application
+settings. Inherited application/deployment credentials and interpreter controls
+such as `NODE_OPTIONS`, `PYTHONPATH`, and `NEXT_PHASE` do not reach the child.
+Command arguments are passed literally, without a shell added by the launcher.
+
+The loader is not a sandbox: the chosen command can still read files or perform
+its own authentication. A build must also exclude secret-bearing `.env` files
+and credential-loading shell profiles. The new file-based form does not import
+systemd-specific overrides or automatically rewire existing deployment helpers.
+Those call sites must be migrated explicitly, preserving service-specific
+settings, before activation.
 
 **Secret-free builds:** During Next.js's own `phase-production-build`, web
 configuration does not require runtime signing secrets, and Azure Table primary
@@ -300,7 +347,8 @@ settings and HTTP redirects are disabled for both identity and vault requests.
 Retries are bounded; denied, absent, disabled, expired, and not-yet-valid secrets
 block startup with fixed diagnostic codes. Response bodies and tokens are never
 logged. Known inherited application secrets are removed before the selected
-service's values are injected. Other non-secret settings remain inherited.
+service's values are injected. The existing `--manifest` form keeps its prior
+non-secret inheritance; `--env-file` uses the narrower host-settings allowlist.
 Duplicate manifest keys, unexpected environment names, writable/unowned manifests,
 and mismatched returned secret versions are rejected.
 
@@ -324,6 +372,7 @@ Offline checks, with no Azure login or production secrets:
 
 ```text
 python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+python -m unittest discover -s scripts/azure/tests -p test_public_environment.py
 python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
 bicep build infra/secrets.bicep --stdout
 ```

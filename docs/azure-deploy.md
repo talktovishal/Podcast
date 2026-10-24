@@ -36,6 +36,8 @@ Key Vault migration is not active. VM unit templates have opt-in secret routing,
 but normal deployment still uses the legacy environment path. The deploy helpers
 reject vault-mode activation or overwrite of an existing vault-managed
 configuration until the corresponding build/operations cutover is implemented.
+The protected public-file launcher is available for standalone commands, but
+existing deploy helpers have not been converted to it.
 Do not remove that guard or enable the mode as a shortcut. See
 [`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated).
 

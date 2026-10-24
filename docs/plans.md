@@ -27,6 +27,13 @@
   runtime validation remains in force. The isolated verifier checks real builds
   and compiled runtime secret gates. Bulk deployment/operations cutover and live
   credential rotation remain incomplete.
+- Protected public-configuration execution is implemented as an inactive
+  prerequisite: strict literal parsing, bounded protected-file reads, filtered
+  inherited settings, public-only execution without vault access, and pinned
+  operational secret resolution. Vault-mode rendering validates candidates in
+  memory before writing. Existing service overrides and legacy deployment
+  guards remain unchanged. Bulk command routing, live activation, and credential
+  invalidation are still pending; this is not completion of the migration.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
