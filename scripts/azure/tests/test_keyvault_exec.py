@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -258,6 +259,36 @@ class HttpTests(unittest.TestCase):
 
 
 class CommandTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "posix", "Process replacement is exercised on the Linux runner")
+    def test_real_child_receives_resolved_values_not_retired_environment(self):
+        program = """
+import importlib.util
+import os
+import sys
+spec = importlib.util.spec_from_file_location("fixtures", sys.argv[1])
+fixtures = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(fixtures)
+inherited = dict(os.environ)
+inherited["ADMIN_PASSWORD"] = "fixture-retired"
+inherited["MEDIA_SIGNING_KEY"] = "fixture-retired"
+environment = fixtures.launcher.load_environment(
+    fixtures.MANIFEST, "web", inherited, fetch=fixtures.fetch_mock(),
+)
+child = (
+    "import os;"
+    "assert os.environ['MEDIA_SIGNING_KEY'] == 'fixture-only-secret';"
+    "assert 'ADMIN_PASSWORD' not in os.environ;"
+    "print('child-ok')"
+)
+os.execvpe(sys.executable, [sys.executable, "-c", child], environment)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", program, str(Path(__file__).resolve())],
+            capture_output=True, text=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "child-ok\n")
+
     def test_failure_does_not_execute_child_or_print_values(self):
         args = ["keyvault-exec.py", "--manifest", "fixture.json", "--service", "web", "--", "node"]
         stderr = io.StringIO()

@@ -156,6 +156,12 @@ assign roles. Those permissions must be established separately before migration.
 Missing access blocks the check; do not broaden the runtime identity's privileges
 just to make this check pass.
 
+The workflow first runs offline launcher/preflight tests and Bicep compilation
+in a job with no production environment or secret inputs. Select
+`validation_only` to run that job without attempting SSH. A successful
+validation-only run does not establish VM access or credential invalidation;
+the production inventory job is explicitly skipped.
+
 ### Key Vault foundation (not activated)
 
 `infra/secrets.bicep` and `scripts/azure/keyvault-exec.py` are staged migration

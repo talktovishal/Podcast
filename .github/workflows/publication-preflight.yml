@@ -2,6 +2,12 @@ name: Publication Preflight (Read Only)
 
 on:
   workflow_dispatch:
+    inputs:
+      validation_only:
+        description: "Run offline checks only, without SSH or production inventory"
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -11,15 +17,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  inventory:
+  validation:
     if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test redacted inventory output
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_publication_preflight.py
+      - name: Test version-pinned secret loading
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+      - name: Compile vault-only infrastructure
+        run: az bicep build --file infra/secrets.bicep --outfile "$RUNNER_TEMP/articlepod-vault.json"
+      - name: Explain validation-only boundary
+        if: inputs.validation_only
+        run: |
+          echo "Offline checks only. No production inventory, deployment, credential rotation, or publication occurred." >> "$GITHUB_STEP_SUMMARY"
+
+  inventory:
+    if: github.ref == 'refs/heads/main' && !inputs.validation_only
+    needs: validation
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: production
     steps:
       - uses: actions/checkout@v6
-      - name: Test redacted inventory output
-        run: python3 -m unittest discover -s scripts/azure/tests -p test_publication_preflight.py
       - name: Inspect running service and managed identity
         env:
           TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
