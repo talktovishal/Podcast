@@ -72,6 +72,7 @@ BOOLEAN_FIELDS = {
     "web_running", "runtime_env_readable", "azure_table_primary",
     "managed_identity_available", "arm_permissions_readable", "check_error",
 }
+HOST_KEY_TYPES = {"ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"}
 
 
 class PreflightError(RuntimeError):
@@ -115,14 +116,49 @@ def pin_diagnostics(host, hosts_path, stored):
     except (OSError, subprocess.SubprocessError):
         return {"pin_diagnostics_available": False}
     lines = [line.strip() for line in stored.splitlines() if line.strip() and not line.lstrip().startswith("#")]
-    raw_public_key = len(lines) == 1 and lines[0].split()[0] in {
-        "ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
-    }
+    raw_public_key = len(lines) == 1 and lines[0].split()[0] in HOST_KEY_TYPES
     return {
         "pin_diagnostics_available": True,
         "pin_file_has_valid_keys": keys.returncode == 0,
         "pin_file_matches_target": matching.returncode == 0 and bool(matching.stdout.strip()),
         "pin_payload_is_single_public_key": raw_public_key,
+    }
+
+
+def saved_host_keys(stored):
+    pins, revoked, hosts = set(), set(), set()
+    for line in stored.splitlines():
+        fields = line.split()
+        if not fields or fields[0].startswith("#"):
+            continue
+        if fields[0] == "@revoked" and len(fields) >= 4:
+            revoked.add((fields[2], fields[3]))
+        elif not fields[0].startswith("@") and len(fields) >= 3 and fields[1] in HOST_KEY_TYPES:
+            hosts.add(fields[0])
+            pins.add((fields[1], fields[2]))
+    return pins - revoked, hosts
+
+
+def compare_target_to_saved_pins(host, stored):
+    pins, hosts = saved_host_keys(stored)
+    if not pins:
+        return {"pin_comparison_available": False}
+    try:
+        result = subprocess.run(
+            ["ssh-keyscan", "-T", "5", "-t", "ed25519,ecdsa,rsa", host],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {"pin_comparison_available": False}
+    if result.returncode or len(result.stdout) > 65_536:
+        return {"pin_comparison_available": False}
+    presented, _ = saved_host_keys(result.stdout)
+    # Comparison is diagnostic only. These advertised keys are never accepted,
+    # saved, or substituted into the strict SSH attempt.
+    return {
+        "pin_comparison_available": bool(presented),
+        "pin_has_one_host_group": len(hosts) == 1,
+        "target_key_matches_saved_pin": bool(presented & pins),
     }
 
 
@@ -174,6 +210,8 @@ def main():
             diagnostics = {}
             if code in {"SSH_HOST_KEY_CHANGED", "SSH_HOST_KEY_NOT_PINNED", "SSH_HOST_KEY_NOT_TRUSTED"}:
                 diagnostics = pin_diagnostics(host, hosts_path, known_hosts)
+            if code == "SSH_HOST_KEY_NOT_PINNED" and diagnostics.get("pin_file_has_valid_keys") and not diagnostics.get("pin_file_matches_target"):
+                diagnostics.update(compare_target_to_saved_pins(host, known_hosts))
             raise PreflightError(code, diagnostics)
         inventory = safe_result(result.stdout)
         print(json.dumps(inventory))

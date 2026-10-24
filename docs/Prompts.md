@@ -818,6 +818,9 @@ No item may be marked Done without passing the verification commands listed in i
 - Vault runtime access must remain read-only and separate from administrative
   provisioning/rotation privileges. Secret loading must fail explicitly without
   response bodies, credential output, or a plaintext fallback.
+- Read-only access diagnostics retain strict SSH host verification. A comparison
+  with saved pins emits booleans only and cannot repair pins, accept advertised
+  keys, or turn a blocked connection into a successful inventory.
 - Preserve existing application data, RSS/media URLs, and effective media-signing
   material. Do not rotate subscriber tokens as an incidental part of service-key
   rotation, and do not overwrite the deployed application version to install
