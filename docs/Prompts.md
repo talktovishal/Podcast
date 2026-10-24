@@ -807,6 +807,21 @@ No item may be marked Done without passing the verification commands listed in i
 
 - Stale-job `updateMany` MUST include `status: "PROCESSING"` filter to prevent reverting completed jobs.
 
+### Credential migration foundation (not activated)
+
+- The Key Vault module and version-pinned managed-identity launcher are migration
+  prerequisites only. Runtime/deployment wiring, account rotation, provider
+  revocation, and live continuity verification are still pending.
+- Vault runtime access must remain read-only and separate from administrative
+  provisioning/rotation privileges. Secret loading must fail explicitly without
+  response bodies, credential output, or a plaintext fallback.
+- Preserve existing application data, RSS/media URLs, and effective media-signing
+  material. Do not rotate subscriber tokens as an incidental part of service-key
+  rotation, and do not overwrite the deployed application version to install
+  secret delivery.
+- No persistent schema or application data contract changes are introduced by
+  this inactive foundation. See `docs/azure-ci-cd.md` for its activation gates.
+
 ## Verification Prompts
 
 Before marking any milestone complete, run and record the results for:

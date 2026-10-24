@@ -156,6 +156,99 @@ assign roles. Those permissions must be established separately before migration.
 Missing access blocks the check; do not broaden the runtime identity's privileges
 just to make this check pass.
 
+### Key Vault foundation (not activated)
+
+`infra/secrets.bicep` and `scripts/azure/keyvault-exec.py` are staged migration
+components. Existing workflows, environment rendering, systemd units, and local
+development still use their existing paths. Adding or deploying the vault alone
+does not migrate those consumers or rotate any upstream credential.
+
+The Bicep module creates only a vault and a vault-scoped **Key Vault Secrets User**
+assignment for the verified VM system-assigned identity. It enables RBAC, soft
+delete, purge protection, and a default-deny firewall with explicitly supplied
+IPv4 allow rules. It does not create or update a VM, database, storage account,
+identity, network, or application. Independently confirm the existing VM's actual
+egress and authorized administration network before supplying the allow rules.
+If the deployment requires private endpoints or service-endpoint subnet rules,
+resolve that topology first rather than opening the firewall to all addresses.
+
+Vault provisioning requires separately authorized management and role-assignment
+access. Secret seeding/rotation requires a separate administrator's scoped data
+plane write access and an allowed network path. This template deliberately does
+not grant secret-write or subscription-management rights to the runtime identity.
+Review an authenticated Azure what-if before applying it; reject unexpected
+resource changes. Do not apply `infra/main.bicep` to add this vault.
+
+The launcher is explicit opt-in, not a replacement entrypoint yet. Its manifest
+contains only version references. This schema illustration is intentionally
+incomplete and must not be used as the production service inventory:
+
+```json
+{
+  "vault_url": "https://your-vault-name.vault.azure.net",
+  "services": {
+    "web": {
+      "MEDIA_SIGNING_KEY": "media-signing-key/00000000000000000000000000000000"
+    },
+    "python-tts": {
+      "PYTHON_TTS_SECRET": "python-tts-secret/00000000000000000000000000000000"
+    }
+  }
+}
+```
+
+Replace each illustrative version with a real, enabled 32-character version ID.
+Supported service names are `web`, `worker`, `python-tts`, `worker-overflow`, and
+`ops`. Every configured reference is mandatory for that service; there is no
+`latest`, optional-secret, or environment-value fallback. The live inventory must
+determine the complete map for each service and operational command. The runtime
+uses `PYTHON_TTS_SECRET`; the older planned `TTS_SIDECAR_SECRET` name is not its
+current configuration name.
+
+On the VM, install a root-owned, non-group/world-writable manifest in a protected
+directory such as `/etc/articlepod/keyvault-secrets.json`. Invoke
+`python3 scripts/azure/keyvault-exec.py --manifest <absolute-manifest-path>
+--service <service-name> -- <existing-service-command>` from the existing working
+directory only after the rollout gates below pass. Command arguments must never
+contain secret values.
+
+The launcher obtains a system-assigned managed-identity token directly from
+Azure IMDS, fetches exact secret versions over HTTPS, and replaces itself with
+the original service command only after all lookups succeed. Proxy environment
+settings and HTTP redirects are disabled for both identity and vault requests.
+Retries are bounded; denied, absent, disabled, expired, and not-yet-valid secrets
+block startup with fixed diagnostic codes. Response bodies and tokens are never
+logged. Known inherited application secrets are removed before the selected
+service's values are injected. Other non-secret settings remain inherited.
+Duplicate manifest keys, unexpected environment names, writable/unowned manifests,
+and mismatched returned secret versions are rejected.
+
+Secret values remain in process memory/environment, not launcher-created files.
+Core dumps are disabled before retrieval on Linux. A shared VM identity does not
+isolate services from one another: any process able to use that identity can
+request its permitted secrets. Service maps reduce accidental propagation; they
+are not independent Azure authorization boundaries.
+
+Activation remains blocked until trusted SSH and Azure/provider administrative
+access establish the live runtime version, identity, credentials, and consumers.
+Preserve the effective `MEDIA_SIGNING_KEY` unchanged before rotating any storage
+connection string from which it may have been derived. Then migrate all consumers,
+including maintenance and deploy-time commands, remove persistent plaintext
+secret paths, verify continuity, and revoke retired credentials at their providers.
+Do not use this launcher to run the broad demo seeder as a password-rotation
+shortcut. It does not update password hashes, revoke sessions, alter podcast
+URLs, or mutate application data.
+
+Offline checks, with no Azure login or production secrets:
+
+```text
+python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+bicep build infra/secrets.bicep --stdout
+```
+
+These checks are not proof of live access, credential revocation, or production
+readiness. Publishing the repository remains gated on those separate results.
+
 ### Common Issues
 
 #### "AZURE_SSH_KEY secret is not configured"

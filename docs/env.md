@@ -74,6 +74,17 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `APP_DOMAIN_ALIASES` (alias helper for CI; maps to `HOST_ALIASES` when unset)
 
 ## Shared auth/admin
+
+Key Vault migration status: the explicit version-pinned launcher
+`scripts/azure/keyvault-exec.py` is available for an access-gated migration but is
+not installed into any production service or deployment path. The existing Azure
+environment-file behavior above is unchanged. See
+[`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated) for the manifest,
+permission boundaries, and activation gates. Before storage-key rotation, preserve
+the live effective media-signing key; do not regenerate it from the new connection
+string. Secret references are configuration, not proof that old credentials have
+been revoked.
+
 - `DEMO_EMAIL`
 - `WEBSTORE_REVIEWER_EMAIL` (default `chrome-reviewer@articlepod.com`; seeded only when `WEBSTORE_REVIEWER_PASSWORD` is also set)
 - `WEBSTORE_REVIEWER_PASSWORD` (optional; when set, production deploy seeds a dedicated Chrome Web Store reviewer account with complimentary Pro access)

@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Credential migration remains incomplete: the narrowly scoped vault module and
+  version-pinned managed-identity launcher are staged, not activated. Service and
+  deployment wiring, account/provider rotation, and live verification require
+  trusted VM access and separately established administrative permissions. This
+  is not a completed security milestone or evidence that old credentials are
+  invalid. The inactive foundation changes no application data/schema contracts.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
