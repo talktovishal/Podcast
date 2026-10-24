@@ -75,14 +75,19 @@ BOOLEAN_FIELDS = {
 
 
 class PreflightError(RuntimeError):
-    def __init__(self, code):
+    def __init__(self, code, diagnostics=None):
         super().__init__(code)
         self.code = code
+        self.diagnostics = diagnostics or {}
 
 
 def ssh_failure_code(stderr):
     text = stderr.lower()
-    if "host key verification failed" in text or "remote host identification has changed" in text:
+    if "remote host identification has changed" in text:
+        return "SSH_HOST_KEY_CHANGED"
+    if "host key is known for" in text and "strict checking" in text:
+        return "SSH_HOST_KEY_NOT_PINNED"
+    if "host key verification failed" in text:
         return "SSH_HOST_KEY_NOT_TRUSTED"
     if "invalid format" in text or "error in libcrypto" in text:
         return "SSH_KEY_FORMAT_INVALID"
@@ -95,6 +100,30 @@ def ssh_failure_code(stderr):
     if "could not resolve hostname" in text:
         return "SSH_HOSTNAME_UNRESOLVED"
     return "SSH_REMOTE_CHECK_FAILED"
+
+
+def pin_diagnostics(host, hosts_path, stored):
+    try:
+        keys = subprocess.run(
+            ["ssh-keygen", "-l", "-f", str(hosts_path)],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=10,
+        )
+        matching = subprocess.run(
+            ["ssh-keygen", "-F", host, "-f", str(hosts_path)],
+            capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {"pin_diagnostics_available": False}
+    lines = [line.strip() for line in stored.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    raw_public_key = len(lines) == 1 and lines[0].split()[0] in {
+        "ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+    }
+    return {
+        "pin_diagnostics_available": True,
+        "pin_file_has_valid_keys": keys.returncode == 0,
+        "pin_file_matches_target": matching.returncode == 0 and bool(matching.stdout.strip()),
+        "pin_payload_is_single_public_key": raw_public_key,
+    }
 
 
 def safe_result(output):
@@ -141,7 +170,11 @@ def main():
             input=REMOTE_CHECK, capture_output=True, text=True, timeout=90,
         )
         if result.returncode:
-            raise PreflightError(ssh_failure_code(result.stderr))
+            code = ssh_failure_code(result.stderr)
+            diagnostics = {}
+            if code in {"SSH_HOST_KEY_CHANGED", "SSH_HOST_KEY_NOT_PINNED", "SSH_HOST_KEY_NOT_TRUSTED"}:
+                diagnostics = pin_diagnostics(host, hosts_path, known_hosts)
+            raise PreflightError(code, diagnostics)
         inventory = safe_result(result.stdout)
         print(json.dumps(inventory))
         if inventory.get("check_error") or "http_status" in inventory:
@@ -155,7 +188,7 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except PreflightError as error:
-        print(json.dumps({"status": "blocked", "reason": error.code}))
+        print(json.dumps({"status": "blocked", "reason": error.code, **error.diagnostics}))
         sys.exit(1)
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as error:
         # Never relay SSH stderr, exception payloads, or remote response text.

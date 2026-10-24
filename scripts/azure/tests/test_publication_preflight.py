@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from unittest.mock import Mock, patch
 
 path = Path(__file__).parents[1] / "publication-preflight.py"
 spec = importlib.util.spec_from_file_location("publication_preflight", path)
@@ -41,6 +42,43 @@ class InventoryOutputTests(unittest.TestCase):
             preflight.ssh_failure_code("Permission denied (publickey)."),
             "SSH_AUTHENTICATION_DENIED",
         )
+
+    def test_changed_host_key_is_not_treated_as_a_missing_pin(self):
+        self.assertEqual(
+            preflight.ssh_failure_code("WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED! Host key verification failed."),
+            "SSH_HOST_KEY_CHANGED",
+        )
+        self.assertEqual(
+            preflight.ssh_failure_code("No ED25519 host key is known for private-host and you have requested strict checking."),
+            "SSH_HOST_KEY_NOT_PINNED",
+        )
+
+    def test_pin_diagnostics_only_return_booleans(self):
+        results = [Mock(returncode=0), Mock(returncode=1, stdout="")]
+        with patch.object(preflight.subprocess, "run", side_effect=results) as run:
+            result = preflight.pin_diagnostics("fixture-host", Path("fixture-known-hosts"), "ssh-ed25519 fixture-key")
+        self.assertEqual(result, {
+            "pin_diagnostics_available": True,
+            "pin_file_has_valid_keys": True,
+            "pin_file_matches_target": False,
+            "pin_payload_is_single_public_key": True,
+        })
+        self.assertEqual([call.args[0][0] for call in run.call_args_list], ["ssh-keygen", "ssh-keygen"])
+
+    def test_matching_pin_does_not_echo_host_or_key(self):
+        results = [Mock(returncode=0), Mock(returncode=0, stdout="fixture-private-output")]
+        with patch.object(preflight.subprocess, "run", side_effect=results):
+            result = preflight.pin_diagnostics("fixture-host", Path("fixture-known-hosts"), "fixture-host ssh-ed25519 fixture-key")
+        self.assertTrue(result["pin_file_matches_target"])
+        self.assertFalse(result["pin_payload_is_single_public_key"])
+        self.assertTrue(all(type(value) is bool for value in result.values()))
+
+    def test_diagnostic_failure_preserves_a_redacted_unavailable_result(self):
+        with patch.object(preflight.subprocess, "run", side_effect=OSError("fixture-private-output")):
+            self.assertEqual(
+                preflight.pin_diagnostics("fixture-host", Path("fixture-known-hosts"), "fixture-input"),
+                {"pin_diagnostics_available": False},
+            )
 
 
 if __name__ == "__main__":

@@ -156,6 +156,13 @@ assign roles. Those permissions must be established separately before migration.
 Missing access blocks the check; do not broaden the runtime identity's privileges
 just to make this check pass.
 
+On host-verification failure, the check distinguishes a changed host key from an
+unmatched target pin where SSH supplies that diagnosis. It also uses local
+`ssh-keygen` checks to report only whether the stored pin contains valid keys,
+matches the configured target, or looks like a bare public key instead of a
+known_hosts entry. It does not print hosts, fingerprints, key material, or raw
+SSH output, perform `ssh-keyscan`, repair pins, or accept a network-provided key.
+
 The workflow first runs offline launcher/preflight tests and Bicep compilation
 in a job with no production environment or secret inputs. Select
 `validation_only` to run that job without attempting SSH. A successful
