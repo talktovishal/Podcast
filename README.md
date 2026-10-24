@@ -84,11 +84,9 @@ repository. This source repository retains public-safe code CI, runtime/support
 scripts, tests, and infrastructure definitions, but no active deployment,
 production probe, or secret-export workflows.
 
-Production has **not** been redeployed by this handoff. Private mutation workflows
-remain guarded pending separate review of runtime preservation and build
-compatibility. This temporary deployment pause is the coordinator's expedient
-handoff choice under autonomous delegation, not a user-selected approval option,
-completed deployment verification, or a promise of a working release path.
+Production continues on the existing deployment. Automated deployment remains
+paused until the private workflows complete separate runtime/build validation.
+This handoff does not verify or deploy a new release.
 Existing deployment runbooks remain historical/support references, not active
 source-repository deployment instructions.
 Definitions retained under `.github/workflow-fixtures` are historical compatibility
