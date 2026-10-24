@@ -67,6 +67,12 @@ jobs:
         run: corepack pnpm --filter @articlepod/core exec tsx --test tests/azure-table-initialization.test.ts tests/azure-table-primary-store.test.ts
       - name: Test build and runtime environment boundaries
         run: corepack pnpm --filter @articlepod/web exec tsx --test tests/secret-free-build.test.ts tests/env-path-normalization.test.ts
+      - name: Test isolated targeted account rotation
+        run: corepack pnpm --filter @articlepod/web exec tsx --test tests/account-rotation.test.ts
+      - name: Type-check and lint web operations
+        run: |
+          corepack pnpm --filter @articlepod/web exec tsc --noEmit --incremental false
+          NEXT_TELEMETRY_DISABLED=1 corepack pnpm --filter @articlepod/web exec next lint --file scripts/rotate-provisioned-accounts.ts --file tests/account-rotation.test.ts
       - name: Type-check and build shared stores
         run: |
           corepack pnpm --filter @articlepod/core run typecheck

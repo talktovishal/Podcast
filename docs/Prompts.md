@@ -871,6 +871,15 @@ No item may be marked Done without passing the verification commands listed in i
   material. Do not rotate subscriber tokens as an incidental part of service-key
   rotation, and do not overwrite the deployed application version to install
   secret delivery.
+- The standalone Azure Table account-rotation operation must validate every
+  explicit user/account/table binding before writes, take replacement passwords
+  only from scoped secret environment values, and accept historical candidates
+  through bounded stdin without echoing them. Apply requires verified quiesced
+  writers, uses bcrypt cost 12 and exact ETags, and fails explicitly on partial
+  or concurrent changes. It may update only selected password hashes/timestamps
+  and delete their browser sessions. It must preserve unknown user fields,
+  billing data, other users, and all feed/digest/share/extension-token records.
+  It is not automatic seeding, a schema migration, or proof of live rotation.
 - No persistent schema or application data contract changes are introduced by
   this inactive foundation. See `docs/azure-ci-cd.md` for its activation gates.
 

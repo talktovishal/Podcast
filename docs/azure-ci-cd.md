@@ -485,6 +485,78 @@ Do not use this launcher to run the broad demo seeder as a password-rotation
 shortcut. It does not update password hashes, revoke sessions, alter podcast
 URLs, or mutate application data.
 
+### Targeted account rotation contract
+
+`apps/web/scripts/rotate-provisioned-accounts.ts` is an inactive administrative
+operation, separate from application deployment
+and demo seeding. Its supported store is the verified Azure Table primary, with
+explicit account/table-prefix and user ID/email/role bindings. It must read all
+targets before any write, use bcrypt cost 12, condition password updates and
+session deletions on ETags, and report partial failure without restoring old
+passwords. Missing tables, unsupported backends, OAuth-only accounts, or target
+mismatches must fail rather than create or repair data.
+
+Persisted impact is limited to selected users' `passwordHash`/`updatedAt` fields
+and deletion of those users' browser-session rows. Merge updates preserve unknown
+user fields. No schema migration, table creation, account creation, billing
+change, or feed/digest/share/extension-token mutation is authorized by this tool.
+Existing and new application code remain compatible with the same bcrypt and
+session schema. Extension credentials and any confirmed-exposed private links
+require their own narrowly scoped review; browser-session deletion is not a
+claim that every authentication mechanism has been revoked.
+
+Apply requires a verified maintenance window with all relevant credential/session
+writers quiesced, including in-flight login requests, startup bootstrap, seeders,
+and other active deployments/consumers. An operator flag is an attestation, not
+a distributed lock. Without that barrier, an already validated old-password
+request can mint a session after deletion. ETags and final empty-session checks
+detect some races but cannot replace the barrier. Keep writers stopped on any
+partial failure, inspect redacted status, and finish forward; never restore a
+retired hash. Resume and continuity checks are part of the live rollout, which
+has not occurred.
+
+The CLI accepts `check`, or `apply --writers-quiesced`, and a bounded JSON
+request on stdin. It accepts no password arguments and writes no credential
+files. Replacement values must come from a pinned `ops` map via the protected
+launcher, using `ADMIN_PASSWORD`, `DEMO_PASSWORD`, or `WEBSTORE_REVIEWER_PASSWORD`.
+Use independently generated, unique, cryptographically random values of 32 to
+72 UTF-8 bytes. Each target must include its reviewed historical password
+candidates; successful comparison proves rejection of those candidates, not
+completeness of an unreviewed inventory. No identifiers, hashes, session tokens,
+replacement passwords, or provider response details appear in CLI output.
+
+Schematic input only, not a production request:
+
+```json
+{
+  "storageAccount": "verifiedaccount",
+  "tablePrefix": "articlepod",
+  "targets": [{
+    "userId": "verified-user-id",
+    "email": "verified-user@example.invalid",
+    "role": "ADMIN",
+    "replacementSecret": "ADMIN_PASSWORD",
+    "retiredPasswords": ["supply reviewed candidates privately through stdin"]
+  }]
+}
+```
+
+Run the reviewed standalone operation with compatible declared dependencies
+under `keyvault-exec.py --env-file ... --service ops -- ...`, not by deploying
+unrelated application code. The protected file must explicitly select the same
+canonical table prefix, Azure Table primary, and disabled startup bootstrap.
+The connection string must resolve to the approved public-cloud storage account.
+Missing tables, noncanonical prefixes, SAS-only configuration, other clouds, and
+non-cost-12 hashes are deliberately unsupported until separately reviewed.
+
+`check` performs reads and bcrypt comparisons without writes. `apply` validates
+all targets first, merges only the password hash/timestamp, and conditionally
+deletes the selected browser sessions. Both SDK updates and deletes use exact
+ETags with SDK retries disabled. A repeated operation can recognize the already
+replaced password and finish session cleanup forward. A failure explicitly
+reports whether mutations may have occurred. Keep the maintenance barrier in
+place until final verification and the wider live continuity gates pass.
+
 Offline checks, with no Azure login or production secrets:
 
 ```text
@@ -493,6 +565,7 @@ python -m unittest discover -s scripts/azure/tests -p test_public_environment.py
 python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
 python -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
 python -m unittest discover -s scripts/azure/tests -p test_remote_vault_deployment.py
+corepack pnpm --filter @articlepod/web exec tsx --test tests/account-rotation.test.ts
 bicep build infra/secrets.bicep --stdout
 ```
 

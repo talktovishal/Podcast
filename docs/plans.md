@@ -58,6 +58,14 @@
   old keys/secret copies remains a live cutover gate, including historical
   workflow reruns. This adds no persisted schema/data contract and does not
   establish credential invalidation or complete the publication milestone.
+- A standalone, inactive Azure Table password/browser-session rotation operation
+  now has explicit user/account/table bindings, bounded stdin, scoped replacement
+  values, all-target preflight, bcrypt cost 12, ETag-conditioned updates/deletes,
+  final verification, and forward resumption after partial failure. Applying it
+  requires a separately verified quiesced-writer maintenance barrier. It does
+  not create tables/accounts, alter schema, or touch billing or podcast tokens.
+  Live execution, other credential types, provider rotation, and full migration
+  remain blocked on authenticated inventory and cutover.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
