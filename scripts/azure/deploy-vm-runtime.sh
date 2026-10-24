@@ -13,6 +13,7 @@ APP_GROUP="${APP_GROUP:-$APP_USER}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
 ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
+SECRET_SOURCE="${ARTICLEPOD_SECRET_SOURCE-environment}"
 
 DEPLOY_STATE_DIR="$APP_DIR/.runtime/deploy-state"
 LOCK_HASH_FILE="$DEPLOY_STATE_DIR/pnpm-lock.sha256"
@@ -29,8 +30,16 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
+case "$SECRET_SOURCE" in
+  environment|keyvault) ;;
+  *)
+    echo "[deploy-vm-runtime] invalid secret source" >&2
+    exit 2
+    ;;
+esac
+
 if [[ ! -f "$ENV_FILE" ]]; then
-  if [[ -f "$LEGACY_RUNTIME_ENV_FILE" ]]; then
+  if [[ "$SECRET_SOURCE" == "environment" && -f "$LEGACY_RUNTIME_ENV_FILE" ]]; then
     echo "[deploy-vm-runtime] env file missing at $ENV_FILE; copying legacy env from $LEGACY_RUNTIME_ENV_FILE"
     mkdir -p "$(dirname "$ENV_FILE")"
     cp "$LEGACY_RUNTIME_ENV_FILE" "$ENV_FILE"
@@ -40,17 +49,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
   fi
 fi
 
-python3 "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py" "$ENV_FILE"
+if [[ "$SECRET_SOURCE" == "environment" ]]; then
+  python3 "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py" "$ENV_FILE"
+fi
 
 cd "$APP_DIR"
 
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
   echo "Missing runtime user '$APP_USER'. Run bootstrap first."
   exit 1
-fi
-
-if [[ "$(id -u)" -eq 0 ]]; then
-  "$ROOT_DIR/scripts/azure/ensure-swap.sh"
 fi
 
 case "$DEPLOY_DEMO_SEED_MODE" in
@@ -62,8 +69,41 @@ case "$DEPLOY_DEMO_SEED_MODE" in
     ;;
 esac
 
+if [[ "$SECRET_SOURCE" == "keyvault" && "$DEPLOY_DEMO_SEED_MODE" != "never" ]]; then
+  echo "[deploy-vm-runtime] Key Vault deployment requires DEPLOY_DEMO_SEED_MODE=never; rotate accounts separately" >&2
+  exit 2
+fi
+
 run_app_cmd() {
-  local cmd="$1"
+  local scope="$1"
+  shift
+  if [[ "$#" -eq 0 ]]; then
+    echo "[deploy-vm-runtime] a scoped command is required" >&2
+    return 2
+  fi
+  case "$scope" in
+    public|ops|web|worker|python-tts|worker-overflow) ;;
+    *)
+      echo "[deploy-vm-runtime] invalid command credential scope" >&2
+      return 2
+      ;;
+  esac
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    local launcher_args=(--env-file "$ENV_FILE")
+    if [[ "$scope" == "public" ]]; then
+      launcher_args+=(--public-only)
+    else
+      launcher_args+=(--service "$scope")
+    fi
+    sudo -H -u "$APP_USER" python3 "$ROOT_DIR/scripts/azure/keyvault-exec.py" \
+      "${launcher_args[@]}" -- /usr/bin/env bash --noprofile --norc -c '
+        set -euo pipefail
+        cd -- "$1"
+        shift
+        exec "$@"
+      ' _ "$APP_DIR" "$@"
+    return
+  fi
   sudo -u "$APP_USER" APP_DIR="$APP_DIR" ENV_FILE="$ENV_FILE" bash -lc '
     set -euo pipefail
     load_env_file() {
@@ -76,12 +116,17 @@ run_app_cmd() {
     }
     load_env_file
     cd "$APP_DIR"
-    eval "$1"
-  ' _ "$cmd"
+    exec "$@"
+  ' _ "$@"
 }
 
 read_env_value() {
   local key="$1"
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    run_app_cmd public python3 -c \
+      'import os, sys; sys.stdout.write(os.environ.get(sys.argv[1], ""))' "$key"
+    return
+  fi
   local line
   line="$(grep -E "^${key}=" "$ENV_FILE" | tail -n 1 || true)"
   if [[ -z "$line" ]]; then
@@ -126,6 +171,18 @@ remove_app_local_env_files() {
     "$APP_DIR/services/python-tts/.env"
 }
 
+assert_no_vault_local_env_files() {
+  local directory name
+  for directory in "$APP_DIR" "$APP_DIR/apps/web" "$APP_DIR/apps/worker" "$APP_DIR/services/python-tts"; do
+    for name in .env .env.local .env.production .env.production.local .env.azure; do
+      if [[ -e "$directory/$name" || -L "$directory/$name" ]]; then
+        echo "[deploy-vm-runtime] local environment files must be reviewed and retired before Key Vault deployment" >&2
+        return 1
+      fi
+    done
+  done
+}
+
 ensure_runtime_dirs() {
   local runtime_paths=()
   local storage_root=""
@@ -133,11 +190,18 @@ ensure_runtime_dirs() {
   local upload_root=""
   local database_url=""
   local sqlite_path=""
+  local resolved_path=""
 
-  storage_root="$(read_env_value STORAGE_ROOT || true)"
-  media_root="$(read_env_value MEDIA_ROOT || true)"
-  upload_root="$(read_env_value UPLOAD_ROOT || true)"
-  database_url="$(read_env_value DATABASE_URL || true)"
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    storage_root="$(read_env_value STORAGE_ROOT)"
+    media_root="$(read_env_value MEDIA_ROOT)"
+    upload_root="$(read_env_value UPLOAD_ROOT)"
+  else
+    storage_root="$(read_env_value STORAGE_ROOT || true)"
+    media_root="$(read_env_value MEDIA_ROOT || true)"
+    upload_root="$(read_env_value UPLOAD_ROOT || true)"
+    database_url="$(read_env_value DATABASE_URL || true)"
+  fi
 
   [[ -n "$storage_root" ]] && runtime_paths+=("$storage_root")
   [[ -n "$media_root" ]] && runtime_paths+=("$media_root")
@@ -157,9 +221,22 @@ ensure_runtime_dirs() {
   fi
 
   for path in "${runtime_paths[@]}"; do
+    if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+      resolved_path="$(realpath -m -- "$path")"
+      if [[ "$path" != /* ]] || [[ "$resolved_path" =~ ^/(etc|usr|var|home|opt|tmp|mnt|srv|root|bin|sbin|lib|lib64|boot|proc|sys|dev|run)?$ ]]; then
+        echo "[deploy-vm-runtime] unsafe runtime directory" >&2
+        return 1
+      fi
+    fi
+  done
+  for path in "${runtime_paths[@]}"; do
     mkdir -p "$path"
   done
-  chown -R "$APP_USER":"$APP_GROUP" "${runtime_paths[@]}"
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    chown "$APP_USER":"$APP_GROUP" "${runtime_paths[@]}"
+  else
+    chown -R "$APP_USER":"$APP_GROUP" "${runtime_paths[@]}"
+  fi
 
   if [[ -n "$sqlite_path" ]]; then
     touch "$sqlite_path"
@@ -185,7 +262,7 @@ run_pnpm_install_if_needed() {
 
   if [[ -n "$install_reason" ]]; then
     echo "[deploy-vm-runtime] running pnpm install (${install_reason})"
-    run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"
+    run_app_cmd public /usr/bin/env CI=true corepack pnpm install --frozen-lockfile
     write_state_value "$LOCK_HASH_FILE" "$current_lock_hash"
   else
     echo "[deploy-vm-runtime] skipping pnpm install (lockfile unchanged)"
@@ -193,18 +270,8 @@ run_pnpm_install_if_needed() {
 }
 
 run_python_tts_setup() {
-  sudo -u "$APP_USER" APP_DIR="$APP_DIR" ENV_FILE="$ENV_FILE" bash -lc '
+  run_app_cmd public /usr/bin/env APP_DIR="$APP_DIR" bash --noprofile --norc -c '
     set -euo pipefail
-    load_env_file() {
-      while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
-        local key="${line%%=*}"
-        local value="${line#*=}"
-        export "$key=$value"
-      done < "$ENV_FILE"
-    }
-    load_env_file
-
     cd "$APP_DIR/services/python-tts"
     if [[ ! -x .venv/bin/python3 ]]; then
       python3 -m venv .venv
@@ -259,7 +326,11 @@ PY
 }
 
 python_tts_assets_ready() {
-  sudo -u "$APP_USER" APP_DIR="$APP_DIR" bash -lc '
+  local runner=(sudo -u "$APP_USER" APP_DIR="$APP_DIR" bash -lc)
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    runner=(run_app_cmd public /usr/bin/env APP_DIR="$APP_DIR" bash --noprofile --norc -c)
+  fi
+  "${runner[@]}" '
     set -euo pipefail
     cd "$APP_DIR/services/python-tts"
     [[ -x .venv/bin/python3 ]] || exit 1
@@ -321,12 +392,20 @@ run_python_tts_setup_if_needed() {
 }
 
 run_tts_preview_precompute() {
-  if ! run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run tts:precompute"; then
+  if ! run_app_cmd ops /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run tts:precompute; then
+    if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+      echo "[deploy-vm-runtime] Key Vault preview precompute failed; deployment is incomplete" >&2
+      return 1
+    fi
     echo "[deploy-vm-runtime] warning: tts preview precompute failed; previews will be generated on demand" >&2
   fi
 }
 
 run_demo_seed_if_needed() {
+  if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+    echo "[deploy-vm-runtime] skipping demo seed in Key Vault mode, including full dependency rebuilds"
+    return
+  fi
   local run_seed=0
   local seed_reason=""
 
@@ -343,17 +422,43 @@ run_demo_seed_if_needed() {
 
   if [[ "$run_seed" == "1" ]]; then
     echo "[deploy-vm-runtime] running demo seed (${seed_reason})"
-    run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run seed:demo"
+    run_app_cmd ops /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run seed:demo
     write_state_value "$DEMO_SEED_MARKER_FILE" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
   else
     echo "[deploy-vm-runtime] skipping demo seed (mode=${DEPLOY_DEMO_SEED_MODE})"
   fi
 }
 
-metadata_primary_backend="$(read_env_value METADATA_PRIMARY_BACKEND || true)"
-metadata_primary_backend="${metadata_primary_backend:-prisma}"
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  assert_no_vault_local_env_files
+  metadata_primary_backend="$(read_env_value METADATA_PRIMARY_BACKEND)"
+  run_app_cmd public /usr/bin/env bash --noprofile --norc -c '
+    for tool in node corepack python3; do
+      if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "[deploy-vm-runtime] required tool missing from non-login PATH: $tool" >&2
+        exit 1
+      fi
+    done
+  '
+  for service in ops web worker python-tts; do
+    run_app_cmd "$service" /usr/bin/true
+  done
+  if [[ "$ENABLE_OVERFLOW_WORKER_SERVICE" == "1" ]]; then
+    run_app_cmd worker-overflow /usr/bin/true
+  fi
+  if [[ "$metadata_primary_backend" == "prisma" ]]; then
+    run_app_cmd ops python3 -c '
+import os, sys
+if not os.environ.get("DATABASE_URL", "").startswith(("postgresql://", "postgres://")):
+    print("[deploy-vm-runtime] Key Vault Azure/Prisma deployment requires a PostgreSQL DATABASE_URL", file=sys.stderr)
+    sys.exit(1)
+'
+  fi
+else
+  metadata_primary_backend="$(read_env_value METADATA_PRIMARY_BACKEND || true)"
+  metadata_primary_backend="${metadata_primary_backend:-prisma}"
 
-if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
+  if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
   set -euo pipefail
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
@@ -361,12 +466,12 @@ if ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
     value="${line#*=}"
     export "$key=$value"
   done < "$ENV_FILE"
-'; then
-  echo "Failed to load env from $ENV_FILE"
-  exit 1
-fi
+  '; then
+    echo "Failed to load env from $ENV_FILE"
+    exit 1
+  fi
 
-if [[ "$metadata_primary_backend" != "azure_table" ]] && ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
+  if [[ "$metadata_primary_backend" != "azure_table" ]] && ! sudo -u "$APP_USER" ENV_FILE="$ENV_FILE" bash -lc '
   set -euo pipefail
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
@@ -375,23 +480,29 @@ if [[ "$metadata_primary_backend" != "azure_table" ]] && ! sudo -u "$APP_USER" E
     export "$key=$value"
   done < "$ENV_FILE"
   [[ -n "${DATABASE_URL:-}" ]]
-'; then
-  echo "DATABASE_URL is missing in $ENV_FILE"
-  exit 1
+  '; then
+    echo "DATABASE_URL is missing in $ENV_FILE"
+    exit 1
+  fi
 fi
 
-remove_app_local_env_files
+if [[ "$(id -u)" -eq 0 ]]; then
+  "$ROOT_DIR/scripts/azure/ensure-swap.sh"
+fi
+if [[ "$SECRET_SOURCE" == "environment" ]]; then
+  remove_app_local_env_files
+fi
 ensure_runtime_dirs
 ensure_deploy_state_dir
-sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
+sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" ARTICLEPOD_SECRET_SOURCE="$SECRET_SOURCE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
 run_pnpm_install_if_needed
-run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run prisma:generate"
-run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run build"
-run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run build"
+run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run prisma:generate
+run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run prisma:generate
+run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run build
+run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run build
 run_python_tts_setup_if_needed
 if [[ "$metadata_primary_backend" != "azure_table" ]]; then
-  run_app_cmd "RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run db:bootstrap"
+  run_app_cmd ops /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run db:bootstrap
 fi
 run_demo_seed_if_needed
 

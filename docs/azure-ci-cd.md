@@ -297,8 +297,8 @@ The loader is not a sandbox: the chosen command can still read files or perform
 its own authentication. A build must also exclude secret-bearing `.env` files
 and credential-loading shell profiles. The new file-based form does not import
 systemd-specific overrides or automatically rewire existing deployment helpers.
-Those call sites must be migrated explicitly, preserving service-specific
-settings, before activation.
+The VM-side integration below now uses it explicitly; remote rollout and other
+operational entrypoints still need integration before activation.
 
 **Secret-free builds:** During Next.js's own `phase-production-build`, web
 configuration does not require runtime signing secrets, and Azure Table primary
@@ -329,13 +329,45 @@ isolated loopback/public test settings: its `.next` output is verification
 material, not a production release artifact. It does not fetch vault secrets,
 connect to a database, or replace the still-pending deployment cutover.
 
-**Do not activate vault mode yet.** The existing bulk deployment/build and
-operational credential cutover is not complete. `assert-legacy-deploy.py` prevents
+**VM-side deployment integration:** `deploy-vm-runtime.sh` accepts explicit
+`ARTICLEPOD_SECRET_SOURCE=keyvault` with `DEPLOY_DEMO_SEED_MODE=never` for an
+already-configured VM. The supplied public environment file must pass the
+protected loader. Before mutating deployment steps, it resolves all references
+for `ops`, `web`, `worker`, and `python-tts`, plus `worker-overflow` when enabled.
+This verifies configured references, not the completeness of the live consumer
+inventory or end-to-end provider functionality.
+Node, Corepack, and Python must already be available on the runtime user's
+non-login `PATH`; the preflight checks this without loading shell profiles.
+
+Dependency installation, Prisma generation, web/worker builds, Python setup,
+and Python asset probes run with public settings only. Database bootstrap and
+TTS preview precompute use the pinned `ops` map. Commands use argument arrays,
+not `eval`, and vault-mode command shells do not load login profiles. Any
+credential-resolution failure aborts without a plaintext fallback. Preview
+failure is also fatal in this mode rather than a successful deployment warning.
+
+Key Vault deployments refuse local runtime `.env` files, including
+`.env.azure`, before running commands; they do not delete those files to proceed.
+Retire them through the controlled migration after reviewing their contents.
+The public file is not replaced with a legacy fallback. Azure/Prisma operations
+require a vault-supplied PostgreSQL URL; the parent shell does not read a database
+secret to create SQLite files. Runtime paths reject relative/root-directory
+targets, and existing data-file ownership is not recursively rewritten.
+
+Demo/account seeding is always disabled in this mode, even for a forced full
+dependency rebuild. Use the separately controlled account-rotation operation,
+not seeding. VM maintenance retains retired runtime trees when current legacy
+configuration cannot be established, including vault-mode or absent configuration.
+Legacy environment-mode command behavior remains supported.
+
+**Do not activate vault mode yet.** Remote rollout, initial secret-delivery
+bootstrap, and the remaining operational/consumer cutover are not complete.
+`assert-legacy-deploy.py` prevents
 `deploy-changes.sh` from activating vault mode or overwriting an already
-vault-managed environment, before sync or environment upload. Direct
-`deploy-vm-runtime.sh` runs are also guarded before runtime setup. Ordinary
-legacy-mode deployments remain supported. This guard must remain until a
-vault-aware deployment path is implemented and validated, so a subsequent deploy
+vault-managed environment, before sync or environment upload. Direct VM runs
+retain that guard in legacy mode; the explicit Key Vault path uses the
+protected configuration and scoped execution above. The remote guard must
+remain until transport/bootstrap is implemented and validated, so a subsequent deploy
 cannot restore old GitHub secret values. VM unit support alone is not support for
 an Azure Container Apps overflow deployment; confirm the live topology and
 configure that separate consumer before cutover.
@@ -374,6 +406,7 @@ Offline checks, with no Azure login or production secrets:
 python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
 python -m unittest discover -s scripts/azure/tests -p test_public_environment.py
 python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
+python -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
 bicep build infra/secrets.bicep --stdout
 ```
 

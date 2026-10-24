@@ -79,14 +79,16 @@ Key Vault migration status: VM unit templates now use the explicit
 `scripts/azure/runtime-exec.sh` router. Its default is the existing environment
 behavior above; `ARTICLEPOD_SECRET_SOURCE=keyvault` selects the version-pinned
 launcher and `ARTICLEPOD_KEYVAULT_MANIFEST` reference file. `render-env.sh` can
-render that mode without persistent secret values, but the bulk deployment
-helpers deliberately reject activation or overwrite of a vault-managed
-configuration until vault-aware build/operations cutover is implemented.
+render that mode without persistent secret values, but the remote
+`deploy-changes.sh` helper still rejects activation or overwrite of a
+vault-managed configuration until transport/bootstrap cutover is implemented.
 The launcher now accepts a protected `--env-file` for standalone public-only
 or pinned-secret operational execution. It rejects plaintext secret values and
 unsupported configuration instead of sourcing shell code; the renderer checks
-vault-mode output in memory before writing. This entrypoint does not yet replace
-bulk deployment commands or systemd-specific environment overrides.
+vault-mode output in memory before writing. Explicit VM-side Key Vault
+deployment now uses this entrypoint for public builds and pinned operations,
+requires `DEPLOY_DEMO_SEED_MODE=never`, and refuses local `.env` files.
+Remote deployment and systemd-specific overrides are not automatically migrated.
 No production service has been migrated. See
 [`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated) for the manifest,
 permission boundaries, and activation gates. Before storage-key rotation, preserve

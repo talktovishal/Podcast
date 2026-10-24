@@ -811,8 +811,8 @@ No item may be marked Done without passing the verification commands listed in i
 
 - The Key Vault module, version-pinned managed-identity launcher, opt-in VM unit
   routing, and public-configuration rendering are migration prerequisites only.
-  Legacy defaults remain supported. Vault-aware bulk deployment/build and
-  operational cutover, account rotation, provider revocation, and live continuity
+  Legacy defaults remain supported. Remote rollout and production operational
+  cutover, account rotation, provider revocation, and live continuity
   verification are still pending; legacy deployment is guarded against
   overwriting a vault-managed environment.
 - Vault runtime access must remain read-only and separate from administrative
@@ -826,6 +826,13 @@ No item may be marked Done without passing the verification commands listed in i
   endpoints. The renderer validates vault-mode candidates before overwriting
   output. Host-environment filtering and file protections do not sandbox child
   commands or migrate existing deployment/service call sites automatically.
+- Explicit VM-side Key Vault deployment now separates public build/dependency
+  commands from pinned operational commands and preflights configured service
+  references before mutating steps. It must refuse local runtime `.env` files,
+  plaintext fallback, and account/demo seeding, including forced rebuilds.
+  Existing data-file ownership must not be recursively rewritten in that mode.
+  Maintenance retains retired runtime trees without confirmed legacy
+  configuration. Remote transport/bootstrap and live activation remain pending.
 - Read-only access diagnostics retain strict SSH host verification. A comparison
   with saved pins emits booleans only and cannot repair pins, accept advertised
   keys, or turn a blocked connection into a successful inventory.

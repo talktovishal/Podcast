@@ -33,11 +33,13 @@ Latest verified production state:
 ## Prerequisites (local)
 
 Key Vault migration is not active. VM unit templates have opt-in secret routing,
-but normal deployment still uses the legacy environment path. The deploy helpers
-reject vault-mode activation or overwrite of an existing vault-managed
-configuration until the corresponding build/operations cutover is implemented.
-The protected public-file launcher is available for standalone commands, but
-existing deploy helpers have not been converted to it.
+but normal remote deployment still uses the legacy environment path.
+`deploy-changes.sh` rejects vault-mode activation or overwrite of an existing
+vault-managed configuration until transport/bootstrap cutover is implemented.
+Explicit VM-side execution now separates public dependency/build commands from
+pinned operational commands, preflights configured service references, and
+requires `DEPLOY_DEMO_SEED_MODE=never`. It does not provision or activate the
+initial migration and does not authorize bypassing the remaining rollout gates.
 Do not remove that guard or enable the mode as a shortcut. See
 [`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated).
 

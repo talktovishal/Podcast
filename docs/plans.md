@@ -13,8 +13,8 @@
   version-pinned managed-identity launcher are staged, not activated. VM unit
   templates now have opt-in routing with unchanged legacy defaults, and the env
   renderer can emit public-only configuration. Legacy deploy guards prevent
-  overwriting a vault-managed environment. Vault-aware bulk build/operations and
-  any active Container Apps consumer still need implementation before activation.
+  overwriting a vault-managed environment. Remote transport/bootstrap and any
+  active Container Apps consumer still need implementation before activation.
   Account/provider rotation and live verification require trusted VM access and
   separately established administrative permissions. This
   is not a completed security milestone or evidence that old credentials are
@@ -31,9 +31,16 @@
   prerequisite: strict literal parsing, bounded protected-file reads, filtered
   inherited settings, public-only execution without vault access, and pinned
   operational secret resolution. Vault-mode rendering validates candidates in
-  memory before writing. Existing service overrides and legacy deployment
-  guards remain unchanged. Bulk command routing, live activation, and credential
-  invalidation are still pending; this is not completion of the migration.
+  memory before writing.   Existing service overrides remain unchanged and the remote deployment guard
+  remains in place. Live activation and credential invalidation are still pending;
+  this is not completion of the migration.
+- VM-side deployment now has explicit vault-aware command routing: public
+  dependency/build/setup steps, pinned operational commands, service-reference
+  preflight, local `.env` refusal, no account seeding, and nonrecursive data
+  ownership handling. Maintenance preserves retired runtime trees unless legacy
+  configuration is established. Legacy-mode execution remains supported.
+  Remote rollout, initial bootstrap, other consumers, and live verification are
+  still incomplete.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.

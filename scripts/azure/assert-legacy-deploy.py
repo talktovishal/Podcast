@@ -30,7 +30,7 @@ def main():
     try:
         assert_legacy(sys.argv[1])
     except ValueError:
-        print("Deployment blocked: vault-aware build/operations cutover is not implemented; retain the active configuration", file=sys.stderr)
+        print("Deployment blocked: legacy deployment cannot activate or overwrite Key Vault configuration", file=sys.stderr)
         return 1
     except OSError:
         print("Deployment blocked: ENVIRONMENT_FILE_UNREADABLE", file=sys.stderr)
