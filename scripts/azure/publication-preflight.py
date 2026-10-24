@@ -74,6 +74,29 @@ BOOLEAN_FIELDS = {
 }
 
 
+class PreflightError(RuntimeError):
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+def ssh_failure_code(stderr):
+    text = stderr.lower()
+    if "host key verification failed" in text or "remote host identification has changed" in text:
+        return "SSH_HOST_KEY_NOT_TRUSTED"
+    if "invalid format" in text or "error in libcrypto" in text:
+        return "SSH_KEY_FORMAT_INVALID"
+    if "permission denied" in text:
+        return "SSH_AUTHENTICATION_DENIED"
+    if "a password is required" in text or "not allowed to execute" in text:
+        return "SUDO_AUTHORIZATION_REQUIRED"
+    if "timed out" in text or "no route to host" in text or "connection refused" in text:
+        return "SSH_HOST_UNREACHABLE"
+    if "could not resolve hostname" in text:
+        return "SSH_HOSTNAME_UNRESOLVED"
+    return "SSH_REMOTE_CHECK_FAILED"
+
+
 def safe_result(output):
     result = json.loads(output)
     if not isinstance(result, dict) or set(result) - (BOOLEAN_FIELDS | {"http_status"}):
@@ -118,7 +141,7 @@ def main():
             input=REMOTE_CHECK, capture_output=True, text=True, timeout=90,
         )
         if result.returncode:
-            raise RuntimeError("Read-only SSH check failed; no deployment was attempted")
+            raise PreflightError(ssh_failure_code(result.stderr))
         inventory = safe_result(result.stdout)
         print(json.dumps(inventory))
         if inventory.get("check_error") or "http_status" in inventory:
@@ -131,6 +154,9 @@ def main():
 if __name__ == "__main__":
     try:
         sys.exit(main())
+    except PreflightError as error:
+        print(json.dumps({"status": "blocked", "reason": error.code}))
+        sys.exit(1)
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError) as error:
         # Never relay SSH stderr, exception payloads, or remote response text.
         print(json.dumps({"status": "blocked", "error_type": type(error).__name__}))

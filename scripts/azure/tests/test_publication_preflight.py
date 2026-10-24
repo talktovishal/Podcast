@@ -29,6 +29,19 @@ class InventoryOutputTests(unittest.TestCase):
     def test_remote_program_is_valid_python(self):
         compile(preflight.REMOTE_CHECK, "<remote-check>", "exec")
 
+    def test_host_key_error_is_classified_without_echoing_host(self):
+        result = preflight.ssh_failure_code("private-host: Host key verification failed.")
+        self.assertEqual(result, "SSH_HOST_KEY_NOT_TRUSTED")
+
+    def test_unknown_ssh_error_does_not_echo_payload(self):
+        self.assertEqual(preflight.ssh_failure_code("untrusted remote output"), "SSH_REMOTE_CHECK_FAILED")
+
+    def test_authentication_denial_is_distinct_from_host_verification(self):
+        self.assertEqual(
+            preflight.ssh_failure_code("Permission denied (publickey)."),
+            "SSH_AUTHENTICATION_DENIED",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
