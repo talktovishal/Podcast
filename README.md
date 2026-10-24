@@ -76,27 +76,23 @@ Output ZIP: `dist/extension/articlepod-capture-v<version>.zip`
 - Durability restore verification:
   - `npm run ops:verify-restore`
 
-## Azure deployment
-See:
-- `docs/azure-deploy.md` - Initial provisioning and manual deployment
-- `docs/azure-ci-cd.md` - CI/CD automated deployment setup
-- `infra/README.md` - Infrastructure as Code (Bicep templates)
+## Deployment ownership and temporary pause
 
-Deploy-only (for local code changes to an existing VM):
-```bash
-TARGET_HOST="<vm-ip-or-fqdn>" \
-CANONICAL_HOST="articlepod.com" \
-HOST_ALIASES="www.articlepod.com" \
-LETSENCRYPT_EMAIL="<email>" \
-APP_URL="https://articlepod.com" \
-npm run azure:deploy:changes
-```
-The ingress automation self-heals nginx server-name hash sizing issues and preserves certbot-compatible nginx reload behavior on repeated deploys.
+Deployment credentials and operational orchestration belong in the private
+[`talktovishal/Podcast-Deploy`](https://github.com/talktovishal/Podcast-Deploy)
+repository. This source repository retains public-safe code CI, runtime/support
+scripts, tests, and infrastructure definitions, but no active deployment,
+production probe, or secret-export workflows.
 
-Automated CI/CD deployment:
-- Configure GitHub deploy secrets (`AZURE_VM_HOST`, `AZURE_SSH_KEY`, `APP_URL`, `APP_DOMAIN_ALIASES`, `LETSENCRYPT_EMAIL`)
-- Run the `Deploy to Azure` workflow manually from `main`
-- See `docs/azure-ci-cd.md` for setup instructions
+Production has **not** been redeployed by this handoff. Private mutation workflows
+remain guarded pending separate review of runtime preservation and build
+compatibility. This temporary deployment pause is the coordinator's expedient
+handoff choice under autonomous delegation, not a user-selected approval option,
+completed deployment verification, or a promise of a working release path.
+Existing deployment runbooks remain historical/support references, not active
+source-repository deployment instructions.
+Definitions retained under `.github/workflow-fixtures` are historical compatibility
+test inputs, not active workflows or guarantees about production.
 
 Script/catalog indexes:
 - `docs/README.md`
@@ -113,6 +109,7 @@ Script/catalog indexes:
 - `pnpm preflight`
 - `pnpm preflight --parity` for runtime-sensitive changes
 - GitHub `CI` runs the quick PR gate; `Nightly Full CI` runs the expensive full suite on `main`
+- Manual `Source Support CI` retains credential-free support, infrastructure, and build-isolation checks
 - `npm run typecheck`
 - `npm run lint`
 - `npm run test`

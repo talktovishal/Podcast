@@ -14,6 +14,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -31,6 +34,7 @@ jobs:
           sparse-checkout: |
             scripts/secret-migration
             .github/workflows
+            .github/workflow-fixtures
       - name: Test isolated secret migration with synthetic values
         run: |
           set -euo pipefail

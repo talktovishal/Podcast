@@ -425,8 +425,12 @@ class ExportTests(unittest.TestCase):
 
 
 class WorkflowTests(unittest.TestCase):
+    """Historical compatibility fixtures, not active production guarantees."""
+
     def setUp(self):
-        self.workflow = (REPO / migration.WORKFLOW_PATH).read_text()
+        self.workflow = (
+            REPO / ".github" / "workflow-fixtures" / Path(migration.WORKFLOW_PATH).name
+        ).read_text()
 
     def test_credentials_exist_only_in_final_encryption_step(self):
         steps = re.split(r"^      - name: ", self.workflow, flags=re.MULTILINE)[1:]
@@ -528,6 +532,27 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("--only-binary=:all:", self.workflow)
         self.assertIn("--no-deps", self.workflow)
         self.assertIn("--isolated install", self.workflow)
+
+
+class SourceWorkflowBoundaryTests(unittest.TestCase):
+    def test_active_workflows_do_not_select_secrets_or_environments(self):
+        directory = REPO / ".github" / "workflows"
+        workflows = sorted(directory.glob("*.yml")) + sorted(directory.glob("*.yaml"))
+        self.assertTrue(workflows)
+        for path in workflows:
+            with self.subTest(workflow=path.name):
+                workflow = path.read_text()
+                self.assertNotRegex(workflow, r"(?m)^\s*(?:environment|secrets)\s*:")
+                self.assertNotRegex(workflow, r"(?m)^\s*id-token\s*:\s*write\b")
+                for expression in re.findall(r"\$\{\{(.*?)\}\}", workflow, re.DOTALL):
+                    self.assertNotRegex(expression, r"(?i)\bsecrets\b")
+
+    def test_historical_fixtures_are_not_active_workflows(self):
+        fixtures = sorted((REPO / ".github" / "workflow-fixtures").glob("*.yml"))
+        self.assertEqual(len(fixtures), 5)
+        for path in fixtures:
+            with self.subTest(fixture=path.name):
+                self.assertFalse((REPO / ".github" / "workflows" / path.name).exists())
 
 
 if __name__ == "__main__":

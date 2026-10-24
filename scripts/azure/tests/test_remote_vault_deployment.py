@@ -79,8 +79,10 @@ class VaultDeploymentPathTests(unittest.TestCase):
 
 
 class VaultWorkflowTests(unittest.TestCase):
+    """Historical compatibility fixtures, not active production guarantees."""
+
     def test_vault_workflow_has_only_transport_secrets_and_never_renders_configuration(self):
-        workflow = (ROOT / ".github/workflows/deploy-azure-keyvault.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflow-fixtures/deploy-azure-keyvault.yml").read_text(encoding="utf-8")
         self.assertEqual(set(re.findall(r"secrets\.([A-Z_]+)", workflow)), {
             "ARTICLEPOD_DEPLOY_SSH_KEY", "ARTICLEPOD_DEPLOY_KNOWN_HOSTS", "AZURE_VM_HOST", "AZURE_VM_USER",
         })

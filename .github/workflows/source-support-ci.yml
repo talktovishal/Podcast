@@ -1,0 +1,73 @@
+name: Source Support CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-support-ci
+  cancel-in-progress: false
+
+jobs:
+  validation:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test redacted inventory output
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_publication_preflight.py
+      - name: Test version-pinned secret loading
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+      - name: Test protected public configuration and execution
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_public_environment.py
+      - name: Test opt-in runtime routing and legacy deployment guards
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
+      - name: Test isolated VM deployment command routing
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
+      - name: Test historical deployment SSH compatibility
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_deployment_ssh.py
+      - name: Test historical vault deployment compatibility and path preservation
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_remote_vault_deployment.py
+      - name: Verify runtime unit syntax
+        run: systemd-analyze verify --man=no infra/systemd/articlepod-web.service infra/systemd/articlepod-worker.service infra/systemd/articlepod-worker-overflow.service infra/systemd/articlepod-python-tts.service
+      - name: Test build environment isolation
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_secret_free_build.py
+      - name: Compile vault-only infrastructure
+        run: az bicep build --file infra/secrets.bicep --outfile "$RUNNER_TEMP/articlepod-vault.json"
+
+  build-validation:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Install declared dependencies
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+      - name: Prime Prisma client
+        run: node scripts/ensure-prisma-generated.mjs
+      - name: Test deferred Azure initialization
+        run: corepack pnpm --filter @articlepod/core exec tsx --test tests/azure-table-initialization.test.ts tests/azure-table-primary-store.test.ts
+      - name: Test build and runtime environment boundaries
+        run: corepack pnpm --filter @articlepod/web exec tsx --test tests/secret-free-build.test.ts tests/env-path-normalization.test.ts
+      - name: Test isolated targeted account rotation
+        run: corepack pnpm --filter @articlepod/web exec tsx --test tests/account-rotation.test.ts
+      - name: Type-check and lint web operations
+        run: |
+          corepack pnpm --filter @articlepod/web exec tsc --noEmit --incremental false
+          NEXT_TELEMETRY_DISABLED=1 corepack pnpm --filter @articlepod/web exec next lint --file scripts/rotate-provisioned-accounts.ts --file tests/account-rotation.test.ts
+      - name: Type-check and build shared stores
+        run: |
+          corepack pnpm --filter @articlepod/core run typecheck
+          corepack pnpm --filter @articlepod/core run build
+      - name: Build without service credentials and verify compiled runtime guards
+        run: |
+          python3 scripts/azure/verify-secret-free-build.py --metadata-backend azure_table
+          python3 scripts/azure/verify-secret-free-build.py --metadata-backend prisma

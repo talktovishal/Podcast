@@ -15,8 +15,10 @@ BASH = shutil.which("bash")
 
 
 class WorkflowTransportTests(unittest.TestCase):
+    """Historical compatibility fixtures, not active production guarantees."""
+
     def test_probe_is_main_only_pinned_and_guarded_before_execution(self):
-        workflow = (ROOT / ".github/workflows/probe-url-extraction.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflow-fixtures/probe-url-extraction.yml").read_text(encoding="utf-8")
         self.assertIn("github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'", workflow)
         self.assertIn("group: deploy-azure-main", workflow)
         self.assertIn("AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}", workflow)
@@ -32,7 +34,7 @@ class WorkflowTransportTests(unittest.TestCase):
         self.assertNotIn("scp ", workflow)
 
     def test_production_is_main_only_and_pinned(self):
-        workflow = (ROOT / ".github" / "workflows" / "deploy-azure.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflow-fixtures" / "deploy-azure.yml").read_text(encoding="utf-8")
         self.assertIn(
             "if: github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'",
             workflow,
@@ -95,7 +97,7 @@ class DeploymentTransportTests(unittest.TestCase):
         self.pins.write_text(f"{host} {self.public_key}\n")
 
     def run_probe_step(self, status=0, guard_failure=False):
-        workflow = (ROOT / ".github/workflows/probe-url-extraction.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflow-fixtures/probe-url-extraction.yml").read_text(encoding="utf-8")
         step = workflow.split("      - name: Run VM URL probe\n", 1)[1].split("\n      - name:", 1)[0]
         script = textwrap.dedent(step.split("        run: |\n", 1)[1])
         directory = self.base / "articlepod-ssh"
