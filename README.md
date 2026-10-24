@@ -119,3 +119,15 @@ Script/catalog indexes:
 - `npm run build`
 - `npm run export`
 - `npm run license:check`
+
+## Inspection and rights
+
+ArticlePod's repository is intended for inspection of the product, architecture,
+and development history. Unless separately licensed, no additional license is
+granted for ArticlePod's original code or content. This is not an open-source
+license grant. GitHub's platform terms continue to apply.
+
+Third-party material retains its existing license terms. See
+[third-party attribution and retained notices](docs/THIRD_PARTY.md).
+Repository visibility is separate from production access; source availability
+does not grant access to accounts, private feeds, or deployed infrastructure.

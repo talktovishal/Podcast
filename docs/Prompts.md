@@ -882,6 +882,11 @@ No item may be marked Done without passing the verification commands listed in i
   It is not automatic seeding, a schema migration, or proof of live rotation.
 - No persistent schema or application data contract changes are introduced by
   this inactive foundation. See `docs/azure-ci-cd.md` for its activation gates.
+- Public inspection must preserve original history and remain gated on credential
+  invalidation and retained-content review. The README grants no additional
+  open-source license for original project material. Identified copied upstream
+  modules and scaffold material retain their existing notices in
+  `docs/THIRD_PARTY.md` and `docs/licenses/`; this is not publication clearance.
 
 ## Verification Prompts
 
