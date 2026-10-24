@@ -2,11 +2,16 @@
  * Next.js instrumentation hook — runs once when the server starts.
  * https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+
 declare global {
   var __articlepodServerKeepalive__: ReturnType<typeof setInterval> | undefined;
 }
 
 export async function register() {
+  if (process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD) {
+    return;
+  }
   // Only run in the Node.js runtime (not Edge), where Prisma and bcrypt are available.
   if (process.env.NEXT_RUNTIME === "nodejs") {
     if (process.env.ARTICLEPOD_SERVER_KEEPALIVE === "1" && !global.__articlepodServerKeepalive__) {

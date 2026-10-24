@@ -8,6 +8,7 @@ type AzureTablePrimaryStoreOptions = {
   accountUrl?: string;
   sasToken?: string;
   createTablesIfMissing?: boolean;
+  deferInitialization?: boolean;
 };
 
 type TableKey =
@@ -731,10 +732,20 @@ function isPreconditionError(error: unknown): boolean {
 export class AzureTablePrimaryStore {
   readonly backend = "azure_table" as const;
 
-  private readonly clients: Record<TableKey, TableClient>;
-  private readonly ensureTablesPromise: Promise<void>;
+  private clients: Record<TableKey, TableClient> | undefined;
+  private ensureTablesPromise: Promise<void> | undefined;
 
-  constructor(input: AzureTablePrimaryStoreOptions) {
+  constructor(private readonly input: AzureTablePrimaryStoreOptions) {
+    if (!input.deferInitialization) {
+      void this.initialize();
+    }
+  }
+
+  private initialize(): Promise<void> {
+    if (this.ensureTablesPromise) {
+      return this.ensureTablesPromise;
+    }
+    const input = this.input;
     const createClient = buildClientFactory(input);
     this.clients = {
       users: createClient(buildTableName(input.tablePrefix, "users")),
@@ -766,10 +777,11 @@ export class AzureTablePrimaryStore {
     };
 
     const shouldCreate = input.createTablesIfMissing ?? true;
-    this.ensureTablesPromise = shouldCreate ? this.ensureTables() : Promise.resolve();
+    this.ensureTablesPromise = shouldCreate ? this.ensureTables(this.clients) : Promise.resolve();
+    return this.ensureTablesPromise;
   }
 
-  private async ensureTables(): Promise<void> {
+  private async ensureTables(clients: Record<TableKey, TableClient>): Promise<void> {
     const createIfMissing = async (client: TableClient) => {
       await client.createTable().catch((error: unknown) => {
         const code =
@@ -780,14 +792,17 @@ export class AzureTablePrimaryStore {
       });
     };
 
-    await Promise.all(Object.values(this.clients).map((client) => createIfMissing(client)));
+    await Promise.all(Object.values(clients).map((client) => createIfMissing(client)));
   }
 
   private async ready(): Promise<void> {
-    await this.ensureTablesPromise;
+    await this.initialize();
   }
 
   private client(key: TableKey): TableClient {
+    if (!this.clients) {
+      throw new Error("Azure Table primary store is not initialized.");
+    }
     return this.clients[key];
   }
 

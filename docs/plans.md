@@ -21,6 +21,12 @@
   invalid. SSH diagnostics can compare advertised keys with saved pins without
   accepting keys or changing the blocked inventory outcome. The inactive
   foundation changes no application data/schema contracts.
+- Secret-free web builds are implemented for Azure Table and Prisma-backed Azure
+  profiles, including enabled Table mirroring. Next's build phase defers Azure
+  clients and runtime-only signing validation without changing selected backends;
+  runtime validation remains in force. The isolated verifier checks real builds
+  and compiled runtime secret gates. Bulk deployment/operations cutover and live
+  credential rotation remain incomplete.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.

@@ -821,6 +821,13 @@ No item may be marked Done without passing the verification commands listed in i
 - Read-only access diagnostics retain strict SSH host verification. A comparison
   with saved pins emits booleans only and cannot repair pins, accept advertised
   keys, or turn a blocked connection into a successful inventory.
+- Next.js production builds can omit runtime secrets while retaining the selected
+  Azure metadata backend and enabled mirroring. Table clients initialize only
+  if build-time code requests data, which must fail without credentials rather
+  than change backends. Outside the framework build phase, existing signing
+  secret validation and eager Azure credential checks remain required. Build
+  instrumentation must not provision accounts. This is a build prerequisite,
+  not activation of the still-pending vault deployment/operations path.
 - Preserve existing application data, RSS/media URLs, and effective media-signing
   material. Do not rotate subscriber tokens as an incidental part of service-key
   rotation, and do not overwrite the deployed application version to install

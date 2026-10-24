@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
 import { BRAND_NAME, BRAND_SLUG, DEFAULT_ADMIN_EMAIL, DEFAULT_DEMO_EMAIL } from "@articlepod/core";
 
 const repoRoot = resolve(process.cwd(), "../..");
@@ -132,6 +133,8 @@ const itemDispatchBackend: ItemDispatchBackend =
       : "prisma"
     : itemDispatchBackendSetting;
 
+export const isProductionBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
+
 export const env = {
   brandName: process.env.BRAND_NAME ?? BRAND_NAME,
   runtimeProfile,
@@ -230,10 +233,10 @@ export const env = {
   adminPassword: process.env.ADMIN_PASSWORD
 };
 
-if (env.runtimeProfile !== "simple" && !env.digestSchedulerSecret) {
+if (!isProductionBuild && env.runtimeProfile !== "simple" && !env.digestSchedulerSecret) {
   throw new Error("DIGEST_SCHEDULER_SECRET must be set when RUNTIME_PROFILE is not 'simple'");
 }
 
-if (env.runtimeProfile !== "simple" && !env.mediaSigningKey) {
+if (!isProductionBuild && env.runtimeProfile !== "simple" && !env.mediaSigningKey) {
   throw new Error("MEDIA_SIGNING_KEY must be set when RUNTIME_PROFILE is not 'simple'");
 }

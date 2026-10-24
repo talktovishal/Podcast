@@ -1,5 +1,5 @@
 import { AzureTablePrimaryStore } from "@articlepod/core";
-import { env } from "./env";
+import { env, isProductionBuild } from "./env";
 
 export function webUsesAzureTablePrimary(): boolean {
   return env.metadataPrimaryBackend === "azure_table";
@@ -15,7 +15,8 @@ function createPrimaryStore(): AzureTablePrimaryStore | null {
     connectionString: env.azureTableConnectionString,
     accountUrl: env.azureTableAccountUrl,
     sasToken: env.azureTableSasToken,
-    createTablesIfMissing: env.azureTableCreateTables
+    createTablesIfMissing: env.azureTableCreateTables,
+    deferInitialization: isProductionBuild
   });
 }
 

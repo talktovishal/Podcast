@@ -3,7 +3,7 @@ import {
   NoopQueueMetadataMirror,
   type QueueMetadataMirror
 } from "@articlepod/core";
-import { env } from "./env";
+import { env, isProductionBuild } from "./env";
 
 function mirrorNeedsRemoteStore(forceEnabled = false): boolean {
   if (forceEnabled) {
@@ -22,7 +22,8 @@ function createMetadataMirror(forceEnabled = false): QueueMetadataMirror {
     connectionString: env.azureTableConnectionString,
     accountUrl: env.azureTableAccountUrl,
     sasToken: env.azureTableSasToken,
-    createTablesIfMissing: env.azureTableCreateTables
+    createTablesIfMissing: env.azureTableCreateTables,
+    deferInitialization: isProductionBuild
   });
 }
 

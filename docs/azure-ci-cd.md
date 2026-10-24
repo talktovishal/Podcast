@@ -173,6 +173,9 @@ in a job with no production environment or secret inputs. Select
 `validation_only` to run that job without attempting SSH. A successful
 validation-only run does not establish VM access or credential invalidation;
 the production inventory job is explicitly skipped.
+A separate secret-free build job checks Azure Table and Prisma-backed Azure
+profiles, including enabled Azure Table mirroring. Inventory requires both
+validation jobs to succeed.
 
 ### Key Vault foundation (not activated)
 
@@ -249,6 +252,35 @@ behavior. When a vault-mode Azure OpenAI endpoint is supplied, select
 `DIGEST_SUMMARY_PROVIDER` explicitly rather than relying on API-key presence.
 Manifest paths must be absolute and contain only letters, digits, `_`, `.`, `/`,
 or `-`.
+
+**Secret-free builds:** During Next.js's own `phase-production-build`, web
+configuration does not require runtime signing secrets, and Azure Table primary
+and mirror stores defer client/table initialization until an actual operation.
+Their selected backends and mirror-enabled state are unchanged. An accidental
+build-time data operation still fails without credentials; it does not fall
+back to Prisma or disable mirroring. Build instrumentation does not bootstrap
+accounts or start keepalive timers.
+
+Outside that framework build phase, the existing signing-secret validation
+and eager Azure credential checks remain in force. Normal core/worker store
+construction is unchanged unless deferral is explicitly requested. No schema,
+table names, entity keys, account hashes, feed tokens, or media URLs change.
+
+With declared dependencies installed, use a checkout without local `.env` files:
+
+```text
+python scripts/azure/verify-secret-free-build.py --metadata-backend azure_table
+python scripts/azure/verify-secret-free-build.py --metadata-backend prisma
+```
+
+This verifier allowlists inherited host variables, generates the correct Prisma
+client, performs a real production build without service credentials, and loads
+a compiled route in fresh processes to verify that missing runtime signing
+secrets still fail. It invalidates only the generated Prisma cache marker so
+later normal commands cannot reuse a client for the wrong profile. It uses
+isolated loopback/public test settings: its `.next` output is verification
+material, not a production release artifact. It does not fetch vault secrets,
+connect to a database, or replace the still-pending deployment cutover.
 
 **Do not activate vault mode yet.** The existing bulk deployment/build and
 operational credential cutover is not complete. `assert-legacy-deploy.py` prevents

@@ -13,6 +13,7 @@ type AzureTableMirrorOptions = {
   accountUrl?: string;
   sasToken?: string;
   createTablesIfMissing?: boolean;
+  deferInitialization?: boolean;
 };
 
 type ItemProjectionEntity = {
@@ -133,26 +134,56 @@ export class AzureTableQueueMetadataMirror implements QueueMetadataMirror {
   readonly backend = "azure_table" as const;
   readonly enabled = true;
 
-  private readonly itemsTable: TableClient;
-  private readonly jobsTable: TableClient;
-  private readonly digestRunsTable: TableClient;
-  private readonly ensureTablesPromise: Promise<void>;
+  private clients: Record<"items" | "jobs" | "digests", TableClient> | undefined;
+  private ensureTablesPromise: Promise<void> | undefined;
 
-  constructor(input: AzureTableMirrorOptions) {
+  constructor(private readonly input: AzureTableMirrorOptions) {
+    if (!input.deferInitialization) {
+      void this.initialize();
+    }
+  }
+
+  private initialize(): Promise<void> {
+    if (this.ensureTablesPromise) {
+      return this.ensureTablesPromise;
+    }
+    const input = this.input;
     const createClient = buildClientFactory(input);
     const itemsTableName = buildTableName(input.tablePrefix, "items");
     const jobsTableName = buildTableName(input.tablePrefix, "jobs");
     const digestRunsTableName = buildTableName(input.tablePrefix, "digests");
 
-    this.itemsTable = createClient(itemsTableName);
-    this.jobsTable = createClient(jobsTableName);
-    this.digestRunsTable = createClient(digestRunsTableName);
+    this.clients = {
+      items: createClient(itemsTableName),
+      jobs: createClient(jobsTableName),
+      digests: createClient(digestRunsTableName)
+    };
 
     const shouldCreate = input.createTablesIfMissing ?? true;
-    this.ensureTablesPromise = shouldCreate ? this.ensureTables() : Promise.resolve();
+    this.ensureTablesPromise = shouldCreate ? this.ensureTables(Object.values(this.clients)) : Promise.resolve();
+    return this.ensureTablesPromise;
   }
 
-  private async ensureTables(): Promise<void> {
+  private client(key: "items" | "jobs" | "digests"): TableClient {
+    if (!this.clients) {
+      throw new Error("Azure Table mirror is not initialized.");
+    }
+    return this.clients[key];
+  }
+
+  private get itemsTable(): TableClient {
+    return this.client("items");
+  }
+
+  private get jobsTable(): TableClient {
+    return this.client("jobs");
+  }
+
+  private get digestRunsTable(): TableClient {
+    return this.client("digests");
+  }
+
+  private async ensureTables(clients: TableClient[]): Promise<void> {
     const createIfMissing = async (client: TableClient) => {
       await client.createTable().catch((error: unknown) => {
         const code =
@@ -163,11 +194,11 @@ export class AzureTableQueueMetadataMirror implements QueueMetadataMirror {
       });
     };
 
-    await Promise.all([createIfMissing(this.itemsTable), createIfMissing(this.jobsTable), createIfMissing(this.digestRunsTable)]);
+    await Promise.all(clients.map(createIfMissing));
   }
 
   private async ensureReady(): Promise<void> {
-    await this.ensureTablesPromise;
+    await this.initialize();
   }
 
   async upsertItemProjection(input: ItemQueueProjection): Promise<void> {
