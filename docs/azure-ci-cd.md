@@ -51,9 +51,15 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
    - Description: Comma-separated alias domains redirected to canonical host.
    - Recommended value: `www.articlepod.com`
 
+6. **`AZURE_SSH_KNOWN_HOSTS`**
+   - Independently verified OpenSSH known-hosts entries for the exact `AZURE_VM_HOST`.
+   - Verify the VM and its host keys through the owning Azure account or another
+     trusted console. Do not accept a network scan as proof of identity.
+   - Missing, changed, or unmatched pins block deployment. Do not bypass this gate.
+
 #### Optional Secret:
 
-6. **`AZURE_VM_USER`** (optional)
+7. **`AZURE_VM_USER`** (optional)
    - Description: SSH username
    - Default: `azureuser`
    - Only set if you're using a different username
@@ -73,6 +79,19 @@ You can trigger deployment manually from GitHub:
 7. Click **Run workflow** button
 
 CI now uses a quick pull-request workflow for everyday changes and a separate nightly full validation workflow for expensive checks. Deployment remains a separate explicit step.
+
+The production job runs only for `main` in `talktovishal/Podcast`. Its SSH probe,
+deployment commands, SCP uploads, and rsync transport share strict host checking
+against the saved pins. They ignore local SSH configuration, global host files,
+DNS host-key trust, and agent identities/forwarding. Host keys cannot be updated
+automatically. Temporary runner credentials are removed in an always-run step.
+
+For local deployment, pass `--ssh-known-hosts /absolute/path/to/known_hosts`,
+or set `TARGET_KNOWN_HOSTS_FILE` for either deployment helper. Literal paths with
+spaces and apostrophes are supported; OpenSSH expansion/control characters are
+not. An explicitly empty path fails rather than falling back. Omitting this
+setting preserves legacy local SSH configuration behavior, not a verified trust
+guarantee. The remote helper still refuses Key Vault activation.
 
 Recommended daily flow:
 

@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 # shellcheck source=scripts/azure/runtime-naming.sh
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+source "$ROOT_DIR/scripts/azure/deployment-ssh.sh"
 
 print_usage() {
   cat <<EOF
@@ -23,6 +24,8 @@ Options:
   --path <value>         VM staging path (default: ${RUNTIME_STAGING_DIR})
   --ssh-key <value>      SSH private key path (default: ~/.ssh/articlepod_azure)
   --ssh-port <value>     SSH port (default: 22)
+  --ssh-known-hosts <path>
+                         Independently verified known-hosts file; ignores SSH config
   --app-dir <value>      Runtime app dir on VM (default: ${RUNTIME_APP_DIR})
   --health-url <value>   Health endpoint to verify after deploy
   --health-retries <n>   Health-check retry count (default: 15)
@@ -52,6 +55,7 @@ Environment variable equivalents:
   DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE, CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL,
   DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES, ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP,
   DEPLOY_SSH_CONNECT_TIMEOUT, DEPLOY_SSH_SERVER_ALIVE_INTERVAL, DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX
+  TARGET_KNOWN_HOSTS_FILE (required by the production workflow)
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
@@ -338,6 +342,10 @@ while [[ $# -gt 0 ]]; do
       TARGET_PORT="${2:-}"
       shift 2
       ;;
+    --ssh-known-hosts)
+      TARGET_KNOWN_HOSTS_FILE="${2:-}"
+      shift 2
+      ;;
     --app-dir)
       APP_DIR="${2:-}"
       shift 2
@@ -530,33 +538,17 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" && -n "${APP_URL:-}" && -n "$CANONICAL_HOST" ]
   fi
 fi
 
-# SSH args: use -i for key, -p for port, no extra verify flags (handled by ~/.ssh/config)
-SSH_ARGS=()
-if [[ -n "$TARGET_SSH_KEY" ]]; then
-  SSH_ARGS+=(-i "$TARGET_SSH_KEY")
+configure_deployment_ssh "$DEPLOY_SSH_CONNECT_TIMEOUT" \
+  "$DEPLOY_SSH_SERVER_ALIVE_INTERVAL" "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
+if [[ "${TARGET_KNOWN_HOSTS_FILE+x}" == "x" ]]; then
+  export TARGET_KNOWN_HOSTS_FILE
 fi
-SSH_ARGS+=(-p "$TARGET_PORT")
-SSH_ARGS+=(
-  -o BatchMode=yes
-  -o ConnectTimeout="$DEPLOY_SSH_CONNECT_TIMEOUT"
-  -o ServerAliveInterval="$DEPLOY_SSH_SERVER_ALIVE_INTERVAL"
-  -o ServerAliveCountMax="$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
-)
-
-# SCP args mirror
-SCP_ARGS=()
-if [[ -n "$TARGET_SSH_KEY" ]]; then
-  SCP_ARGS+=(-i "$TARGET_SSH_KEY")
-fi
-SCP_ARGS+=(-P "$TARGET_PORT")
-SCP_ARGS+=(
-  -o BatchMode=yes
-  -o ConnectTimeout="$DEPLOY_SSH_CONNECT_TIMEOUT"
-  -o ServerAliveInterval="$DEPLOY_SSH_SERVER_ALIVE_INTERVAL"
-  -o ServerAliveCountMax="$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
-)
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
+COPY_REMOTE="$REMOTE"
+if [[ "$TARGET_HOST" == *:* ]]; then
+  COPY_REMOTE="${TARGET_USER}@[${TARGET_HOST}]"
+fi
 
 if [[ "${ARTICLEPOD_SECRET_SOURCE-environment}" != "environment" ]]; then
   echo "[deploy-changes] vault-aware build/operations cutover is not implemented; do not activate vault mode with this helper" >&2
@@ -588,7 +580,7 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
   OUT_FILE="$RENDER_ENV_TEMP" "$ROOT_DIR/scripts/azure/render-env.sh"
 
   REMOTE_TEMP="/tmp/articlepod-env-upload-$$"
-  scp "${SCP_ARGS[@]}" "$RENDER_ENV_TEMP" "${REMOTE}:${REMOTE_TEMP}"
+  scp "${SCP_ARGS[@]}" "$RENDER_ENV_TEMP" "${COPY_REMOTE}:${REMOTE_TEMP}"
   rm -f "$RENDER_ENV_TEMP"
 
   RUNTIME_ENV_DIR="$(dirname "$RUNTIME_ENV_FILE")"

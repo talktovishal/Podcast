@@ -836,6 +836,12 @@ No item may be marked Done without passing the verification commands listed in i
 - Read-only access diagnostics retain strict SSH host verification. A comparison
   with saved pins emits booleans only and cannot repair pins, accept advertised
   keys, or turn a blocked connection into a successful inventory.
+- The production deployment job is restricted to the original repository's
+  `main` and requires independently verified host pins for SSH, SCP, and rsync.
+  Explicit pin configuration must fail closed without local-config, global-file,
+  DNS, or automatically learned-key fallback. Legacy local SSH configuration
+  remains available only when explicit pins are omitted. This transport boundary
+  does not activate the pending remote Key Vault rollout.
 - Next.js production builds can omit runtime secrets while retaining the selected
   Azure metadata backend and enabled mirroring. Table clients initialize only
   if build-time code requests data, which must fail without credentials rather

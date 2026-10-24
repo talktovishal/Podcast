@@ -33,6 +33,8 @@ jobs:
         run: python3 -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
       - name: Test isolated VM deployment command routing
         run: python3 -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
+      - name: Test isolated deployment SSH transport
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_deployment_ssh.py
       - name: Test build environment isolation
         run: python3 -m unittest discover -s scripts/azure/tests -p test_secret_free_build.py
       - name: Compile vault-only infrastructure

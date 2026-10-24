@@ -31,7 +31,7 @@
   prerequisite: strict literal parsing, bounded protected-file reads, filtered
   inherited settings, public-only execution without vault access, and pinned
   operational secret resolution. Vault-mode rendering validates candidates in
-  memory before writing.   Existing service overrides remain unchanged and the remote deployment guard
+  memory before writing. Existing service overrides remain unchanged and the remote deployment guard
   remains in place. Live activation and credential invalidation are still pending;
   this is not completion of the migration.
 - VM-side deployment now has explicit vault-aware command routing: public
@@ -41,6 +41,11 @@
   configuration is established. Legacy-mode execution remains supported.
   Remote rollout, initial bootstrap, other consumers, and live verification are
   still incomplete.
+- Production deployment now requires original-repository `main` and verified
+  host pins across SSH, SCP, and rsync, with no automatic key acceptance or
+  alternative trust-source fallback. Explicit pinning is also available to local
+  helpers; omitting it retains legacy local SSH settings. This does not establish
+  the live VM's identity or finish remote vault rollout.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
