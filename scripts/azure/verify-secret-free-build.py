@@ -48,6 +48,36 @@ def run_stage(command, cwd, environment, stage, timeout=600):
     return result.stdout
 
 
+def verify_compiled_runtime(node, route, web, environment):
+    probe = """
+require("next/dist/server/require-hook");
+try {
+  require(process.argv[1]);
+  process.exitCode = 2;
+} catch (error) {
+  if (error.message === process.argv[2]) {
+    process.stdout.write("EXPECTED_RUNTIME_SECRET_GUARD");
+  } else {
+    console.error(JSON.stringify({ name: error.name, code: error.code, message: error.message }));
+    process.exitCode = 1;
+  }
+}
+"""
+    for secret_name, extras in (
+        ("DIGEST_SCHEDULER_SECRET", {}),
+        ("MEDIA_SIGNING_KEY", {"DIGEST_SCHEDULER_SECRET": "fixture-runtime-probe"}),
+    ):
+        expected = f"{secret_name} must be set when RUNTIME_PROFILE is not 'simple'"
+        result = subprocess.run(
+            [node, "--eval", probe, str(route), expected],
+            cwd=web, env={**environment, **extras}, capture_output=True, text=True, encoding="utf-8",
+            stdin=subprocess.DEVNULL, timeout=30,
+        )
+        if result.returncode or result.stdout != "EXPECTED_RUNTIME_SECRET_GUARD":
+            print(result.stderr[-16_384:], file=sys.stderr)
+            raise RuntimeError(f"COMPILED_RUNTIME_{secret_name}_GUARD_FAILED")
+
+
 def verify(backend):
     check_local_env_files(ROOT)
     node = shutil.which("node")
@@ -74,17 +104,7 @@ def verify(backend):
     route = web / ".next" / "server" / "app" / "api" / "auth" / "providers" / "route.js"
     if not route.is_file():
         raise RuntimeError("COMPILED_RUNTIME_ROUTE_MISSING")
-    for secret_name, extras in (
-        ("DIGEST_SCHEDULER_SECRET", {}),
-        ("MEDIA_SIGNING_KEY", {"DIGEST_SCHEDULER_SECRET": "fixture-runtime-probe"}),
-    ):
-        result = subprocess.run(
-            [node, "--eval", "require(process.argv[1])", str(route)],
-            cwd=web, env={**environment, **extras}, capture_output=True, text=True, encoding="utf-8",
-            stdin=subprocess.DEVNULL, timeout=30,
-        )
-        if result.returncode == 0 or f"{secret_name} must be set" not in result.stderr:
-            raise RuntimeError("COMPILED_RUNTIME_SECRET_GUARD_FAILED")
+    verify_compiled_runtime(node, route, web, environment)
     print(f"Secret-free {backend} build and compiled runtime secret guards passed.")
     print("These are isolated verification artifacts, not production deployment output.")
 

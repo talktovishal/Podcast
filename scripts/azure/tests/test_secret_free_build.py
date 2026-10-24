@@ -1,10 +1,12 @@
 import importlib.util
+import io
 import os
+from contextlib import redirect_stderr
 from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 path = Path(__file__).parents[1] / "verify-secret-free-build.py"
@@ -66,6 +68,24 @@ class SecretFreeBuildTests(unittest.TestCase):
             timeout=10,
         )
         self.assertEqual(output, "\u2190")
+
+    def test_compiled_guard_requires_an_exact_success_marker_for_both_secrets(self):
+        results = [Mock(returncode=0, stdout="EXPECTED_RUNTIME_SECRET_GUARD", stderr="") for _ in range(2)]
+        with patch.object(build.subprocess, "run", side_effect=results) as run:
+            build.verify_compiled_runtime("fixture-node", Path("fixture-route"), Path("."), {})
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("next/dist/server/require-hook", run.call_args_list[0].args[0][2])
+        self.assertEqual(run.call_args_list[1].kwargs["env"], {"DIGEST_SCHEDULER_SECRET": "fixture-runtime-probe"})
+
+    def test_other_errors_and_successful_imports_cannot_pass_the_runtime_guard(self):
+        for result in (
+            Mock(returncode=1, stdout="", stderr="source text includes DIGEST_SCHEDULER_SECRET must be set"),
+            Mock(returncode=0, stdout="", stderr=""),
+            Mock(returncode=1, stdout="EXPECTED_RUNTIME_SECRET_GUARD", stderr="fixture later failure"),
+        ):
+            with self.subTest(result=result), patch.object(build.subprocess, "run", return_value=result):
+                with redirect_stderr(io.StringIO()), self.assertRaisesRegex(RuntimeError, "COMPILED_RUNTIME_DIGEST_SCHEDULER_SECRET_GUARD_FAILED"):
+                    build.verify_compiled_runtime("fixture-node", Path("fixture-route"), Path("."), {})
 
 
 if __name__ == "__main__":
