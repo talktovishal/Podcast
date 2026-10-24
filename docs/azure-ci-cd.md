@@ -138,6 +138,24 @@ After each deployment, check the workflow summary for:
 
 ## Troubleshooting
 
+### Read-only publication preflight
+
+Run **Publication Preflight (Read Only)** manually from `main` before a secrets
+migration. It uses the existing production SSH key and requires pinned host keys
+in `AZURE_SSH_KNOWN_HOSTS`; it never disables host verification.
+
+The check reads the running web service's environment in memory, tests managed
+identity availability, and checks whether that identity can read ARM permissions.
+It reports only fixed boolean status fields and HTTP status codes. It does not
+print environment values, identity tokens, subscription details, or SSH output.
+It does not deploy, restart, provision resources, rotate passwords, or modify
+application data.
+
+A successful inventory is not evidence that the identity can create a vault or
+assign roles. Those permissions must be established separately before migration.
+Missing access blocks the check; do not broaden the runtime identity's privileges
+just to make this check pass.
+
 ### Common Issues
 
 #### "AZURE_SSH_KEY secret is not configured"

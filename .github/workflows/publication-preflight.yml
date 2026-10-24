@@ -1,0 +1,29 @@
+name: Publication Preflight (Read Only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-preflight
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test redacted inventory output
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_publication_preflight.py
+      - name: Inspect running service and managed identity
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+        run: python3 scripts/azure/publication-preflight.py
