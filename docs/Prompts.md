@@ -809,9 +809,12 @@ No item may be marked Done without passing the verification commands listed in i
 
 ### Credential migration foundation (not activated)
 
-- The Key Vault module and version-pinned managed-identity launcher are migration
-  prerequisites only. Runtime/deployment wiring, account rotation, provider
-  revocation, and live continuity verification are still pending.
+- The Key Vault module, version-pinned managed-identity launcher, opt-in VM unit
+  routing, and public-configuration rendering are migration prerequisites only.
+  Legacy defaults remain supported. Vault-aware bulk deployment/build and
+  operational cutover, account rotation, provider revocation, and live continuity
+  verification are still pending; legacy deployment is guarded against
+  overwriting a vault-managed environment.
 - Vault runtime access must remain read-only and separate from administrative
   provisioning/rotation privileges. Secret loading must fail explicitly without
   response bodies, credential output, or a plaintext fallback.

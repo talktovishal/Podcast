@@ -75,10 +75,14 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 
 ## Shared auth/admin
 
-Key Vault migration status: the explicit version-pinned launcher
-`scripts/azure/keyvault-exec.py` is available for an access-gated migration but is
-not installed into any production service or deployment path. The existing Azure
-environment-file behavior above is unchanged. See
+Key Vault migration status: VM unit templates now use the explicit
+`scripts/azure/runtime-exec.sh` router. Its default is the existing environment
+behavior above; `ARTICLEPOD_SECRET_SOURCE=keyvault` selects the version-pinned
+launcher and `ARTICLEPOD_KEYVAULT_MANIFEST` reference file. `render-env.sh` can
+render that mode without persistent secret values, but the bulk deployment
+helpers deliberately reject activation or overwrite of a vault-managed
+configuration until vault-aware build/operations cutover is implemented.
+No production service has been migrated. See
 [`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated) for the manifest,
 permission boundaries, and activation gates. Before storage-key rotation, preserve
 the live effective media-signing key; do not regenerate it from the new connection

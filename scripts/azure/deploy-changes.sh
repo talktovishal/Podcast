@@ -558,7 +558,14 @@ SCP_ARGS+=(
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
+if [[ "${ARTICLEPOD_SECRET_SOURCE-environment}" != "environment" ]]; then
+  echo "[deploy-changes] vault-aware build/operations cutover is not implemented; do not activate vault mode with this helper" >&2
+  exit 2
+fi
 probe_remote_ssh "$REMOTE"
+RUNTIME_ENV_FILE_Q="$(printf '%q' "$RUNTIME_ENV_FILE")"
+ssh "${SSH_ARGS[@]}" "$REMOTE" "sudo -n python3 - $RUNTIME_ENV_FILE_Q" \
+  < "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py"
 run_remote_disk_guard "pre-sync" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
 
 echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"

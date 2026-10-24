@@ -10,6 +10,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/azure/runtime-naming.sh
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 
+if [[ ! -f "$ROOT_DIR/scripts/azure/runtime-exec.sh" || ! -f "$ROOT_DIR/scripts/azure/keyvault-exec.py" ]]; then
+  echo "[install-systemd] required runtime secret-routing files are missing" >&2
+  exit 1
+fi
+
 PYTHON_TTS_SERVICE="$(runtime_service_name python-tts)"
 WEB_SERVICE="$(runtime_service_name web)"
 WORKER_SERVICE="$(runtime_service_name worker)"

@@ -164,10 +164,12 @@ the production inventory job is explicitly skipped.
 
 ### Key Vault foundation (not activated)
 
-`infra/secrets.bicep` and `scripts/azure/keyvault-exec.py` are staged migration
-components. Existing workflows, environment rendering, systemd units, and local
-development still use their existing paths. Adding or deploying the vault alone
-does not migrate those consumers or rotate any upstream credential.
+`infra/secrets.bicep`, `scripts/azure/keyvault-exec.py`, and the opt-in
+`scripts/azure/runtime-exec.sh` router are staged migration components. Updated VM
+unit templates preserve their original commands behind that router. With no
+`ARTICLEPOD_SECRET_SOURCE` setting, or with `environment`, they retain legacy
+environment handling. Local development is unchanged. No production cutover or
+credential rotation has occurred.
 
 The Bicep module creates only a vault and a vault-scoped **Key Vault Secrets User**
 assignment for the verified VM system-assigned identity. It enables RBAC, soft
@@ -185,9 +187,10 @@ not grant secret-write or subscription-management rights to the runtime identity
 Review an authenticated Azure what-if before applying it; reject unexpected
 resource changes. Do not apply `infra/main.bicep` to add this vault.
 
-The launcher is explicit opt-in, not a replacement entrypoint yet. Its manifest
-contains only version references. This schema illustration is intentionally
-incomplete and must not be used as the production service inventory:
+The router selects the launcher only for `ARTICLEPOD_SECRET_SOURCE=keyvault`;
+empty/unknown settings fail rather than select a fallback. Its manifest contains
+only version references. This schema illustration is intentionally incomplete
+and must not be used as the production service inventory:
 
 ```json
 {
@@ -217,6 +220,34 @@ directory such as `/etc/articlepod/keyvault-secrets.json`. Invoke
 --service <service-name> -- <existing-service-command>` from the existing working
 directory only after the rollout gates below pass. Command arguments must never
 contain secret values.
+
+For VM services, the router reads `ARTICLEPOD_KEYVAULT_MANIFEST` (default
+`/etc/articlepod/keyvault-secrets.json`). Operators can use the same routing with
+`bash scripts/azure/runtime-exec.sh ops <command>` after loading only public
+settings. Keep deployment credentials out of that inherited environment.
+Installing units checks that both routing files are present; it does not prove
+that the live identity can read the required secrets.
+
+`render-env.sh` accepts the same opt-in setting to generate public configuration:
+it clears every registered application secret before rendering, writes no
+credential or derived signing-key values, and includes the manifest path.
+Secret-bearing keys already in the legacy template remain present but empty.
+The default legacy output retains explicit secrets and existing derivation
+behavior. When a vault-mode Azure OpenAI endpoint is supplied, select
+`DIGEST_SUMMARY_PROVIDER` explicitly rather than relying on API-key presence.
+Manifest paths must be absolute and contain only letters, digits, `_`, `.`, `/`,
+or `-`.
+
+**Do not activate vault mode yet.** The existing bulk deployment/build and
+operational credential cutover is not complete. `assert-legacy-deploy.py` prevents
+`deploy-changes.sh` from activating vault mode or overwriting an already
+vault-managed environment, before sync or environment upload. Direct
+`deploy-vm-runtime.sh` runs are also guarded before runtime setup. Ordinary
+legacy-mode deployments remain supported. This guard must remain until a
+vault-aware deployment path is implemented and validated, so a subsequent deploy
+cannot restore old GitHub secret values. VM unit support alone is not support for
+an Azure Container Apps overflow deployment; confirm the live topology and
+configure that separate consumer before cutover.
 
 The launcher obtains a system-assigned managed-identity token directly from
 Azure IMDS, fetches exact secret versions over HTTPS, and replaces itself with
@@ -249,6 +280,7 @@ Offline checks, with no Azure login or production secrets:
 
 ```text
 python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
 bicep build infra/secrets.bicep --stdout
 ```
 

@@ -158,10 +158,18 @@ def read_manifest(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--service", choices=sorted(SERVICES), required=True)
+    parser.add_argument("--list-secret-names", action="store_true")
+    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--service", choices=sorted(SERVICES))
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    if args.list_secret_names:
+        if args.manifest or args.service or args.command:
+            parser.error("--list-secret-names cannot be combined with launch arguments")
+        print("\n".join(sorted(SECRET_ENV_NAMES)))
+        return 0
+    if args.manifest is None or args.service is None:
+        parser.error("--manifest and --service are required when launching a command")
     command = args.command
     if command and command[0] == "--":
         command = command[1:]

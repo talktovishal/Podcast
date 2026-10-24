@@ -11,7 +11,7 @@ WorkingDirectory=/opt/articlepod
 EnvironmentFile=/etc/articlepod/articlepod.env
 Environment=WORKER_ROLE=overflow
 Environment=WORKER_OVERFLOW_ENABLED=1
-ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts'
+ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh worker-overflow /usr/bin/env bash -lc 'cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts'
 Restart=always
 RestartSec=5
 TimeoutStartSec=60

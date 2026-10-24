@@ -32,6 +32,13 @@ Latest verified production state:
 
 ## Prerequisites (local)
 
+Key Vault migration is not active. VM unit templates have opt-in secret routing,
+but normal deployment still uses the legacy environment path. The deploy helpers
+reject vault-mode activation or overwrite of an existing vault-managed
+configuration until the corresponding build/operations cutover is implemented.
+Do not remove that guard or enable the mode as a shortcut. See
+[`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated).
+
 From repo root:
 
 ```bash

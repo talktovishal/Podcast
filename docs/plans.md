@@ -10,9 +10,13 @@
 ## Spec Consistency Notes (Current)
 
 - Credential migration remains incomplete: the narrowly scoped vault module and
-  version-pinned managed-identity launcher are staged, not activated. Service and
-  deployment wiring, account/provider rotation, and live verification require
-  trusted VM access and separately established administrative permissions. This
+  version-pinned managed-identity launcher are staged, not activated. VM unit
+  templates now have opt-in routing with unchanged legacy defaults, and the env
+  renderer can emit public-only configuration. Legacy deploy guards prevent
+  overwriting a vault-managed environment. Vault-aware bulk build/operations and
+  any active Container Apps consumer still need implementation before activation.
+  Account/provider rotation and live verification require trusted VM access and
+  separately established administrative permissions. This
   is not a completed security milestone or evidence that old credentials are
   invalid. The inactive foundation changes no application data/schema contracts.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.

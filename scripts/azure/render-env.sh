@@ -8,6 +8,39 @@ source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
 OUT_FILE="${OUT_FILE:-$RUNTIME_ENV_FILE}"
 STATE_ROOT_DEFAULT="/var/lib/${RUNTIME_SERVICE_PREFIX}"
 METADATA_PRIMARY_BACKEND="${METADATA_PRIMARY_BACKEND:-prisma}"
+SECRET_SOURCE="${ARTICLEPOD_SECRET_SOURCE-environment}"
+KEYVAULT_MANIFEST="${ARTICLEPOD_KEYVAULT_MANIFEST-/etc/articlepod/keyvault-secrets.json}"
+
+case "$SECRET_SOURCE" in
+  environment) ;;
+  keyvault)
+    if [[ ! "$KEYVAULT_MANIFEST" =~ ^/[a-zA-Z0-9_./-]+$ ]]; then
+      echo "[render-env] invalid Key Vault manifest path" >&2
+      exit 1
+    fi
+    secret_names="$(python3 "$ROOT_DIR/scripts/azure/keyvault-exec.py" --list-secret-names)"
+    if [[ -z "$secret_names" ]]; then
+      echo "[render-env] secret registry is empty" >&2
+      exit 1
+    fi
+    while IFS= read -r key; do
+      key="${key%$'\r'}"
+      if [[ ! "$key" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
+        echo "[render-env] invalid secret registry entry" >&2
+        exit 1
+      fi
+      unset "$key"
+    done <<< "$secret_names"
+    if [[ -n "${AZURE_OPENAI_BASE_URL:-}" && -z "${DIGEST_SUMMARY_PROVIDER:-}" ]]; then
+      echo "[render-env] Key Vault mode requires an explicit DIGEST_SUMMARY_PROVIDER when Azure OpenAI is configured" >&2
+      exit 1
+    fi
+    ;;
+  *)
+    echo "[render-env] invalid secret source" >&2
+    exit 1
+    ;;
+esac
 
 required=(
   APP_URL
@@ -16,8 +49,11 @@ required=(
   PYTHON_TTS_URL
 )
 
-if [[ "$METADATA_PRIMARY_BACKEND" != "azure_table" ]]; then
-  required+=(DATABASE_URL)
+if [[ "$SECRET_SOURCE" == "environment" ]]; then
+  required+=(ADMIN_PASSWORD)
+  if [[ "$METADATA_PRIMARY_BACKEND" != "azure_table" ]]; then
+    required+=(DATABASE_URL)
+  fi
 fi
 
 for key in "${required[@]}"; do
@@ -27,7 +63,7 @@ for key in "${required[@]}"; do
   fi
 done
 
-if [[ "$METADATA_PRIMARY_BACKEND" == "azure_table" ]]; then
+if [[ "$SECRET_SOURCE" == "environment" && "$METADATA_PRIMARY_BACKEND" == "azure_table" ]]; then
   if [[ -z "${AZURE_TABLE_CONNECTION_STRING:-}" && ( -z "${AZURE_TABLE_ACCOUNT_URL:-}" || -z "${AZURE_TABLE_SAS_TOKEN:-}" ) ]]; then
     echo "METADATA_PRIMARY_BACKEND=azure_table requires Azure Table credentials"
     exit 1
@@ -56,17 +92,19 @@ derive_secret() {
   hash_secret "${purpose}|${DATABASE_URL:-}|${APP_URL}|${entropy_source}"
 }
 
-DIGEST_SCHEDULER_SECRET="${DIGEST_SCHEDULER_SECRET:-$(derive_secret "digest_scheduler")}"
-MEDIA_SIGNING_KEY="${MEDIA_SIGNING_KEY:-$(derive_secret "media_signing")}"
+if [[ "$SECRET_SOURCE" == "environment" ]]; then
+  DIGEST_SCHEDULER_SECRET="${DIGEST_SCHEDULER_SECRET:-$(derive_secret "digest_scheduler")}"
+  MEDIA_SIGNING_KEY="${MEDIA_SIGNING_KEY:-$(derive_secret "media_signing")}"
 
-if [[ "${#DIGEST_SCHEDULER_SECRET}" -lt 32 ]]; then
-  echo "DIGEST_SCHEDULER_SECRET must be at least 32 characters"
-  exit 1
-fi
+  if [[ "${#DIGEST_SCHEDULER_SECRET}" -lt 32 ]]; then
+    echo "DIGEST_SCHEDULER_SECRET must be at least 32 characters"
+    exit 1
+  fi
 
-if [[ "${#MEDIA_SIGNING_KEY}" -lt 32 ]]; then
-  echo "MEDIA_SIGNING_KEY must be at least 32 characters"
-  exit 1
+  if [[ "${#MEDIA_SIGNING_KEY}" -lt 32 ]]; then
+    echo "MEDIA_SIGNING_KEY must be at least 32 characters"
+    exit 1
+  fi
 fi
 
 analytics_storage_mode_default="full"
@@ -158,7 +196,7 @@ DEMO_PASSWORD=${DEMO_PASSWORD:-}
 WEBSTORE_REVIEWER_EMAIL=${WEBSTORE_REVIEWER_EMAIL:-chrome-reviewer@articlepod.com}
 WEBSTORE_REVIEWER_PASSWORD=${WEBSTORE_REVIEWER_PASSWORD:-}
 ADMIN_EMAIL=${ADMIN_EMAIL:-admin@articlepod.local}
-ADMIN_PASSWORD=${ADMIN_PASSWORD:?"ADMIN_PASSWORD env var is required"}
+ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
 ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=${ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP:-0}
 ARTICLEPOD_SERVER_KEEPALIVE=${ARTICLEPOD_SERVER_KEEPALIVE:-1}
 GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
@@ -198,8 +236,12 @@ VM_JOURNAL_MAX_USE=${VM_JOURNAL_MAX_USE:-200M}
 VM_JOURNAL_KEEP_FREE=${VM_JOURNAL_KEEP_FREE:-1G}
 VM_JOURNAL_RETENTION=${VM_JOURNAL_RETENTION:-7day}
 VM_CLEANUP_MIN_FREE_MB=${VM_CLEANUP_MIN_FREE_MB:-3072}
-DIGEST_SCHEDULER_SECRET=${DIGEST_SCHEDULER_SECRET}
-MEDIA_SIGNING_KEY=${MEDIA_SIGNING_KEY}
+DIGEST_SCHEDULER_SECRET=${DIGEST_SCHEDULER_SECRET:-}
+MEDIA_SIGNING_KEY=${MEDIA_SIGNING_KEY:-}
 ENVFILE
+
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  printf 'ARTICLEPOD_SECRET_SOURCE=keyvault\nARTICLEPOD_KEYVAULT_MANIFEST=%s\n' "$KEYVAULT_MANIFEST" >> "$OUT_FILE"
+fi
 
 echo "[render-env] wrote $OUT_FILE"

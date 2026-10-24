@@ -27,6 +27,8 @@ jobs:
         run: python3 -m unittest discover -s scripts/azure/tests -p test_publication_preflight.py
       - name: Test version-pinned secret loading
         run: python3 -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+      - name: Test opt-in runtime routing and legacy deployment guards
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
       - name: Compile vault-only infrastructure
         run: az bicep build --file infra/secrets.bicep --outfile "$RUNNER_TEMP/articlepod-vault.json"
       - name: Explain validation-only boundary

@@ -10,7 +10,7 @@ Group=articlepod
 WorkingDirectory=/opt/articlepod
 EnvironmentFile=/etc/articlepod/articlepod.env
 ExecStartPre=/usr/bin/env bash -lc 'for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:8010/health >/dev/null && exit 0; sleep 2; done; echo "python-tts did not become healthy before worker startup" >&2; exit 1'
-ExecStart=/usr/bin/env bash -lc 'cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts'
+ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh worker /usr/bin/env bash -lc 'cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts'
 Restart=always
 RestartSec=5
 TimeoutStartSec=60

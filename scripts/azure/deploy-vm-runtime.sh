@@ -40,6 +40,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
   fi
 fi
 
+python3 "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py" "$ENV_FILE"
+
 cd "$APP_DIR"
 
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
