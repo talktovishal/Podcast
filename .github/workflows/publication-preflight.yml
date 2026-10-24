@@ -35,6 +35,10 @@ jobs:
         run: python3 -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
       - name: Test isolated deployment SSH transport
         run: python3 -m unittest discover -s scripts/azure/tests -p test_deployment_ssh.py
+      - name: Test isolated remote vault deployment and path preservation
+        run: python3 -m unittest discover -s scripts/azure/tests -p test_remote_vault_deployment.py
+      - name: Verify runtime unit syntax
+        run: systemd-analyze verify --man=no infra/systemd/articlepod-web.service infra/systemd/articlepod-worker.service infra/systemd/articlepod-worker-overflow.service infra/systemd/articlepod-python-tts.service
       - name: Test build environment isolation
         run: python3 -m unittest discover -s scripts/azure/tests -p test_secret_free_build.py
       - name: Compile vault-only infrastructure

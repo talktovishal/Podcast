@@ -68,16 +68,16 @@ class RoutingTests(unittest.TestCase):
         self.assertIn("Key Vault startup blocked:", result.stderr)
         self.assertNotIn("fixture-retired", result.stderr)
 
-    def test_relative_or_empty_manifest_path_is_rejected(self):
-        for manifest in ("", "relative.json"):
-            with self.subTest(manifest=manifest):
-                result = self.run_router(settings={
-                    "ARTICLEPOD_SECRET_SOURCE": "keyvault",
-                    "ARTICLEPOD_KEYVAULT_MANIFEST": manifest,
-                })
+    def test_relative_or_empty_public_environment_path_is_rejected(self):
+        for path in ("", "relative.env"):
+            with self.subTest(path=path):
+                result = self.run_router(
+                    settings={"ARTICLEPOD_SECRET_SOURCE": "keyvault"},
+                    arguments=["--env-file", path, BASH, "-c", "printf child-started"],
+                )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, "")
-                self.assertIn("absolute Key Vault manifest", result.stderr)
+                self.assertIn("absolute public environment", result.stderr)
 
     def test_unknown_service_is_rejected(self):
         result = self.run_router(service="unknown")
@@ -179,6 +179,7 @@ class RenderingTests(unittest.TestCase):
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\nADMIN_PASSWORD=fixture-sensitive-injection"},
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\nNEXT_PHASE=phase-production-build"},
             {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "LOG_ROOT": "/tmp\x85#fixture-sensitive-hidden"},
+            {"ARTICLEPOD_SECRET_SOURCE": "keyvault", "ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP": "1"},
             {"ADMIN_PASSWORD": ""},
         ):
             with self.subTest(settings=settings):
@@ -191,9 +192,9 @@ class RenderingTests(unittest.TestCase):
 class UnitWiringTests(unittest.TestCase):
     def test_services_keep_original_commands_behind_explicit_router(self):
         commands = {
-            "web": "cd /opt/articlepod/apps/web && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec node ../../scripts/azure/run-next-server.mjs",
-            "worker": "cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts",
-            "worker-overflow": "cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec ./node_modules/.bin/tsx src/index.ts",
+            "web": "cd /opt/articlepod/apps/web && export RUNTIME_PROFILE=azure && exec node ../../scripts/azure/run-next-server.mjs",
+            "worker": "cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && exec ./node_modules/.bin/tsx src/index.ts",
+            "worker-overflow": "cd /opt/articlepod/apps/worker && export RUNTIME_PROFILE=azure && exec ./node_modules/.bin/tsx src/index.ts",
             "python-tts": "cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers 1",
         }
         for service, command in commands.items():
@@ -203,8 +204,21 @@ class UnitWiringTests(unittest.TestCase):
                 self.assertEqual(len(starts), 1)
                 self.assertEqual(shlex.split(starts[0]), [
                     "/usr/bin/env", "bash", "/opt/articlepod/scripts/azure/runtime-exec.sh",
-                    service, "/usr/bin/env", "bash", "-lc", command,
+                    service, "--env-file", "/etc/articlepod/articlepod.env", "--shell", command,
                 ])
+
+    def test_worker_readiness_probe_has_public_only_scope(self):
+        unit = (ROOT / "infra/systemd/articlepod-worker.service").read_text()
+        pre = next(line for line in unit.splitlines() if line.startswith("ExecStartPre="))
+        self.assertIn("runtime-exec.sh worker --env-file /etc/articlepod/articlepod.env --public-only --shell", pre)
+
+    def test_prisma_readiness_has_public_only_scope_before_service_execution(self):
+        for service in ("web", "worker", "worker-overflow"):
+            unit = (ROOT / f"infra/systemd/articlepod-{service}.service").read_text()
+            commands = [line for line in unit.splitlines() if "prisma:generate:ensure" in line]
+            self.assertEqual(len(commands), 1)
+            self.assertTrue(commands[0].startswith("ExecStartPre="))
+            self.assertIn("--public-only --shell", commands[0])
 
 
 class DeploymentGuardTests(unittest.TestCase):

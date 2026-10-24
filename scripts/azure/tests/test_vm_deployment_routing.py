@@ -17,17 +17,20 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 BASE = Path(__BASE__)
 PYTHON = __PYTHON__
 BASH = __BASH__
+RSYNC = __RSYNC__
 tool = Path(sys.argv[0]).name
 args = sys.argv[1:]
 control = json.loads((BASE / "control.json").read_text())
 observed_names = (
     "ADMIN_PASSWORD", "MEDIA_SIGNING_KEY", "DATABASE_URL",
     "GITHUB_TOKEN", "NODE_OPTIONS", "UNREGISTERED_SECRET", "RUNTIME_PROFILE",
+    "WORKER_ROLE", "WORKER_OVERFLOW_ENABLED",
 )
 
 def record(stage, arguments=None):
@@ -51,20 +54,34 @@ if tool == "sudo":
     if Path(args[0]).name in ("cleanup-vm-disk.sh", "install-systemd.sh", "ensure-swap.sh"):
         record(Path(args[0]).name)
         sys.exit(0)
+    if Path(args[0]).name == "promote-runtime.sh":
+        os.environ["FIXTURE_PROMOTION_ROOT"] = "1"
     os.execvpe(args[0], args, os.environ)
 elif tool == "id":
-    print("1001")
+    print("0" if os.environ.get("FIXTURE_PROMOTION_ROOT") == "1" else "1001")
 elif tool == "chown":
     record("chown")
 elif tool == "systemctl":
     record("systemctl")
     if args[0] == "is-enabled":
         sys.exit(0 if control.get("overflow") else 1)
+    if args[0] == "show":
+        if "--property=ExecStart" in args:
+            service = args[1].removeprefix("articlepod-").removesuffix(".service")
+            print("" if control.get("not_bootstrapped") else str(BASE / "app with spaces/scripts/azure/runtime-exec.sh") + " " + service + " --env-file " + str(BASE / "runtime.env") + " --shell fixture")
+        elif "--property=EnvironmentFiles" in args:
+            print(str(BASE / "runtime.env") + " (ignore_errors=no)")
+        else:
+            print("LoadState=loaded")
+            print("ActiveState=" + ("active" if control.get("overflow") else "inactive"))
+            print("UnitFileState=" + ("enabled" if control.get("overflow") else "disabled"))
 elif tool == "corepack":
     record("corepack")
     if control.get("fail_command") in args:
         sys.exit(1)
 elif tool == "bash":
+    if "-c" not in args and "-lc" not in args:
+        os.execvpe(BASH, [BASH, *args], os.environ)
     command = args[args.index("-c") + 1] if "-c" in args else args[args.index("-lc") + 1]
     if "import nltk" in command:
         record("python-setup" if "pip install" in command else "python-assets")
@@ -74,6 +91,11 @@ elif tool == "bash":
     args = ["-c" if arg == "-lc" else arg for arg in args]
     os.execvpe(BASH, [BASH, *args], os.environ)
 elif tool == "python3":
+    if args and args[0] == "-" and "--env-file" in args:
+        script = BASE / "app with spaces/scripts/azure/keyvault-exec.py"
+        if sys.stdin.read() != script.read_text():
+            raise SystemExit("Unexpected transmitted fixture program")
+        args[0] = str(script)
     if args and args[0].endswith("keyvault-exec.py"):
         spec = importlib.util.spec_from_file_location("fixture_launcher", args[0])
         module = importlib.util.module_from_spec(spec)
@@ -100,6 +122,24 @@ elif tool == "python3":
         sys.argv = args
         sys.exit(module.main())
     os.execvpe(PYTHON, [PYTHON, *args], os.environ)
+elif tool == "ssh":
+    record("ssh")
+    result = subprocess.run([BASH, "--noprofile", "--norc", "-c", args[-1]], input=sys.stdin.read(),
+                            text=True, env=os.environ)
+    sys.exit(result.returncode)
+elif tool == "rsync":
+    record("rsync")
+    if "-e" in args:
+        index = args.index("-e")
+        del args[index:index+2]
+        args[-1] = args[-1].split(":", 1)[1]
+    os.execvpe(RSYNC, [RSYNC, *args], os.environ)
+elif tool == "df":
+    print("Filesystem Blocks Used Available Use Mounted")
+    print("fixture 100000 1 " + str(control.get("free_mb", 99999)) + " 1% /")
+elif tool == "curl":
+    record("curl")
+    print(control.get("health_status", "200"), end="")
 else:
     raise SystemExit("Unexpected fixture executable")
 '''
@@ -172,7 +212,7 @@ class DeploymentIntegrationTests(unittest.TestCase):
         self.app = self.base / "app with spaces"
         self.scripts = self.app / "scripts/azure"
         self.scripts.mkdir(parents=True)
-        for name in ("deploy-vm-runtime.sh", "runtime-naming.sh", "keyvault-exec.py", "assert-legacy-deploy.py"):
+        for name in ("deploy-vm-runtime.sh", "runtime-naming.sh", "keyvault-exec.py", "assert-legacy-deploy.py", "runtime-exec.sh", "check-vault-deployment.py"):
             shutil.copyfile(ROOT / "scripts/azure" / name, self.scripts / name)
         for name in ("apps/web", "apps/worker", "services/python-tts"):
             (self.app / name).mkdir(parents=True)
@@ -183,8 +223,8 @@ class DeploymentIntegrationTests(unittest.TestCase):
         self.bin.mkdir()
         program = FIXTURE_PROGRAM.replace("__BASE__", repr(str(self.base))).replace(
             "__PYTHON__", repr(sys.executable),
-        ).replace("__BASH__", repr(BASH))
-        for name in ("sudo", "id", "chown", "systemctl", "corepack", "bash", "python3"):
+        ).replace("__BASH__", repr(BASH)).replace("__RSYNC__", repr(shutil.which("rsync")))
+        for name in ("sudo", "id", "chown", "systemctl", "corepack", "bash", "python3", "ssh", "rsync", "df", "curl"):
             executable = self.bin / name
             executable.write_text(f"#!{sys.executable}\n" + program)
             executable.chmod(0o755)
@@ -206,10 +246,11 @@ class DeploymentIntegrationTests(unittest.TestCase):
             "AZURE_STORAGE_CONTAINER": "fixture", "PYTHON_TTS_URL": "http://127.0.0.1:8010",
             "ARTICLEPOD_SECRET_SOURCE": "keyvault",
             "ARTICLEPOD_KEYVAULT_MANIFEST": str(self.manifest_file),
-            **{name: str(self.base / "state" / name.lower()) for name in ("STORAGE_ROOT", "MEDIA_ROOT", "UPLOAD_ROOT")},
+            "ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP": "0",
+            **{name: str(self.base / "state" / name.lower()) for name in ("STORAGE_ROOT", "MEDIA_ROOT", "UPLOAD_ROOT", "LOG_ROOT")},
         }
 
-    def run_deploy(self, source="keyvault", control=None, extra=None):
+    def run_deploy(self, source="keyvault", control=None, extra=None, command=None):
         self.public_file.write_text("".join(f"{key}={value}\n" for key, value in self.settings.items()))
         self.public_file.chmod(0o600)
         (self.base / "control.json").write_text(json.dumps(control or {}))
@@ -227,12 +268,104 @@ class DeploymentIntegrationTests(unittest.TestCase):
         })
         inherited.update(extra or {})
         result = subprocess.run(
-            [BASH, str(self.scripts / "deploy-vm-runtime.sh")],
+            command or [BASH, str(self.scripts / "deploy-vm-runtime.sh")],
             env=inherited, capture_output=True, text=True, timeout=60,
         )
         calls_file = self.base / "calls.jsonl"
         calls = [json.loads(line) for line in calls_file.read_text().splitlines()] if calls_file.exists() else []
         return result, calls
+
+    def test_service_router_uses_public_file_and_forces_overflow_role_after_loading(self):
+        self.settings.update({"WORKER_ROLE": "primary", "WORKER_OVERFLOW_ENABLED": "0"})
+        result, calls = self.run_deploy(
+            extra={"WORKER_ROLE": "incorrect", "ARTICLEPOD_KEYVAULT_MANIFEST": "/missing-inherited-manifest"},
+            command=[BASH, str(self.scripts / "runtime-exec.sh"), "worker-overflow",
+                     "--env-file", str(self.public_file), "--shell", "printf service-ready"],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "service-ready")
+        shell = next(call for call in calls if call["stage"] == "bash")
+        self.assertNotIn("-lc", shell["args"])
+        self.assertIn("--noprofile", shell["args"])
+        self.assertIn("--norc", shell["args"])
+        self.assertEqual(shell["environment"]["WORKER_ROLE"], "overflow")
+        self.assertEqual(shell["environment"]["WORKER_OVERFLOW_ENABLED"], "1")
+        self.assertEqual(shell["environment"]["MEDIA_SIGNING_KEY"], "fixture-only")
+        self.assertIsNone(shell["environment"]["GITHUB_TOKEN"])
+        self.assertIsNone(shell["environment"]["NODE_OPTIONS"])
+        self.assertEqual(next(call for call in calls if call["stage"] == "vault-service")["args"], ["worker-overflow"])
+
+    def test_service_public_probe_never_resolves_secrets(self):
+        self.manifest_file.unlink()
+        result, calls = self.run_deploy(
+            command=[BASH, str(self.scripts / "runtime-exec.sh"), "worker",
+                     "--env-file", str(self.public_file), "--public-only", "--shell", "printf probe-ready"],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "probe-ready")
+        self.assertFalse(any(call["stage"] == "vault-service" for call in calls))
+        shell = next(call for call in calls if call["stage"] == "bash")
+        self.assertIsNone(shell["environment"]["ADMIN_PASSWORD"])
+        self.assertNotIn("-lc", shell["args"])
+
+    def test_legacy_service_shell_keeps_login_shell_contract(self):
+        result, calls = self.run_deploy(
+            source="environment",
+            command=[BASH, str(self.scripts / "runtime-exec.sh"), "web",
+                     "--shell", "printf legacy-ready"],
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "legacy-ready")
+        self.assertIn("-lc", next(call for call in calls if call["stage"] == "bash")["args"])
+        self.assertFalse(any(call["stage"] == "vault-service" for call in calls))
+
+    def prepare_isolated_installer(self):
+        destination = self.base / "units"
+        destination.mkdir()
+        source = self.app / "infra/systemd"
+        source.mkdir(parents=True)
+        for service in ("web", "worker", "worker-overflow", "python-tts"):
+            name = "articlepod-" + service + ".service"
+            shutil.copyfile(ROOT / "infra/systemd" / name, source / name)
+        installer = self.scripts / "install-systemd.sh"
+        content = (ROOT / "scripts/azure/install-systemd.sh").read_text()
+        installer.write_text(content.replace("/etc/systemd/system", str(destination)))
+        return installer, destination
+
+    def test_vault_installer_preserves_maintenance_and_uses_selected_public_configuration(self):
+        installer, destination = self.prepare_isolated_installer()
+        maintenance = destination / "articlepod-maintenance.timer"
+        legacy = destination / "listenlater-web.service"
+        maintenance.write_text("existing maintenance")
+        legacy.write_text("existing compatibility")
+        self.settings["PYTHON_TTS_SYSTEMD_MEMORY_HIGH"] = "2G"
+        result, calls = self.run_deploy(
+            command=[BASH, str(installer)],
+            extra={"FIXTURE_PROMOTION_ROOT": "1", "RUNTIME_ENV_FILE": str(self.public_file),
+                   "PYTHON_TTS_SYSTEMD_MEMORY_HIGH": "9G"},
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(maintenance.read_text(), "existing maintenance")
+        self.assertEqual(legacy.read_text(), "existing compatibility")
+        self.assertTrue((destination / "articlepod-web.service").is_file())
+        dropin = (destination / "articlepod-python-tts.service.d/10-memory-guardrails.conf").read_text()
+        self.assertIn("MemoryHigh=2G", dropin)
+        self.assertNotIn("9G", dropin)
+        self.assertFalse(any(call["stage"] == "vault-service" for call in calls))
+        self.assertFalse(any("--now" in call["args"] for call in calls))
+        self.assertFalse(any("maintenance" in " ".join(call["args"]) for call in calls))
+
+    def test_vault_installer_rejects_invalid_public_configuration_before_installing(self):
+        installer, destination = self.prepare_isolated_installer()
+        self.settings["ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP"] = "1"
+        result, calls = self.run_deploy(
+            command=[BASH, str(installer)],
+            extra={"FIXTURE_PROMOTION_ROOT": "1", "RUNTIME_ENV_FILE": str(self.public_file)},
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("KEYVAULT_REQUIRES_DISABLED_ACCOUNT_BOOTSTRAP", result.stderr)
+        self.assertEqual(list(destination.iterdir()), [])
+        self.assertEqual(calls, [])
 
     def test_vault_table_deploy_filters_builds_and_preserves_scoped_operations(self):
         result, calls = self.run_deploy()
@@ -298,7 +431,7 @@ class DeploymentIntegrationTests(unittest.TestCase):
         self.settings["STORAGE_ROOT"] = "/tmp/.."
         result, calls = self.run_deploy()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("unsafe runtime directory", result.stderr)
+        self.assertIn("unsafe runtime data path", result.stderr)
         self.assertFalse(any(call["stage"] == "chown" for call in calls))
 
     def test_warm_python_asset_probe_uses_public_environment(self):

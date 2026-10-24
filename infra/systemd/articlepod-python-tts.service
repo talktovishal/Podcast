@@ -11,7 +11,7 @@ Group=articlepod
 WorkingDirectory=/opt/articlepod/services/python-tts
 EnvironmentFile=/etc/articlepod/articlepod.env
 # Cost-optimized default locks local TTS lane to a single worker on B2s.
-ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh python-tts /usr/bin/env bash -lc 'cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers 1'
+ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh python-tts --env-file /etc/articlepod/articlepod.env --shell 'cd /opt/articlepod/services/python-tts && ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8010 --workers 1'
 Restart=always
 RestartSec=3
 TimeoutStartSec=120

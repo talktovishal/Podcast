@@ -4,7 +4,10 @@ This document explains how to run Azure deployments from GitHub Actions without 
 
 ## Overview
 
-The repository includes a GitHub Actions workflow (`.github/workflows/deploy-azure.yml`) that automates deployment to an already-provisioned Azure VM.
+The legacy workflow (`.github/workflows/deploy-azure.yml`) deploys to an
+already-provisioned environment-mode VM. The separate
+`deploy-azure-keyvault.yml` workflow supports routine deployment only after
+the controlled Key Vault bootstrap and consumer migration are complete.
 
 ## Prerequisites
 
@@ -91,7 +94,8 @@ or set `TARGET_KNOWN_HOSTS_FILE` for either deployment helper. Literal paths wit
 spaces and apostrophes are supported; OpenSSH expansion/control characters are
 not. An explicitly empty path fails rather than falling back. Omitting this
 setting preserves legacy local SSH configuration behavior, not a verified trust
-guarantee. The remote helper still refuses Key Vault activation.
+guarantee. Explicit Key Vault mode always requires saved pins, including local
+invocations. It cannot bootstrap or activate an unmigrated VM.
 
 Recommended daily flow:
 
@@ -200,7 +204,7 @@ validation jobs to succeed.
 
 `infra/secrets.bicep`, `scripts/azure/keyvault-exec.py`, and the opt-in
 `scripts/azure/runtime-exec.sh` router are staged migration components. Updated VM
-unit templates preserve their original commands behind that router. With no
+unit templates retain the application entrypoints behind that router. With no
 `ARTICLEPOD_SECRET_SOURCE` setting, or with `environment`, they retain legacy
 environment handling. Local development is unchanged. No production cutover or
 credential rotation has occurred.
@@ -255,12 +259,16 @@ directory such as `/etc/articlepod/keyvault-secrets.json`. Invoke
 directory only after the rollout gates below pass. Command arguments must never
 contain secret values.
 
-For VM services, the router reads `ARTICLEPOD_KEYVAULT_MANIFEST` (default
-`/etc/articlepod/keyvault-secrets.json`). The explicit public-file launcher below
-provides an operations entrypoint without sourcing environment files. Existing
-service units still use their original routing and environment overrides.
-Installing units checks that both routing files are present; it does not prove
-that the live identity can read the required secrets.
+VM units explicitly pass their protected environment-file path to the router.
+In vault mode, the file supplies public settings and the manifest reference;
+inherited application settings or manifest overrides cannot replace them.
+The overflow router explicitly applies `WORKER_ROLE=overflow` and
+`WORKER_OVERFLOW_ENABLED=1` after loading, preserving that service's role even
+when the shared file configures the primary worker. Other systemd overrides are
+not implicitly imported. Prisma readiness and the worker's TTS health probe use
+public-only `ExecStartPre` commands. Application processes receive their pinned
+service maps. Vault shells do not load profiles; legacy login-shell execution
+remains supported.
 
 `render-env.sh` accepts the same opt-in setting to generate public configuration:
 it clears every registered application secret before rendering, writes no
@@ -276,7 +284,10 @@ or `-`.
 absolute path to reviewed vault-mode output from the renderer. It parses literal,
 unquoted `KEY=value` lines, never shell code or interpolation. The file must
 declare the Azure runtime profile, selected metadata backend, required public
-endpoints/container, vault source, and an absolute VM manifest path. Empty
+endpoints/container, vault source, an absolute VM manifest path, and exactly
+`ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0`. Omission, `false`, or any other value
+is rejected because the current application permits startup account bootstrap
+unless this flag is exactly `0`. Empty
 registered secret slots are removed; nonempty secrets, duplicate or unknown names,
 control-character injection, quoted/escaped values, and endpoint userinfo,
 queries, or fragments are rejected. Additional live settings must be reviewed
@@ -314,10 +325,10 @@ Command arguments are passed literally, without a shell added by the launcher.
 
 The loader is not a sandbox: the chosen command can still read files or perform
 its own authentication. A build must also exclude secret-bearing `.env` files
-and credential-loading shell profiles. The new file-based form does not import
-systemd-specific overrides or automatically rewire existing deployment helpers.
-The VM-side integration below now uses it explicitly; remote rollout and other
-operational entrypoints still need integration before activation.
+and credential-loading shell profiles. File-based execution does not import
+arbitrary systemd overrides. The VM and remote integrations below use explicit
+public-only and service scopes. Other consumers and operational entrypoints
+still require inventory and migration before activation.
 
 **Secret-free builds:** During Next.js's own `phase-production-build`, web
 configuration does not require runtime signing secrets, and Azure Table primary
@@ -365,13 +376,20 @@ not `eval`, and vault-mode command shells do not load login profiles. Any
 credential-resolution failure aborts without a plaintext fallback. Preview
 failure is also fatal in this mode rather than a successful deployment warning.
 
-Key Vault deployments refuse local runtime `.env` files, including
-`.env.azure`, before running commands; they do not delete those files to proceed.
+Key Vault deployments refuse local `.env` files in both runtime and staging
+trees, including `.env.azure`, before running commands; they do not delete
+those files to proceed.
 Retire them through the controlled migration after reviewing their contents.
 The public file is not replaced with a legacy fallback. Azure/Prisma operations
 require a vault-supplied PostgreSQL URL; the parent shell does not read a database
 secret to create SQLite files. Runtime paths reject relative/root-directory
 targets, and existing data-file ownership is not recursively rewritten.
+`check-vault-deployment.py` requires separate canonical application/staging
+trees, protected configuration outside them, and explicit storage/log paths.
+It rejects data overlapping staging or containing application/configuration
+trees. Data within the application is allowed only under excluded `.runtime`.
+These read-only checks resolve symlinks but are not a filesystem sandbox or
+protection against concurrent privileged filesystem changes.
 
 Demo/account seeding is always disabled in this mode, even for a forced full
 dependency rebuild. Use the separately controlled account-rotation operation,
@@ -379,17 +397,48 @@ not seeding. VM maintenance retains retired runtime trees when current legacy
 configuration cannot be established, including vault-mode or absent configuration.
 Legacy environment-mode command behavior remains supported.
 
-**Do not activate vault mode yet.** Remote rollout, initial secret-delivery
-bootstrap, and the remaining operational/consumer cutover are not complete.
-`assert-legacy-deploy.py` prevents
-`deploy-changes.sh` from activating vault mode or overwriting an already
-vault-managed environment, before sync or environment upload. Direct VM runs
-retain that guard in legacy mode; the explicit Key Vault path uses the
-protected configuration and scoped execution above. The remote guard must
-remain until transport/bootstrap is implemented and validated, so a subsequent deploy
-cannot restore old GitHub secret values. VM unit support alone is not support for
-an Azure Container Apps overflow deployment; confirm the live topology and
-configure that separate consumer before cutover.
+**Routine remote vault deployment:** After initial migration, select
+`ARTICLEPOD_SECRET_SOURCE=keyvault` when invoking `deploy-changes.sh`. It requires
+explicit saved host pins, the existing protected VM configuration, matching
+runtime unit templates and installed unit routing, non-login runtime tools,
+and successful resolution of all selected service references before sync.
+The canonical health URL comes from the VM file; a conflicting supplied URL
+fails. Environment rendering/upload, ingress reconfiguration, and account
+seeding are refused. Insufficient disk space fails without deleting caches,
+logs, or retired trees.
+
+Promotion uses rsync ownership changes only for included transferred files;
+excluded `.runtime` data and protected configuration remain untouched. Vault
+unit installation updates runtime services and file-configured TTS memory
+settings, but leaves maintenance units/timers, journald configuration, and
+legacy compatibility files alone. It does not start a maintenance timer as an
+incidental cleanup path. An enabled or active VM overflow worker is preserved
+when no policy is supplied. Explicit enable starts it; explicit disable stops
+it. Unknown existing state requires an explicit operator decision.
+
+The manual **Deploy to Azure (Key Vault)** workflow shares the legacy workflow's
+production environment, original-repository/main guard, and concurrency group.
+It has no application-secret expressions, render step, seed step, ingress
+change, or health-check bypass. It uses `ARTICLEPOD_DEPLOY_SSH_KEY` and
+`ARTICLEPOD_DEPLOY_KNOWN_HOSTS`, plus `AZURE_VM_HOST` and optional `AZURE_VM_USER`.
+Create those new transport credentials during controlled cutover. After proving
+the new path, revoke the retired SSH identity and remove obsolete legacy secret
+copies, including repository/environment duplicates. Retiring the old credential
+names is necessary to prevent historical legacy workflow reruns from obtaining
+the new deployment key. A branch-only environment restriction does not by itself
+prevent rerunning an old main-branch workflow.
+
+Both workflows use job-owned temporary SSH files with private permissions and
+always-run cleanup. A public health check is not proof of login, processing,
+private RSS/media continuity, or provider revocation.
+
+**Do not activate vault mode yet.** The initial version-preserving secret-delivery
+bootstrap, live consumer migration, and credential rotation remain incomplete.
+Routine deployment requires that work; it does not perform it. Legacy paths
+retain `assert-legacy-deploy.py` before sync/upload so they cannot overwrite
+vault-managed configuration with old GitHub secret values. Do not bypass this
+guard. VM unit support does not cover Azure Container Apps overflow; confirm the
+live topology and migrate that separate consumer before cutover.
 
 The launcher obtains a system-assigned managed-identity token directly from
 Azure IMDS, fetches exact secret versions over HTTPS, and replaces itself with
@@ -426,6 +475,7 @@ python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
 python -m unittest discover -s scripts/azure/tests -p test_public_environment.py
 python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
 python -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
+python -m unittest discover -s scripts/azure/tests -p test_remote_vault_deployment.py
 bicep build infra/secrets.bicep --stdout
 ```
 

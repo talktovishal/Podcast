@@ -238,16 +238,46 @@ print(json.dumps({"rsh": sys.argv[2], "ssh": sys.argv[3:3+n], "scp": sys.argv[3+
         self.assertIn("no stored host pin matches", result.stderr)
         self.assertEqual(self.calls(), [])
 
-    def test_remote_vault_activation_is_still_blocked_with_valid_pins(self):
-        result = subprocess.run(
-            [BASH, str(ROOT / "scripts" / "azure" / "deploy-changes.sh"),
-             "--skip-configure-ingress", "--skip-healthcheck"],
-            env=dict(self.env, ARTICLEPOD_SECRET_SOURCE="keyvault"),
-            text=True, capture_output=True, timeout=15,
-        )
+    def test_vault_configuration_overwrite_or_seeding_is_blocked_before_transport(self):
+        for options in (["--render-env"], ["--configure-ingress"], ["--seed-mode", "always"]):
+            result = subprocess.run(
+                [BASH, str(ROOT / "scripts" / "azure" / "deploy-changes.sh"), *options],
+                env=dict(self.env, ARTICLEPOD_SECRET_SOURCE="keyvault"),
+                text=True, capture_output=True, timeout=15,
+            )
+            with self.subTest(options=options):
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("preserves VM configuration", result.stderr)
+                self.assertEqual(self.calls(), [])
+
+    def test_runner_credential_setup_and_cleanup_are_owned_and_private(self):
+        environment = dict(self.env, RUNNER_TEMP=str(self.base), GITHUB_RUN_ID="1",
+                           GITHUB_RUN_ATTEMPT="1", GITHUB_JOB="fixture",
+                           AZURE_SSH_KEY=self.key.read_text(), AZURE_SSH_KNOWN_HOSTS=self.pins.read_text())
+        script = ROOT / "scripts/azure/setup-deployment-ssh.sh"
+        result = subprocess.run([BASH, str(script)], env=environment, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        directory = self.base / "articlepod-ssh"
+        self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+        self.assertEqual((directory / "identity").stat().st_mode & 0o777, 0o600)
+        self.assertEqual(result.stdout, "")
+        refused = subprocess.run([BASH, str(script), "cleanup"],
+                                 env=dict(environment, GITHUB_RUN_ID="2"), capture_output=True)
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertTrue((directory / "identity").exists())
+        cleaned = subprocess.run([BASH, str(script), "cleanup"], env=environment, capture_output=True)
+        self.assertEqual(cleaned.returncode, 0)
+        self.assertFalse(directory.exists())
+
+    def test_failed_runner_setup_removes_only_its_own_partial_files(self):
+        environment = dict(self.env, RUNNER_TEMP=str(self.base), GITHUB_RUN_ID="1",
+                           GITHUB_RUN_ATTEMPT="1", GITHUB_JOB="fixture",
+                           AZURE_SSH_KEY="fixture-invalid-key", AZURE_SSH_KNOWN_HOSTS=self.pins.read_text())
+        result = subprocess.run([BASH, str(ROOT / "scripts/azure/setup-deployment-ssh.sh")],
+                                env=environment, text=True, capture_output=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("do not activate vault mode", result.stderr)
-        self.assertEqual(self.calls(), [])
+        self.assertNotIn("fixture-invalid-key", result.stdout + result.stderr)
+        self.assertFalse((self.base / "articlepod-ssh").exists())
 
 
 if __name__ == "__main__":

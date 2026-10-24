@@ -171,18 +171,6 @@ remove_app_local_env_files() {
     "$APP_DIR/services/python-tts/.env"
 }
 
-assert_no_vault_local_env_files() {
-  local directory name
-  for directory in "$APP_DIR" "$APP_DIR/apps/web" "$APP_DIR/apps/worker" "$APP_DIR/services/python-tts"; do
-    for name in .env .env.local .env.production .env.production.local .env.azure; do
-      if [[ -e "$directory/$name" || -L "$directory/$name" ]]; then
-        echo "[deploy-vm-runtime] local environment files must be reviewed and retired before Key Vault deployment" >&2
-        return 1
-      fi
-    done
-  done
-}
-
 ensure_runtime_dirs() {
   local runtime_paths=()
   local storage_root=""
@@ -430,7 +418,8 @@ run_demo_seed_if_needed() {
 }
 
 if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
-  assert_no_vault_local_env_files
+  python3 "$ROOT_DIR/scripts/azure/keyvault-exec.py" --env-file "$ENV_FILE" --public-only -- \
+    python3 "$ROOT_DIR/scripts/azure/check-vault-deployment.py" "$APP_DIR" "$STAGING_DIR" "$ENV_FILE"
   metadata_primary_backend="$(read_env_value METADATA_PRIMARY_BACKEND)"
   run_app_cmd public /usr/bin/env bash --noprofile --norc -c '
     for tool in node corepack python3; do
@@ -494,7 +483,9 @@ if [[ "$SECRET_SOURCE" == "environment" ]]; then
 fi
 ensure_runtime_dirs
 ensure_deploy_state_dir
-sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" ARTICLEPOD_SECRET_SOURCE="$SECRET_SOURCE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
+if [[ "$SECRET_SOURCE" == "environment" ]]; then
+  sudo APP_DIR="$APP_DIR" STAGING_DIR="$STAGING_DIR" ENV_FILE="$ENV_FILE" ARTICLEPOD_SECRET_SOURCE="$SECRET_SOURCE" "$ROOT_DIR/scripts/azure/cleanup-vm-disk.sh"
+fi
 run_pnpm_install_if_needed
 run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/web run prisma:generate
 run_app_cmd public /usr/bin/env RUNTIME_PROFILE=azure corepack pnpm --filter @articlepod/worker run prisma:generate
@@ -506,11 +497,20 @@ if [[ "$metadata_primary_backend" != "azure_table" ]]; then
 fi
 run_demo_seed_if_needed
 
-sudo ENABLE_OVERFLOW_WORKER_SERVICE="$ENABLE_OVERFLOW_WORKER_SERVICE" "$ROOT_DIR/scripts/azure/install-systemd.sh"
+sudo ARTICLEPOD_SECRET_SOURCE="$SECRET_SOURCE" RUNTIME_ENV_FILE="$ENV_FILE" RUNTIME_SERVICE_PREFIX="$RUNTIME_SERVICE_PREFIX" ENABLE_OVERFLOW_WORKER_SERVICE="$ENABLE_OVERFLOW_WORKER_SERVICE" "$ROOT_DIR/scripts/azure/install-systemd.sh"
 sudo systemctl restart "$PYTHON_TTS_SERVICE"
 run_tts_preview_precompute
 sudo systemctl restart "$WEB_SERVICE" "$WORKER_SERVICE"
-if systemctl is-enabled "$WORKER_OVERFLOW_SERVICE" >/dev/null 2>&1; then
+overflow_enabled=0
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  overflow_enabled="$ENABLE_OVERFLOW_WORKER_SERVICE"
+  if [[ "$overflow_enabled" == "0" ]]; then
+    sudo systemctl stop "$WORKER_OVERFLOW_SERVICE"
+  fi
+elif systemctl is-enabled "$WORKER_OVERFLOW_SERVICE" >/dev/null 2>&1; then
+  overflow_enabled=1
+fi
+if [[ "$overflow_enabled" == "1" ]]; then
   sudo systemctl restart "$WORKER_OVERFLOW_SERVICE"
   sudo systemctl status --no-pager "$PYTHON_TTS_SERVICE" "$WEB_SERVICE" "$WORKER_SERVICE" "$WORKER_OVERFLOW_SERVICE"
 else

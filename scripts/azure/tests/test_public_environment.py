@@ -21,6 +21,7 @@ AZURE_STORAGE_CONTAINER=fixture
 PYTHON_TTS_URL=http://127.0.0.1:8010
 ARTICLEPOD_SECRET_SOURCE=keyvault
 ARTICLEPOD_KEYVAULT_MANIFEST=/etc/articlepod/fixture-secrets.json
+ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0
 """
 
 
@@ -98,6 +99,14 @@ class PublicConfigurationTests(unittest.TestCase):
         ):
             with self.subTest(endpoint=endpoint), self.assertRaises(launcher.SecretLoadError):
                 launcher.parse_public_environment(PUBLIC_CONFIG.replace("https://fixture.example", endpoint))
+
+    def test_automatic_account_bootstrap_must_be_explicitly_disabled(self):
+        setting = "ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0\n"
+        for replacement in ("", "ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=1\n",
+                            "ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=false\n"):
+            with self.subTest(replacement=replacement):
+                with self.assertRaisesRegex(launcher.SecretLoadError, "^KEYVAULT_REQUIRES_DISABLED_ACCOUNT_BOOTSTRAP$"):
+                    launcher.parse_public_environment(PUBLIC_CONFIG.replace(setting, replacement))
 
     def test_only_host_settings_are_inherited_and_file_settings_are_authoritative(self):
         inherited = {

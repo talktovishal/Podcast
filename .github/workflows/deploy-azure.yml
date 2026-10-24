@@ -50,34 +50,8 @@ jobs:
       - name: Setup SSH credentials
         env:
           AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
           AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          if [ -z "$AZURE_SSH_KEY" ]; then
-            echo "::error::AZURE_SSH_KEY secret is not configured"
-            echo "Please configure the following secrets in your repository:"
-            echo "  - AZURE_SSH_KEY: SSH private key for VM access"
-            echo "  - AZURE_VM_HOST: VM IP address or FQDN"
-            exit 1
-          fi
-
-          umask 077
-          mkdir -p "$RUNNER_TEMP/articlepod-ssh"
-
-          # Write SSH private key
-          printf "%s\n" "$AZURE_SSH_KEY" > "$RUNNER_TEMP/articlepod-ssh/identity"
-
-          if ! grep -q "BEGIN OPENSSH PRIVATE KEY" "$RUNNER_TEMP/articlepod-ssh/identity"; then
-            echo "::error::AZURE_SSH_KEY does not look like an OpenSSH private key"
-            exit 1
-          fi
-
-          if [ -z "$AZURE_SSH_KNOWN_HOSTS" ]; then
-            echo "::error::AZURE_SSH_KNOWN_HOSTS must contain independently verified host pins"
-            exit 1
-          fi
-          printf "%s\n" "$AZURE_SSH_KNOWN_HOSTS" > "$RUNNER_TEMP/articlepod-ssh/known_hosts"
+        run: bash scripts/azure/setup-deployment-ssh.sh
 
       - name: Probe SSH connectivity
         env:
@@ -280,12 +254,7 @@ jobs:
 
       - name: Remove temporary SSH credentials
         if: always()
-        run: |
-          set -euo pipefail
-          if [ -d "$RUNNER_TEMP/articlepod-ssh" ]; then
-            rm -f -- "$RUNNER_TEMP/articlepod-ssh/identity" "$RUNNER_TEMP/articlepod-ssh/known_hosts"
-            rmdir -- "$RUNNER_TEMP/articlepod-ssh"
-          fi
+        run: bash scripts/azure/setup-deployment-ssh.sh cleanup
 
       - name: Deployment summary
         if: success()

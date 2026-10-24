@@ -9,7 +9,8 @@ User=articlepod
 Group=articlepod
 WorkingDirectory=/opt/articlepod
 EnvironmentFile=/etc/articlepod/articlepod.env
-ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh web /usr/bin/env bash -lc 'cd /opt/articlepod/apps/web && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure && exec node ../../scripts/azure/run-next-server.mjs'
+ExecStartPre=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh web --env-file /etc/articlepod/articlepod.env --public-only --shell 'cd /opt/articlepod/apps/web && export RUNTIME_PROFILE=azure && npm run prisma:generate:ensure'
+ExecStart=/usr/bin/env bash /opt/articlepod/scripts/azure/runtime-exec.sh web --env-file /etc/articlepod/articlepod.env --shell 'cd /opt/articlepod/apps/web && export RUNTIME_PROFILE=azure && exec node ../../scripts/azure/run-next-server.mjs'
 Restart=always
 RestartSec=5
 TimeoutStartSec=60

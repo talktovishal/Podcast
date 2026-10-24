@@ -1,0 +1,53 @@
+name: Deploy to Azure (Key Vault)
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_deploy:
+        description: "Rebuild dependencies and Python assets, without account seeding"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-azure-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup SSH credentials
+        env:
+          AZURE_SSH_KEY: ${{ secrets.ARTICLEPOD_DEPLOY_SSH_KEY }}
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.ARTICLEPOD_DEPLOY_KNOWN_HOSTS }}
+        run: bash scripts/azure/setup-deployment-ssh.sh
+      - name: Deploy using existing protected VM configuration
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          ARTICLEPOD_SECRET_SOURCE: keyvault
+          DEPLOY_FORCE_FULL: ${{ inputs.full_deploy && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          ./scripts/azure/deploy-changes.sh \
+            --ssh-key "$RUNNER_TEMP/articlepod-ssh/identity" \
+            --ssh-known-hosts "$RUNNER_TEMP/articlepod-ssh/known_hosts" \
+            --seed-mode never \
+            --skip-configure-ingress
+      - name: Remove temporary SSH credentials
+        if: always()
+        run: bash scripts/azure/setup-deployment-ssh.sh cleanup
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "Vault-managed VM deployment and public health check completed." >> "$GITHUB_STEP_SUMMARY"
+          echo "Existing VM configuration and ingress were retained. No account or provider rotation was performed." >> "$GITHUB_STEP_SUMMARY"
+          echo "Private RSS/media and account continuity checks remain separate release gates." >> "$GITHUB_STEP_SUMMARY"

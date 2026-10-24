@@ -238,6 +238,8 @@ def parse_public_environment(content):
         raise SecretLoadError("PUBLIC_ENVIRONMENT_REQUIRES_KEYVAULT")
     if not re.fullmatch(r"/[a-zA-Z0-9_./-]+", settings.get("ARTICLEPOD_KEYVAULT_MANIFEST", "")):
         raise SecretLoadError("PUBLIC_ENVIRONMENT_REQUIRES_ABSOLUTE_MANIFEST")
+    if settings.get("ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP") != "0":
+        raise SecretLoadError("KEYVAULT_REQUIRES_DISABLED_ACCOUNT_BOOTSTRAP")
     if (
         settings.get("RUNTIME_PROFILE") != "azure"
         or settings.get("METADATA_PRIMARY_BACKEND") not in {"azure_table", "prisma"}

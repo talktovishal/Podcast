@@ -13,8 +13,8 @@
   version-pinned managed-identity launcher are staged, not activated. VM unit
   templates now have opt-in routing with unchanged legacy defaults, and the env
   renderer can emit public-only configuration. Legacy deploy guards prevent
-  overwriting a vault-managed environment. Remote transport/bootstrap and any
-  active Container Apps consumer still need implementation before activation.
+  overwriting a vault-managed environment. Initial bootstrap and any active
+  Container Apps consumer still need implementation before activation.
   Account/provider rotation and live verification require trusted VM access and
   separately established administrative permissions. This
   is not a completed security milestone or evidence that old credentials are
@@ -31,21 +31,33 @@
   prerequisite: strict literal parsing, bounded protected-file reads, filtered
   inherited settings, public-only execution without vault access, and pinned
   operational secret resolution. Vault-mode rendering validates candidates in
-  memory before writing. Existing service overrides remain unchanged and the remote deployment guard
-  remains in place. Live activation and credential invalidation are still pending;
+  memory before writing. File-based service routing uses explicit overflow role
+  handling rather than inherited application overrides. The legacy deployment
+  guard remains in place. Live activation and credential invalidation are still pending;
   this is not completion of the migration.
 - VM-side deployment now has explicit vault-aware command routing: public
   dependency/build/setup steps, pinned operational commands, service-reference
   preflight, local `.env` refusal, no account seeding, and nonrecursive data
   ownership handling. Maintenance preserves retired runtime trees unless legacy
   configuration is established. Legacy-mode execution remains supported.
-  Remote rollout, initial bootstrap, other consumers, and live verification are
+  Live rollout, initial bootstrap, other consumers, and live verification are
   still incomplete.
 - Production deployment now requires original-repository `main` and verified
   host pins across SSH, SCP, and rsync, with no automatic key acceptance or
   alternative trust-source fallback. Explicit pinning is also available to local
   helpers; omitting it retains legacy local SSH settings. This does not establish
-  the live VM's identity or finish remote vault rollout.
+  the live VM's identity or finish live vault rollout.
+- Routine remote vault deployment is implemented for already-bootstrapped VMs:
+  explicit host pins, configuration/unit/reference preflight, file-authoritative
+  public settings, no rendering/upload, no ingress changes, no seeding, and
+  path-checked promotion preserving excluded data. Startup bootstrap must be
+  exactly `0`; service readiness uses public-only execution. Vault installation
+  leaves maintenance, journald, and compatibility files alone. Existing overflow
+  is preserved by default; explicit disable stops it. The dedicated manual
+  workflow has only transport secrets with new deployment-key names. Retiring
+  old keys/secret copies remains a live cutover gate, including historical
+  workflow reruns. This adds no persisted schema/data contract and does not
+  establish credential invalidation or complete the publication milestone.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.

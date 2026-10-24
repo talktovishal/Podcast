@@ -811,7 +811,7 @@ No item may be marked Done without passing the verification commands listed in i
 
 - The Key Vault module, version-pinned managed-identity launcher, opt-in VM unit
   routing, and public-configuration rendering are migration prerequisites only.
-  Legacy defaults remain supported. Remote rollout and production operational
+  Legacy defaults remain supported. Live rollout and production operational
   cutover, account rotation, provider revocation, and live continuity
   verification are still pending; legacy deployment is guarded against
   overwriting a vault-managed environment.
@@ -832,7 +832,25 @@ No item may be marked Done without passing the verification commands listed in i
   plaintext fallback, and account/demo seeding, including forced rebuilds.
   Existing data-file ownership must not be recursively rewritten in that mode.
   Maintenance retains retired runtime trees without confirmed legacy
-  configuration. Remote transport/bootstrap and live activation remain pending.
+  configuration. Initial bootstrap and live activation remain pending.
+- Routine remote vault deployment requires explicit saved SSH pins, existing
+  protected configuration/unit routing, and successful service preflight before
+  sync. It must refuse environment rendering/upload, ingress changes, and
+  account seeding. Promotion must preserve excluded data and keep configuration
+  outside deployment trees. Disk checks must not delete files to make room.
+- VM service execution uses file-authoritative public settings and pinned maps;
+  startup bootstrap must be exactly disabled with
+  `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0`. Overflow role values are explicitly
+  applied after loading. Prisma readiness and TTS readiness probes use public
+  execution without secret lookup. Vault unit installation must not modify or
+  start maintenance timers, rewrite journald, or remove legacy compatibility
+  files. Existing enabled/active overflow is retained unless explicitly changed.
+- The dedicated vault deployment workflow must use only transport secrets,
+  separate deployment-key names, original-repository `main`, and the shared
+  production concurrency group. It must not offer seeding, rendering, or a
+  health-check bypass. Retire old key identities and secret copies after a
+  proven replacement, including historical-workflow access paths. Public health
+  alone is not evidence of private-link or account continuity.
 - Read-only access diagnostics retain strict SSH host verification. A comparison
   with saved pins emits booleans only and cannot repair pins, accept advertised
   keys, or turn a blocked connection into a successful inventory.
@@ -841,14 +859,14 @@ No item may be marked Done without passing the verification commands listed in i
   Explicit pin configuration must fail closed without local-config, global-file,
   DNS, or automatically learned-key fallback. Legacy local SSH configuration
   remains available only when explicit pins are omitted. This transport boundary
-  does not activate the pending remote Key Vault rollout.
+  does not establish VM identity or activate the pending live Key Vault rollout.
 - Next.js production builds can omit runtime secrets while retaining the selected
   Azure metadata backend and enabled mirroring. Table clients initialize only
   if build-time code requests data, which must fail without credentials rather
   than change backends. Outside the framework build phase, existing signing
   secret validation and eager Azure credential checks remain required. Build
   instrumentation must not provision accounts. This is a build prerequisite,
-  not activation of the still-pending vault deployment/operations path.
+  not activation of the still-pending live vault migration.
 - Preserve existing application data, RSS/media URLs, and effective media-signing
   material. Do not rotate subscriber tokens as an incidental part of service-key
   rotation, and do not overwrite the deployed application version to install
