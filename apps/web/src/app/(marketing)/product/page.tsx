@@ -10,7 +10,7 @@ import {
 } from "@/lib/seo";
 
 const productDescription =
-  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with an annual-plan personal wiki that is rebuilt weekly.";
+  "See how ArticlePod turns articles, PDFs, and Chrome captures into private podcast episodes, with an annual-plan personal wiki that is hand-curated.";
 
 const productFlowSteps = [
   {
@@ -26,7 +26,7 @@ const productFlowSteps = [
   {
     step: "03",
     title: "Build the throughline",
-    body: "On Pro Annual, the personal wiki is rebuilt weekly so saved reading and snippets keep folding into durable, interlinked pages you can return to later.",
+    body: "On Pro Annual, the personal wiki is hand-curated so saved reading and snippets keep folding into durable, interlinked pages you can return to later.",
   },
 ] as const;
 
@@ -77,7 +77,7 @@ export default function ProductPage() {
         <p className="max-w-2xl text-base text-[var(--muted)] sm:text-lg">
           ArticlePod turns saved reading into ongoing learning. Each article or
           PDF becomes a private podcast episode. On Pro Annual, the personal
-          wiki is rebuilt weekly so important ideas stay connected over time.
+          wiki is hand-curated so important ideas stay connected over time.
           It&apos;s a calmer, more practical way to stay current on the topics
           you care about.
         </p>
@@ -136,7 +136,7 @@ export default function ProductPage() {
               Andrej Karpathy&apos;s LLM Wiki gist
             </a>
             , ArticlePod adds a durable, interlinked wiki layer on top of the
-            private feed. It is available on Pro Annual and rebuilt weekly so
+            private feed. It is available on Pro Annual and hand-curated so
             the ideas you save are easier to revisit later.
           </p>
         </div>
