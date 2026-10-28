@@ -218,7 +218,16 @@ jobs:
         run: npm run parity:up
 
       - name: Parity smoke + podcast contract
+        id: parity_smoke
         run: npm run parity:smoke
+
+      - name: Collect parity smoke failure diagnostics
+        if: failure() && steps.parity_smoke.outcome == 'failure'
+        timeout-minutes: 2
+        run: |
+          docker compose -f docker-compose.parity.yml ps --all
+          docker compose -f docker-compose.parity.yml logs --no-color --tail=100 web worker azurite postgres python-tts
+          docker inspect --format 'name={{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} restarts={{.RestartCount}}' articlepod-web articlepod-worker
 
       - name: Stop parity stack
         if: always()

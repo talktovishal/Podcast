@@ -90,6 +90,27 @@ test("parity-up emits compose diagnostics when startup fails", () => {
   assert.match(source, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=200 web worker azurite postgres python-tts/);
 });
 
+test("parity CI records bounded failure diagnostics before teardown", () => {
+  const root = resolve(process.cwd(), "../..");
+  for (const workflow of ["ci.yml", "nightly-full-ci.yml"]) {
+    const source = readFileSync(resolve(root, ".github/workflows", workflow), "utf8");
+    const smoke = source.indexOf("- name: Parity smoke + podcast contract");
+    const diagnostics = source.indexOf("- name: Collect parity smoke failure diagnostics");
+    const teardown = source.indexOf("- name: Stop parity stack");
+    assert.ok(smoke >= 0 && diagnostics > smoke && teardown > diagnostics);
+    assert.match(source.slice(smoke, diagnostics), /id: parity_smoke/);
+    const diagnosticStep = source.slice(diagnostics, teardown);
+    assert.match(diagnosticStep, /if: failure\(\) && steps\.parity_smoke\.outcome == 'failure'/);
+    assert.match(diagnosticStep, /timeout-minutes: 2/);
+    assert.match(diagnosticStep, /docker compose -f docker-compose\.parity\.yml logs --no-color --tail=100 web worker azurite postgres python-tts/);
+    assert.match(diagnosticStep, /docker inspect --format '/);
+    for (const field of ["Name", "State.Status", "State.ExitCode", "State.OOMKilled", "RestartCount"]) {
+      assert.ok(diagnosticStep.includes(`{{.${field}}}`));
+    }
+    assert.doesNotMatch(diagnosticStep, /--follow|Config\.Env|toJSON/);
+  }
+});
+
 test("run.sh exposes fast single-script local launcher options", () => {
   const root = resolve(process.cwd(), "../..");
   const runSource = readFileSync(resolve(root, "run.sh"), "utf8");
