@@ -5,9 +5,14 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-import nextConfig from "../next.config.mjs";
 
 const require = createRequire(import.meta.url);
+interface WebpackInput {
+  resolve: { alias: Record<string, string> };
+}
+const nextConfig: {
+  webpack<T extends WebpackInput>(config: T, options: { isServer: boolean }): T;
+} = require("../next.config.mjs").default;
 const fromCore = createRequire(require.resolve("@articlepod/core"));
 const fromJsdom = createRequire(fromCore.resolve("jsdom"));
 const dependencyDirectory = dirname(dirname(fromJsdom.resolve("css-tree/package.json")));
