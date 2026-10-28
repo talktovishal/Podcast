@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { getBundledDemoAudioBuffer, resolveDemoAudioStrategy } from "../src/lib/demo-seed";
@@ -141,11 +141,12 @@ test("parity env fixtures and checks require runtime secrets", () => {
   );
 });
 
-test("azure deploy forwards optional reviewer secrets into the VM env render", () => {
+test("inactive azure deploy fixture retains optional reviewer secret forwarding", () => {
   const root = resolve(process.cwd(), "../..");
-  const workflowSource = readFileSync(resolve(root, ".github/workflows/deploy-azure.yml"), "utf8");
+  const workflowSource = readFileSync(resolve(root, ".github/workflow-fixtures/deploy-azure.yml"), "utf8");
   const renderEnvSource = readFileSync(resolve(root, "scripts/azure/render-env.sh"), "utf8");
 
+  assert.equal(existsSync(resolve(root, ".github/workflows/deploy-azure.yml")), false);
   assert.match(workflowSource, /WEBSTORE_REVIEWER_EMAIL: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_EMAIL \}\}/);
   assert.match(workflowSource, /WEBSTORE_REVIEWER_PASSWORD: \$\{\{ secrets\.APP_WEBSTORE_REVIEWER_PASSWORD \}\}/);
   assert.doesNotMatch(workflowSource, /--seed-mode always/);
@@ -184,7 +185,7 @@ test("azure vm deploy keeps pnpm install noninteractive", () => {
   const root = resolve(process.cwd(), "../..");
   const deploySource = readFileSync(resolve(root, "scripts/azure/deploy-vm-runtime.sh"), "utf8");
 
-  assert.match(deploySource, /run_app_cmd "CI=true corepack pnpm install --frozen-lockfile"/);
+  assert.match(deploySource, /^\s*run_app_cmd public \/usr\/bin\/env CI=true corepack pnpm install --frozen-lockfile$/m);
 });
 
 test("azure vm deploy disables admin bootstrap during web startup", () => {
@@ -213,10 +214,15 @@ test("azure systemd services exec long-running processes directly", () => {
 
   for (const serviceFile of serviceFiles) {
     const serviceSource = readFileSync(resolve(root, serviceFile), "utf8");
+    const startCommand = serviceSource.split("\n").find((line) => line.startsWith("ExecStart="));
+    assert.ok(startCommand);
+    assert.match(serviceSource, /^ExecStartPre=.*runtime-exec\.sh .* --public-only --shell '.*npm run prisma:generate:ensure'$/m);
+    assert.match(startCommand, /runtime-exec\.sh (?:web|worker|worker-overflow) --env-file \/etc\/articlepod\/articlepod\.env --shell '/);
+    assert.doesNotMatch(startCommand, /--public-only|prisma:generate:ensure/);
     if (serviceFile.endsWith("articlepod-web.service")) {
-      assert.match(serviceSource, /npm run prisma:generate:ensure && exec node \.\.\/\.\.\/scripts\/azure\/run-next-server\.mjs/);
+      assert.match(startCommand, /&& exec node \.\.\/\.\.\/scripts\/azure\/run-next-server\.mjs'$/);
     } else {
-      assert.match(serviceSource, /npm run prisma:generate:ensure && exec \.\/node_modules\/\.bin\/tsx src\/index\.ts/);
+      assert.match(startCommand, /&& exec \.\/node_modules\/\.bin\/tsx src\/index\.ts'$/);
     }
     assert.doesNotMatch(serviceSource, /pnpm --filter @articlepod\/(?:web|worker) run start/);
     assert.doesNotMatch(serviceSource, /npx pnpm/);
