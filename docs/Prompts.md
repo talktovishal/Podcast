@@ -251,9 +251,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - on mobile, those two CTA actions stay side by side on one row so the reading area starts sooner.
   - the public marketing shell now keeps one shared page structure across the public routes while leaving room for later UX refinements.
   - secondary marketing pages no longer repeat a pill-style page label inside the hero, so the shared header navigation is the only tab-like active indicator.
-  - `/about` now leads with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait.
-  - `/about` keeps the original proof sections while continuing beneath the hero into personal story sections about why the product was built, how it changed the founder's routine, and what matters most as the product grows.
-  - `/about` now expands that founder-story block with Smita Busar's founder intro, a branded portrait placeholder, a highlighted mission line inside `Why I care?`, and a three-tile proof row of `Live today`, `Why private RSS feed`, and `Who ArticlePod is for`.
+  - `/about` keeps the headline `Listen to your reading list and finally catch up on what matters` and leads with Vishal Chowdhary, `Co-founder`, alongside his portrait and a Blaise Pascal quotation about concise writing.
+  - Vishal's story focuses on motivation, simple Chrome capture, travel listening in familiar podcast apps, and a Karpathy-inspired personal wiki without explicit leadership or feature-build credit statements. Copy stays consistent with the site's calm, practical tone and uses no em dashes.
+  - Smita Busar remains a `Co-founder` with her own portrait, motivation, early-user feedback, and personal results, including the reduction in open tabs. Her story no longer implies she led the build or the wiki work.
+  - Both founder portraits use compact framing with text wrapping alongside and beneath them on desktop rather than leaving a full-height empty image column; mobile keeps names, portraits, and stories stacked.
+  - The shared mission line and three-tile proof row of `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` remain below the two clearly attributed founder stories.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band above the main question list for faster scanning.
   - FAQ content is grouped into `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
