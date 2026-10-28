@@ -116,6 +116,15 @@ Script/catalog indexes:
 - `npm run export`
 - `npm run license:check`
 
+Server builds resolve CSS Tree's CommonJS exports so its JSON grammar data is
+bundled rather than loaded through a build-machine file URL. The web regression
+test exercises CSS parsing and grammar matching with access to the original
+dependency directory blocked, including a failing unpatched-bundle control.
+PDF.js remains a native Node import resolved through the installed core package,
+so its canvas dependency and worker resolve on the runtime host, not the build
+machine. Regression coverage relocates the bundle, verifies runtime dependency
+selection, and extracts text from a generated PDF using the real library.
+
 ## Inspection and rights
 
 ArticlePod's repository is intended for inspection of the product, architecture,
