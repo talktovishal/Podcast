@@ -107,6 +107,7 @@ Script/catalog indexes:
 - `pnpm preflight`
 - `pnpm preflight --parity` for runtime-sensitive changes
 - GitHub `CI` runs the quick PR gate; `Nightly Full CI` runs the expensive full suite on `main`
+- Failed parity smoke jobs record bounded service logs and exit/OOM/restart status before container teardown
 - Manual `Source Support CI` retains credential-free support, infrastructure, and build-isolation checks
 - `npm run typecheck`
 - `npm run lint`
