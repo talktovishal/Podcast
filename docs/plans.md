@@ -186,9 +186,10 @@
   - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
   - the public marketing shell now keeps one shared public-page structure while leaving room for later usability refinements.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
-  - `/about` now opens with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait treatment.
-  - `/about` now flows from that hero into the founder story sections while keeping the `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles below.
-  - `/about` now expands that founder-story block with Smita Busar's founder intro, a branded portrait placeholder, a highlighted mission line inside `Why I care?`, and a longer privacy-centered founder perspective while leaving the proof tiles in place below it.
+  - `/about` keeps the headline `Listen to your reading list and finally catch up on what matters` and leads with Vishal Chowdhary, `Co-founder`, alongside his portrait and a Blaise Pascal quotation about concise writing.
+  - Vishal's first-person story covers motivation, simple Chrome capture, travel listening, and a Karpathy-inspired personal wiki without explicit leadership or feature-build credit statements. Smita Busar's separate `Co-founder` story retains her portrait, motivation, early-user feedback, and open-tab results without attributing the build or wiki work to her.
+  - Compact portraits allow desktop story text to wrap alongside and beneath the images instead of reserving empty full-height columns; names, portraits, and stories remain stacked on mobile.
+  - Both stories use the site's calm, practical tone without em dashes, followed by the shared mission line and the unchanged `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
@@ -3685,7 +3686,9 @@ Milestone metadata contract:
   - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
   - The signed-out auth landing page no longer renders its own page-local header.
   - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
-  - `/about` can extend its founder-story section with portrait and founder narrative content without removing the original mission/live/product proof cards lower on the page.
+  - `/about` presents Vishal Chowdhary first as co-founder, with his portrait and motivation-led story, followed by Smita Busar's co-founder portrait, motivation, early-user feedback, and personal results. Explicit leadership and feature-build credit statements are omitted.
+  - Founder portraits stay compact, with desktop text wrapping beneath them and a stacked mobile layout rather than full-height empty image columns.
+  - Both founder stories retain the site's calm, practical language without em dashes and preserve the original mission/live/product proof content lower on the page.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run test`

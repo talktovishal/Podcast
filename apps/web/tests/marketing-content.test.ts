@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
   KARPATHY_LLM_WIKI_GIST_URL,
@@ -440,7 +440,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(aboutSource.includes("Mission"), false);
   assert.equal(
     normalizedAboutSource.includes(
-      "Andrej Karpathy described the LLM Wiki pattern",
+      "Andrej Karpathy&apos;s LLM Wiki idea",
     ),
     true,
   );
@@ -471,12 +471,6 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "That curiosity shaped my path from full-stack engineer to AI product thinker.",
-    ),
-    true,
-  );
-  assert.equal(
-    normalizedAboutSource.includes(
       "The product is designed for people who love to read and save thoughtful articles, but need a more practical way to keep",
     ),
     true,
@@ -487,17 +481,9 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
     ),
     true,
   );
-  assert.equal(
-    aboutSource.includes("Smita Busar, Founder, engineer, and builder"),
-    true,
-  );
-  assert.equal(
-    aboutSource.includes("/brand/founder-portrait.jpg"),
-    true,
-  );
-  assert.equal(aboutSource.includes("Why I build ArticlePod"), true);
+  assert.equal(aboutSource.includes("Why I built ArticlePod"), true);
   assert.equal(aboutSource.includes("How it has improved my life"), true);
-  assert.equal(aboutSource.includes("Why I care?"), true);
+  assert.equal(aboutSource.includes("Why I care?"), false);
   assert.equal(aboutSource.includes("1 - Why I build ArticlePod"), false);
   assert.equal(aboutSource.includes("2 - How it has improved my life"), false);
   assert.equal(aboutSource.includes("3 - Why I care?"), false);
@@ -509,63 +495,63 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "As a mom juggling daily routines and a busy life, I often had to stop reading halfway through an article and rarely made it back.",
+      "As a mom juggling daily routines and a busy life, I often stopped reading halfway through an article and rarely made it back.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "I built ArticlePod to solve a problem I knew well. It turns article URLs and text-based PDFs into private podcast episodes I can listen to in my favorite podcast apps, even offline.",
+      "Each saved article becomes a private podcast episode, delivered through a private RSS feed to the podcast app I already use.",
     ),
     true,
   );
   assert.equal(aboutSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
   assert.equal(
     normalizedAboutSource.includes(
-      "Within a few weeks, I was finishing more of the articles and PDFs I actually cared about, and my open tabs dropped from more than 50 to fewer than 10 across all my devices.",
+      "Within a few weeks, I was finishing more of the articles and PDFs I actually cared about, and my open tabs dropped from more than 50 to fewer than 10 across my devices.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Most importantly, I felt more current, more informed, and happier.",
+      "I felt more current, more informed, and happier.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Honestly, I believe better technology leads to better habits. ArticlePod is a live example.",
+      "I build up a backlog of articles I want to read and listen while traveling.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Above all, I want ArticlePod to feel personal, calm, and genuinely useful long after the novelty fades.",
+      "I want ArticlePod to keep feeling personal, calm, and genuinely useful, while respecting people&apos;s attention and privacy.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "Make your reading list effortless—listen anywhere, anytime, and retain more",
+      "Make your reading list effortless. Listen anywhere, anytime, and retain more.",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "We have now built that into ArticlePod as a personal wiki that keeps the links, snippets, and ideas worth retaining in one place.",
+      "ArticlePod&apos;s personal wiki brings the links, snippets, and ideas worth retaining into one place",
     ),
     true,
   );
   assert.equal(
     normalizedAboutSource.includes(
-      "That matters because learning gets more useful when knowledge compounds instead of disappearing after a single listen.",
+      "so learning does not have to end when an episode does.",
     ),
     true,
   );
   assert.equal(normalizedAboutSource.includes("Stay tuned."), false);
   assert.equal(
     normalizedAboutSource.includes(
-      "Andrej Karpathy described the LLM Wiki pattern",
+      "Andrej Karpathy&apos;s LLM Wiki idea",
     ),
     true,
   );
@@ -626,4 +612,75 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(layoutSource.includes("daily and weekly briefings"), false);
   assert.equal(marketingLayoutSource.includes("MarketingHeader"), true);
   assert.equal(marketingLayoutSource.includes("MarketingCta"), true);
+});
+
+test("about page keeps distinct co-founder stories without explicit build-credit claims", () => {
+  const aboutSource = readFileSync(
+    new URL(`${marketingAppRoot}/about/page.tsx`, import.meta.url),
+    "utf8",
+  );
+  const normalizedSource = aboutSource
+    .replaceAll("&apos;", "'")
+    .replaceAll("&quot;", '"')
+    .replace(/\s+/g, " ");
+  const vishalStart = normalizedSource.indexOf('id="vishal-story"');
+  const smitaStart = normalizedSource.indexOf('id="smita-story"');
+
+  assert.ok(vishalStart >= 0);
+  assert.ok(smitaStart > vishalStart, "Vishal's story must appear first");
+
+  const vishalStory = normalizedSource.slice(vishalStart, smitaStart);
+  const smitaStory = normalizedSource.slice(smitaStart);
+
+  assert.match(vishalStory, /aria-labelledby="vishal-name"/);
+  assert.match(vishalStory, /<h2 id="vishal-name"[^>]*> Vishal Chowdhary <\/h2>/);
+  assert.match(vishalStory, /<p[^>]*> Co-founder <\/p>/);
+  assert.match(
+    vishalStory,
+    /Keeping things simple matters to me\. The Chrome extension makes saving articles easy\./,
+  );
+  assert.match(vishalStory, /ArticlePod's personal wiki brings the links, snippets, and ideas worth retaining into one place/);
+  assert.doesNotMatch(
+    vishalStory,
+    /builder|I led|That is why I built ArticlePod|I built the Chrome extension|I added a personal wiki|product thinking, design, and development/,
+  );
+  assert.match(vishalStory, /href=\{KARPATHY_LLM_WIKI_GIST_URL\}/);
+  assert.match(vishalStory, /Andrej Karpathy's LLM Wiki idea/);
+  assert.match(vishalStory, /My interests take me across many subjects and websites/);
+  assert.match(vishalStory, /listen while traveling/);
+  assert.match(
+    vishalStory,
+    /I have made this letter longer than usual, only because I had not the time to make it shorter\./,
+  );
+  assert.match(vishalStory, /<figcaption[^>]*> Blaise Pascal <\/figcaption>/);
+  assert.match(vishalStory, /alt="Portrait of Vishal Chowdhary, co-founder of ArticlePod\."/);
+  assert.match(vishalStory, /src="\/brand\/vishal-chowdhary\.jpg"/);
+  assert.doesNotMatch(vishalStory, /my open tabs dropped/);
+
+  assert.match(smitaStory, /aria-labelledby="smita-name"/);
+  assert.match(smitaStory, /<h2 id="smita-name"[^>]*> Smita Busar <\/h2>/);
+  assert.match(smitaStory, /<p[^>]*> Co-founder <\/p>/);
+  assert.match(smitaStory, /As one of ArticlePod's first users/);
+  assert.match(smitaStory, /My feedback helped shape a simpler product/);
+  assert.match(smitaStory, /my open tabs dropped from more than 50 to fewer than 10/);
+  assert.match(smitaStory, /respecting people's attention and privacy/);
+  assert.match(smitaStory, /alt="Portrait of Smita Busar, co-founder of ArticlePod\."/);
+  assert.match(smitaStory, /src="\/brand\/founder-portrait\.jpg"/);
+  assert.doesNotMatch(smitaStory, /I built|I led|I added a personal wiki|KARPATHY_LLM_WIKI_GIST_URL/);
+
+  assert.equal(aboutSource.match(/<h1\b/g)?.length, 1);
+  assert.equal(aboutSource.match(/<h3\b/g)?.length, 5);
+  assert.equal(aboutSource.includes("\u2014"), false);
+  for (const story of [vishalStory, smitaStory]) {
+    assert.match(story, /flow-root/);
+    assert.match(story, /max-w-\[18rem\] lg:float-right lg:mb-4 lg:ml-8 lg:mr-0/);
+    assert.match(story, /sizes="18rem"/);
+    assert.doesNotMatch(story, /lg:row-span-2|lg:max-w-\[40rem\]/);
+  }
+  for (const portrait of ["vishal-chowdhary.jpg", "founder-portrait.jpg"]) {
+    assert.ok(
+      existsSync(new URL(`../public/brand/${portrait}`, import.meta.url)),
+      `Missing founder portrait: ${portrait}`,
+    );
+  }
 });
