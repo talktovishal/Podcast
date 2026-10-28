@@ -71,6 +71,8 @@ export const hasPatch = Object.keys(patch).length > 0;
       const config = {
         mode: "production",
         target: "node",
+        // Next supplies its own minifier; this fixture only needs module bundling.
+        optimization: { minimize: false },
         entry,
         output: { path: output, filename: "bundle.cjs", library: { type: "commonjs2" } },
         resolve: { modules: ["node_modules", dependencyDirectory], alias: {} },
