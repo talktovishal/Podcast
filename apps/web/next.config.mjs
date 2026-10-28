@@ -1,8 +1,28 @@
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 /** @type {import('next').NextConfig} */
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 const nextConfig = {
   transpilePackages: ["@articlepod/core"],
+  webpack(config, { isServer }) {
+    if (isServer) {
+      const fromCore = createRequire(require.resolve("@articlepod/core"));
+      const fromJsdom = createRequire(fromCore.resolve("jsdom"));
+      const cssTree = fromJsdom("css-tree/package.json");
+      config.resolve.alias = { ...config.resolve.alias };
+      // The ESM data loaders retain build-machine URLs; CommonJS lets Webpack bundle their JSON.
+      for (const [subpath, target] of Object.entries(cssTree.exports)) {
+        if (target && typeof target === "object" && typeof target.require === "string") {
+          const name = subpath === "." ? "css-tree" : "css-tree/" + subpath.slice(2);
+          config.resolve.alias[name + "$"] = fromJsdom.resolve(name);
+        }
+      }
+    }
+    return config;
+  },
   async headers() {
     const scriptSrc = ["'self'", "'unsafe-inline'"];
     const connectSrc = ["'self'"];
