@@ -1,21 +1,13 @@
-import path from 'node:path';
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 /** @type {import('next').NextConfig} */
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 const nextConfig = {
   transpilePackages: ["@articlepod/core"],
-  webpack(config, { isServer }) {// CSS Tree's CommonJS export is relocated into the production server artifact;
-    // keep its JSON data resolvable without changing client-side aliases.
-    if (isServer) {
-      const cssTreeCjs = require.resolve('css-tree');
-      const cssTreeData = path.resolve(path.dirname(cssTreeCjs), '..', 'data', 'patch.json');
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
-        'css-tree$': cssTreeCjs,
-        'css-tree/data/patch.json$': cssTreeData,
-      };
-    }
-
+  webpack(config, { isServer }) {
     if (isServer) {
       const fromCore = createRequire(require.resolve("@articlepod/core"));
       const fromJsdom = createRequire(fromCore.resolve("jsdom"));
@@ -77,6 +69,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
