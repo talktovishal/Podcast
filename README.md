@@ -120,6 +120,10 @@ Server builds resolve CSS Tree's CommonJS exports so its JSON grammar data is
 bundled rather than loaded through a build-machine file URL. The web regression
 test exercises CSS parsing and grammar matching with access to the original
 dependency directory blocked, including a failing unpatched-bundle control.
+PDF.js remains a native Node import resolved through the installed core package,
+so its canvas dependency and worker resolve on the runtime host, not the build
+machine. Regression coverage relocates the bundle, verifies runtime dependency
+selection, and extracts text from a generated PDF using the real library.
 
 ## Inspection and rights
 
@@ -132,7 +136,3 @@ Third-party material retains its existing license terms. See
 [third-party attribution and retained notices](docs/THIRD_PARTY.md).
 Repository visibility is separate from production access; source availability
 does not grant access to accounts, private feeds, or deployed infrastructure.
-
-## CSS Tree server bundle portability
-
-The web server configuration keeps CSS Tree's CommonJS entry and `data/patch.json` resolvable when production bundles relocate modules. The aliases are server-only, existing client aliases are preserved, and no dependency changes are required.
