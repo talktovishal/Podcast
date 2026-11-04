@@ -54,7 +54,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
   },
   {
     feature: "Episode allowance",
-    starter: { kind: "text", value: "Limited monthly episodes" },
+    starter: { kind: "text", value: "2 free submissions" },
     monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / day` },
     annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
@@ -98,6 +98,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
 const trustPoints = [
   "Billed upfront monthly or yearly",
   "Renews automatically until canceled",
+  "Episode audio stays available for 60 days after publication",
   "Cancel anytime; access stays through the current paid period"
 ] as const;
 
@@ -233,7 +234,7 @@ export default async function PricingPage({
             Save nearly 30% on annual
           </span>
           <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
-            {annualPlan.dailyPodcastLimit} episodes/day + wiki auto-refresh
+            {annualPlan.dailyPodcastLimit} episodes/day + hand-curated wiki
           </span>
         </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
@@ -255,7 +256,7 @@ export default async function PricingPage({
           <p className="mt-1 text-sm text-[var(--muted)]">Private listening basics without a subscription.</p>
           <p className="mt-3 text-2xl font-bold">$0</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <PlanFeatureItem label="Limited monthly episodes" />
+            <PlanFeatureItem label="2 free submissions" />
             <PlanFeatureItem label="URL and PDF ingestion" />
             <PlanFeatureItem label="Private RSS feed access" />
           </ul>
@@ -349,7 +350,7 @@ export default async function PricingPage({
             <PlanFeatureItem label={`${annualPlan.weeklySummaryLimit} manual summaries every 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
             <PlanFeatureItem label="Personal wiki access" />
-            <PlanFeatureItem label="Personal wiki automatically refreshes" />
+            <PlanFeatureItem label="Hand-curated wiki updates" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">
