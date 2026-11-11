@@ -185,13 +185,24 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
 ---
 
 ## Git / PR / change rules
+- Standing release approval (granted 2026-11-11):
+  - For work the owner requests to implement and deploy in `Podcast` and
+    `Podcast-Deploy`, agents may push branches, open PRs, merge to `main` after
+    required checks pass, and deploy through the protected release process.
+  - This approval satisfies the main-branch confirmation requirement for that
+    requested work; do not ask for the same routine approval again.
+  - Ask separately before destructive changes or credential/security-policy changes.
+  - Do not bypass authentication, branch protections, required checks, or protected
+    production-environment approvals. Preserve data and verified rollback.
+  - This is not approval for unrequested work or other repositories. The defaults
+    below still apply outside requested implementation-and-deployment work.
 - Small, reviewable diffs.
 - Avoid scope creep.
 - Primary-checkout edits (default):
   - Edit from the primary checkout by default.
   - Commit locally by default.
   - Do not push by default.
-  - Any push to `main` must be an explicit user request.
+  - A push to `main` requires an explicit user request or the standing release approval above.
   - Prefer a short-lived feature branch or worktree when a change should be shared remotely before merge.
   - Worktrees are optional and should only be used when explicitly requested by the user.
   - If a worktree/branch setup is attempted but blocked by environment or sandbox restrictions, continue in the primary checkout and note the fallback in the final update.
@@ -210,7 +221,9 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
     - `WORKTREE FLOW: fix-media-auth`
     - `WORKTREE FALLBACK OK` (optional)
 - After validation passes, commit changes locally before marking work as complete unless the user explicitly asks for a push.
-- When a push is requested, prefer pushing a non-`main` branch first and only push `main` when the user explicitly confirms that intent.
+- When a push is requested, prefer pushing a non-`main` branch first. Merge/push
+  `main` only after required checks and either explicit confirmation or the
+  standing release approval above.
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):
   - If runtime behavior, API contracts, milestones, or architecture changes, update these in the same change set:
@@ -275,7 +288,8 @@ Otherwise run:
 4) Run tests/lint; fix failures.
 5) Run Podcast compatibility gates.
 6) Commit validated changes locally.
-7) Push only when explicitly requested; treat pushes to `main` as an explicit confirmation step.
+7) Push only when explicitly requested or covered by standing release approval;
+   `main` still requires passing checks and either explicit or standing approval.
 8) Provide a short “what changed + how to verify” note.
 
 ---

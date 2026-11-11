@@ -43,8 +43,15 @@ This checklist is mandatory for every change.
 ## Git requirements (default)
 - Commit all validated changes.
 - Keep commits local by default.
-- Do not push unless explicitly requested by the user.
-- Treat pushes to `origin/main` as a separate explicit confirmation step.
+- Do not push unless explicitly requested or covered by the standing release
+  approval in [AGENTS.md](../AGENTS.md).
+- For owner-requested implementation and deployment in `Podcast` and
+  `Podcast-Deploy`, that standing approval covers branch pushes, PRs, validated
+  merges to `main`, and the protected release process without another routine
+  confirmation. Outside that scope, `origin/main` requires explicit confirmation.
+- Ask separately before destructive or credential/security-policy changes.
+- Never bypass required checks, authentication, branch protections, or protected
+  production-environment approvals.
 - Never commit runtime logs (`.runtime/logs/` and diagnostics artifacts).
 
 ## Response requirements
