@@ -17,8 +17,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Manual CI also builds the web app and runs authenticated RSS Playwright checks
   against a disposable simple-profile database and a CI-managed local server
   that stays alive through test cleanup and is stopped on job completion.
-  The server uses the existing production launcher (`scripts/azure/run-next-server.mjs`),
-  not `next start`, so browser validation exercises the deployed runtime lifecycle.
+  Browser CI and the parity web container use the existing production launcher
+  (`scripts/azure/run-next-server.mjs`), not `next start`, so both exercise the
+  deployed runtime lifecycle. Parity retains its disposable bootstrap/seed steps.
   The browser job uses a digest-pinned official image matching locked Playwright,
   avoiding per-run operating-system dependency installation.
   Failure diagnostics print the server log and exit trace before optional
