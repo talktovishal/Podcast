@@ -3055,9 +3055,25 @@ export class AzureTablePrimaryStore {
     );
   }
 
-  async findChunkCacheByHash(hash: string): Promise<AzureTablePrimaryChunkCache | null> {
+  async findChunkCacheByHash(hash: string): Promise<EntityWithEtag<AzureTablePrimaryChunkCache> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("chunkCache", "chunk", hash);
-    return entity ? this.toChunkCache(entity) : null;
+    return entity ? { ...this.toChunkCache(entity), etag: entity.etag } : null;
+  }
+
+  async deleteChunkCacheIfUnchanged(hash: string, etag: string | undefined): Promise<boolean> {
+    if (!etag || etag === "*") {
+      throw new Error("An exact cache ETag is required for conditional deletion.");
+    }
+    await this.ready();
+    try {
+      await this.client("chunkCache").deleteEntity("chunk", hash, { etag });
+      return true;
+    } catch (error) {
+      if (isPreconditionError(error) || isNotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async createChunkCache(input: {

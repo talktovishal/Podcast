@@ -67,6 +67,7 @@ async function seedCacheForHtml(itemId: string, userId: string, html: string, ur
   const chunks = chunkText(narrationText, workerEnv.ttsChunkMaxChars);
   const cacheKey = sha256([userId, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
+  await getArtifactStorage().putObject(`items/test-${itemId}/episode.mp3`, Buffer.alloc(1024), { contentType: "audio/mpeg" });
   await prisma.chunkCache.create({
     data: {
       itemId,
@@ -119,6 +120,7 @@ async function seedAutomaticSummaryCacheForHtml(input: {
   const chunks = chunkText(summaryNarration, workerEnv.ttsChunkMaxChars);
   const cacheKey = sha256([input.userId, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
 
+  await getArtifactStorage().putObject(`items/test-summary-${input.itemId}/episode.mp3`, Buffer.alloc(2048), { contentType: "audio/mpeg" });
   await prisma.chunkCache.create({
     data: {
       itemId: input.itemId,

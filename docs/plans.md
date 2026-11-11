@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Focused cache hardening (2026-11-11): byte existence precedes reuse; only
+  authoritative absence permits conditional stale-row deletion. Concurrent
+  replacements are re-read; outages fail retryably without new synthesis.
+  No schema/key-layout migration or blanket cache purge. Shared audio ownership
+  and production validation remain separate work.
+
 - Focused RSS hardening (2026-11-11): complete media preflight precedes any repair;
   unknown/transient storage failures return retryable, non-cacheable HTTP 503.
   Healthy feed URLs/signatures and confirmed-missing alternate-path repair remain

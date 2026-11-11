@@ -1,6 +1,13 @@
 # ArticlePod Architecture
 
 ## Overview
+
+Audio cache reuse verifies object existence before publication. Confirmed absence
+invalidates only the observed cache row, using SQL row identity or an Azure ETag;
+conflicting replacements are re-read. Storage outages preserve cache state and
+fail retryably. This guard does not change artifact keys, migrate historical
+audio, or solve reference-aware deletion of audio shared across items.
+
 ArticlePod is an RSS-first ingestion and narration system with three runtime tiers:
 - `apps/web`: Next.js UI + API routes (auth, ingest, feed, media)
 - `apps/worker`: asynchronous extraction/TTS/publish pipeline

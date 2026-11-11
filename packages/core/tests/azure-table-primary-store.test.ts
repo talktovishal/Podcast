@@ -1,6 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AzureTablePrimaryStore } from "../src/metadata/azureTablePrimaryStore";
+import { TableClient } from "@azure/data-tables";
+
+test("cache deletion uses the observed ETag and surfaces outages", async (t) => {
+  const store = createStore();
+  const calls: unknown[][] = [];
+  const mock = t.mock.method(TableClient.prototype, "deleteEntity", async (...args: unknown[]) => {
+    calls.push(args);
+    return {};
+  });
+  assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), true);
+  assert.deepEqual(calls, [["chunk", "cache-hash", { etag: "version-1" }]]);
+  for (const etag of [undefined, "*", ""]) {
+    await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", etag), /exact cache ETag/);
+  }
+  for (const statusCode of [404, 412]) {
+    mock.mock.mockImplementation(async () => { throw { statusCode }; });
+    assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), false);
+  }
+  const error = { statusCode: 503 };
+  mock.mock.mockImplementation(async () => { throw error; });
+  await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), (caught) => caught === error);
+});
 
 function createStore(): AzureTablePrimaryStore {
   return new AzureTablePrimaryStore({

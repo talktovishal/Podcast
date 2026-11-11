@@ -39,6 +39,7 @@ import {
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
+import { findUsableAudioCache } from "../lib/audio-cache.js";
 import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import {
@@ -173,9 +174,32 @@ function buildTtsCacheKey(
 }
 
 async function findChunkCacheByHash(cacheKey: string) {
-  return workerUsesAzureTablePrimary() && workerPrimaryStore
-    ? workerPrimaryStore.findChunkCacheByHash(cacheKey)
-    : prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
+  try {
+    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+      const store = workerPrimaryStore;
+      return await findUsableAudioCache({
+        find: () => store.findChunkCacheByHash(cacheKey),
+        discardIfUnchanged: (entry) => store.deleteChunkCacheIfUnchanged(entry.hash, entry.etag),
+        storage: getArtifactStorage()
+      });
+    }
+    return await findUsableAudioCache({
+      find: () => prisma.chunkCache.findUnique({ where: { hash: cacheKey } }),
+      discardIfUnchanged: async (entry) => {
+        const deleted = await prisma.chunkCache.deleteMany({
+          where: {
+            id: entry.id, hash: entry.hash, filePath: entry.filePath,
+            createdAt: entry.createdAt, audioBytes: entry.audioBytes, mimeType: entry.mimeType
+          }
+        });
+        return deleted.count === 1;
+      },
+      storage: getArtifactStorage()
+    });
+  } catch (error) {
+    await workerLogger.warn("Audio cache validation failed", { error: formatDiagnostic(error) });
+    throw new AppError(errorCodes.STORAGE_FAILED, "Audio storage is temporarily unavailable. Please retry.", 503);
+  }
 }
 
 function logNow() {
@@ -2440,6 +2464,11 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
             audioBytes: audio.bytes,
             mimeType: audio.mimeType
           }
+        }).catch(async (error: unknown) => {
+          if (!isPrismaErrorCode(error, "P2002") || !(await prisma.chunkCache.findUnique({ where: { hash: cacheKey } }))) {
+            throw error;
+          }
+          await workerLogger.info("Audio cache already populated by another job", { cacheKey });
         });
       }
       appendExtractionLog(extractionLogs, "tts", "Narration synthesis complete", {
