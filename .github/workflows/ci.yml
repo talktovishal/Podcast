@@ -111,7 +111,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && needs.plan.outputs.run_web == 'true'
     timeout-minutes: 20
     env:
-      E2E_START_SERVER: "1"
       APP_URL: "http://127.0.0.1:3000"
     steps:
       - uses: actions/checkout@v6
@@ -132,7 +131,37 @@ jobs:
       - name: Build application
         run: corepack pnpm --filter @articlepod/web run build
       - name: Verify authenticated private RSS feed and parser controls
-        run: corepack pnpm --filter @articlepod/web exec playwright test e2e/rss-feed.spec.ts --project=chromium
+        run: |
+          set -euo pipefail
+          setsid corepack pnpm --filter @articlepod/web run start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
+          server_pid=$!
+          cleanup() {
+            if kill -0 -- "-$server_pid" 2>/dev/null; then
+              kill -- "-$server_pid"
+            fi
+          }
+          trap cleanup EXIT
+          ready=false
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:3000/api/health > /dev/null; then
+              ready=true
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat "$RUNNER_TEMP/rss-web.log"
+              exit 1
+            fi
+            sleep 1
+          done
+          if [ "$ready" != true ]; then
+            cat "$RUNNER_TEMP/rss-web.log"
+            echo "::error::RSS test server did not become ready"
+            exit 1
+          fi
+          if ! corepack pnpm --filter @articlepod/web exec playwright test e2e/rss-feed.spec.ts --project=chromium; then
+            cat "$RUNNER_TEMP/rss-web.log"
+            exit 1
+          fi
 
   validate-quick:
     runs-on: ubuntu-latest

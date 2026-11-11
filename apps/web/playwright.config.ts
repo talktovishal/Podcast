@@ -30,13 +30,6 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
-  webServer: process.env.E2E_START_SERVER === "1" ? {
-    command: "npm run start -- --hostname 127.0.0.1",
-    url: "http://127.0.0.1:3000/api/health",
-    reuseExistingServer: false,
-    timeout: 120_000,
-    stdout: "pipe",
-  } : undefined,
   use: {
     baseURL: process.env.APP_URL || "http://localhost:3000",
     trace: "on-first-retry",
