@@ -8,7 +8,6 @@ test("cache deletion uses the observed ETag and surfaces outages", async (t) => 
   const calls: unknown[][] = [];
   const mock = t.mock.method(TableClient.prototype, "deleteEntity", async (...args: unknown[]) => {
     calls.push(args);
-    return {};
   });
   assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), true);
   assert.deepEqual(calls, [["chunk", "cache-hash", { etag: "version-1" }]]);
