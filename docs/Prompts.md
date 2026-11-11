@@ -17,6 +17,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Manual CI also builds the web app and runs authenticated RSS Playwright checks
   against a disposable simple-profile database and a CI-managed local server
   that stays alive through test cleanup and is stopped on job completion.
+  The browser job uses a digest-pinned official image matching locked Playwright,
+  avoiding per-run operating-system dependency installation.
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.

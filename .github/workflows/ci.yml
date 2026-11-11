@@ -107,6 +107,12 @@ jobs:
 
   validate-rss-e2e:
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble@sha256:b0ab6f3cb99aa7803adbc14d9027ec1785fc6e433b97e134e0f8fe61683b6b53
+      options: --ipc=host
+    defaults:
+      run:
+        shell: bash
     needs: plan
     if: github.event_name == 'workflow_dispatch' && needs.plan.outputs.run_web == 'true'
     timeout-minutes: 20
@@ -119,11 +125,10 @@ jobs:
           node-version: 22
       - name: Prepare isolated simple profile
         run: cp .env.simple.example .env
-      - name: Install locked dependencies and browser
+      - name: Install locked dependencies
         run: |
           corepack enable
           corepack pnpm install --frozen-lockfile
-          corepack pnpm --filter @articlepod/web exec playwright install --with-deps chromium
       - name: Bootstrap and seed the disposable test database
         run: |
           corepack pnpm --filter @articlepod/web run db:bootstrap
