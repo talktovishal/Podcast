@@ -30,6 +30,7 @@
   Manual CI validates the complete tracked candidate, including the Python service.
   Its RSS E2E job builds the web app and uses an isolated seeded database/local server.
   Its digest-pinned browser image must remain aligned with the locked Playwright version.
+  Server output and exit traces precede optional runner diagnostics on browser failure.
   Production validation is tracked separately; no schema/data migration is needed.
 
 - Private operational repository separation is staged, not cut over. The

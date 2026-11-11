@@ -19,6 +19,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   that stays alive through test cleanup and is stopped on job completion.
   The browser job uses a digest-pinned official image matching locked Playwright,
   avoiding per-run operating-system dependency installation.
+  Failure diagnostics print the server log and exit trace before optional
+  runner inspection tools, so missing utilities cannot hide the server failure.
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
