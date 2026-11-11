@@ -13,6 +13,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).
+- Item RSS checks all original and applicable alternate media paths before repair.
+  Only confirmed object absence permits repair; storage outages return non-cacheable
+  HTTP 503 with Retry-After, without repair-side mutations or token rotation.
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
 - Kokoro narration on the python-tts sidecar now streams WAV assembly segment-by-segment instead of concatenating the full response in memory first, reducing peak RAM pressure on the production B2s VM.

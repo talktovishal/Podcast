@@ -179,6 +179,12 @@ If you touch feed/media auth, do all of the following:
 
 ## Required regression checks for auth changes
 
+Item RSS media validation must distinguish confirmed absence from storage failure.
+All episode and applicable alternate-path HEAD checks complete before repair.
+Timeouts, throttling, authorization errors and unknown provider failures return
+non-cacheable HTTP 503 with Retry-After instead of triggering regeneration or
+returning a misleading reduced feed. This does not rotate feed/media credentials.
+
 Any code change that touches feed/media auth must prove all of these:
 
 1. Repeated RSS fetches for unchanged episodes produce the same enclosure URLs

@@ -9,6 +9,11 @@
 
 ## Spec Consistency Notes (Current)
 
+- Focused RSS hardening (2026-11-11): complete media preflight precedes any repair;
+  unknown/transient storage failures return retryable, non-cacheable HTTP 503.
+  Healthy feed URLs/signatures and confirmed-missing alternate-path repair remain
+  unchanged. No persisted schema changes; deployment validation remains separate.
+
 - Focused hardening (2026-11-11): optional-provider discovery and requested-provider
   synthesis checks are isolated, with model-free service tests selected by CI.
   Production validation is tracked separately; no schema/data migration is needed.

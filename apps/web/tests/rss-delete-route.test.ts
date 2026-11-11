@@ -462,6 +462,60 @@ test("rss feed self-heals mismatched feed token hashes without changing the URL"
   }
 });
 
+test("rss storage outages do not mutate missing episodes or caches", async (t) => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-storage-failure`;
+  const storage = getArtifactStorage();
+  const user = await prisma.user.create({ data: { email: `${uniq}@articlepod.local`, role: "USER" } });
+  const token = createSecretToken();
+  await prisma.feedToken.create({
+    data: { userId: user.id, tokenValue: token.plain, tokenHash: token.hash, active: true }
+  });
+  const items = [];
+  for (let index = 0; index < 2; index++) {
+    const item = await prisma.item.create({
+      data: { userId: user.id, sourceType: "URL", sourceUrl: `https://example.com/${uniq}/${index}`, status: "READY" }
+    });
+    items.push(item);
+    await prisma.episode.create({
+      data: {
+        itemId: item.id, guid: `episode-${item.id}`, title: "Storage failure fixture",
+        description: "fixture", audioPath: `${item.id}.mp3`, audioBytes: 12, mimeType: "audio/mpeg",
+        publishedAt: new Date(Date.now() - index * 1000)
+      }
+    });
+    await prisma.chunkCache.create({
+      data: { itemId: item.id, chunkIndex: 0, hash: item.id, filePath: `${item.id}.mp3`, audioBytes: 12, mimeType: "audio/mpeg" }
+    });
+  }
+  try {
+    for (const error of [
+      { code: "ETIMEDOUT" }, { statusCode: 403 }, { statusCode: 429 }, { statusCode: 500 },
+      { statusCode: 404, code: "ContainerNotFound" }
+    ]) {
+      const mocked = t.mock.method(storage, "headObject", async (key: string) => {
+        if (key === `${items[1].id}.mp3`) throw error;
+        throw Object.assign(new Error("missing fixture object"), { code: "ENOENT" });
+      });
+      try {
+        const response = await rssGet(new NextRequest(`http://localhost/rss/${token.plain}.xml`), {
+          params: Promise.resolve({ token: token.plain })
+        });
+        assert.equal(response.status, 503);
+        assert.equal(response.headers.get("cache-control"), "private, no-store");
+        assert.equal(response.headers.get("retry-after"), "60");
+        assert.equal(await prisma.job.count({ where: { item: { userId: user.id } } }), 0);
+        assert.equal(await prisma.chunkCache.count({ where: { itemId: { in: items.map((item) => item.id) } } }), 2);
+        assert.equal(await prisma.item.count({ where: { userId: user.id, status: "READY" } }), 2);
+      } finally {
+        mocked.mock.restore();
+      }
+    }
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
 test("rss feed skips missing media episodes and enqueues repair", async () => {
   ensureDbBootstrap();
   const uniq = `${Date.now().toString(36)}-missing`;
