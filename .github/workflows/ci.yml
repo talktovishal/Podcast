@@ -57,6 +57,7 @@ jobs:
       run_core: ${{ steps.scope.outputs.run_core }}
       run_web: ${{ steps.scope.outputs.run_web }}
       run_worker: ${{ steps.scope.outputs.run_worker }}
+      run_python_tts: ${{ steps.scope.outputs.run_python_tts }}
       run_testing: ${{ steps.scope.outputs.run_testing }}
       run_license: ${{ steps.scope.outputs.run_license }}
       run_parity: ${{ steps.scope.outputs.run_parity }}
@@ -80,6 +81,21 @@ jobs:
         run: |
           echo "summary: ${{ steps.scope.outputs.summary }}"
           echo "changed files: ${{ steps.scope.outputs.changed_file_count }}"
+
+  python-tts-unit:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.run_python_tts == 'true'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install API and test dependencies without model providers
+        run: python -m pip install -r services/python-tts/requirements.txt pytest==8.3.5
+      - name: Test provider isolation, streaming and logging
+        run: python -m pytest -q services/python-tts/tests/test_provider_discovery.py services/python-tts/tests/test_kokoro_streaming.py services/python-tts/tests/test_logging_split.py
 
   docs-only:
     runs-on: ubuntu-latest

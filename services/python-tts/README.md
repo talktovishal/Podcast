@@ -57,6 +57,17 @@ curl -sS -X POST "http://127.0.0.1:8010/v1/synthesize" \
 
 ## End-to-end tests
 
+Provider discovery does not require model packages:
+
+```bash
+python3 -m unittest discover -s services/python-tts/tests -p test_provider_discovery.py -v
+```
+
+Relevant PRs also run the provider-isolation, streaming and logging tests using
+the API requirements plus pytest, without downloading Kokoro/Melo models.
+Synthesis checks only the requested provider. Missing optional Melo does not
+disable Kokoro; unexpected discovery failures remain explicit.
+
 Run the real provider synthesis checks for both Kokoro and Melo:
 
 ```bash

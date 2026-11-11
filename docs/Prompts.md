@@ -6,6 +6,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Focused hardening: optional Melo discovery cannot disable Kokoro synthesis;
+  synthesis checks only the requested provider. Relevant CI runs model-free
+  provider-isolation, streaming and logging tests. No persisted schema changes.
+
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.
 - RSS/media compatibility gates are implemented (`HEAD` + byte-range `206`).

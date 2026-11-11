@@ -9,6 +9,10 @@
 
 ## Spec Consistency Notes (Current)
 
+- Focused hardening (2026-11-11): optional-provider discovery and requested-provider
+  synthesis checks are isolated, with model-free service tests selected by CI.
+  Production validation is tracked separately; no schema/data migration is needed.
+
 - Private operational repository separation is staged, not cut over. The
   manual source-main production export fixes destination identity/key, checks
   the expected reviewed source SHA, seals exactly 37 existing credentials plus

@@ -127,6 +127,7 @@ export function computeScope(changedFiles) {
     run_core: runSimple && coreChanged,
     run_web: runSimple && webChanged,
     run_worker: runSimple && workerChanged,
+    run_python_tts: runSimple && (broadChange || files.some((filePath) => /^services\/python-tts\//.test(filePath))),
     run_testing: runSimple && testingChanged,
     run_observability: runSimple && observabilityChanged,
     run_export: runSimple && webRuntimeChanged,

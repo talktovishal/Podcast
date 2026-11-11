@@ -34,3 +34,10 @@ test("worker-only runtime changes trigger parity", () => {
   assert.equal(scope.run_web, false);
   assert.equal(scope.run_parity, true);
 });
+
+test("python TTS changes run model-free service tests", () => {
+  assert.equal(computeScope(["services/python-tts/app/main.py"]).run_python_tts, true);
+  assert.equal(computeScope([".github/workflows/ci.yml"]).run_python_tts, true);
+  assert.equal(computeScope(["docs/architecture.md"]).run_python_tts, false);
+  assert.equal(computeScope(["apps/web/src/app/about/page.tsx"]).run_python_tts, false);
+});

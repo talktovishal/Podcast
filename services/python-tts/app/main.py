@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hmac
-import importlib.util
 import io
 import json
 import logging
@@ -21,6 +20,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
+
+from .provider_discovery import optional_module_available
 
 app = FastAPI(title="ArticlePod Python TTS")
 
@@ -374,10 +375,10 @@ NLTK_RESOURCE_PATHS = {
 
 
 def _kokoro_health() -> ProviderHealth:
-    if importlib.util.find_spec("kokoro") is None:
+    if not optional_module_available("kokoro"):
         return ProviderHealth(available=False, reason="kokoro package is not installed.")
 
-    if importlib.util.find_spec("en_core_web_sm") is None:
+    if not optional_module_available("en_core_web_sm"):
         return ProviderHealth(
             available=False,
             reason="spaCy model 'en_core_web_sm' is missing. Run scripts/bootstrap-python-tts.sh.",
@@ -387,7 +388,7 @@ def _kokoro_health() -> ProviderHealth:
 
 
 def _melo_health() -> ProviderHealth:
-    if importlib.util.find_spec("melo.api") is None:
+    if not optional_module_available("melo.api"):
         return ProviderHealth(available=False, reason="melo package is not installed.")
 
     try:
@@ -418,11 +419,10 @@ def _melo_health() -> ProviderHealth:
     return ProviderHealth(available=True)
 
 
-def _provider_health() -> Dict[str, ProviderHealth]:
-    return {
-        "kokoro": _kokoro_health(),
-        "melo": _melo_health(),
-    }
+def _provider_health(provider: str | None = None) -> Dict[str, ProviderHealth]:
+    checks = {"kokoro": _kokoro_health, "melo": _melo_health}
+    selected = [provider] if provider is not None else checks
+    return {name: checks[name]() for name in selected}
 
 
 def _get_kokoro_pipeline(language_code: str) -> Any:
@@ -562,7 +562,7 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
         attrs={"provider": payload.provider, "voice": payload.voice, "text_chars": len(payload.text)},
     )
     try:
-        health_info = _provider_health()
+        health_info = _provider_health(payload.provider)
         provider_health = health_info[payload.provider]
         if not provider_health.available:
             _log_event(

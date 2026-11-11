@@ -20,6 +20,32 @@ def _make_request() -> Request:
     return Request({"type": "http", "headers": []})
 
 
+def test_kokoro_synthesis_does_not_check_melo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "_kokoro_health", lambda: main.ProviderHealth(available=True))
+
+    def unexpected_melo_check():
+        raise AssertionError("Kokoro synthesis must not discover Melo")
+
+    monkeypatch.setattr(main, "_melo_health", unexpected_melo_check)
+    monkeypatch.setattr(main, "_synthesize_kokoro_to_wav_bytes", lambda *_args: b"wav-fixture")
+    monkeypatch.setattr(main, "_log_event", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(main, "_should_request_recycle", lambda _rss: False)
+    response = main.synthesize(main.SynthesizePayload(provider="kokoro", voice="af_heart", text="Hello"), _make_request(), None)
+    assert response.status_code == 200
+    assert response.body == b"wav-fixture"
+
+
+def test_discovery_reports_missing_melo_without_disabling_kokoro(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "optional_module_available", lambda name: name != "melo.api")
+    health = main.health()
+    assert health["providers"]["kokoro"]["available"] is True
+    assert health["providers"]["melo"]["available"] is False
+    assert main.providers(None)["providers"]["melo"]["reason"] == "melo package is not installed."
+    with pytest.raises(HTTPException) as error:
+        main.synthesize(main.SynthesizePayload(provider="melo", voice="EN-US", text="Hello"), _make_request(), None)
+    assert error.value.status_code == 503
+
+
 @pytest.fixture(autouse=True)
 def _restore_recycle_state() -> None:
     original_threshold_mb = main.PYTHON_TTS_RECYCLE_RSS_MB
@@ -76,7 +102,7 @@ def test_synthesize_returns_safe_message_on_unexpected_kokoro_error(
     monkeypatch.setattr(
         main,
         "_provider_health",
-        lambda: {
+        lambda provider=None: {
             "kokoro": main.ProviderHealth(available=True),
             "melo": main.ProviderHealth(available=True),
         },
@@ -107,7 +133,7 @@ def test_synthesize_marks_sidecar_for_recycle_on_high_rss(monkeypatch: pytest.Mo
     monkeypatch.setattr(
         main,
         "_provider_health",
-        lambda: {
+        lambda provider=None: {
             "kokoro": main.ProviderHealth(available=True),
             "melo": main.ProviderHealth(available=True),
         },
