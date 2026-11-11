@@ -14,6 +14,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   synthesis checks only the requested provider. Manual CI validates the complete
   tracked candidate, not just its last commit. Relevant CI runs model-free
   provider-isolation, streaming and logging tests. No persisted schema changes.
+- Manual CI also builds the web app and runs authenticated RSS Playwright checks
+  against a disposable simple-profile database and a Playwright-managed local server.
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.
 - Private feed tokens, rotation, workspace demo share links, and public episode share links are implemented.

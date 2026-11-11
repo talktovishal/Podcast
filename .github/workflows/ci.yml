@@ -105,6 +105,34 @@ jobs:
       - name: Docs-only summary
         run: echo "${{ needs.plan.outputs.summary }}"
 
+  validate-rss-e2e:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.event_name == 'workflow_dispatch' && needs.plan.outputs.run_web == 'true'
+    timeout-minutes: 20
+    env:
+      E2E_START_SERVER: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - name: Prepare isolated simple profile
+        run: cp .env.simple.example .env
+      - name: Install locked dependencies and browser
+        run: |
+          corepack enable
+          corepack pnpm install --frozen-lockfile
+          corepack pnpm --filter @articlepod/web exec playwright install --with-deps chromium
+      - name: Bootstrap and seed the disposable test database
+        run: |
+          corepack pnpm --filter @articlepod/web run db:bootstrap
+          corepack pnpm --filter @articlepod/web run seed:demo
+      - name: Build application
+        run: corepack pnpm --filter @articlepod/web run build
+      - name: Verify authenticated private RSS feed and parser controls
+        run: corepack pnpm --filter @articlepod/web exec playwright test e2e/rss-feed.spec.ts --project=chromium
+
   validate-quick:
     runs-on: ubuntu-latest
     needs: plan
