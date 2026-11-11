@@ -131,9 +131,10 @@ jobs:
       - name: Build application
         run: corepack pnpm --filter @articlepod/web run build
       - name: Verify authenticated private RSS feed and parser controls
+        working-directory: apps/web
         run: |
           set -euo pipefail
-          setsid corepack pnpm --filter @articlepod/web exec node --env-file=../../.env node_modules/next/dist/bin/next start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
+          setsid node --env-file="$GITHUB_WORKSPACE/.env" node_modules/next/dist/bin/next start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
           server_pid=$!
           cleanup() {
             if kill -0 -- "-$server_pid" 2>/dev/null; then
@@ -158,7 +159,7 @@ jobs:
             echo "::error::RSS test server did not become ready"
             exit 1
           fi
-          if ! corepack pnpm --filter @articlepod/web exec playwright test e2e/rss-feed.spec.ts --project=chromium; then
+          if ! corepack pnpm exec playwright test e2e/rss-feed.spec.ts --project=chromium; then
             cat "$RUNNER_TEMP/rss-web.log"
             exit 1
           fi
