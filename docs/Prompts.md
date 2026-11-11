@@ -11,7 +11,8 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   existing polling cadence; unchanged episode media tokens remain stable.
 
 - Focused hardening: optional Melo discovery cannot disable Kokoro synthesis;
-  synthesis checks only the requested provider. Relevant CI runs model-free
+  synthesis checks only the requested provider. Manual CI validates the complete
+  tracked candidate, not just its last commit. Relevant CI runs model-free
   provider-isolation, streaming and logging tests. No persisted schema changes.
 
 - Async URL/PDF -> extract -> chunk -> TTS -> episode -> RSS worker pipeline is in place.

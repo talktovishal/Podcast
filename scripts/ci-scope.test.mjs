@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { computeScope } from "./ci-scope.mjs";
 
 test("docs-only changes skip code validation", () => {
@@ -40,4 +42,17 @@ test("python TTS changes run model-free service tests", () => {
   assert.equal(computeScope([".github/workflows/ci.yml"]).run_python_tts, true);
   assert.equal(computeScope(["docs/architecture.md"]).run_python_tts, false);
   assert.equal(computeScope(["apps/web/src/app/about/page.tsx"]).run_python_tts, false);
+});
+
+test("manual CI validates the complete tracked candidate rather than only its last commit", () => {
+  const output = execFileSync(process.execPath, [
+    fileURLToPath(new URL("./ci-scope.mjs", import.meta.url)), "--format", "json"
+  ], {
+    encoding: "utf8",
+    env: { ...process.env, GITHUB_EVENT_NAME: "workflow_dispatch" }
+  });
+  const scope = JSON.parse(output);
+  for (const key of ["run_core", "run_web", "run_worker", "run_python_tts", "run_testing", "run_parity"]) {
+    assert.equal(scope[key], true, key);
+  }
 });

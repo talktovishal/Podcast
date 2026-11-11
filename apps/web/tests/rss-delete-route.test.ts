@@ -471,7 +471,7 @@ test("rss storage outages do not mutate missing episodes or caches", async (t) =
   await prisma.feedToken.create({
     data: { userId: user.id, tokenValue: token.plain, tokenHash: token.hash, active: true }
   });
-  const items = [];
+  const items: Array<{ id: string }> = [];
   for (let index = 0; index < 2; index++) {
     const item = await prisma.item.create({
       data: { userId: user.id, sourceType: "URL", sourceUrl: `https://example.com/${uniq}/${index}`, status: "READY" }

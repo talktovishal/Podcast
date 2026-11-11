@@ -216,6 +216,9 @@ function determineRefs(options) {
 }
 
 function resolveChangedFiles(options) {
+  if (process.env.GITHUB_EVENT_NAME === "workflow_dispatch" && !options.base && !options.head) {
+    return uniqueSorted(runGit(["ls-files"]).split("\n"));
+  }
   const { base, head } = determineRefs(options);
   const changedFiles = [];
 
