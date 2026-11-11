@@ -133,7 +133,7 @@ jobs:
       - name: Verify authenticated private RSS feed and parser controls
         run: |
           set -euo pipefail
-          setsid corepack pnpm --filter @articlepod/web run start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
+          setsid corepack pnpm --filter @articlepod/web exec node --env-file=../../.env node_modules/next/dist/bin/next start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
           server_pid=$!
           cleanup() {
             if kill -0 -- "-$server_pid" 2>/dev/null; then
