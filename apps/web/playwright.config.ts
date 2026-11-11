@@ -35,6 +35,7 @@ export default defineConfig({
     url: "http://127.0.0.1:3000/api/health",
     reuseExistingServer: false,
     timeout: 120_000,
+    stdout: "pipe",
   } : undefined,
   use: {
     baseURL: process.env.APP_URL || "http://localhost:3000",
