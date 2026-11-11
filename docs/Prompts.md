@@ -6,6 +6,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Dashboard item refresh is single-flight; successful item/share mutations and
+  unmount invalidate earlier responses. Failures are visible and retry on the
+  existing polling cadence; unchanged episode media tokens remain stable.
+
 - Focused hardening: optional Melo discovery cannot disable Kokoro synthesis;
   synthesis checks only the requested provider. Relevant CI runs model-free
   provider-isolation, streaming and logging tests. No persisted schema changes.

@@ -9,6 +9,11 @@
 
 ## Spec Consistency Notes (Current)
 
+- Focused dashboard hardening (2026-11-11): single-flight refresh, mutation
+  generation invalidation and unmount cancellation prevent stale snapshots.
+  Active/idle intervals, hidden/read-only behavior and stable-token merging
+  remain unchanged. No persisted contract changes; production validation pending.
+
 - Focused cache hardening (2026-11-11): byte existence precedes reuse; only
   authoritative absence permits conditional stale-row deletion. Concurrent
   replacements are re-read; outages fail retryably without new synthesis.
