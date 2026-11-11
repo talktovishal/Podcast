@@ -137,9 +137,12 @@ jobs:
         run: corepack pnpm --filter @articlepod/web run build
       - name: Verify authenticated private RSS feed and parser controls
         working-directory: apps/web
+        env:
+          NODE_ENV: production
+          ARTICLEPOD_WEB_HOST: "127.0.0.1"
         run: |
           set -euo pipefail
-          setsid node --trace-exit --env-file="$GITHUB_WORKSPACE/.env" node_modules/next/dist/bin/next start --hostname 127.0.0.1 > "$RUNNER_TEMP/rss-web.log" 2>&1 &
+          setsid node --trace-exit --env-file="$GITHUB_WORKSPACE/.env" ../../scripts/azure/run-next-server.mjs > "$RUNNER_TEMP/rss-web.log" 2>&1 &
           server_pid=$!
           cleanup() {
             if kill -0 -- "-$server_pid" 2>/dev/null; then

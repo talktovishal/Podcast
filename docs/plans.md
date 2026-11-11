@@ -29,6 +29,7 @@
   synthesis checks are isolated, with model-free service tests selected by CI.
   Manual CI validates the complete tracked candidate, including the Python service.
   Its RSS E2E job builds the web app and uses an isolated seeded database/local server.
+  Browser CI uses the existing production web launcher rather than `next start`.
   Its digest-pinned browser image must remain aligned with the locked Playwright version.
   Server output and exit traces precede optional runner diagnostics on browser failure.
   Production validation is tracked separately; no schema/data migration is needed.
