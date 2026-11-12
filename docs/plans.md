@@ -9,8 +9,9 @@
 
 ## Spec Consistency Notes (Current)
 
-- Audio ownership follow-up (2026-11-12, in progress; target_finish: 2026-11-12):
-  cache hits will copy bytes into item-owned audio rather than publish another
+- Audio ownership follow-up (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  cache hits copy bytes into item-owned audio rather than publish another
   item's path. New item publications use `items/<itemId>/audio/<publicationId>.<ext>`
   so regenerating an original owner cannot overwrite a legacy shared filename.
   The publication ID is fresh per worker attempt, so cleanup cannot race a
@@ -25,7 +26,13 @@
   publishers can still introduce aliases after a cleanup check. Old code can read
   the new paths, but a full rollback restores the original ownership risk.
   Never mix an old sharing worker with new cleanup or delete new objects as a
-  rollback shortcut. Validation and deployment remain pending.
+  rollback shortcut. Candidate `6842529` passed core/web/worker typechecks and
+  tests, web lint, authenticated RSS browser validation, Python tests and
+  container parity/podcast contracts in
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121).
+  Azure SDK copy/range behavior was tested against a synthetic loopback Blob
+  endpoint, not live production storage. Deployment and live ownership checks
+  are deliberately deferred to the later batch; main remains at `8590e43`.
 
 - Focused dashboard hardening (2026-11-11): single-flight refresh, mutation
   generation invalidation and unmount cancellation prevent stale snapshots.

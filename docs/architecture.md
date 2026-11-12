@@ -7,7 +7,13 @@ invalidates only the observed cache row, using SQL row identity or an Azure ETag
 conflicting replacements are re-read. Storage outages preserve cache state and
 fail retryably.
 
-### Independent item audio (implementation in progress)
+### Independent item audio (implemented and validated; not deployed)
+
+The `fix/independent-episode-audio` candidate at `6842529` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121),
+including core/web/worker checks, the authenticated RSS browser test and
+container parity/podcast contracts. This follow-up remains separate from main;
+deployment is deferred until the owner's next release batch.
 
 New cache hits copy the cached bytes to an item-owned object. Both copied and
 synthesized item audio use `items/<itemId>/audio/<publicationId>.<ext>`; old
@@ -45,7 +51,7 @@ Primary entities:
 - `Item` (source submission lifecycle)
 - `Job` + `JobEvent` (worker queue and deterministic events; `jobKind` distinguishes `FULL_EPISODE`, `SUMMARY_ONLY`, and explicit `REQUEST_TTS`)
 - `Episode` (RSS/media metadata)
-- `ItemArtifact` (raw + markdown extraction artifact metadata)
+- `ItemArtifact` (raw/markdown extraction and item-audio lifecycle metadata)
 - `ChunkCache` (idempotent synthesis cache)
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
