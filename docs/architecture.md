@@ -2,7 +2,13 @@
 
 ## Overview
 
-### Equal round-robin work selection (validation in progress; not deployed)
+### Equal round-robin work selection (implemented and validated; not deployed)
+
+Candidate `353f790` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397),
+including all 30 new scheduling cases, core/web/worker checks, authenticated RSS
+browser/build validation and container parity/podcast contracts. The 30 new
+cases plus four existing overflow-policy tests also passed locally.
 
 The primary worker rotates item jobs, Summary Studio runs, article-summary tasks
 and digest runs with equal weight. It advances its in-memory cursor before each
