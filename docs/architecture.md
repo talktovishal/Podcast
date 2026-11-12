@@ -2,7 +2,13 @@
 
 ## Overview
 
-### Explicit item mutation outcomes (validation in progress; not deployed)
+### Explicit item mutation outcomes (implemented and validated; not deployed)
+
+Candidate `24b995b` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641),
+including 25 added regression cases, core/web/worker checks, authenticated RSS
+browser validation and container parity/podcast contracts. This follow-up is
+stacked on the audio-ownership branch and remains unmerged and undeployed.
 
 Azure `updateItem` returns an item only after its conditional write succeeds.
 An ETag conflict raises `ITEM_UPDATE_CONFLICT` (HTTP 409); an item missing before
