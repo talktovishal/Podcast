@@ -3,6 +3,17 @@ import test from "node:test";
 import { errorCodes } from "@articlepod/core";
 import { shouldRecommendRetry } from "../src/jobs/processItemJob.js";
 
+test("retries item update conflicts but not missing items", () => {
+  assert.equal(shouldRecommendRetry({
+    code: errorCodes.ITEM_UPDATE_CONFLICT,
+    userMessage: "The item changed while it was being saved. Please retry."
+  }), true);
+  assert.equal(shouldRecommendRetry({
+    code: errorCodes.ITEM_NOT_FOUND,
+    userMessage: "This item no longer exists."
+  }), false);
+});
+
 test("marks audio finalization failures as non-retryable", () => {
   const retry = shouldRecommendRetry({
     code: errorCodes.TTS_FAILED,

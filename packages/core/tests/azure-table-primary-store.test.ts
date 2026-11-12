@@ -2,6 +2,66 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AzureTablePrimaryStore } from "../src/metadata/azureTablePrimaryStore";
 import { TableClient } from "@azure/data-tables";
+import { AppError, errorCodes } from "../src/errors/codes";
+
+for (const statusCode of [404, 412, 403, 429, 503]) {
+  test(`required item updates reject SDK write failures without rereading or retrying (${statusCode})`, async (t) => {
+    const store = createStore();
+    const current = { partitionKey: "item", rowKey: "item", status: "PROCESSING", etag: "version-1" };
+    const read = t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const failure = { statusCode };
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404 || statusCode === 412) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, statusCode === 404 ? errorCodes.ITEM_NOT_FOUND : errorCodes.ITEM_UPDATE_CONFLICT);
+        assert.equal(error.status, statusCode === 404 ? 404 : 409);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(read.mock.callCount(), 1);
+    assert.equal(write.mock.callCount(), 1);
+    assert.deepEqual(write.mock.calls[0].arguments.slice(1), ["Replace", { etag: "version-1" }]);
+    assert.equal(current.status, "PROCESSING");
+  });
+}
+
+for (const statusCode of [404, 503]) {
+  test(`required item updates reject failed initial reads (${statusCode})`, async (t) => {
+    const store = createStore();
+    const failure = { statusCode };
+    t.mock.method(TableClient.prototype, "getEntity", async () => { throw failure; });
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, errorCodes.ITEM_NOT_FOUND);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
+
+for (const etag of [undefined, "", "*"]) {
+  test(`required item updates reject an unverified version (${String(etag)})`, async (t) => {
+    const store = createStore();
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({
+      partitionKey: "item", rowKey: "item", status: "PROCESSING", etag
+    }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.code, errorCodes.STORAGE_FAILED);
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
 
 test("cache deletion uses the observed ETag and surfaces outages", async (t) => {
   const store = createStore();
@@ -233,15 +293,11 @@ test("findItemById defaults missing tagsJson to empty tags", async () => {
   assert.deepEqual(item?.tags, []);
 });
 
-test("updateItem writes serialized tagsJson when tags change", async () => {
+test("updateItem writes serialized tagsJson when tags change", async (t) => {
   const store = createStore();
   let updatedEntity: Record<string, unknown> | undefined;
 
-  (
-    store as unknown as {
-      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
-    }
-  ).getEntity = async () => ({
+  t.mock.method(TableClient.prototype, "getEntity", async () => ({
     partitionKey: "item",
     rowKey: "item-3",
     userId: "user-3",
@@ -257,16 +313,15 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
     createdAt: "2026-03-25T09:00:00.000Z",
     updatedAt: "2026-03-25T09:00:00.000Z",
     etag: "etag-1"
-  });
+  }));
 
-  (
-    store as unknown as {
-      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
-    }
-  ).updateEntity = async (_key, entity) => {
+  t.mock.method(TableClient.prototype, "updateEntity", async (
+    entity: Record<string, unknown>, mode?: string, options?: { etag?: string }
+  ) => {
     updatedEntity = entity;
-    return true;
-  };
+    assert.equal(mode, "Replace");
+    assert.deepEqual(options, { etag: "etag-1" });
+  });
 
   const item = await store.updateItem("item-3", {
     priority: "HIGH",
