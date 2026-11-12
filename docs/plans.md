@@ -9,6 +9,27 @@
 
 ## Spec Consistency Notes (Current)
 
+- Equal round-robin worker scheduling (implementation and validation done;
+  target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  the owner selected equal,
+  not weighted, rotation across item jobs, Summary Studio, article-summary tasks
+  and digests. Empty/failed categories advance the cursor; due scheduling is
+  checked independently of item-queue idleness. Scheduling/category failures are
+  logged and isolated, with existing idle backoff after no successful work.
+  Overflow remains item-only behind its existing activation gate. No new
+  concurrency, service, dependency, persisted contract or migration is introduced.
+  Fairness is bounded in selection turns, not elapsed time; long jobs and process
+  downtime remain separate limits. The branch stacks on the two earlier batch
+  fixes. Rollback restores the starvation-prone priority policy; no data reset.
+  Candidate `353f790` passed
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397):
+  core/web/worker checks, authenticated RSS browser/build, Python tests and
+  container parity/podcast contracts. All 30 new scheduling tests executed in CI;
+  those plus four existing overflow-policy tests passed locally with Node's
+  TypeScript runtime. Each of the 15 nonempty queue combinations was exercised
+  for 100 successful turns, with equal shares and at most four polls between
+  opportunities for an active class. No production load experiment was run.
+
 - Explicit item mutations (implementation and validation done; target_finish:
   2026-11-12; completed_on: 2026-11-12; not merged/deployed):
   Azure item updates return a saved item only
