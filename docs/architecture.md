@@ -2,6 +2,30 @@
 
 ## Overview
 
+### Equal round-robin work selection (validation in progress; not deployed)
+
+The primary worker rotates item jobs, Summary Studio runs, article-summary tasks
+and digest runs with equal weight. It advances its in-memory cursor before each
+attempt, stops after successful work, and skips empty or failed categories in
+the same poll. Each poll checks at most four categories. With all four busy,
+each gets one selection opportunity every four polls (three intervening turns).
+This assumes the sequential processors return; it does not preempt a long job
+or establish a wall-clock completion SLA. A restart resets the cursor.
+
+Due digest scheduling is checked before primary work selection, retaining the
+internal interval and external tick semantics. Scheduler and category exceptions
+are logged with their source and isolated so healthy categories still progress,
+rather than repeatedly restarting at the item queue. Failure to report an error
+still propagates to the existing fatal boundary. An all-empty/all-failing pass
+returns the normal idle signal; existing exponential backoff/reset behavior is
+unchanged. Overflow activation gating is unchanged and overflow polls only items.
+No additional job or synthesis concurrency is introduced.
+
+No persisted schema, queue payload, storage key or dependency changes are needed.
+Existing work remains in its current queues; no migration/backfill is required.
+Activation is deferred to the batch deployment. Rollback restores strict-priority
+polling and its starvation risk without rewriting data.
+
 ### Explicit item mutation outcomes (implemented and validated; not deployed)
 
 Candidate `24b995b` passed
