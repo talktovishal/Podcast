@@ -6,8 +6,21 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
 import { getUserWikiManifestForApp } from "@/lib/wiki";
+import { deleteUnreferencedAudioObject } from "@/lib/audio-ownership";
+import { fromError } from "@/lib/http";
 
 export async function DELETE(request: NextRequest) {
+  try {
+    return await deleteAccount(request);
+  } catch (error) {
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/account/delete"
+    });
+  }
+}
+
+async function deleteAccount(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -118,11 +131,7 @@ export async function DELETE(request: NextRequest) {
 
   for (const item of items) {
     if (item.episode?.audioPath) {
-      if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
-        await rm(item.episode.audioPath, { force: true });
-      } else {
-        await storage.deleteObject(item.episode.audioPath);
-      }
+      await deleteUnreferencedAudioObject(item.episode.audioPath);
     }
     if (item.sourceFilePath) {
       if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
@@ -135,7 +144,7 @@ export async function DELETE(request: NextRequest) {
       await storage.deleteObject(item.summaryStorageKey).catch(() => undefined);
     }
     for (const artifact of item.artifacts) {
-      await storage.deleteObject(artifact.storageKey).catch(() => undefined);
+      await deleteUnreferencedAudioObject(artifact.storageKey);
     }
   }
 
@@ -149,7 +158,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   for (const episode of digestEpisodes) {
-    await storage.deleteObject(episode.audioPath).catch(() => undefined);
+    await deleteUnreferencedAudioObject(episode.audioPath);
   }
 
   for (const run of summaryRuns) {
@@ -159,7 +168,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   for (const episode of summaryEpisodes) {
-    await storage.deleteObject(episode.audioPath).catch(() => undefined);
+    await deleteUnreferencedAudioObject(episode.audioPath);
   }
 
   if (wikiManifest) {

@@ -281,7 +281,8 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     const chunks = chunkText(extracted.text);
     const cacheKey = sha256([user.id, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cachedAudioPath = `items/test-${uniq}/episode.mp3`;
-    await getArtifactStorage().putObject(cachedAudioPath, Buffer.from("cached-audio", "utf8"), {
+    const cachedAudio = Buffer.from("cached-audio", "utf8");
+    await getArtifactStorage().putObject(cachedAudioPath, cachedAudio, {
       contentType: "audio/mpeg"
     });
 
@@ -291,7 +292,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
         chunkIndex: 0,
         hash: cacheKey,
         filePath: cachedAudioPath,
-        audioBytes: 2048,
+        audioBytes: cachedAudio.length,
         mimeType: "audio/mpeg"
       }
     });

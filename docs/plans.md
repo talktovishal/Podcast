@@ -9,6 +9,31 @@
 
 ## Spec Consistency Notes (Current)
 
+- Audio ownership follow-up (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  cache hits copy bytes into item-owned audio rather than publish another
+  item's path. New item publications use `items/<itemId>/audio/<publicationId>.<ext>`
+  so regenerating an original owner cannot overwrite a legacy shared filename.
+  The publication ID is fresh per worker attempt, so cleanup cannot race a
+  later publisher reusing an old filename. Existing ItemArtifact rows with
+  kind `EPISODE_AUDIO_<publicationId>_<ext>` track destinations before writes,
+  including failed copies and superseded versions; expiry uses audio retention.
+  Schemas and Episode/ChunkCache fields are unchanged. Existing paths,
+  GUIDs, signatures and URLs remain untouched; no bulk backfill/reset is needed.
+  Cleanup must remove departing metadata before checking all remaining episode
+  references, including item MP3/M4A alternate-repair paths, and retain referenced
+  objects. Deploy web and workers together with old workers quiesced: mixed old
+  publishers can still introduce aliases after a cleanup check. Old code can read
+  the new paths, but a full rollback restores the original ownership risk.
+  Never mix an old sharing worker with new cleanup or delete new objects as a
+  rollback shortcut. Candidate `6842529` passed core/web/worker typechecks and
+  tests, web lint, authenticated RSS browser validation, Python tests and
+  container parity/podcast contracts in
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121).
+  Azure SDK copy/range behavior was tested against a synthetic loopback Blob
+  endpoint, not live production storage. Deployment and live ownership checks
+  are deliberately deferred to the later batch; main remains at `8590e43`.
+
 - Focused dashboard hardening (2026-11-11): single-flight refresh, mutation
   generation invalidation and unmount cancellation prevent stale snapshots.
   Active/idle intervals, hidden/read-only behavior and stable-token merging

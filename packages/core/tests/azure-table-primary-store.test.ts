@@ -31,6 +31,62 @@ function createStore(): AzureTablePrimaryStore {
   });
 }
 
+for (const matchingTable of [0, 1, 2, -1]) {
+  test(`audio reference lookup checks all episode kinds and stops at first match (${matchingTable})`, async (t) => {
+    const store = createStore();
+    let calls = 0;
+    t.mock.method(TableClient.prototype, "listEntities", function (
+      options?: { queryOptions?: { filter?: string; select?: string[] } }
+    ) {
+      const table = calls++;
+      assert.match(options?.queryOptions?.filter ?? "", /audioPath eq 'items\/a''b\/episode.mp3'/);
+      assert.deepEqual(options?.queryOptions?.select, ["RowKey"]);
+      return Object.assign((async function* () {
+        if (table === matchingTable) {
+          yield { partitionKey: "episode", rowKey: "referenced" };
+          assert.fail("reference lookup must not drain further results");
+        }
+      })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+    });
+    assert.equal(await store.hasAudioReferences(["items/a'b/episode.mp3"]), matchingTable !== -1);
+    assert.equal(calls, matchingTable === -1 ? 3 : matchingTable + 1);
+  });
+}
+
+test("audio reference lookup fails closed on metadata outages", async (t) => {
+  const store = createStore();
+  const failure = new Error("table unavailable");
+  t.mock.method(TableClient.prototype, "listEntities", () => {
+    throw failure;
+  });
+  await assert.rejects(store.hasAudioReferences(["items/a/episode.mp3"]), (error) => error === failure);
+  await assert.rejects(store.hasAudioReferences([]), /at least one path/);
+});
+
+test("artifact expiry is filtered, bounded and deletes by the actual item/kind row key", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", function (options?: { queryOptions?: { filter?: string } }) {
+    assert.match(options?.queryOptions?.filter ?? "", /expiresAt le '2020-01-01T00:00:00.000Z'/);
+    return Object.assign((async function* () {
+      for (let i = 0; i < 3; i++) {
+        rowsRead++;
+        yield {
+          partitionKey: "artifact", rowKey: `item::EPISODE_AUDIO_${i}`, id: `artifact-${i}`,
+          itemId: "item", kind: `EPISODE_AUDIO_${i}`, storageKey: `items/item/${i}.mp3`,
+          byteLength: 3, contentType: "audio/mpeg", createdAt: "2018-01-01T00:00:00Z", expiresAt: "2019-01-01T00:00:00Z"
+        };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  const rows = await store.listExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"), 2);
+  assert.equal(rows.length, 2);
+  assert.equal(rowsRead, 2);
+  const deletion = t.mock.method(TableClient.prototype, "deleteEntity", async () => {});
+  await store.deleteItemArtifact(rows[0].itemId, rows[0].kind);
+  assert.deepEqual(deletion.mock.calls[0].arguments, ["artifact", "item::EPISODE_AUDIO_0"]);
+});
+
 test("listPendingDigestSchedulerTicks filters null processedAt client-side", async () => {
   const store = createStore();
   let seenFilter: string | undefined;
