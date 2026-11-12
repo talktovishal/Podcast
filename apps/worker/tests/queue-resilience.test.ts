@@ -212,6 +212,48 @@ test("does not process failed job before nextRetryAt", async () => {
     }
   });
 
+  test("two same-content jobs publish independent tracked audio without another synthesis", async () => {
+    ensureDbBootstrap();
+    const uniq = `${Date.now()}-owned-audio`;
+    const user = await prisma.user.create({
+      data: { email: `${uniq}@articlepod.local`, ttsProvider: "kokoro", ttsVoice: "af_heart" }
+    });
+    const storage = getArtifactStorage();
+    const paths: string[] = [];
+    try {
+      const items = await Promise.all([0, 1].map((index) => prisma.item.create({
+        data: { userId: user.id, sourceType: "HTML_SNAPSHOT", sourceUrl: `https://example.com/${uniq}/${index}`,
+          sourceHtml: SNAPSHOT_HTML, sourceCapturedAt: new Date(), status: "QUEUED" }
+      })));
+      await seedCacheForItem(items[0].id, user.id);
+      const source = `items/test-${items[0].id}/episode.mp3`;
+      paths.push(source);
+      for (const item of items) {
+        const job = await prisma.job.create({ data: { itemId: item.id, status: "QUEUED" } });
+        assert.equal(await processJob(job.id), true);
+        assert.equal((await prisma.job.findUnique({ where: { id: job.id } }))?.status, "SUCCEEDED");
+        const episode = await prisma.episode.findUniqueOrThrow({ where: { itemId: item.id } });
+        paths.push(episode.audioPath);
+        assert.match(episode.audioPath, new RegExp(`^items/${item.id}/audio/[a-f0-9]{64}\\.mp3$`));
+        const artifact = await prisma.itemArtifact.findFirst({
+          where: { itemId: item.id, storageKey: episode.audioPath, kind: { startsWith: "EPISODE_AUDIO_" } }
+        });
+        assert.ok(artifact);
+        assert.equal(artifact.byteLength, episode.audioBytes);
+        assert.equal(artifact.expiresAt?.toISOString(), episode.expiresAt?.toISOString());
+        assert.deepEqual(await storage.getObject(episode.audioPath), await storage.getObject(source));
+      }
+      assert.notEqual(paths[1], paths[2]);
+      await prisma.item.delete({ where: { id: items[0].id } });
+      await storage.deleteObject(source);
+      await storage.deleteObject(paths[1]);
+      assert.equal((await storage.getObject(paths[2])).length, 1024);
+    } finally {
+      await prisma.user.delete({ where: { id: user.id } });
+      for (const path of paths) await storage.deleteObject(path);
+    }
+  });
+
   const item = await prisma.item.create({
     data: {
       userId: user.id,
@@ -617,7 +659,12 @@ test("summarizes oversized snapshot before synthesis when full-audio cache is un
     assert.equal(finishedItem?.summaryStatus, "SUCCEEDED");
     assert.match(finishedItem?.summaryStorageKey ?? "", /summary\.md$/);
     assert.ok((finishedItem?.summaryBytes ?? 0) > 0);
-    assert.equal(episode?.audioPath, `items/test-summary-${item.id}/episode.mp3`);
+    assert.ok(episode);
+    assert.match(episode.audioPath, new RegExp(`^items/${item.id}/audio/[a-f0-9]{64}\\.mp3$`));
+    assert.deepEqual(
+      await getArtifactStorage().getObject(episode.audioPath),
+      await getArtifactStorage().getObject(`items/test-summary-${item.id}/episode.mp3`)
+    );
     assert.match(episode?.description ?? "", /summarized transcript/i);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });

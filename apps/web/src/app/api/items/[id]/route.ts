@@ -7,8 +7,20 @@ import { deleteQueueProjectionByItemId } from "@/lib/metadata-projection";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
+import { deleteUnreferencedAudioObject } from "@/lib/audio-ownership";
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    return await deleteItem(request, context);
+  } catch (error) {
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/items/[id]"
+    });
+  }
+}
+
+async function deleteItem(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const user = await getAuthUserFromRequest(request);
   if (!user) {
@@ -61,11 +73,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   const storage = getArtifactStorage();
 
   if (item.episode?.audioPath) {
-    if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
-      await rm(item.episode.audioPath, { force: true });
-    } else {
-      await storage.deleteObject(item.episode.audioPath);
-    }
+    await deleteUnreferencedAudioObject(item.episode.audioPath);
   }
 
   if (item.sourceFilePath) {
@@ -81,7 +89,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   }
 
   for (const artifact of item.artifacts) {
-    await storage.deleteObject(artifact.storageKey).catch(() => undefined);
+    await deleteUnreferencedAudioObject(artifact.storageKey);
   }
 
   return NextResponse.json({ ok: true });

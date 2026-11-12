@@ -5,8 +5,33 @@
 Audio cache reuse verifies object existence before publication. Confirmed absence
 invalidates only the observed cache row, using SQL row identity or an Azure ETag;
 conflicting replacements are re-read. Storage outages preserve cache state and
-fail retryably. This guard does not change artifact keys, migrate historical
-audio, or solve reference-aware deletion of audio shared across items.
+fail retryably.
+
+### Independent item audio (implementation in progress)
+
+New cache hits copy the cached bytes to an item-owned object. Both copied and
+synthesized item audio use `items/<itemId>/audio/<publicationId>.<ext>`; old
+`items/<itemId>/episode.<ext>` objects are not overwritten by regeneration.
+The metadata schema is unchanged and reads remain path-driven. No existing
+episode path, public URL, GUID or token is migrated. Each worker attempt uses a
+fresh publication ID: even a later identical-content regeneration cannot race
+cleanup by reusing an old filename. Existing ItemArtifact records, with kind
+`EPISODE_AUDIO_<publicationId>_<ext>`, track the destination before writing and
+expire under audio retention. Failed and superseded copies therefore remain
+discoverable by normal item/account deletion and artifact expiry. No new table
+or schema migration is required. Artifact expiry supports both metadata modes
+and retains records whose objects are still referenced.
+
+Legacy shared objects remain in place while any episode references them.
+Deletion removes departing metadata first, then checks current references across
+item, digest and summary episodes before removing bytes. Item alternate-format
+paths count as references because RSS repair may switch between MP3 and M4A.
+Cache rows are not ownership references: stale cache entries are invalidated on
+reuse, and source disappearance during a copy must not publish a broken episode.
+All old workers must be stopped before activation; only new publishers may run
+with this cleanup policy. This is a compatibility transition, not a reference
+counter or garbage-collection service. It does not make multi-store publication
+or metadata/blob deletion transactional; storage failures must remain explicit.
 
 ArticlePod is an RSS-first ingestion and narration system with three runtime tiers:
 - `apps/web`: Next.js UI + API routes (auth, ingest, feed, media)

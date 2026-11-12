@@ -3055,6 +3055,24 @@ export class AzureTablePrimaryStore {
     );
   }
 
+  async listExpiredItemArtifacts(now: Date, limit = 1000): Promise<AzureTablePrimaryItemArtifact[]> {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error("Artifact expiry limit must be a positive integer.");
+    }
+    await this.ready();
+    const filter = `(PartitionKey eq 'artifact') and (expiresAt gt '') and (expiresAt le '${now.toISOString()}')`;
+    const results: AzureTablePrimaryItemArtifact[] = [];
+    for await (const row of this.client("itemArtifacts").listEntities({ queryOptions: { filter } })) {
+      results.push(this.toItemArtifact(row));
+      if (results.length === limit) break;
+    }
+    return results;
+  }
+
+  async deleteItemArtifact(itemId: string, kind: string): Promise<void> {
+    await this.deleteEntity("itemArtifacts", "artifact", `${itemId}::${kind}`);
+  }
+
   async findChunkCacheByHash(hash: string): Promise<EntityWithEtag<AzureTablePrimaryChunkCache> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("chunkCache", "chunk", hash);
     return entity ? { ...this.toChunkCache(entity), etag: entity.etag } : null;
@@ -3217,6 +3235,25 @@ export class AzureTablePrimaryStore {
   async listAllEpisodes(): Promise<AzureTablePrimaryEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>("episodes", filterEquals("PartitionKey", "episode"));
     return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async hasAudioReferences(paths: readonly string[]): Promise<boolean> {
+    if (paths.length === 0) {
+      throw new Error("Audio reference lookup requires at least one path.");
+    }
+    await this.ready();
+    const filter = paths.map((path) => `(${filterEquals("audioPath", path)})`).join(" or ");
+    const tables: TableKey[] = ["episodes", "digestEpisodes", "summaryEpisodes"];
+    for (const table of tables) {
+      for await (const row of this.client(table).listEntities({
+        queryOptions: { filter, select: ["RowKey"] }
+      })) {
+        if (row) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   async countEpisodes(): Promise<number> {
