@@ -109,9 +109,13 @@ test("alternate-format repair references protect audio, and cleanup errors remai
     assert.equal(await deleteUnreferencedAudioObject(path), false);
     assert.equal((await storage.headObject(path)).bytes, 4);
     const failure = new Error("metadata outage");
-    const lookup = t.mock.method(prisma.episode, "findFirst", async () => { throw failure; });
-    await assert.rejects(deleteUnreferencedAudioObject(path), (error) => error === failure);
-    lookup.mock.restore();
+    const lookup = prisma.episode.findFirst;
+    prisma.episode.findFirst = () => { throw failure; };
+    try {
+      await assert.rejects(deleteUnreferencedAudioObject(path), (error) => error === failure);
+    } finally {
+      prisma.episode.findFirst = lookup;
+    }
     await prisma.episode.deleteMany({ where: { itemId: item.id } });
     const deletion = t.mock.method(storage, "deleteObject", async () => { throw new Error("storage outage"); });
     await assert.rejects(deleteUnreferencedAudioObject(path), /storage outage/);
