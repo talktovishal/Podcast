@@ -9,6 +9,20 @@
 
 ## Spec Consistency Notes (Current)
 
+- Explicit item mutations (2026-11-12, validation in progress; target_finish:
+  2026-11-12; not merged/deployed): Azure item updates return a saved item only
+  after a conditional write succeeds. Conflicts and missing items raise explicit
+  AppErrors; no stale reread or blind mutation retry can appear successful.
+  Existing await boundaries gate audio/summary job success and article-summary
+  task completion. Conflicts use bounded retries; missing-item failures do not.
+  This adds ITEM_UPDATE_CONFLICT / ITEM_NOT_FOUND values to existing error-code
+  strings and HTTP responses, without changing schemas, keys or successful
+  response shapes. No backfill/reset is needed. Old code can read the records,
+  but rollback restores the defect; activate consistent web/worker versions in
+  the later protected batch. This does not solve multi-record atomicity,
+  stale-publisher fencing, or quota/enqueue transactionality. The branch is
+  stacked on the independently validated audio-ownership fix, not merged to main.
+
 - Audio ownership follow-up (implementation and validation done; target_finish:
   2026-11-12; completed_on: 2026-11-12; not merged/deployed):
   cache hits copy bytes into item-owned audio rather than publish another

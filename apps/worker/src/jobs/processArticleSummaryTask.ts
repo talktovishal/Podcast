@@ -330,7 +330,8 @@ export async function processArticleSummaryTask(taskId: string): Promise<boolean
     }
 
     const mappedError = mapSummaryError(error);
-    const retryRecommended = claimResult.attempt < workerEnv.digestRunMaxRetryAttempts;
+    const retryRecommended =
+      mappedError.code !== errorCodes.ITEM_NOT_FOUND && claimResult.attempt < workerEnv.digestRunMaxRetryAttempts;
     const safeErrorMessage = toSafeErrorMessage(toSummaryRunUserMessage(mappedError.userMessage, mappedError.code));
 
     if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
