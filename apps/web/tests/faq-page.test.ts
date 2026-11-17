@@ -134,39 +134,6 @@ test("faq schema stays flat even though rendered answers are richer", () => {
       "Usually one save becomes one private podcast episode. Save a URL, upload a text-based PDF, or capture a page in Chrome, and ArticlePod processes it into an episode that appears in your private feed when it is ready.",
   });
 
-  test("FAQ answers and schema reflect configured trial and audio retention limits", () => {
-    const content = buildFaqPageContent({
-      ...faqOptions,
-      freeTrialSubmissionLimit: 7,
-      audioRetentionDays: 21,
-    });
-    const questions = content.sections.flatMap((section) => section.questions);
-    const retention = questions.find((question) => question.id === "question-audio-retention");
-    assert.ok(retention);
-    assert.match(retention.schemaAnswer, /21 days after publication/);
-    assert.ok(retention.blocks.some((block) =>
-      block.type === "paragraph" && block.text.includes("21 days after publication"),
-    ));
-    const starter = questions.find((question) => question.id === "question-starter-vs-pro");
-    assert.ok(starter);
-    assert.match(starter.schemaAnswer, /7 free submissions/);
-    assert.ok(starter.blocks.some((block) =>
-      block.type === "bullets" && block.items.some((item) => item.includes("7 free submissions")),
-    ));
-  });
-
-  test("public wiki copy does not promise a scheduled rebuild", () => {
-    const publicCopy = [
-      "../src/lib/marketing-content.ts",
-      "../src/components/wiki-snapshot-preview.tsx",
-      "../src/app/(marketing)/pricing/page.tsx",
-      "../src/app/(marketing)/product/page.tsx",
-    ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
-    publicCopy.push(JSON.stringify(faqContent));
-    for (const copy of publicCopy) {
-      assert.doesNotMatch(copy, /rebuilt (daily|weekly)|daily wiki rebuilds|wiki auto-refresh|automatically refreshes|automatic refreshes|Updated weekly/i);
-    }
-  });
   assert.equal(
     schemaItems.some(
       (item) => item.question === "Does ArticlePod build a personal wiki too?",
@@ -179,4 +146,38 @@ test("faq schema stays flat even though rendered answers are richer", () => {
     ),
     true,
   );
+});
+
+test("FAQ answers and schema reflect configured trial and audio retention limits", () => {
+  const content = buildFaqPageContent({
+    ...faqOptions,
+    freeTrialSubmissionLimit: 7,
+    audioRetentionDays: 21,
+  });
+  const questions = content.sections.flatMap((section) => section.questions);
+  const retention = questions.find((question) => question.id === "question-audio-retention");
+  assert.ok(retention);
+  assert.match(retention.schemaAnswer, /21 days after publication/);
+  assert.ok(retention.blocks.some((block) =>
+    block.type === "paragraph" && block.text.includes("21 days after publication"),
+  ));
+  const starter = questions.find((question) => question.id === "question-starter-vs-pro");
+  assert.ok(starter);
+  assert.match(starter.schemaAnswer, /7 free submissions/);
+  assert.ok(starter.blocks.some((block) =>
+    block.type === "bullets" && block.items.some((item) => item.includes("7 free submissions")),
+  ));
+});
+
+test("public wiki copy does not promise a scheduled rebuild", () => {
+  const publicCopy = [
+    "../src/lib/marketing-content.ts",
+    "../src/components/wiki-snapshot-preview.tsx",
+    "../src/app/(marketing)/pricing/page.tsx",
+    "../src/app/(marketing)/product/page.tsx",
+  ].map((path) => readFileSync(new URL(path, import.meta.url), "utf8"));
+  publicCopy.push(JSON.stringify(faqContent));
+  for (const copy of publicCopy) {
+    assert.doesNotMatch(copy, /rebuilt (daily|weekly)|daily wiki rebuilds|wiki auto-refresh|automatically refreshes|automatic refreshes|Updated weekly/i);
+  }
 });
