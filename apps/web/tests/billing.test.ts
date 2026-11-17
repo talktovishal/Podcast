@@ -61,7 +61,7 @@ function billingRaceEvent(
     pending_webhooks: 0, request: null,
     type: domain === "subscription" ? "customer.subscription.updated" : active ? "invoice.paid" : "invoice.payment_failed",
     data: { object }
-  } as Stripe.Event;
+  } as unknown as Stripe.Event;
 }
 
 for (const lane of ["LIVE", "SANDBOX"] as const) {
