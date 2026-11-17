@@ -36,7 +36,7 @@ test("marketing copy keeps concise busy-reader framing", () => {
   );
   assert.equal(
     marketingCopy.heroSubheading,
-    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly.",
+    "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a hand-curated personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you save.",
   );
   assert.deepEqual(
     marketingCopy.heroHighlights.map((item) => item.title),
@@ -131,7 +131,7 @@ test("pricing page exposes Starter plus monthly and annual Pro choices with a co
   );
   assert.equal(source.includes("manual summaries per 7 days"), false);
   assert.equal(source.includes("Personal wiki access"), true);
-  assert.equal(source.includes("Personal wiki automatically refreshes"), true);
+  assert.equal(source.includes("Hand-curated wiki updates"), true);
   assert.equal(source.includes("Wiki plan"), true);
   assert.equal(
     source.includes("annual-only personal wiki that automatically refreshes"),
@@ -265,6 +265,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   const faqContent = buildFaqPageContent({
     freeTrialSubmissionLimit: 2,
+    audioRetentionDays: 60,
     proMonthlyDailyPodcastLimit: 12,
     proMonthlyWeeklySummaryLimit: 5,
     proAnnualDailyPodcastLimit: 15,
@@ -279,7 +280,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   );
   assert.equal(
     marketingSource.includes(
-      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you curate and rebuilt weekly.",
+      "Archive favorite articles in a private feed and listen on the go with high-fidelity AI narration. Save URLs, PDFs, and Chrome captures, then catch up in your regular podcast app or with weekly digests. Pro Annual includes a hand-curated personal wiki based on Andrej Karpathy's LLM Wiki idea, built from the links and snippets you save.",
     ),
     true,
   );
@@ -594,7 +595,8 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(productSource.includes("Save. Listen. Compile."), true);
   assert.equal(productSource.includes("Build the throughline"), true);
   assert.equal(productSource.includes("Pro Annual"), true);
-  assert.equal(productSource.includes("rebuilt weekly"), true);
+  assert.equal(productSource.includes("hand-curated"), true);
+  assert.equal(productSource.includes("rebuilt weekly"), false);
   assert.equal(productSource.includes("rebuilt daily"), false);
   assert.equal(
     productSource.includes("Persistent knowledge, not one-off answers."),
@@ -603,7 +605,7 @@ test("public marketing copy focuses on the personal wiki and private feed flow",
   assert.equal(productSource.includes("WikiSnapshotPreview"), true);
   assert.equal(productSource.includes("KARPATHY_LLM_WIKI_GIST_URL"), true);
   assert.equal(wikiSnapshotSource.includes("782 linked pages"), true);
-  assert.equal(wikiSnapshotSource.includes("Updated weekly"), true);
+  assert.equal(wikiSnapshotSource.includes("Hand-curated"), true);
   assert.equal(productSource.includes("Daily briefing"), false);
   assert.equal(productSource.includes("long-horizon summaries"), false);
 

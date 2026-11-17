@@ -4,6 +4,7 @@ import { BillingActionButton } from "@/components/billing-action-button";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import { getAuthUserFromCookies } from "@/lib/auth";
 import { buildLoginHref } from "@/lib/auth-redirect";
+import { env } from "@/lib/env";
 import {
   billingPlanLabel,
   billingStatusLabel,
@@ -39,6 +40,7 @@ type ComparisonRow = {
 
 const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
 const annualPlan = paidPlanConfig("PRO_ANNUAL");
+const starterAllowance = `${env.freeTrialSubmissionLimit} free submissions`;
 const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Price",
@@ -54,7 +56,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
   },
   {
     feature: "Episode allowance",
-    starter: { kind: "text", value: "2 free submissions" },
+    starter: { kind: "text", value: starterAllowance },
     monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / day` },
     annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
@@ -98,7 +100,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
 const trustPoints = [
   "Billed upfront monthly or yearly",
   "Renews automatically until canceled",
-  "Episode audio stays available for 60 days after publication",
+  `Episode audio stays available for ${env.audioRetentionDays} days after publication`,
   "Cancel anytime; access stays through the current paid period"
 ] as const;
 
@@ -226,8 +228,8 @@ export default async function PricingPage({
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
           Start free and upgrade when you need more daily episodes. Pro Annual
           is where the personal wiki becomes a real
-          differentiator, with automatic refreshes that keep your knowledge
-          base fresh.
+          differentiator, with hand-curated updates that connect your saved
+          reading.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
@@ -256,7 +258,7 @@ export default async function PricingPage({
           <p className="mt-1 text-sm text-[var(--muted)]">Private listening basics without a subscription.</p>
           <p className="mt-3 text-2xl font-bold">$0</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <PlanFeatureItem label="2 free submissions" />
+            <PlanFeatureItem label={starterAllowance} />
             <PlanFeatureItem label="URL and PDF ingestion" />
             <PlanFeatureItem label="Private RSS feed access" />
           </ul>

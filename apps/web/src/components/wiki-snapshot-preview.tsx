@@ -26,7 +26,7 @@ export function WikiSnapshotPreview({
             782 linked pages
           </span>
           <span className="inline-flex rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#4d7b72]">
-            Updated weekly
+            Hand-curated
           </span>
         </div>
       </div>

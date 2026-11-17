@@ -10,6 +10,12 @@ Source implementation is not deployment status; see [plans](plans.md) for
 validated draft changes and [architecture proposals](architecture-followup-proposals.md)
 for designs that have not been implemented.
 
+- Public pricing describes the configured one-time Starter submission allowance,
+  not a monthly free allocation, and pricing/FAQ use the configured audio
+  retention period (60 days by default). Homepage, product, pricing, FAQ/schema
+  and wiki preview describe hand-curated wiki updates, not an automatic cadence.
+  Quota, retention and operator-run wiki behavior are unchanged.
+
 - Contributor commands now name the actual web, TypeScript worker, shared core
   and Python speech-service paths and gates. This documentation cleanup does
   not change product, licensing, security, migration or release-approval policy.
