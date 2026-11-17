@@ -320,8 +320,14 @@ jobs:
       - name: Environment check (parity)
         run: npm run check:env:parity
 
+      - name: Verify Docker context exclusions with synthetic canaries
+        run: node --test --test-name-pattern='Docker context' scripts/container-packaging.test.mjs
+
       - name: Start parity stack
         run: npm run parity:up
+
+      - name: Verify relocated runtime contents and startup
+        run: node --test --test-name-pattern='relocated' scripts/container-packaging.test.mjs
 
       - name: Parity smoke + podcast contract
         id: parity_smoke

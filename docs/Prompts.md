@@ -6,6 +6,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Docker contexts explicitly exclude local environment files, secret-staging
+  paths, runtime/data/cache state, worktrees and generated test/Python artifacts.
+  Example environment templates remain available. Synthetic canary checks and
+  image-content/startup checks run in the existing parity CI job; deployment
+  controls, credentials and dependency pruning are unchanged.
+
 - Azure first-match metadata lookups stop after the first iterator result,
   preserving existing storage-order selection and propagating read failures.
   Newest/oldest selection, feed ordering, global counts and bulk changes still

@@ -2,6 +2,28 @@
 
 ## Overview
 
+### Build-context hygiene (implemented; validation pending; not deployed)
+
+[Docker exclusions](../.dockerignore) cover local environment/runtime/data/cache/
+worktree state and generated artifacts at root or nested paths, retaining
+example environment templates. All three Dockerfiles use this root context;
+their runtime dependency-copy strategy is otherwise unchanged.
+[Packaging tests](../scripts/container-packaging.test.mjs) apply the actual
+Docker ignore implementation to a disposable context containing harmless
+canaries and required input files. Parity then inspects immutable web/worker
+images for required launch/generated files and absence of local env files,
+checks package resolution, and verifies running services without host checkout
+bind mounts. Runtime-created log/data directories are not confused with copied
+development state. These checks do not claim a complete production-only
+dependency closure, inspect real credentials or change protected deployment
+gates. No credential, persisted contract or data migration change.
+
+Verification (Docker required):
+`node --test --test-name-pattern='Docker context' scripts/container-packaging.test.mjs`.
+After starting the disposable parity stack:
+`node --test --test-name-pattern='relocated' scripts/container-packaging.test.mjs`.
+The existing full/parity CI job runs both; no deployment is performed by them.
+
 ### Provider/asset reproducibility proposal
 
 [Locked manifest inventory and design](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)

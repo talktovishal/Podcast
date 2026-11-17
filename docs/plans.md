@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Packaging context hygiene (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
+  synthetic-canary validation, required image contents and checkout-independent
+  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-implemented-validation-pending-not-deployed).
+  No dependency pruning, credential changes or protected deployment-gate changes.
+
 - Provider manifest design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
   separates verified source declarations from unknown live assets, defines
