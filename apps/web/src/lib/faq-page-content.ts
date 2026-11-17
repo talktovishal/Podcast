@@ -55,6 +55,7 @@ export type FaqPageContent = {
 
 export function buildFaqPageContent(input: {
   freeTrialSubmissionLimit: number;
+  audioRetentionDays: number;
   proMonthlyDailyPodcastLimit: number;
   proMonthlyWeeklySummaryLimit: number;
   proAnnualDailyPodcastLimit: number;
@@ -186,18 +187,18 @@ export function buildFaqPageContent(input: {
             question: "Does ArticlePod build a personal wiki too?",
             chips: ["getting-started"],
             schemaAnswer:
-              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+              "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is hand-curated, so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
             blocks: [
               {
                 type: "paragraph",
-                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is rebuilt daily so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
+                text: "Yes. ArticlePod adds a Karpathy-inspired personal wiki layer on Pro Annual, and it is hand-curated, so saved reading can accumulate into persistent, interlinked pages you can revisit later.",
               },
               {
                 type: "bullets",
                 items: [
                   "Articles, PDFs, and snippets can all contribute to the same evolving knowledge base.",
                   "The wiki is available on Pro Annual rather than Starter or Pro Monthly.",
-                  "The wiki is rebuilt daily so the durable artifact keeps compounding instead of going stale.",
+                  "Wiki updates are curated and published manually, rather than on a fixed schedule.",
                   "That makes the product feel closer to a living reading system than a one-time conversion tool.",
                 ],
               },
@@ -355,11 +356,11 @@ export function buildFaqPageContent(input: {
             question: "How long do you keep generated audio?",
             chips: ["privacy"],
             schemaAnswer:
-              "Generated episode audio stays available for 60 days after publication. After that, ArticlePod removes expired audio from active feeds and playback links.",
+              `Generated episode audio stays available for ${input.audioRetentionDays} days after publication. After that, ArticlePod removes expired audio from active feeds and playback links.`,
             blocks: [
               {
                 type: "paragraph",
-                text: "Generated episode audio stays available for 60 days after publication.",
+                text: `Generated episode audio stays available for ${input.audioRetentionDays} days after publication.`,
               },
               {
                 type: "bullets",
@@ -472,7 +473,7 @@ export function buildFaqPageContent(input: {
                 items: [
                   `Starter: ${input.freeTrialSubmissionLimit} free submissions, URL and PDF ingestion, and a private RSS feed.`,
                   `Pro Monthly: ${input.proMonthlyDailyPodcastLimit} new podcast episodes per day, Chrome capture, and weekly digest podcast plus email options.`,
-                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, personal wiki access, daily wiki rebuilds, and the strongest value for habitual use.`,
+                  `Pro Annual: ${input.proAnnualDailyPodcastLimit} new podcast episodes per day, hand-curated personal wiki access, and the strongest value for habitual use.`,
                 ],
               },
               {

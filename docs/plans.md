@@ -9,6 +9,14 @@
 
 ## Spec Consistency Notes (Current)
 
+- Legacy marketing correction (implementation in progress; target_finish:
+  2026-11-17): refresh PR #13 against current main, preserve configurable trial
+  and retention values, and remove daily/weekly/automatic wiki claims from all
+  affected public surfaces, including FAQ structured data and the shared preview.
+  The current wiki remains operator-run; no billing, quota, retention, schema or
+  publishing behavior changes. Focused marketing regressions and web CI required
+  before merge.
+
 - Contributor documentation hygiene (done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
   replace nonexistent scaffold directories and placeholders with the actual

@@ -14,6 +14,7 @@ import {
 
 const faqContent = buildFaqPageContent({
   freeTrialSubmissionLimit: env.freeTrialSubmissionLimit,
+  audioRetentionDays: env.audioRetentionDays,
   proMonthlyDailyPodcastLimit: env.proMonthlyDailyPodcastLimit,
   proMonthlyWeeklySummaryLimit: env.proMonthlyWeeklySummaryLimit,
   proAnnualDailyPodcastLimit: env.proAnnualDailyPodcastLimit,

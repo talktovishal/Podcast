@@ -4,6 +4,7 @@ import { BillingActionButton } from "@/components/billing-action-button";
 import { SeoJsonLd } from "@/components/seo-json-ld";
 import { getAuthUserFromCookies } from "@/lib/auth";
 import { buildLoginHref } from "@/lib/auth-redirect";
+import { env } from "@/lib/env";
 import {
   billingPlanLabel,
   billingStatusLabel,
@@ -39,6 +40,7 @@ type ComparisonRow = {
 
 const monthlyPlan = paidPlanConfig("PRO_MONTHLY");
 const annualPlan = paidPlanConfig("PRO_ANNUAL");
+const starterAllowance = `${env.freeTrialSubmissionLimit} free submissions`;
 const comparisonRows: ReadonlyArray<ComparisonRow> = [
   {
     feature: "Price",
@@ -54,7 +56,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
   },
   {
     feature: "Episode allowance",
-    starter: { kind: "text", value: "Limited monthly episodes" },
+    starter: { kind: "text", value: starterAllowance },
     monthly: { kind: "text", value: `${monthlyPlan.dailyPodcastLimit} new episodes / day` },
     annual: { kind: "text", value: `${annualPlan.dailyPodcastLimit} new episodes / day` }
   },
@@ -98,6 +100,7 @@ const comparisonRows: ReadonlyArray<ComparisonRow> = [
 const trustPoints = [
   "Billed upfront monthly or yearly",
   "Renews automatically until canceled",
+  `Episode audio stays available for ${env.audioRetentionDays} days after publication`,
   "Cancel anytime; access stays through the current paid period"
 ] as const;
 
@@ -225,15 +228,15 @@ export default async function PricingPage({
         <p className="max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">
           Start free and upgrade when you need more daily episodes. Pro Annual
           is where the personal wiki becomes a real
-          differentiator, with automatic refreshes that keep your knowledge
-          base fresh.
+          differentiator, with hand-curated updates that connect your saved
+          reading.
         </p>
         <div className="flex flex-wrap gap-2">
           <span className="rounded-full border border-[#cfe7df] bg-[#edf8f5] px-3 py-1.5 text-sm font-medium text-[#155240]">
             Save nearly 30% on annual
           </span>
           <span className="rounded-full border border-[rgba(31,122,90,0.12)] bg-white px-3 py-1.5 text-sm font-medium text-[var(--ink)]">
-            {annualPlan.dailyPodcastLimit} episodes/day + wiki auto-refresh
+            {annualPlan.dailyPodcastLimit} episodes/day + hand-curated wiki
           </span>
         </div>
         {billingState?.mode.effectiveLane === "SANDBOX" ? (
@@ -255,7 +258,7 @@ export default async function PricingPage({
           <p className="mt-1 text-sm text-[var(--muted)]">Private listening basics without a subscription.</p>
           <p className="mt-3 text-2xl font-bold">$0</p>
           <ul className="mt-4 space-y-2 text-sm text-[var(--muted)]">
-            <PlanFeatureItem label="Limited monthly episodes" />
+            <PlanFeatureItem label={starterAllowance} />
             <PlanFeatureItem label="URL and PDF ingestion" />
             <PlanFeatureItem label="Private RSS feed access" />
           </ul>
@@ -349,7 +352,7 @@ export default async function PricingPage({
             <PlanFeatureItem label={`${annualPlan.weeklySummaryLimit} manual summaries every 7 days`} />
             <PlanFeatureItem label="Chrome extension capture" />
             <PlanFeatureItem label="Personal wiki access" />
-            <PlanFeatureItem label="Personal wiki automatically refreshes" />
+            <PlanFeatureItem label="Hand-curated wiki updates" />
           </ul>
           <p className="mt-4 text-sm text-[var(--muted)]">Billed upfront yearly. Renews automatically until canceled.</p>
           <div className="mt-auto pt-6">

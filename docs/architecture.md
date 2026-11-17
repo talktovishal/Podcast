@@ -590,6 +590,10 @@ Policy guardrails:
 5. `/app/snippets` renders the saved excerpt, metadata, and structured context for later review.
 
 ## Personal wiki pipeline (`M120`)
+Public pages describe this as hand-curated, with no automatic daily or weekly
+rebuild promise. The marketing copy does not introduce a scheduler or change
+the following operator-run publication process.
+
 1. An operator runs `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` locally with real blob credentials.
 2. The prepare step loads the user's READY item markdown artifacts plus all saved snippets, normalizes them into a local `raw/` workspace, copies the Karpathy `llm-wiki.md` prompt verbatim into `KARPATHY_LLM_WIKI.md`, and writes a minimal wrapper `AGENTS.md`, a local `WIKI_CONVENTIONS.md`, plus `WIKI_RUNTIME.md`.
 3. If a published wiki already exists for that user, the prepare step restores the current `wiki/` tree for incremental runs; full rebuilds keep any previous wiki in a side reference folder instead of mutating the prompt itself, and `overview.md` is regenerated on each prepare so the landing page metadata and entry summary stay current.
