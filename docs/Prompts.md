@@ -766,6 +766,10 @@ Document tradeoffs in `plans.md`.
 
 ### 4.3 TTS provider interface
 
+- Design only: [one-active-inference policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  proposes finite waiting and explicit busy/retry/cancellation behavior.
+  Initialization locks are implemented separately; they do not enable this
+  proposed admission policy or prove a memory/throughput bound.
 In `packages/core` define:
 
 - `TtsProvider.synthesizeToFile({ text, voice, format, outPath })`

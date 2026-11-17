@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Model admission design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  specifies one active inference, finite waiting, FIFO turns, overload, real
+  cancellation semantics, caller retry integration and resource/UX trade-offs.
+  No production load test or runtime/resource changes.
+
 - Quota reservation design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [admission and compensation proposal](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
   covers concurrent last slots, stable request identity, free/paid capacity,

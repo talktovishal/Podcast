@@ -19,6 +19,10 @@ design, not an implemented cross-table transaction.
 defines user-scoped idempotency, same-partition Azure admission, SQL
 serialization, compensation and policy-preserving migration. It flags the
 completed-summary usage mismatch for explicit rollout review; no quotas change.
+[Conservative inference admission](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+proposes one service-wide active request, four waiters, finite waits, FIFO turns
+and explicit overload/cancellation/retry contracts. These are proposed limits,
+not measured production capacity or enabled settings.
 
 ### Hard chunk-size bound (implemented and validated; not deployed)
 

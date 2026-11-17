@@ -476,3 +476,127 @@ Rollback stops new ledger admissions and drains or compensates RESERVED records
 under the compatible protocol. Preserve ACCEPTED records and deduplication keys.
 Do not resume legacy writers until a verified compatibility projection exists;
 never reset counters or drop ledger data to make a rollback appear successful.
+
+## 5. Conservative one-active-inference admission
+
+### Chosen direction and existing behavior
+
+The approved choice is **one active inference**, not measurement-first parallel
+admission. [Python synthesis](../services/python-tts/app/main.py) is a synchronous
+FastAPI handler, which can run on multiple threads in one server process.
+Per-model initialization locks prevent duplicate constructors, not concurrent
+inference. Existing active-request/recycle accounting is not an admission gate.
+
+Propose one service-wide permit across Kokoro and Melo, including cold
+construction/warm-up, synthesis and WAV encoding. One permit per provider would
+still allow overlapping memory-heavy work. A process-local gate is valid only
+with one model-serving process: implementation must assert/verify that deployment
+assumption. Multiple workers/replicas need a different capacity agreement; this
+proposal does not add a distributed semaphore or change resource settings.
+
+### Initial bounded policy for review
+
+| Limit | Proposed value / meaning |
+|---|---|
+| Active model work | 1 across providers/languages |
+| Waiting requests | At most 4 validated payloads total |
+| Queue wait | At most 15 seconds per request, monotonic deadline |
+| Overload | HTTP 503 with safe `error_code: TTS_BUSY`, existing generic detail and `Retry-After: 5` |
+| Caller retry | At most 3 admission attempts within a 30-second total admission budget, honoring Retry-After with jitter |
+| Active work deadline | Derived from configured input-size/TTS budgets; do not pretend a timed-out native thread has stopped |
+
+These are deliberately conservative proposed starting values, not measurements
+of throughput or memory safety. Keep existing input validation/size bounds. Queue
+admission must occur in an asynchronous, nonblocking handler before dispatch to a
+single dedicated model executor; a semaphore acquired inside the old sync handler
+would leave an additional unbounded/opaque wait in the web framework's thread
+queue. Authentication and cheap validation remain before admission. Do not
+change credentials, expose a bypass, or make health probes join the model queue.
+
+Use FIFO request turns. Each narration chunk re-enters at the tail, so a long
+episode cannot reserve the model across its entire chain. Previews and other
+waiting callers receive the same turns; no hidden preview-priority lane.
+This complements the worker's equal category round-robin but does not promise
+per-user fairness from an unaudited caller-supplied identity.
+
+### Lifecycle, cancellation and ownership
+
+```text
+validated -> waiting -> active -> response cleanup -> released
+               |          |
+               |          +-> caller gone: retain permit until actual work ends
+               +-> canceled / wait expired: remove waiter; never enter model
+```
+
+Admission, timeout and cancellation race under one queue-state lock. A canceled
+waiter is removed immediately and cannot later be granted a permit. If active
+native inference cannot be interrupted safely, a client timeout/disconnect only
+discards its eventual result: **do not release the permit while its thread is
+still running**. Release is attached to actual executor completion, not just the
+HTTP handler's cancellation/finally path.
+
+Retain the permit through encoding and response-buffer cleanup as well, with
+bounded response-send time and disconnect cleanup. Otherwise slow clients can
+retain multiple large completed WAV buffers while new inference starts. This
+is stricter than inference-only serialization and may reduce throughput.
+Every exception, invalid provider/voice, failed constructor and cancellation
+must release exactly once when the owned work/buffers truly finish.
+
+A genuinely hung native call makes readiness false and produces an alert;
+subsequent waiters expire/reject. Do not start another inference to hide the
+hang. Any forced process recovery remains the separately approved supervisor
+policy, not an unsafe thread kill. On planned recycling, reject new admissions,
+explicitly reject/drain queued requests, finish active work, then use existing
+idle-recycle behavior. Count active inference, waiters and response work
+separately so waiting requests cannot accidentally satisfy "idle."
+
+### Caller integration and user-visible outcomes
+
+[PythonModelTtsProvider](../packages/core/src/tts/pythonService.ts) currently maps
+service failures to a generic 502 and counts them toward its circuit breaker.
+[Worker segment retries](../apps/worker/src/jobs/processItemJob.ts) then retry
+selected server failures. Implementation must preserve a trusted `TTS_BUSY`
+classification and Retry-After through that adapter: overload is retryable
+capacity pressure, not evidence that the sidecar has crashed. Do not suppress
+real provider/network failures from the breaker or multiply retries at every
+layer.
+
+Account for queue time in client deadlines; expiry while active does not free
+server capacity. Workers retry the same segment within the admission budget,
+then reschedule/fail the existing job under its durable retry policy, never
+create a new quota admission. Existing durable caches may be reused; this does
+not promise persistence of temporary, partially synthesized chunks.
+Preview UI shows "Audio service busy; try again shortly" and does not auto-loop.
+Existing nonbusy validation/provider errors retain their own classifications.
+
+| Walkthrough | Expected outcome |
+|---|---|
+| Long request, then short preview and narration chunks | One active request; FIFO short requests wait up to 15 seconds, then explicit busy rather than indefinite waiting |
+| Waiting request canceled | Its slot is removed; next waiter keeps its turn |
+| Client cancels active request | No overlapping successor until native work and buffer cleanup finish |
+| 1 active + 4 waiters, another request arrives | Immediate 503/TTS_BUSY; no hidden executor backlog |
+| Cold constructor fails | Owner and permit release; error is not mislabeled as overload; later allowed request may retry initialization |
+| Provider unavailable or service draining | Explicit nonready/draining response; no fallback to another voice/provider |
+
+### Proof, trade-offs and rollout
+
+With controllable fake constructors/inference, test peak in-flight work exactly
+1, FIFO ordering across repeated chunks, queue size <=4, 15-second expiry using
+a fake clock, all grant/cancel races, and no early release after active timeout.
+Test caller retry counts/deadlines, Retry-After handling, breaker classification,
+drain/recycle accounting and slow-response cleanup. An isolated real-model
+single-request smoke validates function and records peak RSS/latency; it is not
+a production load test or proof of a larger safe concurrency limit.
+
+The cost is head-of-line blocking, more explicit busy responses and potentially
+unused parallel capacity. One request can still exceed available memory; loaded
+models and allocator retention remain resident. More processes invalidate the
+bound. Make these trade-offs visible before implementation approval.
+
+Roll out compatible callers/error handling first, then the gated service policy
+in an isolated environment, then a separately approved deployment. Observe wait
+age, busy count, active count, duration and RSS without source text in logs.
+Rollback drains the queue and restores the previous admission behavior under a
+coordinated caller/service change; it requires no data migration or credential
+change. No runtime gate, queue, timeout, model setting or resource limit changes
+are made by this design.
