@@ -9,11 +9,20 @@
 
 ## Spec Consistency Notes (Current)
 
-- Shared synthesis extraction (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
+- Provider manifest design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  separates verified source declarations from unknown live assets, defines
+  platform-specific hashes/provenance and two-build/rollback validation.
+  No upgrades, guessed pins or live-runtime changes.
+
+- Shared synthesis extraction (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
   [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts). Move behavior
   unchanged, including retries, format, storage keys and cleanup; retain
   coordination/publication/ownership policies with their existing jobs.
+  Exact moved-body comparison and
+  [CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+  passed on candidate `a43cfa3`.
 
 - Provider gate audit (implementation and scoped validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),

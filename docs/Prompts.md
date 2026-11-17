@@ -776,6 +776,9 @@ Document tradeoffs in `plans.md`.
 
 ### 4.3 TTS provider interface
 
+- Design only: [provider/asset manifest](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  inventories supported paths and unresolved exact inputs, with hash/provenance,
+  two-build and rollback validation proposals. No dependency or model upgrade.
 - Article, digest and Summary Studio audio use the internal worker
   [audio-synthesis module](../apps/worker/src/lib/audio-synthesis.ts) directly.
   Synthesis, segment retries, concatenation and upload are shared; each job

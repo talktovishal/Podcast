@@ -493,6 +493,9 @@ still allow overlapping memory-heavy work. A process-local gate is valid only
 with one model-serving process: implementation must assert/verify that deployment
 assumption. Multiple workers/replicas need a different capacity agreement; this
 proposal does not add a distributed semaphore or change resource settings.
+The [container command](../services/python-tts/Dockerfile) defaults
+`TTS_WORKERS=1` but permits larger values; a future gate must explicitly reject
+or account for those configurations rather than assuming the default is enforced.
 
 ### Initial bounded policy for review
 
@@ -600,3 +603,108 @@ Rollback drains the queue and restores the previous admission behavior under a
 coordinated caller/service change; it requires no data migration or credential
 change. No runtime gate, queue, timeout, model setting or resource limit changes
 are made by this design.
+
+## 6. Locked provider and asset manifest
+
+### Source-backed inventory, not a live-runtime inventory
+
+Kokoro is the enabled end-user narration provider; Melo remains an internal/
+experimental service path. The following inventory comes from checked-in build
+inputs. It does **not** establish currently installed production versions or
+asset hashes, and no model download/upgrade is performed for this design.
+
+| Layer | Known source input | Missing reproducibility evidence |
+|---|---|---|
+| API packages | [requirements.txt](../services/python-tts/requirements.txt): FastAPI 0.136.1, Uvicorn 0.46.0, NumPy 1.26.4, SoundFile 0.13.1 | Transitive closure, wheel hashes, platform/ABI and native library inventory |
+| Provider packages | [requirements.providers.txt](../services/python-tts/requirements.providers.txt): `kokoro>=0.9.4`, `misaki[en]>=0.9.4`, Melo Git URL without commit | Exact supported versions, full Melo commit, source/wheel hashes and transitive dependencies |
+| Container runtime | [Dockerfile](../services/python-tts/Dockerfile): `python:3.11-slim`; CPU torch/torchaudio 2.10.0; apt ffmpeg/wget/git | Base image digest, Python patch/ABI, platform-specific wheel hashes, OS/package repository snapshot |
+| Local bootstrap | [bootstrap script](../scripts/bootstrap-python-tts.sh): Python 3.11, dependency-file stamp, provider install | Resolved interpreter/build dependencies; a requirements-text stamp is not a lock of resolved inputs |
+| Language assets | [container bootstrap](../services/python-tts/bootstrap_assets.py) and local script: spaCy `en_core_web_sm`, UniDic dictionary, NLTK `averaged_perceptron_tagger_eng`, legacy `averaged_perceptron_tagger`, `cmudict` | Download revisions/URLs, file inventories/hashes, licenses and compatibility with resolved packages |
+| Model/voice assets | [service constructors](../services/python-tts/app/main.py): `KPipeline(lang_code=...)`; Melo `TTS(language="EN", device="auto")`; configured voice allowlists | Exact upstream model/config/tokenizer/voice revisions and all files selected by provider defaults, cache provenance, device-dependent behavior |
+| Validation runtime | [CI](../.github/workflows/ci.yml): API-only Python 3.12/pytest 8.3.5; [real-provider test requirements](../services/python-tts/requirements.test.txt): pytest 8.4.2 | API-only CI is not evidence that the full provider closure works on every Python/platform combination |
+
+Container bootstrap preloads language assets, not an enumerated, hashed set of
+all model weights/voices. HF/cache directory environment variables identify
+locations, not immutable provenance. Do not copy whatever is in a developer or
+shared host cache into a "known-good" manifest without identification.
+
+### Proposed manifest contract
+
+Version one manifest should describe a **verified candidate**, with one lock per
+supported platform/ABI/device profile. A Linux CPU lock is not interchangeable
+with a macOS native-device build. Record:
+
+- Manifest schema version, source commit, platform/architecture, Python exact
+  version/ABI, container base digest or interpreter archive hash, OS package
+  inventory and CPU/GPU/device policy.
+- Every direct/transitive Python distribution: name, exact version, artifact
+  filename, canonical origin, SHA-256, license evidence. Git inputs additionally
+  require a full commit and reproducible built-wheel hash; never a moving branch.
+- Every model/config/tokenizer/voice/language file: logical role, relative path,
+  size, SHA-256, upstream project/revision/download origin, license/attribution/
+  redistribution status, owning provider and required/optional profile.
+- Bootstrapping tool versions/commands, resulting inventory digest, permitted
+  runtime write/cache directories and fresh-synthesis evidence reference.
+- Explicit unresolved fields during inventory. An incomplete draft is not
+  promotable; placeholders or guessed "latest" pins cannot become release input.
+
+Hash canonical file bytes, not timestamps or machine-specific absolute paths.
+Reject unexpected/missing files in sealed asset roots, path escapes and hash/
+size mismatches. Keep download authentication out of the manifest and logs;
+retain source URLs only when public/nonsecret. Preserve upstream license notices
+and check distribution rights for packages, weights, voices and language data
+separately. This design does not assert that every current asset is redistributable.
+
+### Build and verification protocol
+
+1. Inventory a known-supported candidate in isolation. Record resolved package
+   metadata and every file actually opened/downloaded during cold initialization
+   and fresh synthesis for each supported provider/voice/language profile.
+   Cross-check upstream provenance; do not infer a weight revision from a package
+   version alone. Resolve unknowns before generating an enforceable lock.
+2. Materialize a content-addressed dependency/asset bundle from approved origins,
+   verifying each hash before use. Build in a fresh environment with an empty
+   cache and exact platform lock. Preserve the currently working runtime.
+3. Make verified assets available read-only, with separate bounded writable
+   scratch/cache roots. Disable network fetching for the validation runtime:
+   missing assets must fail explicitly, not resolve a newer file at first use.
+4. Build a second isolated environment from the same manifest with a different
+   clean cache. Compare canonical dependency/asset inventories and digests.
+   Differences in build timestamps are not file-identity proof; investigate
+   wheel/native nondeterminism instead of silently ignoring changed payloads.
+5. In both candidates perform fresh synthesis, not playback of cached audio.
+   Include required voices/languages, a fixed novel canary phrase/run ID and
+   logs tying the request to candidate/manifest. Decode WAV, check expected
+   sample rate/channel count, finite nonempty samples and nonzero duration;
+   verify downstream MP3 encoding separately. Do not require bit-identical audio
+   across hardware unless deterministic inference has actually been established.
+6. Record initialization/inference timing and peak memory as observations,
+   alongside failures. Propose a finite per-profile test budget established from
+   supported baseline runs; missing/late tests fail rather than silently skip.
+   Compare the two inventories and smoke outcomes before any promotion approval.
+
+Required negative checks: changed asset byte, missing voice file, unavailable
+download origin, wrong platform/ABI, incompatible provider/asset pair and
+attempted network fetch after sealing. Each must prevent candidate acceptance
+with a safe explicit diagnostic. Run these only in disposable environments.
+
+### Rollout, rollback and remaining decisions
+
+First introduce inventory/reporting without replacing dependencies, then verify
+two isolated builds, then separately approve lock enforcement for the chosen
+profiles. Keep API-only PR checks inexpensive; immutable real-model candidate
+validation is a separate release stage. Do not broaden enabled providers or
+change automatic device selection as a side effect of pinning.
+
+Archive the manifest, validated runtime/bundle digest, asset bundle and test
+evidence together. Rollback restores that **whole previously validated set**
+into a separate candidate location and reruns fresh synthesis before activation;
+it must not rebuild an old source commit from floating current upstream inputs.
+No shared cache mutation, live-environment replacement or deletion is authorized.
+Use existing release integrity/access controls; any credential/security-policy
+change needs separate approval.
+
+Open implementation prerequisites: actual supported revisions/hashes,
+transitive/native closure per platform, asset redistribution evidence, complete
+voice/language coverage and measured finite validation budgets. These are
+explicitly unknown here, not invented version pins or claims of reproducibility.

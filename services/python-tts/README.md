@@ -22,6 +22,11 @@ This script provisions:
 
 Parity Docker builds now preload the same runtime language assets, so the local Docker stack matches the bootstrap script more closely.
 
+The [provider/asset manifest proposal](../../docs/architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+inventories pinned versus floating inputs and defines two-build/rollback
+verification. It is design-only: no provider version, model, asset or live runtime
+is upgraded or replaced, and current inputs are not claimed fully reproducible.
+
 Manual fallback (if needed):
 
 ```bash

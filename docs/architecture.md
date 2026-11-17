@@ -2,7 +2,14 @@
 
 ## Overview
 
-### Shared synthesis boundary (extracted; validation pending; not deployed)
+### Provider/asset reproducibility proposal
+
+[Locked manifest inventory and design](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+records known source inputs, missing provenance/hashes, per-platform closure,
+two isolated builds, fresh-synthesis evidence and whole-runtime rollback.
+Design only; no guessed pins, dependency upgrades or live model replacement.
+
+### Shared synthesis boundary (extracted and validated; not deployed)
 
 Article, digest and Summary Studio jobs now import
 [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts), rather than digest/
@@ -14,6 +21,11 @@ existing logger module instead of being copied. Claim/acceptance, item-owned
 cache handling, publication identities, retention and quotas stay with callers.
 This is an internal module, not a new service/process or workflow engine.
 No persisted contract or migration change.
+The moved synthesis block, options/format and diagnostic body were verified
+identical to their pre-extraction source. Dependency traversal found no path
+back to job modules; core/web/worker checks passed
+[CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+on candidate `a43cfa3`.
 
 ### Provider verification audit (validated; not deployed)
 
