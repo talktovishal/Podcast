@@ -1,15 +1,8 @@
 import { headObjectIfExists } from "@articlepod/core/src/storage/objectExists";
 import type { ObjectStorage, StoredObjectHead } from "@articlepod/core/src/storage/types";
+import { deriveAlternateAudioPath } from "@articlepod/core/src/storage/keys";
 
-export function deriveAlternateAudioPath(path: string): string | null {
-  if (path.endsWith(".mp3")) {
-    return `${path.slice(0, -4)}.m4a`;
-  }
-  if (path.endsWith(".m4a")) {
-    return `${path.slice(0, -4)}.mp3`;
-  }
-  return null;
-}
+export { deriveAlternateAudioPath };
 
 export async function inspectFeedMedia(
   episodes: ReadonlyArray<{ audioPath: string; feedKind: "item" | "summary" }>,

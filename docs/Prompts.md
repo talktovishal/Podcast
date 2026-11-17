@@ -40,7 +40,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 - Worker narration now retries retryable python-tts/Kokoro segment failures inside the active synthesis run before failing the whole job, so a transient sidecar hiccup does not discard already-synthesized chunks.
 - Audio cache hits require existing bytes. Confirmed absence conditionally removes
   only the observed cache row (SQL identity / Azure ETag); outages preserve the
-  cache and retry the job. This does not resolve cross-item audio ownership.
+  cache and retry the job. Cache hits copy audio into item-owned, publication-specific
+  paths before publication. New synthesis uses the same item-owned layout, never
+  overwriting historical shared filenames. Deletion/retention/artifact cleanup
+  preserve audio referenced by surviving episodes, including alternate-format
+  repair paths. Existing episode URLs remain untouched; activation requires
+  quiescing all old workers and deploying web/workers together. Existing artifact
+  records track destinations before writes and cover failed/superseded copies
+  under the audio-retention policy.
 - Python TTS structured logging is best-effort, so an unwritable log volume cannot turn an otherwise successful sidecar synthesis request into a 500.
 - User-facing TTS failures now surface as generic `Audio processing...` messages instead of exposing provider-specific python-tts/Kokoro wording.
 - Demo-only extraction diagnostics (last 10 runs) and source attribution in recent items are implemented.

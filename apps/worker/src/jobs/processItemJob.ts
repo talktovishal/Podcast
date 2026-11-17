@@ -12,6 +12,7 @@ import {
   type ReservedDispatchQueueMessage,
   buildUserItemMarkdownStorageKey,
   buildUserItemSummaryStorageKey,
+  buildItemAudioStorageKey,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
@@ -39,7 +40,7 @@ import {
   type TtsProviderId
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
-import { findUsableAudioCache } from "../lib/audio-cache.js";
+import { copyCachedAudio, findUsableAudioCache } from "../lib/audio-cache.js";
 import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import {
@@ -173,14 +174,35 @@ function buildTtsCacheKey(
   return sha256([userId, selection.providerId, selection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
 }
 
-async function findChunkCacheByHash(cacheKey: string) {
+async function recordOwnedAudio(
+  itemId: string, publicationId: string, mimeType: string, byteLength: number, expiresAt: Date
+): Promise<void> {
+  const kind = `EPISODE_AUDIO_${publicationId}_${mimeType === "audio/mpeg" ? "mp3" : "m4a"}`;
+  const data = { storageKey: buildItemAudioStorageKey(itemId, publicationId, mimeType), contentType: mimeType, byteLength, expiresAt };
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    await workerPrimaryStore.upsertItemArtifact({ id: generateStoreId(), itemId, kind, ...data });
+  } else {
+    await prisma.itemArtifact.upsert({
+      where: { itemId_kind: { itemId, kind } },
+      create: { itemId, kind, ...data },
+      update: data
+    });
+  }
+}
+
+async function findChunkCacheByHash(cacheKey: string, itemId: string, publicationId: string) {
+  const prepare = <T extends { filePath: string; audioBytes: number; mimeType: string }>(entry: T) =>
+    copyCachedAudio(entry, itemId, publicationId, getArtifactStorage(), () =>
+      recordOwnedAudio(itemId, publicationId, entry.mimeType, entry.audioBytes,
+        episodeAudioExpiryDate(new Date(), workerEnv.audioRetentionDays)));
   try {
     if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
       const store = workerPrimaryStore;
       return await findUsableAudioCache({
         find: () => store.findChunkCacheByHash(cacheKey),
         discardIfUnchanged: (entry) => store.deleteChunkCacheIfUnchanged(entry.hash, entry.etag),
-        storage: getArtifactStorage()
+        storage: getArtifactStorage(),
+        prepare
       });
     }
     return await findUsableAudioCache({
@@ -194,7 +216,8 @@ async function findChunkCacheByHash(cacheKey: string) {
         });
         return deleted.count === 1;
       },
-      storage: getArtifactStorage()
+      storage: getArtifactStorage(),
+      prepare
     });
   } catch (error) {
     await workerLogger.warn("Audio cache validation failed", { error: formatDiagnostic(error) });
@@ -2201,7 +2224,9 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     });
 
     let cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
-    let cacheHit = await findChunkCacheByHash(cacheKey);
+    const audioPublicationId = randomBytes(32).toString("hex");
+    let cacheHit = await findChunkCacheByHash(cacheKey, item.id, audioPublicationId);
+    assertLeaseHealthy();
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
     if (!cacheHit && shouldSummarizeLongSource(chunks.length, workerEnv.ttsMaxChunks)) {
@@ -2374,7 +2399,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       episodeNarrationText = selectedNarrationText;
       chunks = selectedChunks;
       cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
-      cacheHit = await findChunkCacheByHash(cacheKey);
+      cacheHit = await findChunkCacheByHash(cacheKey, item.id, audioPublicationId);
+      assertLeaseHealthy();
       appendExtractionLog(extractionLogs, "tts", "Summarized podcast narration prepared", {
         originalChunkCount,
         summarizedChunkCount: chunks.length,
@@ -2428,6 +2454,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         chunkCount: chunks.length
       });
       let lastProgressWriteAt = 0;
+      await recordOwnedAudio(item.id, audioPublicationId, "audio/mpeg", 0,
+        episodeAudioExpiryDate(new Date(), workerEnv.audioRetentionDays));
       audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection, async (current, total) => {
         assertLeaseHealthy();
         if (Date.now() - lockedAtMs >= workerEnv.maxProcessingMs) {
@@ -2442,7 +2470,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         const progressMessage =
           total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
         await updateClaimProgressMessage(claimResult, progressMessage);
-      });
+      }, buildItemAudioStorageKey(item.id, audioPublicationId));
       assertLeaseHealthy();
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
         await workerPrimaryStore.createChunkCache({
@@ -2482,6 +2510,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     const description = buildEpisodeDescription(episodeNarrationText);
     const publishedAt = now();
     const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
+    await recordOwnedAudio(item.id, audioPublicationId, audio.mimeType, audio.bytes, expiresAt);
 
     stage = "persist";
     assertLeaseHealthy();

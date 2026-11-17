@@ -11,8 +11,148 @@ import { GET as rssGet, HEAD as rssHead } from "../src/app/rss/[token]/route";
 import { createSession } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
+import { purgeExpiredAudioEpisodes } from "../src/lib/audio-retention-purge";
+import { deleteUnreferencedAudioObject, purgeExpiredItemArtifacts } from "../src/lib/audio-ownership";
 
 let dbReady = false;
+
+for (const mode of ["delete-owner", "delete-borrower", "expire-owner"] as const) {
+  test(`legacy shared audio survives ${mode}, with stable RSS and ranged media`, async () => {
+    ensureDbBootstrap();
+    const storage = getArtifactStorage();
+    const uniq = `${Date.now()}-${mode}`;
+    const user = await prisma.user.create({ data: { email: `${uniq}@ownership.test`, role: "USER" } });
+    const token = createSecretToken();
+    await prisma.feedToken.create({ data: { userId: user.id, tokenValue: token.plain, tokenHash: token.hash, active: true } });
+    const session = await createSession(user.id);
+    const items = await Promise.all([0, 1].map((i) => prisma.item.create({
+      data: { userId: user.id, sourceType: "URL", sourceUrl: `https://example.com/${uniq}/${i}`, status: "READY" }
+    })));
+    const path = `items/${items[0].id}/episode.mp3`;
+    const bytes = Buffer.from("0123456789");
+    await storage.putObject(path, bytes, { contentType: "audio/mpeg" });
+    const episodes = await Promise.all(items.map((item, i) => prisma.episode.create({
+      data: {
+        itemId: item.id, guid: `episode-${item.id}`, title: `Episode ${i}`, description: "Shared audio",
+        audioPath: path, audioBytes: bytes.length, mimeType: "audio/mpeg",
+        expiresAt: new Date("2099-01-01T00:00:00Z")
+      }
+    })));
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: items[0].id, kind: "EPISODE_AUDIO_LEGACY", storageKey: path,
+        contentType: "audio/mpeg", byteLength: bytes.length, expiresAt: new Date("2019-01-01T00:00:00Z")
+      }
+    });
+    const first = mode === "delete-borrower" ? 1 : 0;
+    const survivor = episodes[1 - first];
+    const feed = async () => {
+      const response = await rssGet(new NextRequest(`http://localhost/rss/${token.plain}.xml`), {
+        params: Promise.resolve({ token: token.plain })
+      });
+      assert.equal(response.status, 200);
+      return response.text();
+    };
+    const enclosure = (xml: string) => {
+      const entry = xml.match(/<item>[\s\S]*?<\/item>/g)?.find((item) => item.includes(survivor.guid));
+      const url = entry?.match(/<enclosure[^>]*url="([^"]+)"/)?.[1];
+      assert.ok(url, "surviving episode must have an enclosure");
+      return url.replaceAll("&amp;", "&");
+    };
+    const remove = (id: string) => deleteItemRoute(new NextRequest(`http://localhost/api/items/${id}`, {
+      method: "DELETE", headers: { cookie: `articlepod_session=${session}` }
+    }), { params: Promise.resolve({ id }) });
+    try {
+      const before = enclosure(await feed());
+      await purgeExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"));
+      assert.equal(await prisma.itemArtifact.count({ where: { itemId: items[0].id } }), 1);
+      if (mode === "expire-owner") {
+        await prisma.episode.update({ where: { id: episodes[0].id }, data: { expiresAt: new Date("2019-01-01T00:00:00Z") } });
+        await purgeExpiredAudioEpisodes(new Date("2020-01-01T00:00:00Z"));
+        assert.equal(await prisma.episode.findUnique({ where: { id: episodes[0].id } }), null);
+      } else {
+        assert.equal((await remove(items[first].id)).status, 200);
+      }
+      assert.deepEqual(await storage.getObject(path), bytes);
+      const after = enclosure(await feed());
+      assert.equal(after, before);
+      const context = { params: Promise.resolve({ path: path.split("/") }) };
+      const head = await mediaHead(new NextRequest(after, { method: "HEAD" }), context);
+      assert.equal(head.status, 200);
+      assert.equal(head.headers.get("content-length"), String(bytes.length));
+      const range = await mediaGet(new NextRequest(after, { headers: { range: "bytes=0-1" } }), context);
+      assert.equal(range.status, 206);
+      assert.equal(await range.text(), "01");
+      assert.equal((await remove(items[1 - first].id)).status, 200);
+      await assert.rejects(storage.headObject(path));
+      await purgeExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"));
+      assert.equal(await prisma.itemArtifact.count({ where: { itemId: items[0].id } }), 0);
+    } finally {
+      await prisma.user.delete({ where: { id: user.id } });
+      await storage.deleteObject(path);
+    }
+  });
+}
+
+test("alternate-format repair references protect audio, and cleanup errors remain explicit", async (t) => {
+  ensureDbBootstrap();
+  const storage = getArtifactStorage();
+  const user = await prisma.user.create({ data: { email: `alternate-${Date.now()}@ownership.test` } });
+  const item = await prisma.item.create({ data: { userId: user.id, sourceType: "URL", status: "READY" } });
+  const path = `items/${item.id}/episode.mp3`;
+  await storage.putObject(path, Buffer.from("0123"), { contentType: "audio/mpeg" });
+  await prisma.episode.create({
+    data: { itemId: item.id, guid: `episode-${item.id}`, title: "Alternate", description: "",
+      audioPath: path.replace(".mp3", ".m4a"), audioBytes: 4, mimeType: "audio/mp4" }
+  });
+  try {
+    assert.equal(await deleteUnreferencedAudioObject(path), false);
+    assert.equal((await storage.headObject(path)).bytes, 4);
+    const failure = new Error("metadata outage");
+    const lookup = prisma.episode.findFirst;
+    prisma.episode.findFirst = () => { throw failure; };
+    try {
+      await assert.rejects(deleteUnreferencedAudioObject(path), (error) => error === failure);
+    } finally {
+      prisma.episode.findFirst = lookup;
+    }
+    await prisma.episode.deleteMany({ where: { itemId: item.id } });
+    const deletion = t.mock.method(storage, "deleteObject", async () => { throw new Error("storage outage"); });
+    await assert.rejects(deleteUnreferencedAudioObject(path), /storage outage/);
+    deletion.mock.restore();
+    assert.equal(await deleteUnreferencedAudioObject(path), true);
+  } finally {
+    t.mock.restoreAll();
+    await prisma.user.delete({ where: { id: user.id } });
+    await storage.deleteObject(path);
+  }
+});
+
+test("expired failed/superseded audio artifacts are cleaned, but storage errors retain retry records", async (t) => {
+  ensureDbBootstrap();
+  const storage = getArtifactStorage();
+  const user = await prisma.user.create({ data: { email: `artifact-${Date.now()}@ownership.test` } });
+  const item = await prisma.item.create({ data: { userId: user.id, sourceType: "URL", status: "FAILED" } });
+  const path = `items/${item.id}/audio/${"a".repeat(64)}.mp3`;
+  await storage.putObject(path, Buffer.from("partial"), { contentType: "audio/mpeg" });
+  const artifact = await prisma.itemArtifact.create({
+    data: { itemId: item.id, kind: "EPISODE_AUDIO_failed", storageKey: path, byteLength: 0,
+      contentType: "audio/mpeg", expiresAt: new Date("2019-01-01T00:00:00Z") }
+  });
+  try {
+    const deletion = t.mock.method(storage, "deleteObject", async () => { throw new Error("delete failed"); });
+    await assert.rejects(purgeExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z")), /delete failed/);
+    assert.ok(await prisma.itemArtifact.findUnique({ where: { id: artifact.id } }));
+    deletion.mock.restore();
+    await purgeExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"));
+    assert.equal(await prisma.itemArtifact.findUnique({ where: { id: artifact.id } }), null);
+    await assert.rejects(storage.headObject(path));
+  } finally {
+    t.mock.restoreAll();
+    await prisma.user.delete({ where: { id: user.id } });
+    await storage.deleteObject(path);
+  }
+});
 
 function ensureDbBootstrap(): void {
   if (dbReady || process.env.ARTICLEPOD_TEST_DB_READY === "1") {
