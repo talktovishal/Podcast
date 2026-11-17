@@ -1,4 +1,5 @@
 import { TableClient, type TableEntity, type TableEntityResult } from "@azure/data-tables";
+import { AppError, errorCodes } from "../errors/codes";
 import { parseStoredItemTags, serializeItemTags, type SnippetPageMetadata } from "../types/domain";
 import { parseSnippetPageMetadata, serializeSnippetPageMetadata } from "../snippets/richCapture";
 
@@ -2474,10 +2475,13 @@ export class AzureTablePrimaryStore {
       extractionSelectionRecordedAt: Date | null;
       updatedAt: Date;
     }>
-  ): Promise<AzureTablePrimaryItem | null> {
+  ): Promise<AzureTablePrimaryItem> {
     const current = await this.getEntity<Record<string, unknown>>("items", "item", itemId);
     if (!current) {
-      return null;
+      throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+    }
+    if (!current.etag || current.etag === "*") {
+      throw new AppError(errorCodes.STORAGE_FAILED, "The item version could not be verified. Please retry.", 503);
     }
     const updatedAt = input.updatedAt ?? new Date();
     const entity: TableEntity<Record<string, unknown>> = {
@@ -2520,9 +2524,17 @@ export class AzureTablePrimaryStore {
           : isoOrNull(input.extractionSelectionRecordedAt),
       updatedAt: updatedAt.toISOString()
     };
-    const success = await this.updateEntity("items", entity, current.etag);
-    if (!success) {
-      return this.findItemById(itemId);
+    try {
+      // The boolean helper discards the distinction between conflict and absence.
+      await this.client("items").updateEntity(entity, "Replace", { etag: current.etag });
+    } catch (error) {
+      if (isPreconditionError(error)) {
+        throw new AppError(errorCodes.ITEM_UPDATE_CONFLICT, "The item changed while it was being saved. Please retry.", 409);
+      }
+      if (isNotFoundError(error)) {
+        throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+      }
+      throw error;
     }
     return this.toItem(entity as TableEntityResult<Record<string, unknown>>);
   }

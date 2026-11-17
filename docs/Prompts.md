@@ -6,6 +6,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Azure item mutations fail explicitly on version conflicts or missing items;
+  required saves must succeed before audio/summary work reports completion.
+  Conflicts use bounded job retries and standard HTTP error reporting, without
+  blindly overwriting newer state. This does not make Azure publication atomic.
+
 - Dashboard item refresh is single-flight; successful item/share mutations and
   unmount invalidate earlier responses. Failures are visible and retry on the
   existing polling cadence; unchanged episode media tokens remain stable.

@@ -947,6 +947,7 @@ export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage
   }
 
   switch (error.code) {
+    case errorCodes.ITEM_UPDATE_CONFLICT:
     case errorCodes.EXTRACTION_FAILED:
     case errorCodes.TTS_FAILED:
     case errorCodes.STORAGE_FAILED:

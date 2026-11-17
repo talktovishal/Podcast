@@ -101,12 +101,12 @@ async function handleRequestTts(request: NextRequest, context: { params: Promise
 
     await syncQueueProjectionFromEnqueue({
       item: {
-        id: updatedItem?.id ?? item.id,
+        id: updatedItem.id,
         userId: item.userId,
         sourceType: item.sourceType,
-        status: updatedItem?.status ?? "QUEUED",
+        status: updatedItem.status,
         createdAt: item.createdAt,
-        updatedAt: updatedItem?.updatedAt ?? new Date(),
+        updatedAt: updatedItem.updatedAt,
         errorCode: deferredErrorCode,
         errorMessage: quotaOutcome.acceptedMessage
       },

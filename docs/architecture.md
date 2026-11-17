@@ -2,6 +2,32 @@
 
 ## Overview
 
+### Explicit item mutation outcomes (implemented and validated; not deployed)
+
+Candidate `24b995b` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641),
+including 25 added regression cases, core/web/worker checks, authenticated RSS
+browser validation and container parity/podcast contracts. This follow-up is
+stacked on the audio-ownership branch and remains unmerged and undeployed.
+
+Azure `updateItem` returns an item only after its conditional write succeeds.
+An ETag conflict raises `ITEM_UPDATE_CONFLICT` (HTTP 409); an item missing before
+or during the write raises `ITEM_NOT_FOUND` (HTTP 404). Missing/wildcard versions
+are rejected, and other storage errors propagate. The adapter never rereads a
+different row as evidence of success or blindly retries a rejected mutation.
+Existing awaited ordering prevents audio/summary jobs from completing, and
+article-summary tasks from being removed as completed, after a failed required
+item update. Conflicts follow bounded job retries; missing items are terminal.
+HTTP errors retain standard logging/support IDs and recommend retry for conflicts.
+
+This is the narrow false-success part of review finding 01, not an atomic
+publication protocol. Episode, item and job writes remain separate in Azure;
+crash recovery and fencing stale publishers remain follow-up design work.
+The change adds error-code values to existing string fields/API responses, but
+requires no schema, storage-key migration or backfill. Successful response shapes
+and existing feed/media identities are unchanged. Deployment is deferred; a
+rollback needs no data rewrite but restores the original false-success behavior.
+
 Audio cache reuse verifies object existence before publication. Confirmed absence
 invalidates only the observed cache row, using SQL row identity or an Azure ETag;
 conflicting replacements are re-read. Storage outages preserve cache state and
