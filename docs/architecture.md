@@ -400,6 +400,9 @@ Current behavior (`M57`-`M64` implemented):
   - shared markdown quality analysis reports stored-markdown wrapper/footer junk plus narration-surface URL, image, table, metadata, and low-signal residues for audits/tests
   - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
 - HTML extraction diagnostics now log the selected engine plus both candidate scorecards per item so production traces can show where `Readability` or `defuddle` wins over time.
+- Both candidate parsers remove exact `.caas-da` inline-ad containers from their
+  working DOM before extraction. This does not strip prose by keyword or class
+  substring, and the original captured HTML remains available unchanged.
 - the worker also persists the compact extraction-selection winner + score summary onto the `Item` row after HTML extraction succeeds, so Azure Table primary can be inspected over time while detailed candidate traces remain in logs.
 - narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
 - when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.

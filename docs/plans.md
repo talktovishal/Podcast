@@ -9,13 +9,13 @@
 
 ## Spec Consistency Notes (Current)
 
-- Legacy marketing correction (implementation in progress; target_finish:
-  2026-11-17): refresh PR #13 against current main, preserve configurable trial
-  and retention values, and remove daily/weekly/automatic wiki claims from all
-  affected public surfaces, including FAQ structured data and the shared preview.
-  The current wiki remains operator-run; no billing, quota, retention, schema or
-  publishing behavior changes. Focused marketing regressions and web CI required
-  before merge.
+- Legacy marketing correction (done; target_finish: 2026-11-17; completed_on:
+  2026-11-17): PR #13 merged as `ab9c1c9`, preserving configurable trial and
+  retention values and removing daily/weekly/automatic wiki claims from public
+  pages, FAQ structured data and the shared preview. All 26 focused tests and
+  [scoped web CI](https://github.com/talktovishal/Podcast/actions/runs/44161885390)
+  passed. The current wiki remains operator-run; no billing, quota, retention,
+  schema or publishing-policy changes. Deployment is tracked separately.
 
 - Contributor documentation hygiene (done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
@@ -29,8 +29,12 @@
   2026-11-17): retain PR #9's synthetic layout cases in the current core test
   runner, with typed short-input failures, URL/snapshot equivalence and automatic
   fetch-mock cleanup. Remove the redundant fixture-only script labeled E2E;
-  actual comparisons remain in the existing testing workspaces. No extractor,
-  dependency or persisted-data change. Core CI required before merge.
+  actual comparisons remain in the existing testing workspaces. The first core
+  CI exposed a genuine inline-ad leak in the Yahoo-shaped fixture. Exact
+  `.caas-da` containers are now removed before both candidate parsers; focused
+  engine-isolation cases preserve article containers, prose mentioning ads, and
+  original raw HTML. No dependency or persisted-data change. Core CI required
+  before merge.
 
 - Packaging context hygiene (implementation and full validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker

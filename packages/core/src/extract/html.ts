@@ -451,6 +451,13 @@ export function htmlToMarkdown(html: string): string {
   return normalizeMarkdown(turndown.turndown(html));
 }
 
+function removeKnownInlineAds(document: Document): void {
+  // Yahoo display-ad slots; match the exact class, not similarly named article containers.
+  for (const node of Array.from(document.querySelectorAll(".caas-da"))) {
+    node.remove();
+  }
+}
+
 function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
   title: string;
   byline: string | null;
@@ -459,6 +466,7 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
 } {
   const dom = new JSDOM(html, { url: sourceUrl });
   try {
+    removeKnownInlineAds(dom.window.document);
     const reader = new Readability(dom.window.document);
     const article = reader.parse();
     if (!article) {
@@ -524,6 +532,7 @@ function extractReadabilityCandidate(input: { html: string; sourceUrl: string })
 function parseDefuddleMarkdown(html: string, sourceUrl: string): { result: DefuddleResponse; warningCount: number } {
   const dom = new JSDOM(html, { url: sourceUrl });
   try {
+    removeKnownInlineAds(dom.window.document);
     const defuddle = new DefuddleClass(dom.window.document, {
       url: sourceUrl,
       useAsync: false,

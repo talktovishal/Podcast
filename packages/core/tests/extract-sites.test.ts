@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { Readability } from "@mozilla/readability";
+import { DefuddleClass } from "defuddle/node";
 import { extractHtmlFromUrl, extractHtmlSnapshot } from "../src/extract/html";
 import { AppError, errorCodes } from "../src/errors/codes";
 
@@ -88,6 +90,42 @@ for (const fixture of fixtures) {
       { title: fetched.title, text: fetched.text, markdown: fetched.markdown },
       { title: snapshot.title, text: snapshot.text, markdown: snapshot.markdown }
     );
+  });
+}
+
+for (const engine of ["readability", "defuddle"] as const) {
+  test(`${engine} removes inline ad slots without deleting article prose or similar classes`, (t) => {
+    const failOtherEngine = () => { throw new Error("Controlled alternate-engine failure"); };
+    if (engine === "readability") {
+      t.mock.method(DefuddleClass.prototype, "parse", failOtherEngine);
+    } else {
+      t.mock.method(Readability.prototype, "parse", failOtherEngine);
+    }
+    const html = `
+      <html><head><title>Publishing systems and advertising</title></head><body>
+        <article class="caas-body">
+          <h1>Publishing systems and advertising</h1>
+          <p>Article body remains readable while publishing systems distinguish commercial
+          placements from the substantive reporting readers came to understand. This
+          distinction is important for preserving accurate and complete narration.</p>
+          <div class="caas-da"><p>Promotional placement should not reach the reader's narration.</p></div>
+          <div class="caas-data"><p>Meaningful article data stays intact. The surrounding
+          discussion describes how publishers organize their documents and maintain
+          clear boundaries between reporting and commercial placements.</p></div>
+          <p>Ad: is an example label discussed by this article. Ordinary prose about
+          advertising must remain available, even when it mentions a label also used
+          by commercial content elsewhere on the page.</p>
+        </article>
+      </body></html>`;
+    const result = extractHtmlSnapshot({ html, url: "https://example.com/ad-container-boundary" });
+    assert.equal(result.selectionDiagnostics.selectedEngine, engine);
+    for (const output of [result.text, result.markdown]) {
+      assert.ok(!output.includes("Promotional placement"));
+      assert.match(output, /Article body remains readable/);
+      assert.match(output, /Meaningful article data stays intact/);
+      assert.match(output, /Ad: is an example label/);
+    }
+    assert.equal(result.rawHtml, html);
   });
 }
 

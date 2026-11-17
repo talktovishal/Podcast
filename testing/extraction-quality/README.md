@@ -11,7 +11,10 @@ corepack pnpm --filter @articlepod/core exec tsx --test tests/extract.test.ts te
 The site-named HTML fixtures are synthetic layouts, not captured live pages.
 They check content preservation, boilerplate removal, numbered lists, snapshot
 extraction without network access, and parity with a mocked URL fetch. Short
-input must fail with `EXTRACTION_EMPTY` on both paths. These tests do not establish
+input must fail with `EXTRACTION_EMPTY` on both paths. Engine-isolation cases
+also verify that explicit inline-ad containers are removed from text/markdown
+without deleting similar article containers or ordinary prose mentioning ads.
+These tests do not establish
 live-site access, JavaScript rendering, paywall support, or browser end-to-end
 success; use the existing comparison and live-site harnesses for those checks.
 
