@@ -9,6 +9,13 @@
 
 ## Spec Consistency Notes (Current)
 
+- Safe query bounds (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
+  stopped their iterators after the first match, and retained full reads for
+  ordering-sensitive/global operations. Three SDK-boundary regressions cover
+  one-of-1000 consumption/close, empty/error outcomes and newest/oldest selection.
+  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-validation-pending-not-deployed).
+
 - Model admission design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
   specifies one active inference, finite waiting, FIFO turns, overload, real

@@ -5,6 +5,66 @@ import { TableClient } from "@azure/data-tables";
 import { AppError, errorCodes } from "../src/errors/codes";
 import { billingEventVersion } from "../src/metadata/billingEventVersion";
 
+test("first-match reads consume one result and close the iterator without draining 1000 matches", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  let closed = false;
+  t.mock.method(TableClient.prototype, "listEntities", (options?: { queryOptions?: { filter?: string } }) => {
+    assert.equal(options?.queryOptions?.filter, "(PartitionKey eq 'feed') and (tokenHash eq 'hash') and (active eq true)");
+    return Object.assign((async function* () {
+      try {
+        for (let i = 0; i < 1000; i++) {
+          rowsRead++;
+          yield {
+            partitionKey: "feed", rowKey: `token-${i}`, id: `token-${i}`,
+            userId: "user", tokenHash: "hash", active: true, createdAt: "2020-01-01T00:00:00Z"
+          };
+          assert.fail("first match must not request another result");
+        }
+      } finally {
+        closed = true;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  assert.equal((await store.findFeedTokenByHash("hash", "item"))?.id, "token-0");
+  assert.equal(rowsRead, 1);
+  assert.equal(closed, true);
+});
+
+test("first-match reads distinguish empty results from iteration failures", async (t) => {
+  const store = createStore();
+  const failure = new Error("metadata read unavailable");
+  let fail = false;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      if (fail) {
+        throw failure;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal(await store.findFeedTokenByHash("hash", "item"), null);
+  fail = true;
+  await assert.rejects(store.findFeedTokenByHash("hash", "item"), (error) => error === failure);
+});
+
+test("ordering-sensitive token reads still drain candidates before choosing newest or oldest", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      for (const [id, createdAt] of [
+        ["middle", "2022-01-01T00:00:00Z"], ["newest", "2024-01-01T00:00:00Z"], ["oldest", "2020-01-01T00:00:00Z"]
+      ]) {
+        rowsRead++;
+        yield { partitionKey: "token", rowKey: id, id, userId: "user", tokenHash: "hash", active: true, createdAt };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal((await store.findActiveFeedTokenByUserId("user", "item"))?.id, "newest");
+  assert.equal((await store.findShareTokenByUserIdAndScope("user", "read_only"))?.id, "oldest");
+  assert.equal(rowsRead, 6);
+});
+
 for (const sandbox of [false, true]) {
   test(`billing updates reject a changed snapshot before writing (sandbox=${sandbox})`, async (t) => {
     const store = createStore();

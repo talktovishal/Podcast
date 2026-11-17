@@ -2,6 +2,31 @@
 
 ## Overview
 
+### Safe first-match read audit (implemented; validation pending; not deployed)
+
+`AzureTablePrimaryStore.firstEntity` now closes its async iterator after its
+first result, rather than materializing every matching result. Empty iteration
+still returns null; setup/read failures propagate. It preserves the same first
+row in storage order, not a new uniqueness guarantee.
+
+All 12 callers were checked:
+
+| First-match callers | Why early stop preserves behavior |
+|---|---|
+| `findUserByEmail`, `findUserByBillingCustomerId`, `findSandboxBillingAccountByBillingCustomerId` | Exact filtered lookup; previously returned storage-order first row without sorting or duplicate validation |
+| `findFeedTokenByHash`, `findFeedTokenByValue`, `findShareTokenByHash` | Exact credential match, with existing active filter where applicable; no token rotation or policy change |
+| `findEpisodeByItemId`, `findEpisodeByAudioPathForUser`, `findSummaryEpisodeByAudioPathForUser` | Existing first matching episode/owner lookup |
+| `findDigestRunByUserCadencePeriod`, `findDigestEpisodeByRunId`, `findSummaryEpisodeByRunId` | Exact logical run key; no newest/best-result contract |
+
+`findActiveFeedTokenByUserId` (newest) and `findShareTokenByUserIdAndScope`
+(oldest) intentionally still collect/sort their candidates. Sorted feed/due-work
+lists, global counts and bulk mutations are unchanged. Existing audio-reference
+existence checks already stop early and need no rewrite. An empty existence
+query can still scan its entire candidate set; Azure may prefetch a page or scan
+server-side even when this helper consumes one row. This is not a new index,
+strict single-row network-read guarantee or solution to every unbounded query.
+No data migration or durable contract change.
+
 ### Approved design-only follow-ups
 
 [Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)

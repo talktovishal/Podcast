@@ -6,6 +6,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Azure first-match metadata lookups stop after the first iterator result,
+  preserving existing storage-order selection and propagating read failures.
+  Newest/oldest selection, feed ordering, global counts and bulk changes still
+  examine all required candidates. No token, data-layout or quota policy change.
+
 - Azure main-feed eligibility resolves the actual unexpired episode candidates'
   owning articles, not the newest 500 articles. Missing, non-READY and
   differently owned articles are excluded; metadata outages propagate rather

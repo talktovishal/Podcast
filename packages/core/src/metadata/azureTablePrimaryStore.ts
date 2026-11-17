@@ -839,8 +839,13 @@ export class AzureTablePrimaryStore {
   }
 
   private async firstEntity<T extends Record<string, unknown>>(key: TableKey, filter?: string): Promise<TableEntityResult<T> | null> {
-    const entities = await this.listEntities<T>(key, filter);
-    return entities[0] ?? null;
+    await this.ready();
+    for await (const entity of this.client(key).listEntities<T>({
+      queryOptions: filter ? { filter } : undefined
+    })) {
+      return entity;
+    }
+    return null;
   }
 
   private async createEntity<T extends Record<string, unknown>>(
