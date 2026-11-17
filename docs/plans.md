@@ -9,6 +9,11 @@
 
 ## Spec Consistency Notes (Current)
 
+- Summary acceptance design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [proposal and crash matrix](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+  reconcile durable preparation, existing summary tasks, quota identity,
+  asynchronous failures, migration and rollback. No runtime/schema change.
+
 - Readiness design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [contract and rollout proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
   documents bounded checks, known consumers and long-job/real-stall distinction.

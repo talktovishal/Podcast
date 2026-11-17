@@ -7,6 +7,10 @@
 [Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
 defines bounded checks, model/progress signals and staged consumer migration.
 It does not implement new endpoints or change liveness, gates or restart policy.
+[Durable summary acceptance](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+proposes discoverable preparation intent and worker extraction, with crash
+recovery and no second quota charge. It reconciles, rather than silently changes,
+the existing prepared-markdown task contract. No runtime/schema change yet.
 
 ### Hard chunk-size bound (implemented and validated; not deployed)
 
