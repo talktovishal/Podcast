@@ -89,6 +89,12 @@ for designs that have not been implemented.
   Only confirmed object absence permits repair; storage outages return non-cacheable
   HTTP 503 with Retry-After, without repair-side mutations or token rotation.
 - URL/PDF extraction pipeline includes abogen-derived cleanup with explicit error handling.
+- Synthetic layout fixtures exercise content/noise boundaries and matching
+  snapshot/mocked-fetch output. They supplement the existing extraction-quality
+  and live-site harnesses, rather than claiming real-site end-to-end coverage.
+  Both HTML candidate engines remove exact `.caas-da` inline-ad containers,
+  without stripping ordinary advertising-related prose or similarly named
+  article containers; the captured raw HTML remains unchanged.
 - Voice settings are Kokoro-focused in UI, with preview caching and python-tts integration.
 - Kokoro narration on the python-tts sidecar now streams WAV assembly segment-by-segment instead of concatenating the full response in memory first, reducing peak RAM pressure on the production B2s VM.
 - Python TTS now self-recycles after requests when RSS stays above a configured threshold, waiting for an idle window before exiting so systemd can restart it without interrupting active chunk chains.
