@@ -9,15 +9,26 @@
 
 ## Spec Consistency Notes (Current)
 
-- Packaging context hygiene (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
+- Contributor documentation hygiene (done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
+  replace nonexistent scaffold directories and placeholders with the actual
+  workspace scripts and Python model-free CI commands. Referenced files,
+  manifest scripts and CI commands checked; approval/security/migration policy
+  unchanged. No workstation-specific Markdown links were found in the checked
+  root contributor files and docs, so no speculative link rewrite was made.
+
+- Packaging context hygiene (implementation and full validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
   synthetic-canary validation, required image contents and checkout-independent
-  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-implemented-validation-pending-not-deployed).
+  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-validated-not-deployed).
   No dependency pruning, credential changes or protected deployment-gate changes.
   Initial full CI passed context canaries, image builds and content checks but
   exposed a test-startup race: the worker health port was not open yet. The
   corrected check waits for connection refusal only, bounded at 60 seconds;
-  final parity validation remains required.
+  six controlled startup/error/deadline cases and
+  [full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+  passed on runtime candidate `aa05f54`, including parity smoke and podcast
+  contracts. Docker is unavailable locally; actual image checks ran in CI.
 
 - Provider manifest design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)

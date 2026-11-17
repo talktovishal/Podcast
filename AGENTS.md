@@ -3,7 +3,7 @@
 This file is the **execution contract** for coding agents in this repo (Codex, etc.).
 Product/feature requirements live in **docs/Prompts.md**. Do not duplicate product specs here.
 
-Codex reads `AGENTS.md` before doing any work. Keep this file practical and enforceable. :contentReference[oaicite:1]{index=1}
+Codex reads `AGENTS.md` before doing any work. Keep this file practical and enforceable.
 
 ---
 
@@ -17,41 +17,57 @@ Codex reads `AGENTS.md` before doing any work. Keep this file practical and enfo
 
 ## Quick commands (keep these accurate)
 
-### Command selection rules (do not guess)
-- If a `Makefile` exists with relevant targets, prefer `make <target>`.
-- Frontend package manager:
-  - If `pnpm-lock.yaml` exists → use `pnpm`
-  - Else if `yarn.lock` exists → use `yarn`
-  - Else → use `npm`
-- Python environment:
-  - If `uv.lock` exists → use `uv`
-  - Else if `poetry.lock` exists → use `poetry`
-  - Else → use `python -m venv` + `pip`
+Run these commands from the repository root. [package.json](package.json) pins
+pnpm through Corepack; [pnpm-workspace.yaml](pnpm-workspace.yaml) defines the
+workspaces. The web API is part of the Next.js app, not a separate Python backend.
+The worker is TypeScript, not Python.
 
-### Frontend (expected in `frontend/`)
-- Install: `cd frontend && <pm> install`
-- Dev: `cd frontend && <pm> run dev`
-- Lint: `cd frontend && <pm> run lint`
-- Test: `cd frontend && <pm> test`
-- Build: `cd frontend && <pm> run build`
+- Install workspace dependencies: `corepack pnpm install --frozen-lockfile`
+- Simple local profile: `./run.sh --profile simple`
+- Fast web-only loop after setup: `./run.sh --web --fast`
+- Profile setup and environment templates: [README.md](README.md)
 
-### Backend API (expected in `backend/`)
-- Dev: `cd backend && <venv_cmd> && uvicorn app.main:app --reload`
-- Test: `cd backend && <venv_cmd> && pytest -q`
-- Lint/format (preferred): `cd backend && <venv_cmd> && ruff check . && ruff format .`
-- Typecheck (if configured): `cd backend && <venv_cmd> && mypy .`
+### Web UI and API (`apps/web`)
+- Dev: `corepack pnpm --filter @articlepod/web run dev`
+- Lint: `corepack pnpm --filter @articlepod/web run lint`
+- Typecheck: `corepack pnpm --filter @articlepod/web run typecheck`
+- Test: `corepack pnpm --filter @articlepod/web run test`
+- Build: `corepack pnpm --filter @articlepod/web run build`
 
-### Worker (expected in `worker/` if present)
-- Test: `cd worker && <venv_cmd> && pytest -q`
-- Run (example): `cd worker && <venv_cmd> && python -m worker`
+### Processing worker (`apps/worker`)
+- Dev: `corepack pnpm --filter @articlepod/worker run dev`
+- Typecheck: `corepack pnpm --filter @articlepod/worker run typecheck`
+- Test: `corepack pnpm --filter @articlepod/worker run test`
+- Build: `corepack pnpm --filter @articlepod/worker run build`
+
+### Shared code (`packages/core`)
+- Typecheck: `corepack pnpm --filter @articlepod/core run typecheck`
+- Test: `corepack pnpm --filter @articlepod/core run test`
+- Build: `corepack pnpm --filter @articlepod/core run build`
+
+### Python speech service (`services/python-tts`)
+The model-free gate matches [CI](.github/workflows/ci.yml), using Python 3.12:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r services/python-tts/requirements.txt pytest==8.3.5
+.venv/bin/python -m pytest -q services/python-tts/tests/test_provider_discovery.py services/python-tts/tests/test_kokoro_streaming.py services/python-tts/tests/test_logging_split.py
+.venv/bin/python services/python-tts/tests/check_provider_gate_mutations.py
+```
+
+These tests do not install model providers or prove real-model synthesis.
+Use the [service setup and validation guide](services/python-tts/README.md)
+for the separate provider/runtime setup and smoke checks.
 
 ### Full repo validation (required before marking “done”)
-- Frontend: lint + tests (+ build when feasible)
-- Backend: ruff + tests (and mypy if present)
-- Worker: tests
+- Use `corepack pnpm preflight` for the existing change-scoped checks;
+  `corepack pnpm preflight --parity` includes the disposable parity path.
+- Web/core/worker: run their typecheck, lint, test and build scripts for touched
+  areas. Root `corepack pnpm run typecheck`, `corepack pnpm run lint`,
+  `corepack pnpm run test` and `corepack pnpm run build` aggregate the workspace scripts.
+- Python speech changes: run the model-free gate above and the applicable
+  provider checks documented in the service guide.
 - Podcast compatibility gates (RSS + media) must pass (see below)
-
-> Replace `<pm>` and `<venv_cmd>` with real commands as soon as scaffolding exists.
 
 ---
 

@@ -2,7 +2,14 @@
 
 ## Overview
 
-### Build-context hygiene (implemented; validation pending; not deployed)
+### Contributor command hygiene
+
+[Contributor instructions](../AGENTS.md#quick-commands-keep-these-accurate)
+now reference the actual pnpm workspaces and Python speech-service test gate,
+not the retired frontend/backend/Python-worker scaffold. This is documentation
+only; runtime architecture, data contracts and approval/security policy are unchanged.
+
+### Build-context hygiene (validated; not deployed)
 
 [Docker exclusions](../.dockerignore) cover local environment/runtime/data/cache/
 worktree state and generated artifacts at root or nested paths, retaining
@@ -25,6 +32,11 @@ Verification (Docker required):
 After starting the disposable parity stack:
 `node --test --test-name-pattern='relocated' scripts/container-packaging.test.mjs`.
 The existing full/parity CI job runs both; no deployment is performed by them.
+[Full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+passed on `aa05f54`: real Docker context canaries, web/worker image builds,
+contents, startup, parity smoke and podcast contracts. The startup-wait code
+also passed six controlled delayed-start/error/deadline cases. Local Docker
+was unavailable; no local image or production validation is claimed.
 
 ### Provider/asset reproducibility proposal
 

@@ -2,9 +2,17 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-29)
+## Spec Status (as of 2026-11-17)
 
-### Implemented (as of 2026-04-29)
+### Implemented in source (as of 2026-11-17)
+
+Source implementation is not deployment status; see [plans](plans.md) for
+validated draft changes and [architecture proposals](architecture-followup-proposals.md)
+for designs that have not been implemented.
+
+- Contributor commands now name the actual web, TypeScript worker, shared core
+  and Python speech-service paths and gates. This documentation cleanup does
+  not change product, licensing, security, migration or release-approval policy.
 
 - Docker contexts explicitly exclude local environment files, secret-staging
   paths, runtime/data/cache state, worktrees and generated test/Python artifacts.
