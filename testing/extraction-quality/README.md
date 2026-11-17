@@ -2,6 +2,19 @@
 
 This workspace focuses on extraction quality only. It does not enqueue jobs, write DB items, or synthesize audio.
 
+For deterministic layout regressions, run the core fixture tests:
+
+```bash
+corepack pnpm --filter @articlepod/core exec tsx --test tests/extract.test.ts tests/extract-sites.test.ts
+```
+
+The site-named HTML fixtures are synthetic layouts, not captured live pages.
+They check content preservation, boilerplate removal, numbered lists, snapshot
+extraction without network access, and parity with a mocked URL fetch. Short
+input must fail with `EXTRACTION_EMPTY` on both paths. These tests do not establish
+live-site access, JavaScript rendering, paywall support, or browser end-to-end
+success; use the existing comparison and live-site harnesses for those checks.
+
 It provides three reusable workflows:
 
 - `artifact audit`: scan generated markdown artifacts already present under `apps/web/.data/media/`

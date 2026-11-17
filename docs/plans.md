@@ -17,6 +17,13 @@
   unchanged. No workstation-specific Markdown links were found in the checked
   root contributor files and docs, so no speculative link rewrite was made.
 
+- Legacy extraction fixture refresh (implementation in progress; target_finish:
+  2026-11-17): retain PR #9's synthetic layout cases in the current core test
+  runner, with typed short-input failures, URL/snapshot equivalence and automatic
+  fetch-mock cleanup. Remove the redundant fixture-only script labeled E2E;
+  actual comparisons remain in the existing testing workspaces. No extractor,
+  dependency or persisted-data change. Core CI required before merge.
+
 - Packaging context hygiene (implementation and full validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
   synthetic-canary validation, required image contents and checkout-independent
