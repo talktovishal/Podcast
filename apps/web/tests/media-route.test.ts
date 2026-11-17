@@ -54,7 +54,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       method: "HEAD"
     });
 
-    const headResponse = await HEAD(headRequest, { params: { path: key.split("/") } });
+    const headResponse = await HEAD(headRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-type"), "audio/mpeg");
     assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
@@ -64,7 +64,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       method: "GET"
     });
 
-    const fullResponse = await GET(fullRequest, { params: { path: key.split("/") } });
+    const fullResponse = await GET(fullRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(fullResponse.status, 200);
     assert.equal(fullResponse.headers.get("content-length"), String(payload.byteLength));
     const fullBody = Buffer.from(await fullResponse.arrayBuffer()).toString("utf8");
@@ -77,7 +77,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       }
     });
 
-    const rangeResponse = await GET(rangeRequest, { params: { path: key.split("/") } });
+    const rangeResponse = await GET(rangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), `bytes 2-5/${payload.byteLength}`);
     const rangeBody = Buffer.from(await rangeResponse.arrayBuffer()).toString("utf8");
@@ -89,7 +89,7 @@ test("media route supports HEAD and byte-range responses", async () => {
         range: "bytes=-4"
       }
     });
-    const suffixRangeResponse = await GET(suffixRangeRequest, { params: { path: key.split("/") } });
+    const suffixRangeResponse = await GET(suffixRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), `bytes 6-9/${payload.byteLength}`);
     const suffixRangeBody = Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8");
@@ -102,7 +102,7 @@ test("media route supports HEAD and byte-range responses", async () => {
       }
     });
 
-    const invalidRangeResponse = await GET(invalidRangeRequest, { params: { path: key.split("/") } });
+    const invalidRangeResponse = await GET(invalidRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(invalidRangeResponse.status, 416);
 
     const invalidSuffixRangeRequest = new NextRequest(`http://localhost/api/media/${key}?mt=${testMediaToken}`, {
@@ -111,13 +111,13 @@ test("media route supports HEAD and byte-range responses", async () => {
         range: "bytes=-0"
       }
     });
-    const invalidSuffixRangeResponse = await GET(invalidSuffixRangeRequest, { params: { path: key.split("/") } });
+    const invalidSuffixRangeResponse = await GET(invalidSuffixRangeRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(invalidSuffixRangeResponse.status, 416);
 
     const unauthorizedRequest = new NextRequest(`http://localhost/api/media/${key}`, {
       method: "GET"
     });
-    const unauthorizedResponse = await GET(unauthorizedRequest, { params: { path: key.split("/") } });
+    const unauthorizedResponse = await GET(unauthorizedRequest, { params: Promise.resolve({ path: key.split("/") }) });
     assert.equal(unauthorizedResponse.status, 401);
   } finally {
     await storage.deleteObject(key);
@@ -174,20 +174,20 @@ test("media route accepts legacy feed_token for matching owner and rejects other
   try {
     const authorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(authorizedResponse.status, 200);
     assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
 
     const unauthorizedResponse = await GET(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(unauthorizedResponse.status, 401);
 
     const headResponse = await HEAD(
       new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
-      { params: { path: key.split("/") } }
+      { params: Promise.resolve({ path: key.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
@@ -195,6 +195,137 @@ test("media route accepts legacy feed_token for matching owner and rejects other
     await storage.deleteObject(key);
     await prisma.user.delete({ where: { id: owner.id } });
     await prisma.user.delete({ where: { id: otherUser.id } });
+  }
+});
+
+test("media route accepts legacy feed_token for main-feed summary episodes", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-legacy`;
+  const storage = getArtifactStorage();
+
+  const owner = await prisma.user.create({
+    data: {
+      email: `media-summary-owner-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+  const otherUser = await prisma.user.create({
+    data: {
+      email: `media-summary-other-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const ownerFeedToken = await ensureUserFeedToken(owner.id);
+  const otherFeedToken = await ensureUserFeedToken(otherUser.id);
+  const key = `summaries/${owner.id}/legacy-${uniq}/episode.mp3`;
+  const payload = Buffer.from("summary-feed-token", "utf8");
+  await storage.putObject(key, payload, { contentType: "audio/mpeg" });
+
+  const run = await prisma.summaryRun.create({
+    data: {
+      userId: owner.id,
+      requestedTitle: "Legacy summary",
+      title: "Legacy summary",
+      windowStart: new Date("2026-03-20T00:00:00.000Z"),
+      windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+      status: "SUCCEEDED",
+      targetLengthMinutes: 15,
+      selectedItemCount: 1,
+      podcastEnabled: true,
+      podcastStatus: "SUCCEEDED"
+    }
+  });
+
+  await prisma.summaryEpisode.create({
+    data: {
+      summaryRunId: run.id,
+      userId: owner.id,
+      guid: `summary-legacy-${uniq}`,
+      title: `Legacy summary ${uniq}`,
+      description: "legacy summary feed token fallback",
+      audioPath: key,
+      audioBytes: payload.byteLength,
+      mimeType: "audio/mpeg",
+      publishedAt: new Date()
+    }
+  });
+
+  try {
+    const authorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`),
+      { params: Promise.resolve({ path: key.split("/") }) }
+    );
+    assert.equal(authorizedResponse.status, 200);
+    assert.equal(Buffer.from(await authorizedResponse.arrayBuffer()).toString("utf8"), payload.toString("utf8"));
+
+    const unauthorizedResponse = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(otherFeedToken)}`),
+      { params: Promise.resolve({ path: key.split("/") }) }
+    );
+    assert.equal(unauthorizedResponse.status, 401);
+
+    const headResponse = await HEAD(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(ownerFeedToken)}`, { method: "HEAD" }),
+      { params: Promise.resolve({ path: key.split("/") }) }
+    );
+    assert.equal(headResponse.status, 200);
+    assert.equal(headResponse.headers.get("content-length"), String(payload.byteLength));
+  } finally {
+    await storage.deleteObject(key).catch(() => undefined);
+    await prisma.user.delete({ where: { id: owner.id } });
+    await prisma.user.delete({ where: { id: otherUser.id } });
+  }
+});
+
+test("media route rejects expired episodes even when the owner feed token is valid", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-expired`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `media-expired-${uniq}@articlepod.local`,
+      role: "USER"
+    }
+  });
+
+  const feedToken = await ensureUserFeedToken(user.id);
+  const item = await prisma.item.create({
+    data: {
+      userId: user.id,
+      sourceType: "URL",
+      sourceUrl: `https://example.com/media-expired/${uniq}`,
+      status: "READY"
+    }
+  });
+  const key = `items/${item.id}/episode.mp3`;
+  const payload = Buffer.from("expired-media-owner-token", "utf8");
+  await storage.putObject(key, payload, { contentType: "audio/mpeg" });
+
+  try {
+    await prisma.episode.create({
+      data: {
+        itemId: item.id,
+        guid: `episode-expired-${item.id}`,
+        title: `Expired media ${uniq}`,
+        description: "expired media",
+        audioPath: key,
+        audioBytes: payload.byteLength,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-15T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/media/${key}?feed_token=${encodeURIComponent(feedToken)}`),
+      { params: Promise.resolve({ path: key.split("/") }) }
+    );
+    assert.equal(response.status, 401);
+  } finally {
+    await storage.deleteObject(key).catch(() => undefined);
+    await prisma.user.delete({ where: { id: user.id } });
   }
 });
 
@@ -222,14 +353,14 @@ test("media route rejects path traversal attempts", async () => {
       const getRequest = new NextRequest(
         `http://localhost/api/media/${pathSegments.join("/")}?mt=${testMediaToken}`
       );
-      const getResponse = await GET(getRequest, { params: { path: pathSegments } });
+      const getResponse = await GET(getRequest, { params: Promise.resolve({ path: pathSegments }) });
       assert.equal(getResponse.status, 400, `GET should reject traversal: ${pathSegments.join("/")}`);
 
       const headRequest = new NextRequest(
         `http://localhost/api/media/${pathSegments.join("/")}?mt=${testMediaToken}`,
         { method: "HEAD" }
       );
-      const headResponse = await HEAD(headRequest, { params: { path: pathSegments } });
+      const headResponse = await HEAD(headRequest, { params: Promise.resolve({ path: pathSegments }) });
       assert.equal(headResponse.status, 400, `HEAD should reject traversal: ${pathSegments.join("/")}`);
     }
   } finally {
@@ -286,7 +417,7 @@ test("media route 404 enqueues repair for missing episode media", async () => {
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 404);
 
@@ -359,7 +490,7 @@ test("media route reconciles alternate audio path when expected media is missing
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("content-type"), "audio/mp4");
@@ -431,7 +562,7 @@ test("media route does not enqueue repair jobs for non-regenerable items", async
   try {
     const response = await GET(
       new NextRequest(`http://localhost/api/media/${missingPath}?mt=${testMediaToken}&eid=${episode.id}`),
-      { params: { path: missingPath.split("/") } }
+      { params: Promise.resolve({ path: missingPath.split("/") }) }
     );
     assert.equal(response.status, 404);
 

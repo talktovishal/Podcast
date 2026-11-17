@@ -36,18 +36,28 @@ export const azureTablePrimaryBackfillConfigs = [
         passwordHash: row.passwordHash ?? null,
         name: row.name ?? null,
         role: row.role,
+        billingLanePreference: row.billingLanePreference,
         complimentaryPro: row.complimentaryPro,
         billingProvider: row.billingProvider ?? null,
         billingCustomerId: row.billingCustomerId ?? null,
         billingSubscriptionId: row.billingSubscriptionId ?? null,
+        billingPriceId: row.billingPriceId ?? null,
         billingPlanCode: row.billingPlanCode,
         billingStatus: row.billingStatus,
+        billingEntitlementStatus: row.billingEntitlementStatus,
+        billingLastPaymentStatus: row.billingLastPaymentStatus,
+        billingLastInvoiceId: row.billingLastInvoiceId ?? null,
         billingCurrentPeriodEnd: isoOrNull(row.billingCurrentPeriodEnd),
         billingCancelAtPeriodEnd: row.billingCancelAtPeriodEnd,
+        billingLastStripeEventId: row.billingLastStripeEventId ?? null,
+        billingLastStripeEventCreatedAt: isoOrNull(row.billingLastStripeEventCreatedAt),
+        billingLastSubscriptionEventAt: isoOrNull(row.billingLastSubscriptionEventAt),
+        billingLastInvoiceEventAt: isoOrNull(row.billingLastInvoiceEventAt),
         billingUpdatedAt: isoOrNull(row.billingUpdatedAt),
         isPaid: row.isPaid,
         submissionCount: row.submissionCount,
         extraSubmissionCredits: row.extraSubmissionCredits,
+        defaultItemProcessingMode: row.defaultItemProcessingMode,
         ttsProvider: row.ttsProvider,
         ttsVoice: row.ttsVoice,
         firstSeenAt: isoOrNull(row.firstSeenAt),
@@ -58,6 +68,37 @@ export const azureTablePrimaryBackfillConfigs = [
         lastSeenCountryCode: row.lastSeenCountryCode ?? null,
         lastSeenRegionCode: row.lastSeenRegionCode ?? null,
         lastSeenCity: row.lastSeenCity ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "SandboxBillingAccount",
+    delegate: "sandboxBillingAccount",
+    orderByField: "userId",
+    tableKey: "sandboxBillingAccounts",
+    buildEntity(row) {
+      return {
+        partitionKey: "sandboxBilling",
+        rowKey: row.userId,
+        userId: row.userId,
+        billingProvider: row.billingProvider ?? null,
+        billingCustomerId: row.billingCustomerId ?? null,
+        billingSubscriptionId: row.billingSubscriptionId ?? null,
+        billingPriceId: row.billingPriceId ?? null,
+        billingPlanCode: row.billingPlanCode,
+        billingStatus: row.billingStatus,
+        billingEntitlementStatus: row.billingEntitlementStatus,
+        billingLastPaymentStatus: row.billingLastPaymentStatus,
+        billingLastInvoiceId: row.billingLastInvoiceId ?? null,
+        billingCurrentPeriodEnd: isoOrNull(row.billingCurrentPeriodEnd),
+        billingCancelAtPeriodEnd: row.billingCancelAtPeriodEnd,
+        billingLastStripeEventId: row.billingLastStripeEventId ?? null,
+        billingLastStripeEventCreatedAt: isoOrNull(row.billingLastStripeEventCreatedAt),
+        billingLastSubscriptionEventAt: isoOrNull(row.billingLastSubscriptionEventAt),
+        billingLastInvoiceEventAt: isoOrNull(row.billingLastInvoiceEventAt),
+        billingUpdatedAt: isoOrNull(row.billingUpdatedAt),
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString()
       };
@@ -93,9 +134,12 @@ export const azureTablePrimaryBackfillConfigs = [
         provider: row.provider,
         providerEventId: row.providerEventId,
         eventType: row.eventType,
+        eventCreatedAt: isoOrNull(row.eventCreatedAt),
+        objectId: row.objectId ?? null,
         userId: row.userId ?? null,
         customerId: row.customerId ?? null,
         subscriptionId: row.subscriptionId ?? null,
+        invoiceId: row.invoiceId ?? null,
         status: row.status,
         errorMessage: row.errorMessage ?? null,
         processedAt: isoOrNull(row.processedAt),
@@ -237,9 +281,99 @@ export const azureTablePrimaryBackfillConfigs = [
         sourceHtml: row.sourceHtml ?? null,
         sourceCapturedAt: isoOrNull(row.sourceCapturedAt),
         status: row.status,
+        processingMode: row.processingMode,
         errorCode: row.errorCode ?? null,
         errorMessage: row.errorMessage ?? null,
         textHash: row.textHash ?? null,
+        summaryStatus: row.summaryStatus,
+        summaryTitle: row.summaryTitle ?? null,
+        summaryStorageKey: row.summaryStorageKey ?? null,
+        summaryBytes: row.summaryBytes ?? null,
+        summaryProvider: row.summaryProvider ?? null,
+        summaryModel: row.summaryModel ?? null,
+        summaryDeployment: row.summaryDeployment ?? null,
+        summaryInputTokens: row.summaryInputTokens ?? null,
+        summaryOutputTokens: row.summaryOutputTokens ?? null,
+        summaryErrorCode: row.summaryErrorCode ?? null,
+        summaryErrorMessage: row.summaryErrorMessage ?? null,
+        summaryCompletedAt: isoOrNull(row.summaryCompletedAt),
+        extractionEngine: row.extractionEngine ?? null,
+        extractionSelectionMode: row.extractionSelectionMode ?? null,
+        extractionScoreMargin: row.extractionScoreMargin ?? null,
+        extractionSummaryJson: row.extractionSummaryJson ?? null,
+        extractionSelectionRecordedAt: isoOrNull(row.extractionSelectionRecordedAt),
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "ArticleSummaryTask",
+    delegate: "articleSummaryTask",
+    orderByField: "id",
+    tableKey: "articleSummaryTasks",
+    buildEntity(row) {
+      return {
+        partitionKey: "articleSummaryTask",
+        rowKey: row.id,
+        id: row.id,
+        itemId: row.itemId,
+        userId: row.userId,
+        status: row.status,
+        attempt: row.attempt,
+        scheduledFor: isoOrNull(row.scheduledFor),
+        nextRetryAt: isoOrNull(row.nextRetryAt),
+        lockedAt: isoOrNull(row.lockedAt),
+        leaseId: row.leaseId ?? null,
+        leaseOwner: row.leaseOwner ?? null,
+        errorCode: row.errorCode ?? null,
+        errorMessage: row.errorMessage ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "Snippet",
+    delegate: "snippet",
+    orderByField: "id",
+    tableKey: "snippets",
+    buildEntity(row) {
+      return {
+        partitionKey: "snippet",
+        rowKey: row.id,
+        userId: row.userId,
+        sourceUrl: row.sourceUrl,
+        sourceTitle: row.sourceTitle ?? null,
+        selectedText: row.selectedText,
+        comment: row.comment ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString()
+      };
+    }
+  },
+  {
+    modelName: "UserFeedback",
+    delegate: "userFeedback",
+    orderByField: "id",
+    tableKey: "feedback",
+    buildEntity(row) {
+      return {
+        partitionKey: "feedback",
+        rowKey: row.id,
+        userId: row.userId,
+        message: row.message,
+        feedbackType: row.feedbackType ?? null,
+        featureArea: row.featureArea ?? null,
+        allowEmailContact: row.allowEmailContact,
+        status: row.status,
+        sourcePath: row.sourcePath ?? null,
+        mirrorStatus: row.mirrorStatus,
+        mirrorIssueNumber: row.mirrorIssueNumber ?? null,
+        mirrorIssueUrl: row.mirrorIssueUrl ?? null,
+        mirrorAttemptedAt: isoOrNull(row.mirrorAttemptedAt),
+        mirrorErrorCode: row.mirrorErrorCode ?? null,
+        mirrorErrorMessage: row.mirrorErrorMessage ?? null,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString()
       };
@@ -253,9 +387,11 @@ export const azureTablePrimaryBackfillConfigs = [
     select: {
       id: true,
       itemId: true,
+      jobKind: true,
       attempt: true,
       status: true,
       lockedAt: true,
+      scheduledFor: true,
       nextRetryAt: true,
       errorCode: true,
       errorMessage: true,
@@ -273,9 +409,11 @@ export const azureTablePrimaryBackfillConfigs = [
         rowKey: row.id,
         itemId: row.itemId,
         userId: row.item.userId,
+        jobKind: row.jobKind,
         attempt: row.attempt,
         status: row.status,
         lockedAt: isoOrNull(row.lockedAt),
+        scheduledFor: isoOrNull(row.scheduledFor),
         nextRetryAt: isoOrNull(row.nextRetryAt),
         errorCode: row.errorCode ?? null,
         errorMessage: row.errorMessage ?? null,
@@ -319,6 +457,7 @@ export const azureTablePrimaryBackfillConfigs = [
       audioBytes: true,
       mimeType: true,
       publishedAt: true,
+      expiresAt: true,
       createdAt: true,
       item: {
         select: {
@@ -339,6 +478,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }
@@ -455,6 +595,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }
@@ -533,6 +674,7 @@ export const azureTablePrimaryBackfillConfigs = [
         audioBytes: row.audioBytes,
         mimeType: row.mimeType,
         publishedAt: row.publishedAt.toISOString(),
+        expiresAt: isoOrNull(row.expiresAt),
         createdAt: row.createdAt.toISOString()
       };
     }

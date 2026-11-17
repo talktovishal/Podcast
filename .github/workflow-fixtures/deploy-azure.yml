@@ -1,0 +1,283 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_healthcheck:
+        description: "Skip health check after deployment"
+        required: false
+        type: boolean
+        default: false
+      full_deploy:
+        description: "Force full runtime setup (deps + python-tts + demo seed)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-azure-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Validate deploy target
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$TARGET_HOST" ]; then
+            echo "::error::AZURE_VM_HOST secret is not configured"
+            exit 1
+          fi
+          if [ -z "$TARGET_USER" ]; then
+            echo "::error::AZURE_VM_USER resolved to empty value"
+            exit 1
+          fi
+
+      - name: Setup SSH credentials
+        env:
+          AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+        run: bash scripts/azure/setup-deployment-ssh.sh
+
+      - name: Probe SSH connectivity
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+        run: |
+          set -euo pipefail
+
+          TARGET_PORT=22
+          TARGET_SSH_KEY="$RUNNER_TEMP/articlepod-ssh/identity"
+          TARGET_KNOWN_HOSTS_FILE="$RUNNER_TEMP/articlepod-ssh/known_hosts"
+          source scripts/azure/deployment-ssh.sh
+          configure_deployment_ssh 15 15 4
+          ssh "${SSH_ARGS[@]}" \
+            "$TARGET_USER@$TARGET_HOST" \
+            'echo "[deploy-workflow] ssh ok on $(hostname)"'
+
+      - name: Deploy to Azure VM
+        env:
+          TARGET_HOST: ${{ secrets.AZURE_VM_HOST }}
+          TARGET_USER: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
+          # App secrets forwarded to render-env.sh on the VM.
+          # Production uses Azure Table as the primary operational metadata store,
+          # so DATABASE_URL is intentionally omitted in the Azure runtime.
+          APP_URL: ${{ secrets.APP_URL }}
+          APP_DOMAIN_ALIASES: ${{ secrets.APP_DOMAIN_ALIASES || 'www.articlepod.com' }}
+          LETSENCRYPT_EMAIL: ${{ secrets.LETSENCRYPT_EMAIL }}
+          STORAGE_BACKEND: azure_blob
+          AZURE_STORAGE_CONTAINER: ${{ secrets.APP_AZURE_STORAGE_CONTAINER || 'articlepod' }}
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.APP_AZURE_STORAGE_CONNECTION_STRING }}
+          METADATA_PRIMARY_BACKEND: azure_table
+          AZURE_TABLE_CONNECTION_STRING: ${{ secrets.APP_AZURE_STORAGE_CONNECTION_STRING }}
+          PYTHON_TTS_URL: http://127.0.0.1:8010
+          ADMIN_PASSWORD: ${{ secrets.APP_ADMIN_PASSWORD }}
+          DEMO_PASSWORD: ${{ secrets.APP_DEMO_PASSWORD }}
+          WEBSTORE_REVIEWER_EMAIL: ${{ secrets.APP_WEBSTORE_REVIEWER_EMAIL }}
+          WEBSTORE_REVIEWER_PASSWORD: ${{ secrets.APP_WEBSTORE_REVIEWER_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.APP_GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.APP_GOOGLE_CLIENT_SECRET }}
+          BILLING_SANDBOX_ALLOWLIST_EMAILS: ${{ secrets.APP_BILLING_SANDBOX_ALLOWLIST_EMAILS }}
+          STRIPE_LIVE_SECRET_KEY: ${{ secrets.APP_STRIPE_LIVE_SECRET_KEY || secrets.APP_STRIPE_SECRET_KEY }}
+          STRIPE_LIVE_WEBHOOK_SECRET: ${{ secrets.APP_STRIPE_LIVE_WEBHOOK_SECRET || secrets.APP_STRIPE_WEBHOOK_SECRET }}
+          STRIPE_LIVE_PRICE_PRO_MONTHLY: ${{ secrets.APP_STRIPE_LIVE_PRICE_PRO_MONTHLY || secrets.APP_STRIPE_PRICE_PRO_MONTHLY }}
+          STRIPE_LIVE_PRICE_PRO_ANNUAL: ${{ secrets.APP_STRIPE_LIVE_PRICE_PRO_ANNUAL || secrets.APP_STRIPE_PRICE_PRO_ANNUAL }}
+          STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID: ${{ secrets.APP_STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID || secrets.APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}
+          STRIPE_SANDBOX_SECRET_KEY: ${{ secrets.APP_STRIPE_SANDBOX_SECRET_KEY }}
+          STRIPE_SANDBOX_WEBHOOK_SECRET: ${{ secrets.APP_STRIPE_SANDBOX_WEBHOOK_SECRET }}
+          STRIPE_SANDBOX_PRICE_PRO_MONTHLY: ${{ secrets.APP_STRIPE_SANDBOX_PRICE_PRO_MONTHLY }}
+          STRIPE_SANDBOX_PRICE_PRO_ANNUAL: ${{ secrets.APP_STRIPE_SANDBOX_PRICE_PRO_ANNUAL }}
+          STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID: ${{ secrets.APP_STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.APP_STRIPE_LIVE_SECRET_KEY || secrets.APP_STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.APP_STRIPE_LIVE_WEBHOOK_SECRET || secrets.APP_STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRICE_PRO_MONTHLY: ${{ secrets.APP_STRIPE_LIVE_PRICE_PRO_MONTHLY || secrets.APP_STRIPE_PRICE_PRO_MONTHLY }}
+          STRIPE_PRICE_PRO_ANNUAL: ${{ secrets.APP_STRIPE_LIVE_PRICE_PRO_ANNUAL || secrets.APP_STRIPE_PRICE_PRO_ANNUAL }}
+          STRIPE_BILLING_PORTAL_CONFIGURATION_ID: ${{ secrets.APP_STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID || secrets.APP_STRIPE_BILLING_PORTAL_CONFIGURATION_ID }}
+          DIGEST_SCHEDULER_SECRET: ${{ secrets.APP_DIGEST_SCHEDULER_SECRET }}
+          MEDIA_SIGNING_KEY: ${{ secrets.APP_MEDIA_SIGNING_KEY }}
+          DIGEST_SUMMARY_PROVIDER: azure_openai
+          AZURE_OPENAI_BASE_URL: ${{ secrets.APP_AZURE_OPENAI_BASE_URL }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.APP_AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT: ${{ secrets.APP_AZURE_OPENAI_SUMMARY_NANO_DEPLOYMENT }}
+          AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT: ${{ secrets.APP_AZURE_OPENAI_SUMMARY_MINI_DEPLOYMENT }}
+        run: |
+          set -euo pipefail
+
+          echo "::group::Deploying to $TARGET_HOST"
+          TARGET_SSH_KEY="$RUNNER_TEMP/articlepod-ssh/identity"
+
+          if [ ! -f "$TARGET_SSH_KEY" ]; then
+            echo "::error::SSH key not found at $TARGET_SSH_KEY"
+            exit 1
+          fi
+
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL secret is not configured"
+            exit 1
+          fi
+
+          if [ "$APP_URL" != "https://articlepod.com" ]; then
+            echo "::error::APP_URL must be set to https://articlepod.com for production canonical URLs"
+            exit 1
+          fi
+
+          if [ -z "$LETSENCRYPT_EMAIL" ]; then
+            echo "::error::LETSENCRYPT_EMAIL secret is not configured"
+            exit 1
+          fi
+
+          CANONICAL_HOST="${APP_URL#*://}"
+          CANONICAL_HOST="${CANONICAL_HOST%%/*}"
+
+          DEPLOY_ARGS=(
+            --host "$TARGET_HOST"
+            --user "$TARGET_USER"
+            --ssh-key "$TARGET_SSH_KEY"
+            --ssh-known-hosts "$RUNNER_TEMP/articlepod-ssh/known_hosts"
+            --render-env
+            --configure-ingress
+            --canonical-host "$CANONICAL_HOST"
+            --host-aliases "$APP_DOMAIN_ALIASES"
+            --letsencrypt-email "$LETSENCRYPT_EMAIL"
+          )
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_healthcheck }}" = "true" ]; then
+            DEPLOY_ARGS+=(--skip-healthcheck)
+          fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_deploy }}" = "true" ]; then
+            DEPLOY_ARGS+=(--full-deploy)
+            echo "Deploy mode: full"
+          else
+            echo "Deploy mode: fast (incremental)"
+          fi
+
+          ./scripts/azure/deploy-changes.sh "${DEPLOY_ARGS[@]}"
+
+          echo "::endgroup::"
+
+      - name: Post-deploy smoke tests
+        id: smoke
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SMOKE_FEED_TOKEN: ${{ secrets.APP_SMOKE_FEED_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL secret is not configured"
+            exit 1
+          fi
+          APP_URL="${APP_URL%/}"
+
+          expect_status() {
+            local expected="$1"
+            local method="$2"
+            local url="$3"
+            local label="$4"
+            local code
+
+            if [ "$method" = "HEAD" ]; then
+              code="$(curl -sS -o /dev/null -w "%{http_code}" -I "$url")"
+            else
+              code="$(curl -sS -o /dev/null -w "%{http_code}" -H "Range: bytes=0-1" "$url")"
+            fi
+
+            echo "$label status: $code"
+            if [ "$code" != "$expected" ]; then
+              echo "::error::$label expected HTTP $expected, got $code"
+              exit 1
+            fi
+          }
+
+          # Core health checks — always required
+          expect_status 200 HEAD "$APP_URL/api/health" "health endpoint"
+          expect_status 200 HEAD "$APP_URL/manifest.webmanifest" "web manifest"
+          expect_status 200 HEAD "$APP_URL/apple-icon.png" "apple icon"
+          expect_status 200 HEAD "$APP_URL/brand/brain-mark-192.png" "brand icon"
+          echo "smoke_health=pass" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$SMOKE_FEED_TOKEN" ]; then
+            echo "::warning::APP_SMOKE_FEED_TOKEN is not configured; RSS and media smoke tests are skipped"
+            echo "  Set APP_SMOKE_FEED_TOKEN to a valid feed token to enable post-deploy RSS/media validation."
+            echo "smoke_rss=skipped-no-token" >> "$GITHUB_OUTPUT"
+          else
+            FEED_URL="$APP_URL/rss/$SMOKE_FEED_TOKEN"
+
+            # Check feed availability — treat 404 as a warning when the token is explicitly
+            # configured but stale (common after re-seeding the demo user).  Any other non-2xx
+            # response is treated as a hard failure because it indicates an application problem.
+            feed_head_code="$(curl -sS -o /dev/null -w "%{http_code}" -I "$FEED_URL")"
+            echo "feed HEAD status: $feed_head_code"
+            if [ "$feed_head_code" = "404" ]; then
+              echo "::warning::RSS feed returned 404 — APP_SMOKE_FEED_TOKEN is stale or the demo user has not been seeded yet"
+              echo "  Update the APP_SMOKE_FEED_TOKEN secret to match the current demo/smoke user feed token."
+              echo "smoke_rss=warned-404" >> "$GITHUB_OUTPUT"
+            elif [ "$feed_head_code" -lt 200 ] || [ "$feed_head_code" -ge 400 ]; then
+              echo "::error::feed HEAD expected 200, got $feed_head_code — RSS route may be broken"
+              exit 1
+            else
+              ./scripts/verify_podcast_contract.sh "$FEED_URL"
+
+              RSS_TMP="$(mktemp)"
+              trap 'rm -f "$RSS_TMP"' EXIT
+              curl -fsS "$FEED_URL" -o "$RSS_TMP"
+
+              FIRST_MP3_URL="$(python3 -c 'import sys, xml.etree.ElementTree as ET; tree = ET.parse(sys.argv[1]); root = tree.getroot(); channel = root.find("channel"); item = channel.find("item") if channel is not None else None; enclosure = item.find("enclosure") if item is not None else None; print((enclosure.attrib.get("url") if enclosure is not None else "") or "")' "$RSS_TMP")"
+
+              if [ -z "$FIRST_MP3_URL" ]; then
+                echo "::error::Could not extract first enclosure URL from RSS feed"
+                exit 1
+              fi
+
+              LEGACY_MP3_URL="$(python3 -c 'import sys; from urllib.parse import urlencode, urlparse, urlunparse; parsed = urlparse(sys.argv[1]); print(urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", urlencode({"feed_token": sys.argv[2]}), "")))' "$FIRST_MP3_URL" "$SMOKE_FEED_TOKEN")"
+
+              expect_status 200 HEAD "$LEGACY_MP3_URL" "legacy media HEAD"
+              expect_status 206 RANGE "$LEGACY_MP3_URL" "legacy media range"
+              echo "smoke_rss=pass" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Remove temporary SSH credentials
+        if: always()
+        run: bash scripts/azure/setup-deployment-ssh.sh cleanup
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "## ✅ Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Deployed to: \`${{ secrets.AZURE_VM_HOST }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Commit: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Triggered by: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Smoke test results" >> $GITHUB_STEP_SUMMARY
+          echo "- Health checks: \`${{ steps.smoke.outputs.smoke_health || 'not run' }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- RSS/media: \`${{ steps.smoke.outputs.smoke_rss || 'not run' }}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Common issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- SSH key permissions" >> $GITHUB_STEP_SUMMARY
+          echo "- VM connectivity" >> $GITHUB_STEP_SUMMARY
+          echo "- Service restart failures" >> $GITHUB_STEP_SUMMARY

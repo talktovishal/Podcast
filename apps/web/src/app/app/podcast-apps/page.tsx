@@ -1,85 +1,72 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTtsCatalog, normalizeTtsSelection } from "@articlepod/core";
-import { AppShellNav } from "@/components/app-shell-nav";
 import { DashboardClient } from "@/components/dashboard-client";
-import { ensureUserDigestFeedTokenAccess, ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
+import { PodcastAppWalkthroughs } from "@/components/podcast-app-walkthroughs";
+import { ensureUserFeedTokenAccess, getAuthUserFromCookies } from "@/lib/auth";
 import { getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
 export const metadata: Metadata = {
-  robots: { index: false, follow: false }
+  robots: { index: false, follow: false },
 };
 
 export default async function PodcastAppsPage() {
   const user = await getAuthUserFromCookies();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
 
-  const [feedAccess, digestFeedAccess, ttsSettings, ttsAvailability] = await Promise.all([
+  const [feedAccess, ttsSettings, ttsAvailability] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
-    ensureUserDigestFeedTokenAccess(user.id),
     getUserTtsSettings(user.id),
-    getTtsProviderAvailability()
+    getTtsProviderAvailability(),
   ]);
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
-    voice: ttsSettings.voice
+    voice: ttsSettings.voice,
   });
   const ttsCatalog = getTtsCatalog();
-  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
-  const digestFeedUrl = digestFeedAccess.tokenValue ? `${env.appUrl}/rss/digest/${digestFeedAccess.tokenValue}.xml` : null;
+  const feedUrl = feedAccess.tokenValue
+    ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml`
+    : null;
   const feedUrlMessage =
-    "Your current private feed is still active, but this legacy URL can no longer be shown here. Keep using the URL already added in your podcast app. If you rotate the token, you will need to re-add the new URL there.";
-  const digestFeedUrlMessage =
-    "Your current digest feed is still active, but this legacy URL can no longer be shown here. Rotate the digest token only when you are ready to replace the URL in your podcast app.";
+    "Your current private feed is still active, but this older URL can no longer be shown here. Keep using the URL already added in your podcast app unless you decide to replace it.";
 
   return (
     <main className="py-5 sm:py-8">
       <div className="container-shell space-y-6">
-        <header className="card p-4 sm:p-5">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <p className="text-sm text-[var(--muted)]">Private feed setup</p>
-              <AppShellNav current="podcast-apps" />
-            </div>
-            <div className="space-y-1">
-              <h1 className="font-bold text-2xl">Podcast Apps</h1>
-              <p className="text-sm text-[var(--muted)]">Copy your private feed, add it in Apple Podcasts or YouTube Music, and keep the live feed tools front and center.</p>
-            </div>
+        <section className="card p-4 sm:p-5">
+          <div className="space-y-1">
+            <h1 className="font-bold text-2xl">Podcast Apps</h1>
+            <p className="text-sm text-[var(--muted)]">
+              Copy your private feed URL and choose the podcast app you want to
+              use.
+            </p>
           </div>
-        </header>
+        </section>
 
         <DashboardClient
           viewMode="podcast-apps"
           feedUrl={feedUrl}
           feedUrlMessage={feedUrl ? null : feedUrlMessage}
           isAdmin={user.role === "ADMIN"}
-          digestFeedUrl={digestFeedUrl}
-          digestFeedUrlMessage={digestFeedUrl ? null : digestFeedUrlMessage}
           initialTtsSelection={normalizedSelection}
           ttsCatalog={ttsCatalog}
           ttsAvailability={ttsAvailability}
           initialItems={[]}
         />
 
-        <section className="grid gap-4 lg:grid-cols-[1.35fr_0.95fr]">
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Walkthroughs</h2>
-            <p className="mt-2 text-sm text-[var(--muted)]">
-              This page now starts with the live feed controls, so the setup videos and app-specific screenshots can stay below as optional guidance instead of competing with the feed itself.
+        <section className="scroll-mt-24 space-y-3" id="app-walkthroughs">
+          <div>
+            <h2 className="text-base font-semibold">App walkthroughs</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              If you tap an app button above first, your feed URL is already
+              copied.
             </p>
           </div>
-          <div className="card p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Quick start</h2>
-            <ol className="mt-3 space-y-2 text-sm text-[var(--muted)]">
-              <li>1. Copy your private feed URL above.</li>
-              <li>2. Open your podcast app and use its Add by URL flow.</li>
-              <li>3. Only rotate the feed token when you are ready to replace the subscription inside the podcast app.</li>
-            </ol>
-          </div>
+          <PodcastAppWalkthroughs />
         </section>
       </div>
     </main>

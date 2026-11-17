@@ -18,9 +18,14 @@ Use this as the entry point for repo documentation.
 - Implementation status and helper flows: `/Users/vishalchowdhary/Documents/Podcast/docs/implement.md`
 - Milestone tracking: `/Users/vishalchowdhary/Documents/Podcast/docs/plans.md`
 
+## Launch And Marketing
+- Short-form launch production kit: `/Users/vishalchowdhary/Documents/Podcast/docs/launch/short-form-launch-kit.md`
+- Short-form launch calendar CSV: `/Users/vishalchowdhary/Documents/Podcast/docs/launch/short-form-calendar.csv`
+
 ## Supporting Docs
 - OAuth setup: `/Users/vishalchowdhary/Documents/Podcast/docs/oauth-setup.md`
 - Branding notes: `/Users/vishalchowdhary/Documents/Podcast/docs/branding.md`
+- Future podcast transcript coverage options: `/Users/vishalchowdhary/Documents/Podcast/docs/podcast-transcript-future-options.md`
 - Third-party attribution: `/Users/vishalchowdhary/Documents/Podcast/docs/THIRD_PARTY.md`
 - Cost model notes: `/Users/vishalchowdhary/Documents/Podcast/docs/azure-cost-model.md`
 - Billing handoff and Stripe setup checklist: `/Users/vishalchowdhary/Documents/Podcast/docs/billing/README.md`

@@ -1,52 +1,471 @@
 # ArticlePod Detailed Build Plan
 
 ## Planning Gate
+
 - This file is planning-only. No implementation starts until explicit user approval.
 - Source-of-truth product requirements: `docs/Prompts.md`.
 - Execution guardrails and compatibility invariants: `AGENTS.md`.
 - If any requirement appears conflicting, log it in "Spec Consistency Notes" and apply the smallest correction before coding.
 
 ## Spec Consistency Notes (Current)
+
+- Contributor documentation hygiene (done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
+  replace nonexistent scaffold directories and placeholders with the actual
+  workspace scripts and Python model-free CI commands. Referenced files,
+  manifest scripts and CI commands checked; approval/security/migration policy
+  unchanged. No workstation-specific Markdown links were found in the checked
+  root contributor files and docs, so no speculative link rewrite was made.
+
+- Packaging context hygiene (implementation and full validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
+  synthetic-canary validation, required image contents and checkout-independent
+  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-validated-not-deployed).
+  No dependency pruning, credential changes or protected deployment-gate changes.
+  Initial full CI passed context canaries, image builds and content checks but
+  exposed a test-startup race: the worker health port was not open yet. The
+  corrected check waits for connection refusal only, bounded at 60 seconds;
+  six controlled startup/error/deadline cases and
+  [full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+  passed on runtime candidate `aa05f54`, including parity smoke and podcast
+  contracts. Docker is unavailable locally; actual image checks ran in CI.
+
+- Provider manifest design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  separates verified source declarations from unknown live assets, defines
+  platform-specific hashes/provenance and two-build/rollback validation.
+  No upgrades, guessed pins or live-runtime changes.
+
+- Shared synthesis extraction (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
+  [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts). Move behavior
+  unchanged, including retries, format, storage keys and cleanup; retain
+  coordination/publication/ownership policies with their existing jobs.
+  Exact moved-body comparison and
+  [CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+  passed on candidate `a43cfa3`.
+
+- Provider gate audit (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
+  four missing behavioral cases and six controlled-fault checks. No heavyweight
+  model install, provider/runtime change, live-cloud or production claim.
+  [CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+  passed on candidate `e4723bc`, including the controlled-fault gate.
+
+- RSS preflight concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
+  results, strict absence classification and no repair after any outage.
+  Synthetic-wave and delayed-outage regressions cover the bound and mutation gate.
+  Seven focused helper cases pass locally; 12 synthetic 20 ms HEAD checks measured
+  261.761 ms serial versus 66.409 ms bounded median (three runs, peak four).
+  [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+  passed on candidate `6117789`, including delayed-outage route assertions.
+
+- Safe query bounds (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
+  stopped their iterators after the first match, and retained full reads for
+  ordering-sensitive/global operations. Three SDK-boundary regressions cover
+  one-of-1000 consumption/close, empty/error outcomes and newest/oldest selection.
+  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-and-validated-not-deployed)
+  and passed [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+  on candidate `c3ba8e5`.
+
+- Model admission design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  specifies one active inference, finite waiting, FIFO turns, overload, real
+  cancellation semantics, caller retry integration and resource/UX trade-offs.
+  No production load test or runtime/resource changes.
+
+- Quota reservation design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [admission and compensation proposal](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  covers concurrent last slots, stable request identity, free/paid capacity,
+  failure recovery and upgrade/rollback. Documents the completed-summary usage
+  mismatch; runtime quota policy and balances are unchanged.
+
+- Publication recovery design (design deliverable done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [fenced commit proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  includes SQL/Azure mechanics, stale-owner interleavings, every publication
+  write boundary, reconciliation, stable identities and staged rollback.
+  Runtime/schema/ownership protocols remain unchanged.
+
+- Summary acceptance design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [proposal and crash matrix](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+  reconcile durable preparation, existing summary tasks, quota identity,
+  asynchronous failures, migration and rollback. No runtime/schema change.
+
+- Readiness design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [contract and rollout proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+  documents bounded checks, known consumers and long-job/real-stall distinction.
+  Runtime endpoints, liveness, release gates and restarts are unchanged.
+
+- Chunk size enforcement (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
+  oversized sentences at whitespace or surrogate-pair-safe hard boundaries.
+  Enforce integer limits >=2 UTF-16 code units and retain split-sentence content.
+  No migration or regeneration of published audio.
+  Five focused cases and [CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+  passed on candidate `11173bf`.
+
+- Feed eligibility (implementation and scoped validation done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17;
+  not merged/deployed): resolve actual unexpired episode candidates' article
+  records without the newest-500 window, deduplicating IDs and keeping one point
+  read in flight. Preserve same-user/READY requirements, retention, ordering,
+  GUIDs, feed tokens and audio URLs. No stored-contract change or migration.
+  [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+  passed on candidate `5e60fdb`.
+
+- Billing event concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
+  on the observed billing snapshot. Retry known write conflicts from a fresh read
+  at most three times; ignore newly stale domain events and propagate exhausted
+  conflicts without a processed audit entry. Equal timestamps keep sequential
+  successful-write order, not an invented ordering of Stripe event IDs.
+  No new persisted fields/keys or migration; audit/account atomicity and
+  cross-domain/non-webhook reconciliation ordering remain separate concerns.
+  All 22 added cases executed and passed
+  [CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+  on candidate `aef1035`.
+
+- Model initialization (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): provider/language guards prevent duplicate
+  cold construction, publish only successfully constructed models and allow
+  retry after failure. Warm inference remains unchanged. No persisted-contract
+  change, migration or backfill is required. Candidate `72ecd2d` passed
+  [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489),
+  including five added concurrency/retry cases in model-free service tests.
+
+- Equal round-robin worker scheduling (implementation and validation done;
+  target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  the owner selected equal,
+  not weighted, rotation across item jobs, Summary Studio, article-summary tasks
+  and digests. Empty/failed categories advance the cursor; due scheduling is
+  checked independently of item-queue idleness. Scheduling/category failures are
+  logged and isolated, with existing idle backoff after no successful work.
+  Overflow remains item-only behind its existing activation gate. No new
+  concurrency, service, dependency, persisted contract or migration is introduced.
+  Fairness is bounded in selection turns, not elapsed time; long jobs and process
+  downtime remain separate limits. The branch stacks on the two earlier batch
+  fixes. Rollback restores the starvation-prone priority policy; no data reset.
+  Candidate `353f790` passed
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397):
+  core/web/worker checks, authenticated RSS browser/build, Python tests and
+  container parity/podcast contracts. All 30 new scheduling tests executed in CI;
+  those plus four existing overflow-policy tests passed locally with Node's
+  TypeScript runtime. Each of the 15 nonempty queue combinations was exercised
+  for 100 successful turns, with equal shares and at most four polls between
+  opportunities for an active class. No production load experiment was run.
+
+- Explicit item mutations (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  Azure item updates return a saved item only
+  after a conditional write succeeds. Conflicts and missing items raise explicit
+  AppErrors; no stale reread or blind mutation retry can appear successful.
+  Existing await boundaries gate audio/summary job success and article-summary
+  task completion. Conflicts use bounded retries; missing-item failures do not.
+  This adds ITEM_UPDATE_CONFLICT / ITEM_NOT_FOUND values to existing error-code
+  strings and HTTP responses, without changing schemas, keys or successful
+  response shapes. No backfill/reset is needed. Old code can read the records,
+  but rollback restores the defect; activate consistent web/worker versions in
+  the later protected batch. This does not solve multi-record atomicity,
+  stale-publisher fencing, or quota/enqueue transactionality. The branch is
+  stacked on the independently validated audio-ownership fix, not merged to main.
+  Candidate `24b995b` passed
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641):
+  core/web/worker typechecks and tests, web lint, authenticated RSS browser/build,
+  Python tests and container parity/podcast contracts. All 25 added regressions
+  executed and passed. They use SDK-boundary and worker-adapter fault injection,
+  not production mutations. Local syntax checks passed; local dependency-backed
+  execution was blocked by the pinned pnpm download (ENOTCONN).
+
+- Audio ownership follow-up (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  cache hits copy bytes into item-owned audio rather than publish another
+  item's path. New item publications use `items/<itemId>/audio/<publicationId>.<ext>`
+  so regenerating an original owner cannot overwrite a legacy shared filename.
+  The publication ID is fresh per worker attempt, so cleanup cannot race a
+  later publisher reusing an old filename. Existing ItemArtifact rows with
+  kind `EPISODE_AUDIO_<publicationId>_<ext>` track destinations before writes,
+  including failed copies and superseded versions; expiry uses audio retention.
+  Schemas and Episode/ChunkCache fields are unchanged. Existing paths,
+  GUIDs, signatures and URLs remain untouched; no bulk backfill/reset is needed.
+  Cleanup must remove departing metadata before checking all remaining episode
+  references, including item MP3/M4A alternate-repair paths, and retain referenced
+  objects. Deploy web and workers together with old workers quiesced: mixed old
+  publishers can still introduce aliases after a cleanup check. Old code can read
+  the new paths, but a full rollback restores the original ownership risk.
+  Never mix an old sharing worker with new cleanup or delete new objects as a
+  rollback shortcut. Candidate `6842529` passed core/web/worker typechecks and
+  tests, web lint, authenticated RSS browser validation, Python tests and
+  container parity/podcast contracts in
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121).
+  Azure SDK copy/range behavior was tested against a synthetic loopback Blob
+  endpoint, not live production storage. Deployment and live ownership checks
+  are deliberately deferred to the later batch; main remains at `8590e43`.
+
+- Focused dashboard hardening (2026-11-11): single-flight refresh, mutation
+  generation invalidation and unmount cancellation prevent stale snapshots.
+  Active/idle intervals, hidden/read-only behavior and stable-token merging
+  remain unchanged. No persisted contract changes; production validation pending.
+
+- Focused cache hardening (2026-11-11): byte existence precedes reuse; only
+  authoritative absence permits conditional stale-row deletion. Concurrent
+  replacements are re-read; outages fail retryably without new synthesis.
+  No schema/key-layout migration or blanket cache purge. Shared audio ownership
+  and production validation remain separate work.
+
+- Focused RSS hardening (2026-11-11): complete media preflight precedes any repair;
+  unknown/transient storage failures return retryable, non-cacheable HTTP 503.
+  Healthy feed URLs/signatures and confirmed-missing alternate-path repair remain
+  unchanged. No persisted schema changes; deployment validation remains separate.
+
+- Focused hardening (2026-11-11): optional-provider discovery and requested-provider
+  synthesis checks are isolated, with model-free service tests selected by CI.
+  Manual CI validates the complete tracked candidate, including the Python service.
+  Its RSS E2E job builds the web app and uses an isolated seeded database/local server.
+  Browser CI and the parity web container use the existing production web launcher
+  rather than `next start`; parity still bootstraps/seeds only its disposable database.
+  Its digest-pinned browser image must remain aligned with the locked Playwright version.
+  Server output and exit traces precede optional runner diagnostics on browser failure.
+  Production validation is tracked separately; no schema/data migration is needed.
+
+- Private operational repository separation is staged, not cut over. The
+  manual source-main production export fixes destination identity/key, checks
+  the expected reviewed source SHA, seals exactly 37 existing credentials plus
+  a fresh read-only source checkout key and two HMAC proof fields, and exports
+  only bounded ciphertext/public-key artifacts. Isolated crypto dependencies
+  and synthetic CI tests do not consume production credentials. No source
+  operational entrypoint or secret is retired in this slice. The coordinator
+  must verify private proof/checkout, unchanged source secret snapshots, and
+  live-version/data/private-link continuity before cutover. Runtime support
+  remains in source; exact operational moves require the agreed ownership list
+  in `docs/azure-ci-cd.md`. This adds a GitHub secret-store transfer contract,
+  not an application schema migration, and does not complete credential
+  invalidation or clear retained-content publication blockers.
+- Credential migration remains incomplete: the narrowly scoped vault module and
+  version-pinned managed-identity launcher are staged, not activated. VM unit
+  templates now have opt-in routing with unchanged legacy defaults, and the env
+  renderer can emit public-only configuration. Legacy deploy guards prevent
+  overwriting a vault-managed environment. Initial bootstrap and any active
+  Container Apps consumer still need implementation before activation.
+  Account/provider rotation and live verification require trusted VM access and
+  separately established administrative permissions. This
+  is not a completed security milestone or evidence that old credentials are
+  invalid. SSH diagnostics can compare advertised keys with saved pins without
+  accepting keys or changing the blocked inventory outcome. The inactive
+  foundation changes no application data/schema contracts.
+- Secret-free web builds are implemented for Azure Table and Prisma-backed Azure
+  profiles, including enabled Table mirroring. Next's build phase defers Azure
+  clients and runtime-only signing validation without changing selected backends;
+  runtime validation remains in force. The isolated verifier checks real builds
+  and compiled runtime secret gates. Bulk deployment/operations cutover and live
+  credential rotation remain incomplete.
+- Protected public-configuration execution is implemented as an inactive
+  prerequisite: strict literal parsing, bounded protected-file reads, filtered
+  inherited settings, public-only execution without vault access, and pinned
+  operational secret resolution. Vault-mode rendering validates candidates in
+  memory before writing. File-based service routing uses explicit overflow role
+  handling rather than inherited application overrides. The legacy deployment
+  guard remains in place. Live activation and credential invalidation are still pending;
+  this is not completion of the migration.
+- VM-side deployment now has explicit vault-aware command routing: public
+  dependency/build/setup steps, pinned operational commands, service-reference
+  preflight, local `.env` refusal, no account seeding, and nonrecursive data
+  ownership handling. Maintenance preserves retired runtime trees unless legacy
+  configuration is established. Legacy-mode execution remains supported.
+  Live rollout, initial bootstrap, other consumers, and live verification are
+  still incomplete.
+- Production deployment now requires original-repository `main` and verified
+  host pins across SSH, SCP, and rsync, with no automatic key acceptance or
+  alternative trust-source fallback. Explicit pinning is also available to local
+  helpers; omitting it retains legacy local SSH settings. This does not establish
+  the live VM's identity or finish live vault rollout.
+- Routine remote vault deployment is implemented for already-bootstrapped VMs:
+  explicit host pins, configuration/unit/reference preflight, file-authoritative
+  public settings, no rendering/upload, no ingress changes, no seeding, and
+  path-checked promotion preserving excluded data. Startup bootstrap must be
+  exactly `0`; service readiness uses public-only execution. Vault installation
+  leaves maintenance, journald, and compatibility files alone. Existing overflow
+  is preserved by default; explicit disable stops it. The dedicated manual
+  workflow has only transport secrets with new deployment-key names. Retiring
+  old keys/secret copies remains a live cutover gate, including historical
+  workflow reruns. This adds no persisted schema/data contract and does not
+  establish credential invalidation or complete the publication milestone.
+- A standalone, inactive Azure Table password/browser-session rotation operation
+  now has explicit user/account/table bindings, bounded stdin, scoped replacement
+  values, all-target preflight, bcrypt cost 12, ETag-conditioned updates/deletes,
+  final verification, and forward resumption after partial failure. Applying it
+  requires a separately verified quiesced-writer maintenance barrier. It does
+  not create tables/accounts, alter schema, or touch billing or podcast tokens.
+  Live execution, other credential types, provider rotation, and full migration
+  remain blocked on authenticated inventory and cutover.
+- The README now states inspection-only rights without granting an additional
+  open-source license. Notices for identified abogen/postcast-derived modules
+  and Next.js scaffold material are retained with upstream references. This
+  documentation-only prerequisite changes no runtime/data contract and does
+  not clear historical content, credentials, or final publication.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
+- Local development launcher flow is now consolidated in `run.sh`, with `--web`, `--fast`, `--skip-bootstrap`, and `--clean` shortcuts for repeat local testing; simple-profile starts auto-clear stale `.next` vendor chunk caches, and `run-web.sh` remains a compatibility shim.
 - First live Azure VM deployment executed on `2026-02-15` in `rg-articlepod-prod`; public HTTPS health and podcast contract checks passed on `articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com`.
 - Azure runtime scripts now preserve python-tts virtualenv across promotions and auto-bootstrap missing language assets during VM deploy.
+- Stuck-job watchdog hardening (`M95`) is implemented: pinned-IP extraction socket failures no longer crash the worker, long TTS runs heartbeat their job lock, and stale jobs now fail cleanly after bounded retries instead of starving the queue indefinitely.
+- Azure stuck-job follow-up hardening now defaults pinned fetches to IPv4-only candidates on the current VM profile, avoiding Node 22 crashes on IPv6 egress attempts before request-level recovery can run.
+- URL ingestion now performs a short safe redirect-canonicalization pass before enqueue/extraction so redirecting share/login-style URLs can normalize to their public destination when discoverable.
+- Chrome extension smart capture now uses a popup-triggered bounded reveal pass plus safe inert-node cleanup before HTML snapshot upload, while keeping the worker extraction path HTML-first.
+- Chrome extension now routes browser-opened remote HTTP/HTTPS PDF tabs into the existing PDF upload pipeline, while local `file://` PDFs show inline guidance to upload from `articlepod.com/app`.
+- Chrome extension release tooling now treats the packaged artifact as a first-class test surface: `extension:package` runs extension-specific regression gates before building, and the live-site smoke harness can target `dist/extension/package` for release-candidate checks.
 - Azure runtime hardening now strips app-local `.env` files during sync/promote, sets VM-safe runtime paths in rendered env, and precomputes Kokoro previews during deploy so voice preview does not block on first request.
+- Python TTS hardening now streams Kokoro WAV assembly segment-by-segment on the sidecar, reducing peak RAM spikes on the B2s VM, and user-facing job failures now say `Audio processing...` instead of leaking provider internals.
+- Azure audio hardening now defaults production chunking to `1200` characters, asks python-tts to recycle itself after high-RSS idle windows, and installs systemd memory ceilings/restart guardrails during VM deploy.
+- Oversized narration/TTS hardening now summarizes full-episode sources above `WORKER_TTS_MAX_CHUNKS` before TTS begins, prepends a spoken summarized-transcript disclosure, falls back to bounded deterministic abridged narration when the summary provider is unavailable or too verbose, retries retryable python-tts segment failures inside the active synthesis run, and keeps `SOURCE_TOO_LONG` as the final safety net. Python-tts structured logging remains best-effort so log-volume permission issues do not fail synthesis requests.
+- Follow-up production incident hardening now truncates long captured titles, clears stale inactive Stripe customer references when Stripe reports them missing, and removes the VM worker's hard systemd `Requires=` dependency on python-tts so sidecar recycle restarts do not stop the worker.
 - Azure daily rollout now has a deployment-only helper (`scripts/azure/deploy-changes.sh`) for sync+promote+runtime deploy on existing VM environments.
+- GitHub Actions now keeps CI automatic on `main`, while Azure production deploys require an explicit manual `Deploy to Azure` workflow dispatch instead of auto-running after every successful CI completion.
+- CI is now split into quick pull-request validation plus a nightly full run, with shared local `pnpm preflight` coverage and auto-cancelled superseded runs to reduce unnecessary GitHub Actions time.
+- Repo working policy now defaults to local commits, with remote pushes opt-in and any push to `main` treated as an explicit operator decision.
 - Naming consolidation now standardizes canonical `articlepod` package scopes/runtime identifiers with explicit legacy compatibility mapping in `config/naming.json` plus a VM migration helper (`scripts/azure/migrate-runtime-naming.sh`).
 - Azure deploy helper now auto-bootstraps first-run VMs when runtime user provisioning is missing during CI/CD rollout.
 - Azure runtime deploy now auto-recovers canonical env file from legacy `/etc/listenlater/listenlater.env` when present.
 - Azure python-tts provisioning now installs CPU-only torch wheels with pip cache disabled to prevent VM disk exhaustion during deploy.
 - Azure runtime deploy now supports incremental patch mode (skip unchanged pnpm/python setup, seed auto-once) with explicit full-deploy override.
+- Azure swap baseline checks now tolerate the one-page `SwapTotal` rounding gap reported by `/proc/meminfo`, so repeat full deploys do not tear down a healthy `4 GiB` swapfile on the B2s VM.
 - Systemd install now removes stale legacy `listenlater-*` unit files before enabling compatibility aliases.
 - Deploy helper health checks now retry by default, tolerate transient HTTP error responses during ingress/TLS handoff, and avoid unreachable `:3000` fallback for FQDN targets.
 - Worker queue error handling now tolerates user deletion of in-flight items without crashing the worker process (job events become best-effort when parent records are removed).
 - Observability track (`M47`-`M56`) is completed at the documented baseline contract level.
 - Markdown artifact track (`M57`-`M64`) is implemented for dual artifact persistence and markdown-first extraction outputs.
+- Extracted markdown cleanup rollout (`M98`) now persists cleaned canonical `MARKDOWN` artifacts with conservative artifact-safe cleanup, derives source-item hashes/descriptions from a later aggressive narration cleanup step, and also routes summary/digest podcast narration plus descriptions through a shared markdown-derived cleanup pass while leaving stored summary artifacts untouched.
+- Capture metadata track (`M100`) is implemented:
+  - URL, PDF, and Chrome extension capture now use user-facing `Importance` plus normalized item tags.
+  - `/app` keeps `Title` / `Importance` / `Tags` inside a lighter optional-details panel that starts collapsed and remembers the user’s last expanded/collapsed state.
+  - The extension popup now keeps its optional metadata block collapsed by default, remembers the last expanded/collapsed choice per Chrome profile, and includes a small footer `articlepod.com` hyperlink so users can jump back to the web app without guessing.
+  - `/app` Recent items now renders capture metadata, while surfaced synthesis now routes through snippets and the published wiki instead of a visible summary workspace.
+- Extraction-quality audit track (`M101`) is implemented:
+  - shared markdown quality analysis now distinguishes stored-markdown wrapper/footer junk from URL/image/table/metadata residue that incorrectly survives narration prep, plus low-signal post-cleanup results.
+  - summary/digest artifact audits now evaluate stored summary markdown against the summary narration contract, so source appendices and other reusable stored context are allowed while narration-side residue still gets flagged.
+  - top-level `testing/extraction-quality/` workspace now supports stored-artifact audits plus extraction-only URL vs. extension comparison runs without generating audio.
+  - timestamped report bundles under `exports/extraction-quality/` persist issue grouping, normalized diff results, and rerun-friendly target lists.
+  - follow-up cleanup hardening now keeps richer stored source markdown while moving URL/image/table/metadata stripping into the narration stage, strips inline image-wrapper residue such as `:focal(...)` fragments before episode-description derivation, avoids host-like company-name false positives in narration cleanup audits, and still tolerates real readable articles that also ship visible reCAPTCHA/paywall widgets.
+- Hybrid runtime HTML extraction selection (`M110`) is implemented:
+  - backend HTML extraction now runs both the existing `Readability` path and `defuddle` on the same fetched or captured HTML before shared cleanup/narration stages continue.
+  - candidate scoring now rewards narratable body text while penalizing image-only blocks, caption-like residue, and presentational clutter so the richer lane only wins when it is meaningfully cleaner.
+  - worker extraction logs now record the selected engine plus both candidate scorecards so production traces can show where landing-page/feed surfaces and article pages diverge over time.
+  - compact extraction-selection scorecards now persist on durable `Item` rows in Prisma and Azure Table primary so production review no longer depends on transient worker logs.
+- Azure VM disk guardrails track (`M102`) is implemented:
+  - deploy sync/runtime now share one exclusion list so `exports/`, worktrees, and other non-runtime artifacts never inflate staging/runtime copies.
+  - deploy helper now performs remote free-space cleanup + guard checks before sync and before promote/build, failing early with disk-usage context instead of filling the VM mid-deploy.
+  - bootstrap/runtime now install journald caps plus a recurring maintenance timer that vacuums system logs, prunes staging junk, pressure-cleans caches, and removes stale legacy `listenlater` runtime trees once they are no longer referenced.
+- Severity-split local log retention track (`M103`) is implemented:
+  - web, worker, and python-tts now write routine activity logs and `ERROR`/`FATAL` logs into separate local folders/files.
+  - app/runtime retention now treats `events/` and `errors/` logs independently so failure history can outlive routine success noise on local disk.
+- Public episode share links track (`M104`) is implemented:
+  - `/app` now supports stable, revocable item-scoped public share links for ready episodes without changing the existing workspace demo-share flow.
+  - item action rows now keep download, share/copy, revoke, and delete together with consistent button treatment, while share actions still copy the share URL immediately with inline confirmation feedback, revoke confirms in place, and delete now uses a short toast plus `Deleting...` button state so the removal is unambiguous.
+  - shared episode URLs open branded, `noindex` landing pages with browser playback, download, source attribution when available, concise trust copy about private feeds staying private, and signup/pricing CTAs.
+  - public shared playback uses a dedicated share-media route with `HEAD` + byte-range `206` support and separate share-scoped auth, leaving private RSS/media auth unchanged.
+  - raw analytics now capture share-link creation, share-page views, playback starts, and CTA clicks for growth instrumentation.
+- Audio retention lifecycle track (`M105`) is implemented:
+  - item, digest, and summary episode rows now carry a 60-day `expiresAt` derived from `publishedAt`.
+  - expired audio disappears from RSS, dashboard/share playback, and media authorization before purge removes the backing blob/object plus episode row.
+  - bulk backfill and purge tooling now cover the retained-audio contract so existing episodes can be stamped and cleaned without resets.
+- Item dispatch queue hardening (`C08`) is implemented:
+  - item episode work now uses a dispatch queue reservation plus durable lease metadata instead of relying on table scans alone.
+  - the default runtime remains one worker on the same VM, but the lease contract is now safe for future trusted first-party workers on other nodes.
+  - rollout stays upgrade-in-place: durable job rows expand with lease fields, dispatch messages are backfillable, and no reset/drop flow is required.
 - Canonical-domain ingress/TLS automation (`M65`) is implemented for Azure VM deploy flow (`articlepod.com` canonical + `www` redirect).
 - M65 follow-up hardening is complete: nginx server-name hash fallback is now idempotent in `/etc/nginx/nginx.conf` and verified against certbot reload behavior in GitHub Actions run `22389243416` on `2026-02-25`.
-- Extension popup UX now uses packaged runtime server target config (local/private/public) with hidden reconnect code once configured and explicit capture-start feedback.
-- Extension packaged runtime config default now points to `https://articlepod.com` (local debugging can still override `apps/extension/runtime-config.js`).
+- Extension popup UX now uses packaged runtime server target config with hidden reconnect code once configured and explicit capture-start feedback.
+- Public `/resources` now shares the Chrome extension setup surface with `/app/chrome-extension`, while gating connect-code generation/copy behind authenticated sessions only.
+- The packaged extension intentionally keeps broad HTTP/HTTPS host permissions so Chrome does not require a separate per-site access grant before capture; runtime config still defaults server communication to `https://articlepod.com`.
 - `/app` episodes workspace is now a focused create-and-review surface for `Add New Episode` and `Recent items`, with a tighter desktop nav that omits the current page shortcut and wraps cleanly on smaller screens.
+- `/app` now keeps billing as a minimal header control, with a single subtly highlighted `Upgrade to Pro` action for free accounts that deep-links to the billing section of `/app/settings` without extra annual-plan body copy underneath it and one clickable billing pill for paid accounts, while the fuller Stripe controls stay in `/app/settings`.
+- `/app/settings` now also supports a persisted `Live billing` / `Sandbox billing` tester toggle for admins and allowlisted emails, with sandbox Stripe state isolated from live entitlements and quotas.
 - `/app` episodes workspace refresh now uses hybrid polling (fast while processing, slower when idle) plus immediate focus/visibility refresh to pick up extension captures without manual reload.
 - Dashboard UX now splits `/app` (episode submission + recent items) from `/app/podcast-apps`, `/app/chrome-extension`, and `/app/settings` (digest controls, billing, demographic profile, voice settings).
-- `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with quick-start and walkthrough content kept below as secondary guidance.
-- `/app/settings` now starts with voice settings, then digest settings, then billing, with demographic/profile history below and no duplicate podcast/extension link cards.
-- Signed-in navigation labels now use `Episodes`, `Podcast Apps`, `Chrome Extension`, `Summaries`, `Feedback`, and `Settings` for clarity.
-- `/login` now uses a social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
+- `/app/podcast-apps` and `/app/chrome-extension` now lead with the live setup controls, with `/app/podcast-apps` folding quick-start guidance into the main setup copy, keeping walkthroughs directly below, and hiding private feed replacement inside a collapsed disclosure within Step 1 instead of a separate advanced block.
+- Chrome selection snippets (`M113`) are implemented:
+  - paired Chrome extension installs now register right-click selection actions for instant save and save-with-comment flows.
+  - instant right-click saves now provide lightweight in-page status feedback with toolbar badge fallback and no notification permission.
+  - saved selections persist in a dedicated `Snippet` contract across both Prisma and Azure Table primary metadata paths.
+  - snippet rows now also persist richer structured capture fields as optional metadata/context, including selection HTML, derived markdown, and a reusable template markdown view.
+  - `/app/snippets` provides compact review, on-demand comment editing, capture detail toggles, and delete actions without entering the podcast queue or RSS/feed pipeline.
+  - the `Snippets` workspace nav stays hidden until a user has at least one saved snippet, shows the snippet count on desktop, and the page redirects back to `/app` if the last snippet is removed.
+- `/app/podcast-apps` now focuses on the main private feed only, with Apple Podcasts and YouTube Music prioritized ahead of other app shortcuts and app-first mobile handoff before browser fallback.
+- `/app/settings` now leads with billing, keeps voice settings immediately visible, and collapses lower-priority digest/demographic controls so the page stays focused.
+- Signed-in workspace chrome is now shared across all `/app` routes as a sticky header: the ArticlePod icon leads, the compact billing pill sits beside it, active destinations stay visible, `Episodes` and `Snippets` show desktop count badges, and `Feedback`, `Settings`, plus `Logout` are grouped as compact utilities while `Snippets` remains conditional.
+- `/` now uses the social-first auth layout with configured Google/Facebook/Apple providers first and local email login/signup as a fallback.
+- Public marketing SEO hardening (`M107`) is implemented:
+  - `/` now serves as the canonical signed-out homepage and primary auth landing page, preserving the tuned social-first login + marketing surface at the root URL.
+  - `/login` is now a compatibility redirect to `/`, so the product maintains one public auth/marketing experience instead of two competing variants.
+  - public marketing pages now use route-specific metadata, schema, and shared header/CTA internal-link support, while `robots.txt` and `sitemap.xml` focus crawlers on the right public surfaces.
+- Public marketing shared chrome persistence (`M109`) is implemented:
+  - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` now share one route-group marketing layout so the header and footer CTA are always present on the public marketing surface.
+  - the persistent header keeps the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu while staying visible during content scroll.
+  - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
+  - the public marketing shell now keeps one shared public-page structure while leaving room for later usability refinements.
+  - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
+  - `/about` keeps the headline `Listen to your reading list and finally catch up on what matters` and leads with Vishal Chowdhary, `Co-founder`, alongside his portrait and a Blaise Pascal quotation about concise writing.
+  - Vishal's first-person story covers motivation, simple Chrome capture, travel listening, and a Karpathy-inspired personal wiki without explicit leadership or feature-build credit statements. Smita Busar's separate `Co-founder` story retains her portrait, motivation, early-user feedback, and open-tab results without attributing the build or wiki work to her.
+  - Compact portraits allow desktop story text to wrap alongside and beneath the images instead of reserving empty full-height columns; names, portraits, and stories remain stacked on mobile.
+  - Both stories use the site's calm, practical tone without em dashes, followed by the shared mission line and the unchanged `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles.
+- Public marketing FAQ structure refresh (`M111`) is implemented:
+  - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
+  - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
+  - FAQ question copy stays unchanged while the page becomes easier to scan and navigate.
+- Public marketing FAQ conversion/discovery refresh (`M112`) is implemented:
+  - `/faq` now uses higher-conversion FAQ questions with friendlier answers, richer bullet/link blocks, and a shared content model that keeps schema coverage aligned.
+  - the FAQ keeps question-level deep links that auto-open the matching answer on load.
+  - pricing, privacy, capture, digest, and podcast-app questions now surface faster without changing the shared public marketing shell.
+- Public marketing FAQ control-density trim (`M114`) is implemented:
+  - `/faq` keeps compact four-card `Quick answers`, with a small section label above each main summary line so visitors reach the answer list faster.
+  - the page drops the separate FAQ search box for now, relying on grouped sections, quick-answer anchors, and question-level permalinks to keep discovery easy without crowding the top of the page.
+- Public marketing FAQ navigation simplification (`M115`) is implemented:
+  - `/faq` removes `Browse by topic` and the per-question `Link` button so the page stays focused on the questions themselves.
+  - quick-answer anchors, richer answer links, and `#question-*` auto-open behavior still cover the useful navigation paths without adding extra visible UI chrome.
+- Mobile header density pass (`M116`) is implemented:
+  - public marketing pages now keep the mobile menu on one horizontal row, keep the footer CTA buttons on one row, and trim shell padding to maximize reading area.
+  - signed-in mobile workspace chrome now uses a compact two-row header with `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row, then `Episodes`, `Podcast Apps`, and conditional `Wiki` on the second.
+  - mobile workspace chrome hides `Chrome Extension` and `Snippets`, while desktop keeps the full signed-in nav unchanged.
+- Public marketing usability polish (`M117`) is implemented:
+  - the shared public marketing shell now uses standard browser page scrolling with a sticky header instead of a nested main-content scroll region.
+  - unknown public paths now render a branded `404` page instead of redirecting to `/`.
+  - the root email auth form now keeps validation feedback inline beside the relevant field and highlights invalid inputs.
+- Resources Chrome walkthrough balance pass (`M118`) is implemented:
+  - `/resources` now top-aligns the Chrome extension section on desktop so the copy and media start together instead of leaving a large vertical void.
+  - the extension walkthrough GIF now uses one tighter presentation card with a smaller desktop max width, reducing extra white space and the double-frame feel.
+- Public marketing chrome persistence restore (`M119`) is implemented:
+  - public marketing pages now keep the shared header pinned to the top of the viewport and the shared footer CTA pinned to the bottom again while preserving standard browser page scrolling.
+  - the public shell now adds matching top and bottom content insets so the fixed chrome does not cover page content.
+- Per-user Karpathy-core LLM wiki flow (`M120`) is implemented:
+  - operators can now run a local wiki prepare/lint/verify/publish loop that copies the Karpathy prompt verbatim into each workspace, compiles against downloaded item markdown plus normalized snippets, and publishes the resulting wiki back to blob storage.
+  - the published wiki contract stays blob-only for v1 (`manifest.json`, `pages/...`, `state/builds/<runId>.json`), avoiding new schema/migration pressure in Prisma or Azure Table primary.
+  - signed-in users now get a cleaner `/app/wiki` surface with a denser one-card browse rail, markdown cleanup that hides internal source/file metadata, explicitly long-form concept pages with an executive summary, an `At a glance` table, a 1500-3000 word synthesis target broken into thematic subsections, visually emphasized `Executive summary` and `Working synthesis` section headers, a compact inline `Sources` list that shows five short previews by default, backlinks between reader-facing pages, annual-plan placeholder visibility before the first publish, a default landing on `overview.md` when present, an automatically refreshed `overview.md` on every prepare/rebuild, disabled wiki-link auto-prefetch to avoid bursty background `_rsc` loads, and reference links back to original source URLs.
+  - public marketing and top-level docs now position this as a Karpathy-inspired personal wiki product surface, with homepage/product attribution plus a shared compact wiki snapshot preview.
+- Summary Mode item summaries (`M121`) are implemented:
+  - `/app` can persist `FULL_EPISODE` vs `SUMMARY_ONLY` as the default for future captures.
+  - summary-only submissions run the shared pre-audio path first, storing canonical markdown and resolving titles, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the worker task processor stores item summary markdown, skips TTS/RSS by default, and supports explicit `Request TTS` later for normal summary items.
+  - digest generation prefers item summaries, while wiki preparation keeps full article markdown with the summary as compact guidance.
+- Internal podcast transcript auto-detection (`M122`) is implemented:
+  - URL paste and Chrome extension capture internally detect Apple Podcasts episode URLs and direct public transcript files without adding a visible podcast submit mode.
+  - successful public transcripts become `PODCAST_TRANSCRIPT` summary-only items with canonical markdown plus `ArticleSummaryTask`; failed confident podcast detections remain visible in Recent items with a clear extraction error.
+  - transcript imports do not create audio, `Job`, `Episode`, RSS/media artifacts, feed-token changes, ASR work, or request-TTS eligibility.
 - Admin analytics track (`M66`-`M70`) is implemented:
   - analytics event/rollup/coverage schema
   - instrumentation for signup/login/submit/ready/fail/playback
   - role-gated analytics APIs + CSV exports
   - tabbed investor+ops admin dashboard with masked-by-default user table
   - analytics backfill command (`npm run analytics:backfill`) and coverage metadata
-  - Azure Table primary deployments now derive admin dashboard signup/session/item/job metrics from live primary-store data so the dashboard does not fall back to an empty auxiliary SQLite view.
+  - Azure Table primary deployments now derive admin dashboard signup/session/item/job metrics from live primary-store data so the dashboard does not fall back to an empty auxiliary analytics view.
 - Admin safety hardening: admin login redirects to `/admin`, and admin account deletion is blocked in API/UI.
 - Submission monetization controls (`M71`) are implemented:
   - free-tier ingest quota defaults to 2 submissions per user (`FREE_TRIAL_SUBMISSION_LIMIT`)
   - non-paid over-quota submissions fail with `USAGE_LIMIT_EXCEEDED`
   - admin dashboard can mark paid users and grant extra submission credits per user
+  - paid access now carries plan-specific default guardrails: `Pro monthly` includes 12 new podcast episodes per 24 hours, 36 summary-mode item summaries per 24 hours, and 15 manual summaries per 7 days, while `Pro annual` includes 15 new podcast episodes per 24 hours, 45 summary-mode item summaries per 24 hours, and 30 manual summaries per 7 days
+  - paid over-limit episode submissions now spill into a capped deferred queue instead of hard-failing immediately
+  - `/pricing` now presents `Starter` plus self-serve `Pro monthly` (`$15/mo`) and `Pro annual` (`$130/yr`) choices, with explicit cancel-at-period-end billing policy copy and an annual-first value narrative
 - Digest automation controls (`M72`-`M79`) are implemented:
   - per-user digest settings for daily/weekly email + podcast with timezone scheduling.
   - separate private digest RSS token/route and digest media range/HEAD delivery path.
@@ -65,7 +484,7 @@
 - URL extraction error semantics now normalize invalid pinned-address failures to explicit connection guidance (instead of generic fetch-failed wording) for clearer user retry behavior and operator triage.
 - The extraction bot user-agent now points to the canonical `https://articlepod.com` domain.
 - Only confirmed server-blocked URL failures now surface Chrome extension capture guidance and suppress retry affordances; broader extraction failures still use the standard retry messaging.
-- Production URL extraction diagnostics now include a manual GitHub Actions VM probe workflow (`Probe URL Extraction (VM)`) that executes DNS/HEAD/core extraction checks from the VM network path without exposing public debug endpoints.
+- Production URL extraction diagnostics include a manual VM probe for public article URLs. It now requires original-repository `main`, explicit host pins, guarded legacy configuration, shared deployment concurrency, and temporary credential/probe cleanup. It remains legacy-only pending a separate vault-mode diagnostic integration. Historical logs/artifacts and private-link exposure still require publication review.
 - Geo + demographics profile track (`M83`) is implemented:
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
@@ -73,21 +492,33 @@
 - Dashboard feed shortcut + markdown access track (`M84`) is implemented:
   - `/app` header now includes copy-first private feed shortcuts for Apple Podcasts and YouTube Music with mobile-smart open behavior.
   - private feed URL and extension connect code boxes now copy directly on tap/click with inline confirmation feedback for desktop and mobile users.
+  - signed-in `/app/chrome-extension` now prepares a connect code on load, and the Chrome Web Store CTA also attempts to copy the current code before opening the listing.
+  - production deploy can optionally seed a dedicated Chrome Web Store reviewer account with complimentary Pro access, while reviewer pairing still relies on the normal one-time connect code generated after login.
   - workspace banner copy is simplified by removing the `Demo mode ready` card.
   - markdown preview controls and markdown API access are now admin-only.
+- Action hierarchy refresh (`M106`) is implemented:
+  - signed-in nav styling is now neutral-first, with `Feedback` kept as a softer secondary hint instead of a primary-strength highlight.
+  - signed-in workspace navigation is now shared in a sticky `/app` header so the current page stays visible and selected while users move between workspaces.
+  - `/app` now treats source selection, the active URL/PDF input, and the submit button as one accent-backed action cluster with task-first labels.
+  - `/app/podcast-apps` now makes the private feed URL copy control the strongest element above the fold, with app shortcuts grouped as a clear second step and walkthrough guidance visually reduced below.
+  - `/app/chrome-extension` now emphasizes its live setup controls over surrounding instructional copy, while `/app/summary` is no longer a surfaced workspace.
+  - keyboard-first submit affordances now map `Enter` to the obvious primary action across auth, episode submission, settings saves, and admin search/save/filter flows.
 - Feedback suggestions track (`M85`) is implemented:
   - authenticated message-first feedback page at `/app/feedback` with optional type/feature area and default contact opt-in.
   - admin feedback inbox with status workflow and mirror retry controls is available in `/admin`.
   - private GitHub mirror support is env-gated and excludes submitter email from mirrored issue bodies.
+  - follow-up Azure runtime hardening now persists feedback through the Azure Table primary store so production no longer depends on Prisma/SQLite for this feature.
 - Summary Studio and Azure OpenAI track (`M86`-`M91`) is implemented:
-  - manual `/app/summary` workflow supports explicit article selection, default last-7-days preselection, length presets, and optional podcast creation.
-  - summary runs persist markdown/audio artifacts separately from scheduled digest runs while reusing the existing digest feed/media surface.
+  - manual `/app/summary` workflow supports explicit article selection, title-first saved-article cards, default last-7-days preselection, length presets, and optional podcast creation.
+  - summary setup now keeps the podcast publish control in a lower secondary section so the primary desktop/mobile layout stays focused on article selection and markdown options.
+  - summary runs persist markdown/audio artifacts separately from scheduled digest runs, and podcast-enabled summaries now publish into the main private feed/media surface.
   - Azure OpenAI is now a first-class summary provider in deploy/runtime automation with nano-first routing and mini fallback.
 - Feed stability + extension lifetime UX track (`M92`) is implemented:
   - item and digest RSS now emit stable episode-scoped enclosure URLs until feed-token rotation instead of per-request signature churn.
   - RSS `HEAD` mirrors `GET` content headers, and RSS channel output now includes deterministic `pubDate` and `lastBuildDate`.
   - dashboard audio controls preload metadata for visible duration.
   - extension connect codes default to 24 hours, and installed extension tokens now stay valid until revoked.
+- Smart extension capture hardening (`M97`) now keeps snapshot block/interstitial classification on the server extraction path, so readable article pages are still captureable even when sites inject hidden background challenge frames.
 - Azure deploy env rendering now guarantees non-simple startup secrets by forwarding explicit `APP_DIGEST_SCHEDULER_SECRET` / `APP_MEDIA_SIGNING_KEY` when configured and deriving deterministic SHA-256 fallbacks otherwise.
 - Azure worker stability hotfix (`M94`) is implemented:
   - Azure Table primary digest scheduler and extension-token paths now avoid unsupported null-equality filters.
@@ -100,252 +531,305 @@
   - add queue-pressure overflow lane with hysteresis before external TTS usage.
   - migrate metadata/queue state toward serverless table/blob adapters with guarded cutover.
   - keep verbose diagnostics out of Table-primary scope; prefer local logs and optional Blob archive.
+- Azure runtime contract cleanup is now implemented in repo:
+  - production Azure Table mode no longer requires `DATABASE_URL` or VM-local SQLite
+  - feedback now persists in Azure Table primary metadata
+  - live production SQLite inspection on 2026-04-10 showed an effectively empty `612 KB` file, so no meaningful user-data migration is required for the SQLite removal
 
 ## Requirement Coverage Snapshot
 
-| Requirement | Planned Milestone(s) |
-|---|---|
-| One-command local startup (`pnpm dev`) | M01, M04 |
-| Local-first operation (no paid services) | M04, M12, M13 |
-| Google + Facebook + Apple auth integration | M06, M93 |
-| OAuth hardening completion (env-gated production-ready) | M23 |
-| Shareable read-only demo access | M07, M17 |
-| Async pipeline only (no heavy request work) | M09 |
-| Idempotent/restartable jobs + caching | M09, M11, M12, M13 |
-| Deterministic serialization (RSS, logs, manifests) | M09, M15, M18 |
-| RSS correctness (GUID, enclosure uniqueness, ordering) | M15 |
-| Media `HEAD` + `Range` compatibility | M14, M21 |
-| URL + PDF ingest (no OCR for scanned PDFs) | M08, M10 |
-| Admin module (users, jobs, diagnostics) | M06, M16 |
-| Export command (`pnpm export`) | M18 |
-| Azure-ready path (containers + env/resource map) | M19 |
-| License policy gate (deny AGPL/SSPL/NC) | M20 |
-| Demo starter item preloaded by default | M17 |
-| Attribution for copied patterns (`abogen`, `postcast`) | M03 |
-| Chrome extension raw HTML snapshot ingest | M24, M25, M26, M27, M28 |
-| OAuth + extension regression automation in CI | M20, M29 |
-| Extension onboarding and reconnect UX | M30 |
-| Extraction quality guardrails for noisy/authenticated pages | M31 |
-| Operational observability and release certification | M21, M32, M33 |
-| Unified observability, error triage, and Azure monitoring parity | M47, M48, M49, M50, M51, M52, M53, M54, M55, M56 |
-| Data lifecycle hardening for diagnostics and extension tokens | M34 |
-| Durable managed persistence independent of VM lifecycle | M35, M38, M39, M45 |
-| Local parity environment (Docker Compose parity profile) | M35, M36, M37, M46 |
-| Azure reproducible provisioning with IaC (`Bicep` + `azd`) | M43, M44 |
-| Backup/restore drill certification and evidence | M45, M46 |
-| Markdown-first extraction artifact persistence | M57, M58, M59, M60, M61, M62, M63, M64 |
-| Dual artifact policy (raw + markdown initially) | M57, M61 |
-| 90-day raw artifact retention lifecycle | M57, M61, M64 |
-| Markdown-derived TTS input contract | M62 |
-| Investor + operations admin analytics dashboard (KPI/retention/users/export) | M66, M67, M68, M69, M70 |
-| Free-trial ingest gating + admin quota overrides | M71 |
-| Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email) | M72, M73, M74, M75, M76, M77, M78, M79 |
-| Unified branding icons + podcast artwork consistency | M80 |
-| Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries) | M81 |
-| Missing media auto-repair + RSS delete consistency hardening | M82 |
-| Global geo snapshots + optional demographic profile capture | M83 |
-| Smart feed shortcuts + admin-only markdown controls | M84 |
-| Message-first feedback inbox + admin triage + private GitHub mirror | M85 |
-| Manual Summary Studio + Azure OpenAI nano/mini summary generation | M86, M87, M88, M89, M90, M91 |
-| 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration) | C01, C02, C03, C04, C05, C06, C07 |
-| Queue-pressure-triggered overflow TTS lane with hysteresis and role gating | C02 |
-| PostgreSQL to serverless metadata/queue abstraction and cutover | C03, C04, C05, C06 |
-| Budget and burn-rate operational guardrails | C07 |
-| Stripe-hosted Pro billing, portal management, and webhook entitlement sync | B01, B02, B03, B04, B05, B06 |
-| Apple Sign-In JWT cryptographic verification | S01 |
-| Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken) | S02 |
-| Brute-force rate limiting on login + timing oracle fix | S03 |
-| Move admin bootstrap out of request path | S04 |
-| ChunkCache cross-user audio privacy and reliability | S05 |
-| digestSchedulerSecret startup assertion | S06 |
-| Python TTS sidecar authentication + non-root Docker | S07 |
-| SSRF DNS rebinding TOCTOU fix | S08 |
-| HTTP security headers (CSP, X-Frame, X-Content-Type, Referrer) | S09 |
-| Global auth middleware (centralized enforcement for all routes) | S10 |
-| Shared-state rate limiter (multi-instance correctness) | S11 |
-| Worker process health probe | S12 |
-| PDF magic-byte validation before storage write | S13 |
-| Username enumeration normalization (login/signup response parity) | S14 |
-| Stale-job reclaim atomic fix | S15 |
-| Feed token signed-URL pattern (tokens out of enclosure URLs) | S16 |
-| DB role field hardened to enum constraint | S17 |
-| Session cookie `secure` flag tied to runtime profile, not NODE_ENV | S18 |
+| Requirement                                                                                    | Planned Milestone(s)                             |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| One-command local startup (`pnpm dev`)                                                         | M01, M04                                         |
+| Local-first operation (no paid services)                                                       | M04, M12, M13                                    |
+| Google + Facebook + Apple auth integration                                                     | M06, M93                                         |
+| OAuth hardening completion (env-gated production-ready)                                        | M23                                              |
+| Shareable read-only demo access                                                                | M07, M17                                         |
+| Async pipeline only (no heavy request work)                                                    | M09                                              |
+| Idempotent/restartable jobs + caching                                                          | M09, M11, M12, M13                               |
+| Deterministic serialization (RSS, logs, manifests)                                             | M09, M15, M18                                    |
+| RSS correctness (GUID, enclosure uniqueness, ordering)                                         | M15                                              |
+| Media `HEAD` + `Range` compatibility                                                           | M14, M21                                         |
+| URL + PDF ingest (no OCR for scanned PDFs)                                                     | M08, M10                                         |
+| Admin module (users, jobs, diagnostics)                                                        | M06, M16                                         |
+| Export command (`pnpm export`)                                                                 | M18                                              |
+| Azure-ready path (containers + env/resource map)                                               | M19                                              |
+| License policy gate (deny AGPL/SSPL/NC)                                                        | M20                                              |
+| Demo starter item preloaded by default                                                         | M17                                              |
+| Attribution for copied patterns (`abogen`, `postcast`)                                         | M03                                              |
+| Chrome extension raw HTML snapshot ingest                                                      | M24, M25, M26, M27, M28                          |
+| OAuth + extension regression automation in CI                                                  | M20, M29                                         |
+| Extension onboarding and reconnect UX                                                          | M30                                              |
+| Extraction quality guardrails for noisy/authenticated pages                                    | M31                                              |
+| Operational observability and release certification                                            | M21, M32, M33                                    |
+| Unified observability, error triage, and Azure monitoring parity                               | M47, M48, M49, M50, M51, M52, M53, M54, M55, M56 |
+| Data lifecycle hardening for diagnostics and extension tokens                                  | M34                                              |
+| Durable managed persistence independent of VM lifecycle                                        | M35, M38, M39, M45                               |
+| Local parity environment (Docker Compose parity profile)                                       | M35, M36, M37, M46                               |
+| Azure reproducible provisioning with IaC (`Bicep` + `azd`)                                     | M43, M44                                         |
+| Backup/restore drill certification and evidence                                                | M45, M46                                         |
+| Markdown-first extraction artifact persistence                                                 | M57, M58, M59, M60, M61, M62, M63, M64           |
+| Dual artifact policy (raw + markdown initially)                                                | M57, M61                                         |
+| 90-day raw artifact retention lifecycle                                                        | M57, M61, M64                                    |
+| Markdown-derived TTS input contract                                                            | M62                                              |
+| Rule-based cleanup of extracted markdown before TTS/backfill                                   | M98                                              |
+| Reusable live-site regression harness and prod-probe runner                                    | M99                                              |
+| Capture importance + tags metadata with Recent items filters                                   | M100                                             |
+| Extraction-quality audit + bulk HTML regression harness                                        | M101                                             |
+| Hybrid runtime HTML extraction selection + per-item engine diagnostics                         | M110                                             |
+| Azure VM disk guardrails + recurring maintenance automation                                    | M102                                             |
+| Severity-split local log retention for activity vs errors                                      | M103                                             |
+| Public episode share links + branded landing page + growth instrumentation                     | M104                                             |
+| 60-day generated audio retention lifecycle + feed/media expiry gating                          | M105                                             |
+| Public marketing SEO hardening (homepage, metadata, schema, crawl rules)                       | M107                                             |
+| Public marketing chrome cleanup (remove duplicate footer nav)                                  | M108                                             |
+| Persistent public marketing header + footer layout                                             | M109                                             |
+| Public marketing usability polish (standard page scroll + 404 + inline auth errors)            | M117                                             |
+| Resources Chrome walkthrough balance pass                                                      | M118                                             |
+| Public marketing chrome persistence restore                                                    | M119                                             |
+| Per-user Karpathy-core LLM wiki prepare/publish workflow + `/app/wiki` browser                 | M120                                             |
+| Queue-backed item dispatch with single-worker default and future multi-node worker readiness   | C08                                              |
+| Investor + operations admin analytics dashboard (KPI/retention/users/export)                   | M66, M67, M68, M69, M70                          |
+| Free-trial ingest gating + admin quota overrides                                               | M71                                              |
+| Daily/weekly digest summaries (settings + scheduler + digest RSS/media + stub email)           | M72, M73, M74, M75, M76, M77, M78, M79           |
+| Unified branding icons + podcast artwork consistency                                           | M80                                              |
+| Podcast compatibility + description quality hardening (MP3 defaults + cleaned summaries)       | M81                                              |
+| Missing media auto-repair + RSS delete consistency hardening                                   | M82                                              |
+| Global geo snapshots + optional demographic profile capture                                    | M83                                              |
+| Smart feed shortcuts + admin-only markdown controls                                            | M84                                              |
+| Message-first feedback inbox + admin triage + private GitHub mirror                            | M85                                              |
+| Manual Summary Studio + Azure OpenAI nano/mini summary generation                              | M86, M87, M88, M89, M90, M91                     |
+| 50x cost reduction track (always-on B2s + local-first TTS + serverless data migration)         | C01, C02, C03, C04, C05, C06, C07                |
+| Queue-pressure-triggered overflow TTS lane with hysteresis and role gating                     | C02                                              |
+| PostgreSQL to serverless metadata/queue abstraction and cutover                                | C03, C04, C05, C06                               |
+| Budget and burn-rate operational guardrails                                                    | C07                                              |
+| Stripe-hosted Pro billing launch hardening, founder setup, lifecycle QA, and staging readiness | B01, B02, B03, B04, B05, B06, B07, B08, B09      |
+| Apple Sign-In JWT cryptographic verification                                                   | S01                                              |
+| Drop plaintext token storage from DB (FeedToken, DigestFeedToken, ShareToken, ExtensionToken)  | S02                                              |
+| Brute-force rate limiting on login + timing oracle fix                                         | S03                                              |
+| Move admin bootstrap out of request path                                                       | S04                                              |
+| ChunkCache cross-user audio privacy and reliability                                            | S05                                              |
+| digestSchedulerSecret startup assertion                                                        | S06                                              |
+| Python TTS sidecar authentication + non-root Docker                                            | S07                                              |
+| SSRF DNS rebinding TOCTOU fix                                                                  | S08                                              |
+| HTTP security headers (CSP, X-Frame, X-Content-Type, Referrer)                                 | S09                                              |
+| Global auth middleware (centralized enforcement for all routes)                                | S10                                              |
+| Shared-state rate limiter (multi-instance correctness)                                         | S11                                              |
+| Worker process health probe                                                                    | S12                                              |
+| PDF magic-byte validation before storage write                                                 | S13                                              |
+| Username enumeration normalization (login/signup response parity)                              | S14                                              |
+| Stale-job reclaim atomic fix                                                                   | S15                                              |
+| Feed token signed-URL pattern (tokens out of enclosure URLs)                                   | S16                                              |
+| DB role field hardened to enum constraint                                                      | S17                                              |
+| Session cookie `secure` flag tied to runtime profile, not NODE_ENV                             | S18                                              |
 
 ## Milestone Status Snapshot
 
 Milestone metadata contract:
+
 - `Status`: `Done | In Progress | Planned`
 - `Target Finish`: required for every milestone
 - `Completed On`: required for `Done` milestones
 - `Evidence`: required for `Done` milestones (best-effort commit/date reference)
 
-| Milestone | Status | Target Finish | Completed On | Evidence |
-|---|---|---|---|---|
-| M00 | Done | 2026-02-07 | 2026-02-07 | cd05000 (2026-02-07) |
-| M01 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M02 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M03 | Done | 2026-02-07 | 2026-02-07 | d6addf9 (2026-02-07) |
-| M04 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M05 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M06 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M07 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M08 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M09 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M10 | Done | 2026-02-07 | 2026-02-07 | 2b7b28b (2026-02-07) |
-| M11 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M12 | Done | 2026-02-07 | 2026-02-07 | c18dcfd (2026-02-07) |
-| M13 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M14 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
-| M15 | Done | 2026-02-07 | 2026-02-07 | 9244702 (2026-02-07) |
-| M16 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M17 | Done | 2026-02-07 | 2026-02-07 | 8923f21 (2026-02-07) |
-| M18 | Done | 2026-02-07 | 2026-02-07 | be72a8d (2026-02-07) |
-| M19 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M20 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M21 | Done | 2026-02-28 | 2026-02-14 | podcast contract gate pass + release checklist protocol |
-| M22 | Done | 2026-03-14 | 2026-02-14 | optional phase closed for MVP (single-episode design locked) |
-| M23 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M24 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M25 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M26 | Done | 2026-02-08 | 2026-02-08 | 740f60c (2026-02-08) |
-| M27 | Done | 2026-02-08 | 2026-02-08 | 86f1b7a (2026-02-08) |
-| M28 | Done | 2026-02-28 | 2026-02-14 | extension policy/docs + token revocation + snapshot auth tests |
-| M29 | Done | 2026-03-07 | 2026-02-14 | oauth/extension/html-snapshot integration suites + CI gates |
-| M30 | Done | 2026-03-14 | 2026-02-14 | in-app extension onboarding + reconnect/revoke UX |
-| M31 | Done | 2026-03-21 | 2026-02-14 | extraction quality fixture coverage + low-signal failure mapping |
-| M32 | Done | 2026-03-28 | 2026-02-14 | admin backlog/latency/top-failure visibility + runbook |
-| M33 | Done | 2026-04-04 | 2026-02-14 | release checklist + contract evidence workflow |
-| M34 | Done | 2026-04-11 | 2026-02-14 | diagnostics/token lifecycle hardening + purge automation |
-| M35 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M36 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M37 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M38 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M39 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M40 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M41 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M42 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M43 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M44 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M45 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M46 | Done | 2026-02-08 | 2026-02-08 | 1e69fda (2026-02-08) |
-| M47 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M48 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M49 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M50 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M51 | Done | 2026-04-18 | 2026-02-14 | trace-context propagation baseline across web/worker/python-tts |
-| M52 | Done | 2026-04-25 | 2026-02-14 | service/business KPI baseline in admin metrics + logs |
-| M53 | Done | 2026-05-02 | 2026-02-14 | Azure Log Analytics query pack + env/runbook wiring |
-| M54 | Done | 2026-05-09 | 2026-02-14 | dashboard/alert starter contract in docs + operations runbook |
-| M55 | Done | 2026-02-09 | 2026-02-09 | a2774bd (2026-02-09) |
-| M56 | Done | 2026-05-16 | 2026-02-14 | observability verify command + CI gate |
-| M57 | Done | 2026-02-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M58 | Done | 2026-02-24 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M59 | Done | 2026-02-28 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M60 | Done | 2026-03-03 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M61 | Done | 2026-03-07 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M62 | Done | 2026-03-10 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M63 | Done | 2026-03-14 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M64 | Done | 2026-03-21 | 2026-02-14 | local validation + implementation pass (2026-02-14) |
-| M65 | Done | 2026-02-25 | 2026-02-25 | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25) |
-| M66 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M67 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M68 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M69 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M70 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M71 | Done | 2026-02-27 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M72 | Done | 2026-03-02 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M73 | Done | 2026-03-03 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M74 | Done | 2026-03-04 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M75 | Done | 2026-03-05 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M76 | Done | 2026-03-06 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M77 | Done | 2026-03-07 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M78 | Done | 2026-03-08 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M79 | Done | 2026-03-09 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M80 | Done | 2026-03-10 | 2026-02-27 | local validation + implementation pass (2026-02-27) |
-| M81 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M82 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M83 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M84 | Done | 2026-02-28 | 2026-02-28 | local validation + implementation pass (2026-02-28) |
-| M85 | Done | 2026-03-01 | 2026-03-01 | local validation + implementation pass (2026-03-01) |
-| M86 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M87 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M88 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M89 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M90 | Done | 2026-03-21 | 2026-03-21 | local validation + Azure provisioning pass (2026-03-21) |
-| M91 | Done | 2026-03-21 | 2026-03-21 | local validation + implementation pass (2026-03-21) |
-| M92 | Done | 2026-03-22 | 2026-03-22 | local validation + implementation pass (2026-03-22) |
-| M93 | Done | 2026-03-23 | 2026-03-23 | local validation + social-first auth + Facebook OAuth pass (2026-03-23) |
-| M94 | Done | 2026-03-24 | 2026-03-24 | local validation + production Azure worker/TTS hotfix pass (2026-03-24) |
-| S01 | Planned | 2026-03-07 | — | — |
-| S02 | Planned | 2026-03-07 | — | — |
-| S03 | Planned | 2026-03-07 | — | — |
-| S04 | Planned | 2026-03-07 | — | — |
-| S05 | Planned | 2026-03-14 | — | — |
-| S06 | Planned | 2026-03-07 | — | — |
-| S07 | Planned | 2026-03-07 | — | — |
-| S08 | Planned | 2026-03-14 | — | — |
-| S09 | Planned | 2026-03-07 | — | — |
-| S10 | Planned | 2026-03-14 | — | — |
-| S11 | Planned | 2026-03-21 | — | — |
-| S12 | Planned | 2026-03-14 | — | — |
-| S13 | Planned | 2026-03-07 | — | — |
-| S14 | Planned | 2026-03-07 | — | — |
-| S15 | Planned | 2026-03-14 | — | — |
-| S16 | Planned | 2026-03-28 | — | — |
-| S17 | Planned | 2026-03-28 | — | — |
-| S18 | Planned | 2026-03-07 | — | — |
-| C01 | Done | 2026-03-10 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C02 | Done | 2026-03-14 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C03 | Done | 2026-03-21 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C04 | Done | 2026-03-28 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C05 | Done | 2026-04-04 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| C06 | Done | 2026-04-11 | 2026-03-17 | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass |
-| C07 | Done | 2026-04-18 | 2026-03-07 | local validation + implementation pass (2026-03-07) |
-| B01 | In Progress | 2026-04-18 | — | — |
-| B02 | Planned | 2026-04-25 | — | — |
-| B03 | Planned | 2026-05-02 | — | — |
-| B04 | Planned | 2026-05-09 | — | — |
-| B05 | Planned | 2026-05-16 | — | — |
-| B06 | Planned | 2026-05-23 | — | — |
+| Milestone | Status      | Target Finish | Completed On | Evidence                                                                                                |
+| --------- | ----------- | ------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| M00       | Done        | 2026-02-07    | 2026-02-07   | cd05000 (2026-02-07)                                                                                    |
+| M01       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M02       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M03       | Done        | 2026-02-07    | 2026-02-07   | d6addf9 (2026-02-07)                                                                                    |
+| M04       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M05       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M06       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M07       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M08       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M09       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M10       | Done        | 2026-02-07    | 2026-02-07   | 2b7b28b (2026-02-07)                                                                                    |
+| M11       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M12       | Done        | 2026-02-07    | 2026-02-07   | c18dcfd (2026-02-07)                                                                                    |
+| M13       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M14       | Done        | 2026-02-07    | 2026-02-07   | 9244702 (2026-02-07)                                                                                    |
+| M15       | Done        | 2026-02-07    | 2026-02-07   | 9244702 (2026-02-07)                                                                                    |
+| M16       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M17       | Done        | 2026-02-07    | 2026-02-07   | 8923f21 (2026-02-07)                                                                                    |
+| M18       | Done        | 2026-02-07    | 2026-02-07   | be72a8d (2026-02-07)                                                                                    |
+| M19       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M20       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M21       | Done        | 2026-02-28    | 2026-02-14   | podcast contract gate pass + release checklist protocol                                                 |
+| M22       | Done        | 2026-03-14    | 2026-02-14   | optional phase closed for MVP (single-episode design locked)                                            |
+| M23       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M24       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M25       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M26       | Done        | 2026-02-08    | 2026-02-08   | 740f60c (2026-02-08)                                                                                    |
+| M27       | Done        | 2026-02-08    | 2026-02-08   | 86f1b7a (2026-02-08)                                                                                    |
+| M28       | Done        | 2026-02-28    | 2026-02-14   | extension policy/docs + token revocation + snapshot auth tests                                          |
+| M29       | Done        | 2026-03-07    | 2026-02-14   | oauth/extension/html-snapshot integration suites + CI gates                                             |
+| M30       | Done        | 2026-03-14    | 2026-02-14   | in-app extension onboarding + reconnect/revoke UX                                                       |
+| M31       | Done        | 2026-03-21    | 2026-02-14   | extraction quality fixture coverage + low-signal failure mapping                                        |
+| M32       | Done        | 2026-03-28    | 2026-02-14   | admin backlog/latency/top-failure visibility + runbook                                                  |
+| M33       | Done        | 2026-04-04    | 2026-02-14   | release checklist + contract evidence workflow                                                          |
+| M34       | Done        | 2026-04-11    | 2026-02-14   | diagnostics/token lifecycle hardening + purge automation                                                |
+| M35       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M36       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M37       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M38       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M39       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M40       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M41       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M42       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M43       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M44       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M45       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M46       | Done        | 2026-02-08    | 2026-02-08   | 1e69fda (2026-02-08)                                                                                    |
+| M47       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M48       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M49       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M50       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M51       | Done        | 2026-04-18    | 2026-02-14   | trace-context propagation baseline across web/worker/python-tts                                         |
+| M52       | Done        | 2026-04-25    | 2026-02-14   | service/business KPI baseline in admin metrics + logs                                                   |
+| M53       | Done        | 2026-05-02    | 2026-02-14   | Azure Log Analytics query pack + env/runbook wiring                                                     |
+| M54       | Done        | 2026-05-09    | 2026-02-14   | dashboard/alert starter contract in docs + operations runbook                                           |
+| M55       | Done        | 2026-02-09    | 2026-02-09   | a2774bd (2026-02-09)                                                                                    |
+| M56       | Done        | 2026-05-16    | 2026-02-14   | observability verify command + CI gate                                                                  |
+| M57       | Done        | 2026-02-21    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M58       | Done        | 2026-02-24    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M59       | Done        | 2026-02-28    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M60       | Done        | 2026-03-03    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M61       | Done        | 2026-03-07    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M62       | Done        | 2026-03-10    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M63       | Done        | 2026-03-14    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M64       | Done        | 2026-03-21    | 2026-02-14   | local validation + implementation pass (2026-02-14)                                                     |
+| M65       | Done        | 2026-02-25    | 2026-02-25   | a485766 + 2aa2722 + workflow 22389243416 (2026-02-25)                                                   |
+| M66       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M67       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M68       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M69       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M70       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M71       | Done        | 2026-02-27    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M72       | Done        | 2026-03-02    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M73       | Done        | 2026-03-03    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M74       | Done        | 2026-03-04    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M75       | Done        | 2026-03-05    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M76       | Done        | 2026-03-06    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M77       | Done        | 2026-03-07    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M78       | Done        | 2026-03-08    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M79       | Done        | 2026-03-09    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M80       | Done        | 2026-03-10    | 2026-02-27   | local validation + implementation pass (2026-02-27)                                                     |
+| M81       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M82       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M83       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M84       | Done        | 2026-02-28    | 2026-02-28   | local validation + implementation pass (2026-02-28)                                                     |
+| M85       | Done        | 2026-03-01    | 2026-03-01   | local validation + implementation pass (2026-03-01)                                                     |
+| M86       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M87       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M88       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M89       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M90       | Done        | 2026-03-21    | 2026-03-21   | local validation + Azure provisioning pass (2026-03-21)                                                 |
+| M91       | Done        | 2026-03-21    | 2026-03-21   | local validation + implementation pass (2026-03-21)                                                     |
+| M92       | Done        | 2026-03-22    | 2026-03-22   | local validation + implementation pass (2026-03-22)                                                     |
+| M93       | Done        | 2026-03-23    | 2026-03-23   | local validation + social-first auth + Facebook OAuth pass (2026-03-23)                                 |
+| M94       | Done        | 2026-03-24    | 2026-03-24   | local validation + production Azure worker/TTS hotfix pass (2026-03-24)                                 |
+| M95       | Done        | 2026-03-24    | 2026-03-24   | local validation + production stuck-job watchdog pass (2026-03-24)                                      |
+| M96       | Done        | 2026-03-25    | 2026-03-25   | local validation + production redirect canonicalization hardening pass (2026-03-25)                     |
+| M97       | Done        | 2026-03-26    | 2026-03-24   | local validation + smart extension capture pass (2026-03-24)                                            |
+| M98       | Done        | 2026-03-27    | 2026-03-24   | local validation + markdown cleanup/backfill rollout pass (2026-03-24)                                  |
+| M99       | Done        | 2026-03-28    | 2026-03-24   | local validation + reusable live-site regression harness pass (2026-03-24)                              |
+| M100      | Done        | 2026-03-31    | 2026-03-25   | local validation + importance/tags capture metadata pass (2026-03-25)                                   |
+| M101      | Done        | 2026-04-02    | 2026-03-25   | local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25)                   |
+| M102      | Done        | 2026-04-04    | 2026-03-28   | local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28)                         |
+| M103      | Done        | 2026-04-05    | 2026-03-28   | local validation + severity-split local log retention pass (2026-03-28)                                 |
+| M104      | Done        | 2026-04-06    | 2026-03-28   | local validation + public episode share link implementation pass (2026-03-28)                           |
+| M105      | Done        | 2026-04-07    | 2026-03-28   | local validation + audio retention expiry/backfill/purge pass (2026-03-28)                              |
+| M106      | Done        | 2026-04-08    | 2026-04-01   | local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01) |
+| M107      | Done        | 2026-04-09    | 2026-04-02   | local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)                        |
+| M108      | Done        | 2026-04-10    | 2026-04-03   | local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)        |
+| M109      | Done        | 2026-04-11    | 2026-04-04   | local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)          |
+| M110      | Done        | 2026-04-12    | 2026-04-08   | local validation + production hybrid HTML extraction selection pass (2026-04-08)                        |
+| M111      | Done        | 2026-04-13    | 2026-04-05   | local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)                |
+| M112      | Done        | 2026-04-20    | 2026-04-05   | local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)                               |
+| M114      | Done        | 2026-04-21    | 2026-04-06   | local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)                        |
+| M115      | Done        | 2026-04-25    | 2026-04-10   | local validation + FAQ quick-answers-only navigation pass (2026-04-10)                                  |
+| M116      | Done        | 2026-04-26    | 2026-04-10   | local validation + compact mobile marketing/workspace header pass (2026-04-10)                          |
+| M117      | Done        | 2026-04-27    | 2026-04-10   | local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)                       |
+| M118      | Done        | 2026-04-29    | 2026-04-11   | local validation + compact resources Chrome walkthrough layout pass (2026-04-11)                        |
+| M119      | Done        | 2026-04-30    | 2026-04-11   | local validation + restored persistent public header/footer chrome pass (2026-04-11)                    |
+| M120      | Done        | 2026-05-01    | 2026-04-11   | local validation + wiki prepare/publish/browser integration pass (2026-04-11)                           |
+| S01       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S02       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S03       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S04       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S05       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S06       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S07       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S08       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S09       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S10       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S11       | Planned     | 2026-03-21    | —            | —                                                                                                       |
+| S12       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S13       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S14       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| S15       | Planned     | 2026-03-14    | —            | —                                                                                                       |
+| S16       | Planned     | 2026-03-28    | —            | —                                                                                                       |
+| S17       | Planned     | 2026-03-28    | —            | —                                                                                                       |
+| S18       | Planned     | 2026-03-07    | —            | —                                                                                                       |
+| C01       | Done        | 2026-03-10    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C02       | Done        | 2026-03-14    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C03       | Done        | 2026-03-21    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C04       | Done        | 2026-03-28    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C05       | Done        | 2026-04-04    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C06       | Done        | 2026-04-11    | 2026-03-17   | live Azure fresh-start cutover to Azure Table primary + PostgreSQL stopped + podcast contract pass      |
+| C07       | Done        | 2026-04-18    | 2026-03-07   | local validation + implementation pass (2026-03-07)                                                     |
+| C08       | Done        | 2026-04-25    | 2026-03-29   | queue-backed item dispatch + durable leases + single-worker-ready rollout validation (2026-03-29)       |
+| C09       | In Progress | 2026-04-17    | —            | eastus blue/green D2as_v5 primary + ACA overflow cutover with cloned prod config and no PostgreSQL      |
+| B01       | Done        | 2026-04-18    | 2026-03-28   | local docs sync + billing milestone expansion pass (2026-03-28)                                         |
+| B02       | Done        | 2026-04-25    | 2026-03-28   | additive billing schema + Azure Table compatibility + targeted validation (2026-03-28)                  |
+| B03       | Done        | 2026-05-02    | 2026-03-28   | server-side plan catalog + checkout hardening + targeted validation (2026-03-28)                        |
+| B04       | Done        | 2026-05-09    | 2026-03-28   | invoice-aware webhook entitlement engine + targeted validation (2026-03-28)                             |
+| B05       | Done        | 2026-05-16    | 2026-03-28   | billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28)                   |
+| B06       | Done        | 2026-05-23    | 2026-03-28   | admin billing visibility + webhook observability runbook pass (2026-03-28)                              |
+| B07       | Done        | 2026-05-30    | 2026-03-28   | founder Stripe setup + secret-promotion docs pass (2026-03-28)                                          |
+| B08       | Done        | 2026-06-06    | 2026-03-28   | lifecycle QA checklist + webhook resilience tests pass (2026-03-28)                                     |
+| B09       | In Progress | 2026-06-13    | —            | staging certification, founder launch tasks, and live launch evidence still pending                     |
 
 ### Status Reconciliation Ledger (2026-02-14)
 
-| Milestone | Previous | Corrected | Evidence | Confidence | Open Gap |
-|---|---|---|---|---|---|
-| M06 | In Progress | Done | `740f60c` + OAuth/auth tests | High | None |
-| M19 | Planned | Done | `1e69fda` + Dockerfiles + Azure docs | Medium | None |
-| M20 | In Progress | Done | CI workflow + license/check gates + verification prompts section | Medium | None |
-| M21 | In Progress | Done | contract gate pass + release-checklist protocol (`docs/release-checklist.md`) | Medium | External app smoke evidence follows release checklist template |
-| M22 | Planned | Done | optional phase closed for current architecture (single-episode model locked) | High | None |
-| M28 | In Progress | Done | extension policy + auth/revocation routes + snapshot abuse controls | High | None |
-| M29 | Planned | Done | OAuth/extension/html-snapshot integration suites enforced in CI | High | None |
-| M30 | Planned | Done | extension connect/reconnect/revoke UX in dashboard + popup | High | None |
-| M31 | Planned | Done | low-signal extraction failures + noisy HTML cleanup coverage | Medium | None |
-| M32 | Planned | Done | admin backlog/latency/top-failure metrics + operations runbook | Medium | None |
-| M33 | Planned | Done | release checklist + certification evidence protocol | High | None |
-| M34 | Planned | Done | token/diagnostics purge lifecycle scripts and policies | High | None |
-| M47 | In Progress | Done | `a2774bd` + log/error schema docs | High | None |
-| M48 | In Progress | Done | `a2774bd` + local JSONL log rotation config | High | None |
-| M49 | In Progress | Done | `a2774bd` + web/worker structured logger wiring | High | None |
-| M50 | In Progress | Done | `a2774bd` + python-tts correlation propagation | High | None |
-| M51 | Planned | Done | trace-context propagation baseline across services | Medium | None |
-| M52 | Planned | Done | admin KPI baseline + queue/failure metrics | Medium | None |
-| M53 | Planned | Done | Azure query starter pack + env/runbook wiring | Medium | None |
-| M54 | Planned | Done | dashboard/alert contract documented for operations | Medium | None |
-| M55 | In Progress | Done | `a2774bd` + `scripts/logs-triage.mjs` | High | None |
-| M56 | Planned | Done | `scripts/observability-verify.mjs` + CI step | High | None |
-| M57 | Planned | Done | extraction artifact contract/docs + worker/object storage integration | High | None |
-| M58 | Planned | Done | `ItemArtifact` schema + import/export support + lifecycle scripts | High | None |
-| M59 | Planned | Done | HTML extraction emits markdown + raw HTML artifact payload | High | None |
-| M60 | Planned | Done | PDF extraction emits markdown output (pdfjs deterministic path) | High | None |
-| M61 | Planned | Done | dual artifact persistence + retention env/purge workflow | High | None |
-| M62 | Planned | Done | markdown-derived narration/chunk contract in worker | High | None |
-| M63 | Planned | Done | markdown diagnostics API/dashboard surface + access controls | High | None |
-| M64 | Planned | Done | artifact backfill tooling + regression/certification gate run | High | None |
+| Milestone | Previous    | Corrected | Evidence                                                                      | Confidence | Open Gap                                                       |
+| --------- | ----------- | --------- | ----------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------- |
+| M06       | In Progress | Done      | `740f60c` + OAuth/auth tests                                                  | High       | None                                                           |
+| M19       | Planned     | Done      | `1e69fda` + Dockerfiles + Azure docs                                          | Medium     | None                                                           |
+| M20       | In Progress | Done      | CI workflow + license/check gates + verification prompts section              | Medium     | None                                                           |
+| M21       | In Progress | Done      | contract gate pass + release-checklist protocol (`docs/release-checklist.md`) | Medium     | External app smoke evidence follows release checklist template |
+| M22       | Planned     | Done      | optional phase closed for current architecture (single-episode model locked)  | High       | None                                                           |
+| M28       | In Progress | Done      | extension policy + auth/revocation routes + snapshot abuse controls           | High       | None                                                           |
+| M29       | Planned     | Done      | OAuth/extension/html-snapshot integration suites enforced in CI               | High       | None                                                           |
+| M30       | Planned     | Done      | extension connect/reconnect/revoke UX in dashboard + popup                    | High       | None                                                           |
+| M31       | Planned     | Done      | low-signal extraction failures + noisy HTML cleanup coverage                  | Medium     | None                                                           |
+| M32       | Planned     | Done      | admin backlog/latency/top-failure metrics + operations runbook                | Medium     | None                                                           |
+| M33       | Planned     | Done      | release checklist + certification evidence protocol                           | High       | None                                                           |
+| M34       | Planned     | Done      | token/diagnostics purge lifecycle scripts and policies                        | High       | None                                                           |
+| M47       | In Progress | Done      | `a2774bd` + log/error schema docs                                             | High       | None                                                           |
+| M48       | In Progress | Done      | `a2774bd` + local JSONL log rotation config                                   | High       | None                                                           |
+| M49       | In Progress | Done      | `a2774bd` + web/worker structured logger wiring                               | High       | None                                                           |
+| M50       | In Progress | Done      | `a2774bd` + python-tts correlation propagation                                | High       | None                                                           |
+| M51       | Planned     | Done      | trace-context propagation baseline across services                            | Medium     | None                                                           |
+| M52       | Planned     | Done      | admin KPI baseline + queue/failure metrics                                    | Medium     | None                                                           |
+| M53       | Planned     | Done      | Azure query starter pack + env/runbook wiring                                 | Medium     | None                                                           |
+| M54       | Planned     | Done      | dashboard/alert contract documented for operations                            | Medium     | None                                                           |
+| M55       | In Progress | Done      | `a2774bd` + `scripts/logs-triage.mjs`                                         | High       | None                                                           |
+| M56       | Planned     | Done      | `scripts/observability-verify.mjs` + CI step                                  | High       | None                                                           |
+| M57       | Planned     | Done      | extraction artifact contract/docs + worker/object storage integration         | High       | None                                                           |
+| M58       | Planned     | Done      | `ItemArtifact` schema + import/export support + lifecycle scripts             | High       | None                                                           |
+| M59       | Planned     | Done      | HTML extraction emits markdown + raw HTML artifact payload                    | High       | None                                                           |
+| M60       | Planned     | Done      | PDF extraction emits markdown output (pdfjs deterministic path)               | High       | None                                                           |
+| M61       | Planned     | Done      | dual artifact persistence + retention env/purge workflow                      | High       | None                                                           |
+| M62       | Planned     | Done      | markdown-derived narration/chunk contract in worker                           | High       | None                                                           |
+| M63       | Planned     | Done      | markdown diagnostics API/dashboard surface + access controls                  | High       | None                                                           |
+| M64       | Planned     | Done      | artifact backfill tooling + regression/certification gate run                 | High       | None                                                           |
 
 ## Milestones
 
 ### M00 - Spec Lock and Acceptance Baseline
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -362,6 +846,7 @@ Milestone metadata contract:
   - Manual checklist review in `docs/plans.md`.
 
 ### M01 - Workspace Bootstrap and Command Contract
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -385,6 +870,7 @@ Milestone metadata contract:
   - `pnpm test`
 
 ### M02 - Monorepo Skeleton and Interface Boundaries
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -406,6 +892,7 @@ Milestone metadata contract:
   - `pnpm -r test`
 
 ### M03 - Third-Party Reference Intake and Attribution
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -425,6 +912,7 @@ Milestone metadata contract:
   - `test -f docs/THIRD_PARTY.md`
 
 ### M04 - Environment and Runtime Profiles (Local + Azure-Ready)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -444,6 +932,7 @@ Milestone metadata contract:
   - `pnpm run check:env`
 
 ### M05 - Database Schema and Migration Baseline
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -463,6 +952,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- db`
 
 ### M06 - Authentication Surfaces (User + OAuth + Admin)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -483,6 +973,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- auth`
 
 ### M07 - Feed Token, Media Token, and Read-Only Demo Access
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -504,6 +995,7 @@ Milestone metadata contract:
   - manual: old feed URL returns unauthorized/not found after rotation
 
 ### M08 - Ingestion APIs and Abuse Prevention
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -526,6 +1018,7 @@ Milestone metadata contract:
   - `pnpm test -- security`
 
 ### M09 - Job Engine, Async Pipeline, and Deterministic Event Log
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -549,6 +1042,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/worker test -- idempotency`
 
 ### M10 - Content Extraction Adapters (HTML + PDF, OCR Unsupported)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -570,6 +1064,7 @@ Milestone metadata contract:
   - `pnpm test -- extraction-pdf`
 
 ### M11 - Normalization, Chunking, and Hash-Cache Determinism
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -588,6 +1083,7 @@ Milestone metadata contract:
   - `pnpm test -- determinism`
 
 ### M12 - TTS Provider Layer (Kokoro-First + Optional Providers)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -612,6 +1108,7 @@ Milestone metadata contract:
   - `npm run test:tts:e2e`
 
 ### M13 - Storage Adapter and Artifact Lifecycle
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -633,6 +1130,7 @@ Milestone metadata contract:
   - `pnpm test -- deletion`
 
 ### M14 - Media Delivery Contract (`HEAD` + `Range`)
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -653,6 +1151,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M15 - Deterministic RSS Renderer and Private Feed Endpoint
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -672,6 +1171,7 @@ Milestone metadata contract:
   - `pnpm test -- rss-snapshots`
 
 ### M16 - Web App UX and Admin Observability Module
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -696,6 +1196,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- admin`
 
 ### M17 - Demo Starter Content and Read-Only Demo Experience
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -716,6 +1217,7 @@ Milestone metadata contract:
   - `pnpm test -- demo-seed`
 
 ### M18 - Export Pipeline and Deterministic Manifest
+
 - status: Done
 - target_finish: 2026-02-07
 - completed_on: 2026-02-07
@@ -736,6 +1238,7 @@ Milestone metadata contract:
   - `pnpm test -- export`
 
 ### M19 - Azure Readiness and Deployment Documentation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -757,10 +1260,11 @@ Milestone metadata contract:
   - `docker build -f Dockerfile.worker .`
 
 ### M20 - Automated Quality Gates and Spec-Drift Controls
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
-- evidence: 1e69fda (2026-02-08)
+- evidence: 1e69fda (2026-02-08) + scope-aware CI/preflight refinement (2026-04-11)
 - Scope:
   - Add CI workflow for lint, typecheck, tests, build, snapshots.
   - Add dependency license gate to block AGPL/SSPL/NC.
@@ -782,6 +1286,7 @@ Milestone metadata contract:
   - `mypy services/python-tts` (if configured)
 
 ### M21 - Release Certification and Podcast Compatibility Gate
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -803,6 +1308,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M22 - Optional Phase 1.5: Multi-Part Episode Splitting for Long Inputs
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -820,6 +1326,7 @@ Milestone metadata contract:
   - `pnpm test -- rss`
 
 ### M23 - OAuth Hardening Completion (Google + Apple)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -846,6 +1353,7 @@ Milestone metadata contract:
   - auth integration tests with mocked provider flows
 
 ### M24 - Extension Auth Model (Login In Extension)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -868,6 +1376,7 @@ Milestone metadata contract:
   - unauthorized/expired/replayed token tests
 
 ### M25 - HTML Snapshot Ingestion API
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -893,6 +1402,7 @@ Milestone metadata contract:
   - regression tests for URL/PDF endpoints
 
 ### M26 - Worker Extraction Path for Snapshot Mode
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -915,6 +1425,7 @@ Milestone metadata contract:
   - worker pipeline tests
 
 ### M27 - Chrome Extension (MV3) UX + Capture Flow
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -925,7 +1436,7 @@ Milestone metadata contract:
   - Send authenticated payload to backend snapshot ingest API.
   - Provide user-facing error/success feedback in extension popup.
 - Key files/modules:
-  - `apps/extension/` (MV3 manifest, popup, background, content script)
+  - `apps/extension/` (MV3 manifest, popup, runtime config, popup-triggered capture logic)
   - backend extension auth and ingest routes
   - docs for local extension loading
 - Acceptance criteria:
@@ -937,6 +1448,7 @@ Milestone metadata contract:
   - API contract tests for extension requests
 
 ### M28 - Security/Compliance + Demo Readiness for Extension
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -959,6 +1471,7 @@ Milestone metadata contract:
   - demo walkthrough including extension capture
 
 ### M29 - OAuth + Extension End-to-End Regression Matrix (CI)
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-14
@@ -984,6 +1497,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M30 - Extension Onboarding + Recovery UX
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -1007,6 +1521,7 @@ Milestone metadata contract:
   - manual onboarding smoke walkthrough
 
 ### M31 - Extraction Quality Guardrails for Noisy HTML
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-02-14
@@ -1030,6 +1545,7 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M32 - Operational Observability Baseline
+
 - status: Done
 - target_finish: 2026-03-28
 - completed_on: 2026-02-14
@@ -1055,6 +1571,7 @@ Milestone metadata contract:
   - manual admin observability walkthrough
 
 ### M33 - Release Certification Matrix (Apple + Secondary App)
+
 - status: Done
 - target_finish: 2026-04-04
 - completed_on: 2026-02-14
@@ -1078,6 +1595,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M34 - Security + Data Lifecycle Hardening
+
 - status: Done
 - target_finish: 2026-04-11
 - completed_on: 2026-02-14
@@ -1101,6 +1619,7 @@ Milestone metadata contract:
   - `npm run test -- extension-auth`
 
 ### M35 - Durable Azure Target Lock + Parity Contract
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1122,6 +1641,7 @@ Milestone metadata contract:
   - `pnpm run check:env`
 
 ### M36 - Local Parity Compose Stack
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1146,6 +1666,7 @@ Milestone metadata contract:
   - `docker compose -f docker-compose.parity.yml down`
 
 ### M37 - Env Contract Hardening (Simple vs Parity vs Azure)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1170,6 +1691,7 @@ Milestone metadata contract:
   - `node scripts/check-env.mjs --profile azure`
 
 ### M38 - PostgreSQL Migration Foundation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1193,6 +1715,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/web test -- auth`
 
 ### M39 - Blob Storage Adapter (Uploads + Audio + Diagnostics Artifacts)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1216,6 +1739,7 @@ Milestone metadata contract:
   - `pnpm test -- worker`
 
 ### M40 - Media Proxy Contract with Blob Backend
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1238,6 +1762,7 @@ Milestone metadata contract:
   - `curl -i -H "Range: bytes=0-1" "<MP3_URL>"`
 
 ### M41 - Worker Artifact Flow Refactor (Blob-Native)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1260,6 +1785,7 @@ Milestone metadata contract:
   - `pnpm test -- extension-auth`
 
 ### M42 - PostgreSQL Queue Resilience Hardening
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1282,6 +1808,7 @@ Milestone metadata contract:
   - `pnpm --filter @articlepod/worker test -- crash-recovery`
 
 ### M43 - Azure IaC Baseline (`Bicep` + `azd`)
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1304,6 +1831,7 @@ Milestone metadata contract:
   - scripted `az deployment group what-if`
 
 ### M44 - VM Runtime Deployment Automation
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1327,6 +1855,7 @@ Milestone metadata contract:
   - health endpoint checks post-reboot
 
 ### M45 - Durability Drill and Restore Certification
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
@@ -1349,10 +1878,11 @@ Milestone metadata contract:
   - post-restore podcast contract checks
 
 ### M46 - Parity CI Matrix + Release Gate
+
 - status: Done
 - target_finish: 2026-02-08
 - completed_on: 2026-02-08
-- evidence: 1e69fda (2026-02-08)
+- evidence: 1e69fda (2026-02-08) + scope-aware parity trigger refinement (2026-04-11)
 - Scope:
   - Add CI matrix for `simple` and `parity` profiles.
   - Add pre-deploy gate requiring parity pass, podcast contract pass, and smoke pass evidence.
@@ -1373,12 +1903,14 @@ Milestone metadata contract:
   - podcast contract gate script
 
 ## Durable Azure/Public Interface Additions (M35-M46)
+
 - Storage interface is elevated to explicit runtime contract with `local` and `azure_blob` implementations.
 - Artifact references are standardized as object keys instead of VM-local filesystem paths.
 - Env contract is expanded with profile-specific requirements (`simple`, `parity`, `azure`).
 - Queue runner behavior expands to include stale-claim recovery and explicit retry scheduling semantics.
 
 ## Assumptions and Defaults
+
 - Package manager: `pnpm`.
 - Workspace package names will use `@articlepod/*`.
 - Local demo audio format currently defaults to MP3 (`audio/mpeg`).
@@ -1395,6 +1927,7 @@ Milestone metadata contract:
 ## Architecture Overview
 
 ### High-Level Components
+
 - `apps/web`:
   - UI routes (`/login`, `/app`, admin pages)
   - lightweight API routes (enqueue jobs, feed rendering, media serving in dev mode)
@@ -1410,6 +1943,7 @@ Milestone metadata contract:
   - Python scaffold for future local/hosted TTS model execution path
 
 ### Data Model (Planned Entities)
+
 - `User`:
   - `id`, `email`, `name`, `role`, `created_at`
 - `Session`:
@@ -1428,6 +1962,7 @@ Milestone metadata contract:
   - `id`, `job_id`, `item_id`, `stage`, `payload_json`, `created_at`
 
 ### Pipeline and State Machine
+
 - Intake route:
   - validates request -> creates `Item(status=queued)` -> enqueues `Job`.
 - Worker stages:
@@ -1444,6 +1979,7 @@ Milestone metadata contract:
   - schedule retry if eligible
 
 ### Adapter Interfaces (No Vendor Lock-in)
+
 - `ExtractorAdapter`:
   - `extractFromUrl(input): ExtractResult`
   - `extractFromPdf(input): ExtractResult`
@@ -1456,18 +1992,21 @@ Milestone metadata contract:
   - `buildFeed({ user, episodes, baseUrl }): string`
 
 ### Determinism Strategy
+
 - Stable sort keys for feed items and manifest entries.
 - Deterministic episode GUID from stable episode identity.
 - Deterministic chunk hashing from canonical normalized text.
 - Snapshot tests on RSS XML, event logs, and export manifest.
 
 ### Security and Privacy Strategy
+
 - Feed/media/share tokens are hashed at rest and redacted in logs.
 - SSRF guardrails block private networks and metadata endpoints.
 - Rate limits per IP and per authenticated user.
 - Clear delete semantics for item/account and corresponding data artifacts.
 
 ### Local vs Azure Runtime Strategy
+
 - Local:
   - SQLite + local filesystem media + Kokoro/python-tts local narration.
 - Azure (existing readiness baseline):
@@ -1480,79 +2019,88 @@ Milestone metadata contract:
 
 ## Risk Register
 
-| Risk | Probability | Impact | Detection Signal | Mitigation | Owner Milestone(s) |
-|---|---|---|---|---|---|
-| Podcast clients reject media seek/play | Medium | High | Range test not returning `206`, app playback stalls | enforce `HEAD`/`Range` tests + contract script | M14, M21 |
-| RSS invalid or unstable across runs | Medium | High | snapshot drift or feed parsing errors | deterministic serializer + strict RSS tests | M15, M20 |
-| HTML extraction low quality/empty output | Medium | Medium | extraction tests fail or many failed jobs | fixture corpus + fallback normalization + explicit errors | M10 |
-| PDF extraction fails on scanned docs silently | Medium | High | empty text with no clear error | scanned detection and explicit OCR-not-supported code | M10 |
-| Retry logic creates duplicate episodes | Medium | High | duplicate GUID/enclosures | deterministic IDs + check-before-generate + transactionally claimed jobs | M09, M11 |
-| Token leakage in logs/errors | Low | High | token strings visible in logs/UI errors | token redaction + secure error mapping | M07, M20 |
-| OAuth instability in local demos | Medium | Medium | login blocked when providers unavailable | local auth fallback always enabled | M06 |
-| OAuth account-linking ambiguity (same email across providers) | Medium | High | wrong account linked after provider login | introduce provider-subject identity table and linking rules | M23 |
-| Extension token leakage or replay | Medium | High | unauthorized extension submissions | short-lived connect codes, hashed stored tokens, revocation and replay checks | M24, M28 |
-| Snapshot payload abuse (oversized/hostile HTML) | Medium | High | high memory/CPU usage or ingest failures | strict payload caps, validation, and rate limits | M25, M28 |
-| Policy drift for paywalled content handling | Medium | Medium | feature requests imply bypass behavior | enforce user-visible-only policy in spec, code, and tests | M28 |
-| OAuth provider behavior drift (callback/profile edge cases) | Medium | Medium | intermittent sign-in failures in provider-specific paths | CI integration matrix + standardized error mapping | M23, M29 |
-| Extension onboarding friction reduces adoption/demo reliability | Medium | Medium | users fail to connect or repeatedly hit auth expiry issues | guided onboarding UI + reconnect flows + UX telemetry | M30 |
-| Extraction quality regressions on complex article layouts | High | Medium | narrated output includes boilerplate/junk text | quality fixture suite and quality-gate failures | M31 |
-| Limited operational visibility delays incident response | Medium | High | unresolved queue growth or repeated silent failures | metrics baseline + admin visibility + triage runbook | M32 |
-| Missing release evidence for podcast app compatibility | Medium | High | release regressions discovered only after demo | formal RC certification checklist and artifact capture | M33 |
-| Diagnostics retention misconfiguration exposes extra user data | Low | High | extracted text retained longer than intended | automated purge + retention tests + scoped demo-only storage | M34 |
-| License policy violation in dependencies | Low | High | CI dependency audit fail | automated denylist gate in CI | M20 |
-| Demo not impressive without API keys | Medium | High | blank state or slow first run | starter seed with pre-generated episode and demo banner | M17 |
-| Cloud deployment drift from local assumptions | Medium | Medium | Azure docs incomplete or container mismatch | env contract + container smoke + architecture docs | M19 |
-| SQLite-to-PostgreSQL migration drift breaks auth/feed/job integrity | Medium | High | row-count mismatch or failed auth/feed lookups post-migration | migration rehearsal, integrity checks, rollback scripts | M38, M46 |
-| Blob key/path migration regressions break media retrieval | Medium | High | 404 responses for known episodes or missing enclosure targets | deterministic key mapping tests + migration audits + contract checks | M39, M40, M41 |
-| Local parity profile drifts from Azure runtime behavior | Medium | High | parity pass/fail divergence across environments | compose parity profile + env profile gates + CI matrix enforcement | M36, M37, M46 |
-| Backup/restore runbook rot causes failed disaster recovery | Low | High | VM-loss drill fails or exceeds expected recovery objectives | scheduled drill cadence + signed restore evidence | M45, M46 |
-| Observability schema drift between services breaks correlation | Medium | High | logs present but trace/request IDs do not align | shared schema in `packages/core` + contract tests + propagation headers | M47, M50, M56 |
-| Log volume growth increases cost/noise and hides real incidents | Medium | Medium | high ingestion with low signal quality | severity gates, log rotation, digest aggregation, 14-day retention | M48, M55 |
-| Secrets accidentally leak via logs during failures | Low | High | tokens/cookies visible in log bundles | centralized redaction and redaction tests before release gate | M49, M56 |
-| Azure alert fatigue from poor thresholds | Medium | Medium | repeated non-actionable alert fires | phase-in dashboards with tuned thresholds and runbook-linked alerts | M54 |
-| Markdown conversion quality drift (lost headings/lists) | Medium | Medium | markdown fixtures diverge from expected structure | fixture corpus + deterministic markdown snapshot tests | M59, M60, M64 |
-| Analytics KPI trust issues from missing historical playback data | Medium | Medium | investor metrics appear inconsistent across time windows | hybrid backfill with explicit coverage labels + forward-only playback notation | M67, M68, M69 |
-| Dual raw+markdown storage increases cost and retention risk | Medium | Medium | storage growth exceeds projection or stale raw artifacts persist | lifecycle metadata + scheduled purge + retention audits | M57, M61, M64 |
-| Markdown artifact exposure leaks sensitive extracted data | Low | High | unauthorized retrieval of extraction artifacts | strict auth checks + scoped diagnostics access + audit logging | M63, M64 |
-| Domain/TLS drift causes broken canonical URLs or cert failures | Medium | High | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65 |
-| Missing verification-prompts process | Medium | Medium | drift between plan and releases | add section to `docs/Prompts.md` and run each milestone | M20 |
+| Risk                                                                | Probability | Impact | Detection Signal                                                        | Mitigation                                                                     | Owner Milestone(s) |
+| ------------------------------------------------------------------- | ----------- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------ |
+| Podcast clients reject media seek/play                              | Medium      | High   | Range test not returning `206`, app playback stalls                     | enforce `HEAD`/`Range` tests + contract script                                 | M14, M21           |
+| RSS invalid or unstable across runs                                 | Medium      | High   | snapshot drift or feed parsing errors                                   | deterministic serializer + strict RSS tests                                    | M15, M20           |
+| HTML extraction low quality/empty output                            | Medium      | Medium | extraction tests fail or many failed jobs                               | fixture corpus + fallback normalization + explicit errors                      | M10                |
+| PDF extraction fails on scanned docs silently                       | Medium      | High   | empty text with no clear error                                          | scanned detection and explicit OCR-not-supported code                          | M10                |
+| Retry logic creates duplicate episodes                              | Medium      | High   | duplicate GUID/enclosures                                               | deterministic IDs + check-before-generate + transactionally claimed jobs       | M09, M11           |
+| Token leakage in logs/errors                                        | Low         | High   | token strings visible in logs/UI errors                                 | token redaction + secure error mapping                                         | M07, M20           |
+| OAuth instability in local demos                                    | Medium      | Medium | login blocked when providers unavailable                                | local auth fallback always enabled                                             | M06                |
+| OAuth account-linking ambiguity (same email across providers)       | Medium      | High   | wrong account linked after provider login                               | introduce provider-subject identity table and linking rules                    | M23                |
+| Extension token leakage or replay                                   | Medium      | High   | unauthorized extension submissions                                      | short-lived connect codes, hashed stored tokens, revocation and replay checks  | M24, M28           |
+| Snapshot payload abuse (oversized/hostile HTML)                     | Medium      | High   | high memory/CPU usage or ingest failures                                | strict payload caps, validation, and rate limits                               | M25, M28           |
+| Policy drift for paywalled content handling                         | Medium      | Medium | feature requests imply bypass behavior                                  | enforce user-visible-only policy in spec, code, and tests                      | M28                |
+| OAuth provider behavior drift (callback/profile edge cases)         | Medium      | Medium | intermittent sign-in failures in provider-specific paths                | CI integration matrix + standardized error mapping                             | M23, M29           |
+| Extension onboarding friction reduces adoption/demo reliability     | Medium      | Medium | users fail to connect or repeatedly hit auth expiry issues              | guided onboarding UI + reconnect flows + UX telemetry                          | M30                |
+| Extraction quality regressions on complex article layouts           | High        | Medium | narrated output includes boilerplate/junk text                          | quality fixture suite and quality-gate failures                                | M31                |
+| Limited operational visibility delays incident response             | Medium      | High   | unresolved queue growth or repeated silent failures                     | metrics baseline + admin visibility + triage runbook                           | M32                |
+| Missing release evidence for podcast app compatibility              | Medium      | High   | release regressions discovered only after demo                          | formal RC certification checklist and artifact capture                         | M33                |
+| Diagnostics retention misconfiguration exposes extra user data      | Low         | High   | extracted text retained longer than intended                            | automated purge + retention tests + scoped demo-only storage                   | M34                |
+| License policy violation in dependencies                            | Low         | High   | CI dependency audit fail                                                | automated denylist gate in CI                                                  | M20                |
+| Demo not impressive without API keys                                | Medium      | High   | blank state or slow first run                                           | starter seed with pre-generated episode and demo banner                        | M17                |
+| Cloud deployment drift from local assumptions                       | Medium      | Medium | Azure docs incomplete or container mismatch                             | env contract + container smoke + architecture docs                             | M19                |
+| SQLite-to-PostgreSQL migration drift breaks auth/feed/job integrity | Medium      | High   | row-count mismatch or failed auth/feed lookups post-migration           | migration rehearsal, integrity checks, rollback scripts                        | M38, M46           |
+| Blob key/path migration regressions break media retrieval           | Medium      | High   | 404 responses for known episodes or missing enclosure targets           | deterministic key mapping tests + migration audits + contract checks           | M39, M40, M41      |
+| Local parity profile drifts from Azure runtime behavior             | Medium      | High   | parity pass/fail divergence across environments                         | compose parity profile + env profile gates + CI matrix enforcement             | M36, M37, M46      |
+| Backup/restore runbook rot causes failed disaster recovery          | Low         | High   | VM-loss drill fails or exceeds expected recovery objectives             | scheduled drill cadence + signed restore evidence                              | M45, M46           |
+| Observability schema drift between services breaks correlation      | Medium      | High   | logs present but trace/request IDs do not align                         | shared schema in `packages/core` + contract tests + propagation headers        | M47, M50, M56      |
+| Log volume growth increases cost/noise and hides real incidents     | Medium      | Medium | high ingestion with low signal quality                                  | severity gates, log rotation, digest aggregation, 14-day retention             | M48, M55           |
+| Secrets accidentally leak via logs during failures                  | Low         | High   | tokens/cookies visible in log bundles                                   | centralized redaction and redaction tests before release gate                  | M49, M56           |
+| Azure alert fatigue from poor thresholds                            | Medium      | Medium | repeated non-actionable alert fires                                     | phase-in dashboards with tuned thresholds and runbook-linked alerts            | M54                |
+| Markdown conversion quality drift (lost headings/lists)             | Medium      | Medium | markdown fixtures diverge from expected structure                       | fixture corpus + deterministic markdown snapshot tests                         | M59, M60, M64      |
+| Analytics KPI trust issues from missing historical playback data    | Medium      | Medium | investor metrics appear inconsistent across time windows                | hybrid backfill with explicit coverage labels + forward-only playback notation | M67, M68, M69      |
+| Dual raw+markdown storage increases cost and retention risk         | Medium      | Medium | storage growth exceeds projection or stale raw artifacts persist        | lifecycle metadata + scheduled purge + retention audits                        | M57, M61, M64      |
+| Markdown artifact exposure leaks sensitive extracted data           | Low         | High   | unauthorized retrieval of extraction artifacts                          | strict auth checks + scoped diagnostics access + audit logging                 | M63, M64           |
+| Domain/TLS drift causes broken canonical URLs or cert failures      | Medium      | High   | health check failures on apex domain; mixed host URLs in RSS/enclosures | enforce deploy-time ingress/TLS automation + APP_URL/canonical-host validation | M65                |
+| Missing verification-prompts process                                | Medium      | Medium | drift between plan and releases                                         | add section to `docs/Prompts.md` and run each milestone                        | M20                |
 
 ## 3-Minute Demo Script (Time-Boxed)
 
 ### 00:00-00:20 - Start and Login
+
 1. Run `pnpm dev`.
 2. Open app and log in with seeded demo account.
 
 ### 00:20-00:45 - Show Immediate Value
+
 1. Show starter episode already present and playable.
-2. Highlight the focused `/app` workspace, then open `/app/podcast-apps` for copy/rotation controls.
+2. Highlight the focused `/app` workspace, then open `/app/podcast-apps` for copy/setup controls.
 
 ### 00:45-01:15 - Verify Feed
+
 1. Open `/rss/<feed_token>.xml`.
 2. Point out GUID + enclosure URL + enclosure length/type.
 
 ### 01:15-01:45 - New Submission
+
 1. Submit a URL (or sample PDF).
 2. Show status transition `queued -> processing`.
 
 ### 01:45-02:10 - Admin Observability
+
 1. Open admin dashboard.
 2. Show active users, job success/failure, recent errors.
 
 ### 02:10-02:35 - Ready Episode and Playback
+
 1. Return to dashboard; show item as `ready`.
 2. Play audio in browser and seek mid-track.
 
 ### 02:35-02:55 - Podcast Compatibility Proof
+
 1. Run `curl -I "<MP3_URL>"`.
 2. Run `curl -i -H "Range: bytes=0-1" "<MP3_URL>"` and show `206`.
 
 ### 02:55-03:00 - Portability
+
 1. Mention `pnpm export` creates portable RSS + media + manifest outputs.
 
 ## Test Strategy and Acceptance Matrix
 
 ### Unit Tests (Minimum)
+
 - URL normalization + SSRF guard checks.
 - HTML extraction fixtures.
 - PDF extraction fixtures including scanned-failure case.
@@ -1561,6 +2109,7 @@ Milestone metadata contract:
 - Storage URL/token generation.
 
 ### Integration Tests
+
 - URL submission -> job ready -> RSS item appears -> media reachable.
 - PDF submission -> ready for text-based PDF.
 - Scanned PDF -> failed with explicit OCR-not-supported error.
@@ -1570,16 +2119,19 @@ Milestone metadata contract:
 - Extension connect-code/token lifecycle and HTML snapshot ingest end-to-end.
 
 ### Snapshot/Determinism Tests
+
 - RSS XML snapshots.
 - Job event log serialization snapshots.
 - Export manifest snapshots.
 
 ### Manual Smoke Tests (Release Gate)
+
 - Subscribe on Apple Podcasts (reachable host) and one additional RSS podcast app.
 - Play, seek, resume.
 - Validate read-only share mode cannot mutate content.
 
 ### Durable Azure and Parity Validation Matrix (M35-M46)
+
 - Profile validation:
   - `simple`, `parity`, and `azure` env checks with explicit required vars.
 - Migration validation:
@@ -1596,6 +2148,7 @@ Milestone metadata contract:
   - snapshot ingest still enqueues immediately and completes under parity profile.
 
 ## Milestone Execution Protocol (After Approval)
+
 - Execute one milestone at a time.
 - For each milestone:
   - implement only that scope
@@ -1608,6 +2161,7 @@ Milestone metadata contract:
 ## Ongoing Notes and Decisions
 
 ### Decision Log Template
+
 - Date:
 - Milestone:
 - Decision:
@@ -1616,6 +2170,7 @@ Milestone metadata contract:
 - Follow-up impact:
 
 ### Open Questions Tracker
+
 - Question:
 - Blocking/non-blocking:
 - Owner:
@@ -1623,6 +2178,7 @@ Milestone metadata contract:
 - Resolution:
 
 ### Milestone Verification Log Template
+
 - Milestone:
 - Commands run:
 - Pass/fail:
@@ -1633,6 +2189,7 @@ Milestone metadata contract:
 ## Observability Track (M47-M56)
 
 ### M47 - Observability Contract and Error Taxonomy Lock
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1648,6 +2205,7 @@ Milestone metadata contract:
   - schema is documented and runtime code emits/returns `support_id` on failures.
 
 ### M48 - Dedicated Local Log Storage + Rotation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1663,6 +2221,7 @@ Milestone metadata contract:
   - logs exist under predictable service paths and can be bundled with one command.
 
 ### M49 - Node Structured Logging Baseline (Web + Worker)
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1679,6 +2238,7 @@ Milestone metadata contract:
   - correlated worker events + API failure logs exist in JSONL.
 
 ### M50 - Python TTS Structured Logging + Correlation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1693,6 +2253,7 @@ Milestone metadata contract:
   - one failure can be traced across worker and python-tts logs via shared IDs.
 
 ### M51 - OpenTelemetry Instrumentation End-to-End
+
 - status: Done
 - target_finish: 2026-04-18
 - completed_on: 2026-02-14
@@ -1704,6 +2265,7 @@ Milestone metadata contract:
   - completed as baseline instrumentation contract; exporter-specific expansion can layer on top.
 
 ### M52 - Metrics Layer (Service + Business KPIs)
+
 - status: Done
 - target_finish: 2026-04-25
 - completed_on: 2026-02-14
@@ -1714,6 +2276,7 @@ Milestone metadata contract:
   - completed baseline KPI layer; naming aligns with admin/API surfaces.
 
 ### M53 - Azure Monitor + Log Analytics Wiring
+
 - status: Done
 - target_finish: 2026-05-02
 - completed_on: 2026-02-14
@@ -1725,6 +2288,7 @@ Milestone metadata contract:
   - completed through runbook-backed Azure query/wiring guidance.
 
 ### M54 - Dashboards + Alerts
+
 - status: Done
 - target_finish: 2026-05-09
 - completed_on: 2026-02-14
@@ -1735,6 +2299,7 @@ Milestone metadata contract:
   - completed baseline; concrete Azure portal objects can be instantiated from this contract.
 
 ### M55 - Error Triage Loop Automation
+
 - status: Done
 - target_finish: 2026-02-09
 - completed_on: 2026-02-09
@@ -1748,6 +2313,7 @@ Milestone metadata contract:
   - ranked digest generated from latest JSONL logs.
 
 ### M56 - Observability Validation and Release Gate
+
 - status: Done
 - target_finish: 2026-05-16
 - completed_on: 2026-02-14
@@ -1760,10 +2326,10 @@ Milestone metadata contract:
 - Acceptance:
   - observability verification command passes in CI/local.
 
-
 ## Markdown Artifact Track (M57-M64)
 
 ### M57 - Markdown Artifact Contract Lock
+
 - status: Done
 - target_finish: 2026-02-21
 - completed_on: 2026-02-14
@@ -1782,6 +2348,7 @@ Milestone metadata contract:
   - manual cross-doc consistency review
 
 ### M58 - Artifact Metadata Model + Storage References
+
 - status: Done
 - target_finish: 2026-02-24
 - completed_on: 2026-02-14
@@ -1798,6 +2365,7 @@ Milestone metadata contract:
   - manual model walkthrough against current schema
 
 ### M59 - HTML to Markdown Pipeline (Readability + Turndown + Abogen)
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-14
@@ -1814,6 +2382,7 @@ Milestone metadata contract:
   - `npm run test -- extraction`
 
 ### M60 - PDF to Markdown Pipeline (pdfjs Deterministic Path + Markdown Structuring)
+
 - status: Done
 - target_finish: 2026-03-03
 - completed_on: 2026-02-14
@@ -1830,6 +2399,7 @@ Milestone metadata contract:
   - `npm run test -- extraction-pdf`
 
 ### M61 - Dual Artifact Persistence + Retention Enforcement
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-14
@@ -1846,6 +2416,7 @@ Milestone metadata contract:
   - `npm run test -- storage`
 
 ### M62 - Markdown-Derived Narration Contract
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-02-14
@@ -1863,6 +2434,7 @@ Milestone metadata contract:
   - `npm run test -- worker`
 
 ### M63 - Markdown Diagnostics Access Surface
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-02-14
@@ -1880,6 +2452,7 @@ Milestone metadata contract:
   - `npm run test -- auth`
 
 ### M64 - Migration Backfill + Regression Certification
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-02-14
@@ -1898,6 +2471,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M65 - Canonical Domain + TLS Deploy Automation
+
 - status: Done
 - target_finish: 2026-02-25
 - completed_on: 2026-02-25
@@ -1932,6 +2506,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "https://articlepod.com/rss/<feed_token>.xml"`
 
 ### M66 - Analytics Event Foundation
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -1957,6 +2532,7 @@ Milestone metadata contract:
   - `npm run test -- admin-analytics`
 
 ### M67 - Analytics Backfill + Coverage Labels
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -1976,6 +2552,7 @@ Milestone metadata contract:
   - `npm run test -- admin-analytics`
 
 ### M68 - Admin Analytics APIs + CSV Exports
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -1999,6 +2576,7 @@ Milestone metadata contract:
   - `npm run lint`
 
 ### M69 - Tabbed Admin Dashboard UI
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2018,6 +2596,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M70 - KPI Validation + Docs/Runbook Sync
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2043,6 +2622,7 @@ Milestone metadata contract:
   - `npm run build`
 
 ### M71 - Free Trial Quota + Admin Overrides
+
 - status: Done
 - target_finish: 2026-02-27
 - completed_on: 2026-02-27
@@ -2063,6 +2643,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Non-paid users can submit up to configured free quota and are blocked afterwards.
   - Ingest APIs return `USAGE_LIMIT_EXCEEDED` for exhausted quota.
+  - Paid users who fill the current 24-hour episode-start window are accepted into a bounded deferred queue; only queue-cap submissions are rejected.
   - Admin can search users and update `paid` status or extra credits from dashboard.
   - Granted extra credits immediately allow additional submissions.
 - Verification commands:
@@ -2075,6 +2656,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M72 - Digest Data Model + Core Contracts
+
 - status: Done
 - target_finish: 2026-03-02
 - completed_on: 2026-02-27
@@ -2096,6 +2678,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/core`
 
 ### M73 - Digest Settings APIs + Digest Feed Token Controls
+
 - status: Done
 - target_finish: 2026-03-03
 - completed_on: 2026-02-27
@@ -2116,6 +2699,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/web -- digest-routes`
 
 ### M74 - Digest Scheduler Pass + External Tick Signal
+
 - status: Done
 - target_finish: 2026-03-04
 - completed_on: 2026-02-27
@@ -2136,6 +2720,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/web -- digest-routes`
 
 ### M75 - Digest Run Processor (Summary + Stub Email + Optional Podcast)
+
 - status: Done
 - target_finish: 2026-03-05
 - completed_on: 2026-02-27
@@ -2155,6 +2740,7 @@ Milestone metadata contract:
   - `npm run test --workspace @articlepod/worker -- digest-jobs`
 
 ### M76 - Separate Digest RSS + Digest Media Route Contract
+
 - status: Done
 - target_finish: 2026-03-06
 - completed_on: 2026-02-27
@@ -2171,7 +2757,8 @@ Milestone metadata contract:
 - Verification commands:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
-### M77 - Settings UX for Digest Controls + Run History
+### M77 - Settings UX for Digest Controls
+
 - status: Done
 - target_finish: 2026-03-07
 - completed_on: 2026-02-27
@@ -2179,18 +2766,19 @@ Milestone metadata contract:
 - Scope:
   - Add digest feed copy/rotate controls in settings.
   - Add daily/weekly digest settings form (timezone, cadence toggles, schedule, length).
-  - Add recent digest run history panel in settings.
+  - Keep digest editing available without letting it dominate the settings page.
 - Key files/modules:
   - `apps/web/src/app/app/settings/page.tsx`
   - `apps/web/src/components/dashboard-client.tsx`
 - Acceptance criteria:
-  - Users can update digest settings and view digest run status from `/app/settings`.
+  - Users can update digest settings from `/app/settings` without a long always-open form.
   - `/app` workspace stays focused on source submission items.
 - Verification commands:
   - `npm run build`
   - `npm run test --workspace @articlepod/web -- app-dashboard-layout`
 
 ### M78 - Digest Test Expansion + Contract Gates
+
 - status: Done
 - target_finish: 2026-03-08
 - completed_on: 2026-02-27
@@ -2211,6 +2799,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
 ### M79 - Docs Sync for Digest Track
+
 - status: Done
 - target_finish: 2026-03-09
 - completed_on: 2026-02-27
@@ -2231,6 +2820,7 @@ Milestone metadata contract:
   - Manual cross-doc consistency pass.
 
 ### M80 - Brain Icon Consistency Pass (Web + Extension + RSS)
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-02-27
@@ -2265,6 +2855,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<DIGEST_FEED_URL>"`
 
 ### M81 - Podcast Playback Compatibility + Description Quality Hardening
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2296,6 +2887,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M82 - Missing Media Auto-Repair + RSS Delete Consistency
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2328,6 +2920,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M83 - Global Geo Snapshot + Optional Demographic Survey
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2363,6 +2956,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M84 - Smart Feed Shortcuts + Admin-Only Markdown Controls
+
 - status: Done
 - target_finish: 2026-02-28
 - completed_on: 2026-02-28
@@ -2398,10 +2992,11 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M85 - Message-First Feedback Suggestions + Admin Triage Inbox
+
 - status: Done
 - target_finish: 2026-03-01
 - completed_on: 2026-03-01
-- evidence: local validation + implementation pass (2026-03-01)
+- evidence: initial implementation (2026-03-01); Azure Table primary feedback-store hardening + targeted validation (2026-04-10)
 - Scope:
   - Add an authenticated `/app/feedback` page with message-first input and optional type/feature metadata.
   - Add admin feedback inbox in `/admin` with status workflow and mirror retry actions.
@@ -2409,23 +3004,26 @@ Milestone metadata contract:
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
   - `apps/web/prisma/schema.postgres.prisma`
-  - `apps/web/src/lib/feedback.ts`
+  - `apps/web/src/lib/feedback-store.ts`
   - `apps/web/src/lib/feedback-mirror.ts`
   - `apps/web/src/app/api/feedback/route.ts`
   - `apps/web/src/app/api/admin/feedback/route.ts`
   - `apps/web/src/app/api/admin/feedback/[id]/status/route.ts`
   - `apps/web/src/app/api/admin/feedback/[id]/mirror/route.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
   - `apps/web/src/components/feedback-form.tsx`
   - `apps/web/src/app/app/feedback/page.tsx`
   - `apps/web/src/components/admin-feedback-inbox.tsx`
   - `apps/web/src/app/admin/page.tsx`
   - `apps/web/tests/feedback-api.test.ts`
+  - `apps/web/tests/env-path-normalization.test.ts`
 - Acceptance criteria:
   - `/app/feedback` renders feedback message as the first and required field.
   - Feedback `type` and `feature area` are optional and persist as `null` when omitted.
   - Contact checkbox defaults to checked and persists user opt-out when unchecked.
   - Admin inbox supports filtering, status updates, and mirror retry for failed/pending mirror states.
   - Mirror failures never block successful feedback submission.
+  - Azure Table primary mode persists and lists feedback without requiring `DATABASE_URL` or a VM-local SQLite file.
 - Verification commands:
   - `pnpm --filter @articlepod/web run lint`
   - `pnpm --filter @articlepod/web test`
@@ -2437,6 +3035,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M86 - Summary Studio Data Models and Contracts
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2461,6 +3060,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run typecheck`
 
 ### M87 - Summary Studio APIs and Manual UX
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2486,6 +3086,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run build`
 
 ### M88 - Azure OpenAI Summary Provider and Worker Routing
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2512,31 +3113,38 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run typecheck`
 
 ### M89 - Digest Feed and Media Integration for Manual Summaries
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
-- evidence: local validation + implementation pass (2026-03-21)
+- evidence: local validation + implementation pass (2026-03-21), summary feed consolidation follow-up (2026-03-29)
 - Scope:
-  - Publish manual summary episodes into the existing private digest feed.
-  - Extend digest media authorization and range handling to summary episodes.
+  - Publish manual summary episodes into the main private feed while keeping scheduled digests on the separate digest feed.
+  - Extend main-feed media authorization and range handling to summary episodes while preserving backward compatibility for older digest summary media URLs.
   - Ensure account deletion and operational backfill paths include manual summary records/artifacts.
 - Key files/modules:
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
   - `apps/web/src/app/rss/digest/[token]/route.ts`
   - `apps/web/src/app/api/digest-media/[...path]/route.ts`
   - `apps/web/src/app/api/account/delete/route.ts`
   - `apps/web/src/lib/ops/database-snapshot.ts`
   - `apps/web/src/lib/ops/azure-table-primary-backfill.ts`
   - `apps/web/tests/digest-routes.test.ts`
+  - `apps/web/tests/rss-delete-route.test.ts`
+  - `apps/web/tests/media-route.test.ts`
   - `apps/web/tests/storage-cutover-config.test.ts`
 - Acceptance criteria:
-  - Digest RSS includes scheduled digest episodes and manual summary episodes in newest-first order with unique enclosure URLs.
-  - Digest media route serves manual summary episodes with the same `HEAD` and byte-range `206` contract.
+  - Main RSS includes regular episodes plus manual summary episodes in newest-first order with unique enclosure URLs.
+  - Main media route serves manual summary episodes with the same `HEAD` and byte-range `206` contract.
+  - Digest RSS remains limited to scheduled digest episodes.
   - Summary records are included in lifecycle cleanup and metadata backfill coverage.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- digest-routes`
   - `npx pnpm --filter @articlepod/web run test -- storage-cutover-config`
 
 ### M90 - Azure OpenAI Provisioning and Deploy Automation
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2561,6 +3169,7 @@ Milestone metadata contract:
   - `./scripts/azure/provision-openai.sh --resource-group rg-articlepod-prod`
 
 ### M91 - Summary Studio Validation and Docs Sync
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-21
@@ -2594,6 +3203,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M92 - Feed Stability + Extension Lifetime UX
+
 - status: Done
 - target_finish: 2026-03-22
 - completed_on: 2026-03-22
@@ -2636,6 +3246,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### M93 - Social-First Auth UX + Facebook OAuth
+
 - status: Done
 - target_finish: 2026-03-23
 - completed_on: 2026-03-23
@@ -2669,6 +3280,7 @@ Milestone metadata contract:
   - `pnpm build`
 
 ### M94 - Azure Worker Stability Hotfix
+
 - status: Done
 - target_finish: 2026-03-24
 - completed_on: 2026-03-24
@@ -2698,6 +3310,1106 @@ Milestone metadata contract:
   - `pnpm test`
   - `pnpm build`
 
+### M95 - Stuck Job Watchdog Hardening
+
+- status: Done
+- target_finish: 2026-03-24
+- completed_on: 2026-03-24
+- evidence: local validation + production stuck-job watchdog pass (2026-03-24)
+- Scope:
+  - Prevent pinned-IP extraction socket failures from crashing the worker process.
+  - Default Azure pinned fetches to IPv4-only candidates on the current single-stack VM profile.
+  - Heartbeat long-running TTS jobs so stale-lock detection means "no progress" rather than "processing took a while".
+  - Mark repeatedly stalled jobs as `PROCESSING_TIMEOUT` instead of reclaiming them forever and starving the queue.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/src/errors/codes.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/tests/queue-resilience.test.ts`
+  - `apps/worker/tests/retry-policy.test.ts`
+  - `.env.azure.example`
+  - `scripts/azure/render-env.sh`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/env.md`
+  - `docs/azure-deploy.md`
+- Acceptance criteria:
+  - IPv4/IPv6 pinned-IP connect failures do not crash the worker process and instead fall through to the existing retry/fallback logic.
+  - Long TTS jobs refresh their job lock while chunks are completing, so legitimate multi-minute audio work is not reclaimed as stale.
+  - A stalled job gets at most one automatic reclaim, then moves to `PROCESSING_TIMEOUT` with no further auto-retries.
+  - Reclaimed stale jobs no longer prevent newer queued work from being processed first.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/worker test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+
+### M96 - Redirect Canonicalization Hardening
+
+- status: Done
+- target_finish: 2026-03-25
+- completed_on: 2026-03-25
+- evidence: local validation + production redirect canonicalization hardening pass (2026-03-25)
+- Scope:
+  - Canonicalize redirecting/share/login-style URLs before enqueue/extraction when the final public URL is safely discoverable.
+  - Keep canonicalization fail-open so transient redirect discovery failures do not block submission.
+  - Preserve SSRF protections across every redirect hop.
+- Key files/modules:
+  - `packages/core/src/security/urlPolicy.ts`
+  - `packages/core/tests/security.test.ts`
+  - `apps/web/src/app/api/items/url/route.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Safe public redirects are followed and stored as the canonical source URL for new submissions.
+  - Redirect discovery failure falls back to the original validated URL rather than breaking submission.
+  - Redirect chains to blocked/private hosts are still rejected.
+  - Existing queued items still benefit because the worker canonicalizes URL sources before extraction.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+
+### M97 - Smart Extension Capture
+
+- status: Done
+- target_finish: 2026-03-26
+- completed_on: 2026-03-24
+- evidence: local validation + smart extension capture pass (2026-03-24)
+- Scope:
+  - Add popup-triggered smart capture that can reveal likely article continuations before upload using bounded safe clicks and limited scroll passes.
+  - Keep extension snapshots HTML-first and compatible with the existing `HTML_SNAPSHOT` worker extraction path.
+  - Remove only inert nodes from the serialized clone, keep the single hard byte limit on the route, and fail early in the popup when safe cleanup still exceeds the budget.
+- Key files/modules:
+  - `apps/extension/capture-page.mjs`
+  - `apps/extension/popup.js`
+  - `apps/extension/popup.html`
+  - `apps/web/src/app/api/items/html-snapshot/route.ts`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/tests/extension-capture.test.ts`
+  - `apps/web/tests/auth-routes.test.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `apps/extension/README.md`
+- Acceptance criteria:
+  - Likely article content can be revealed via bounded smart capture without switching to a second extraction pipeline in the extension.
+  - Feed/thread-style hosts remain conservative and do not aggressively expand replies or surrounding discussion.
+  - Safe cleanup removes inert nodes/comments while preserving document structure that the server extractor relies on.
+  - The shared schema no longer enforces a separate character cap; the route enforces the single hard byte limit.
+  - Oversized cleaned snapshots fail clearly in the popup and on the route.
+  - The popup stays focused on capture + cleanup, while the server extractor classifies explicit challenge/block snapshots and returns clear guidance.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/web test`
+  - `pnpm lint`
+  - `pnpm test`
+  - `pnpm build`
+  - `pnpm extension:validate`
+
+### M98 - Extracted Markdown Cleanup Rollout
+
+- status: Done
+- target_finish: 2026-03-27
+- completed_on: 2026-03-24
+- evidence: local validation + markdown cleanup/backfill rollout pass (2026-03-24); stored-markdown vs. narration cleanup split follow-up (2026-04-07)
+- Scope:
+  - Add shared rule-based cleanup for extracted source markdown before canonical `MARKDOWN` persistence and before TTS narration derivation.
+  - Keep persistence cleanup conservative so stored `MARKDOWN` preserves useful source context such as links, raw URLs, bylines, dates, captions, and table structure while still removing wrapper/footer/navigation junk.
+  - Move aggressive URL/image/table/metadata stripping into the narration step that feeds TTS, chunk hashes, and episode descriptions.
+  - Add idempotent backfill tooling that rewrites existing stored item markdown artifacts, queues regeneration when narration hashes change, and preserves already-published low-signal episodes for feed stability.
+- Key files/modules:
+  - `packages/core/src/extract/markdownCleanup.ts`
+  - `packages/core/src/extract/html.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/web/src/lib/markdown-artifact-backfill.ts`
+  - `apps/web/scripts/cleanup-markdown-artifacts.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - New items persist cleaned extracted markdown as the canonical `MARKDOWN` artifact while leaving `RAW_HTML` and `RAW_PDF` untouched.
+  - Cleaned markdown remains the durable artifact, but narration text, chunk hashes, cache keys, and episode descriptions now come from a later aggressive narration cleanup pass over that markdown.
+  - Chrome-only or low-signal pages fail with a clearer `EXTRACTION_EMPTY` message after cleanup.
+  - Existing items can be cleaned in place with regeneration queued only when the cleaned narration hash changes.
+  - Already-published low-signal items are reported and skipped rather than auto-deleted.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/queue-resilience.test.ts`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/markdown-artifact-backfill.test.ts`
+  - `pnpm --filter @articlepod/worker typecheck`
+  - `pnpm --filter @articlepod/web typecheck`
+
+### M99 - Reusable Live-Site Regression Harness
+
+- status: Done
+- target_finish: 2026-03-28
+- completed_on: 2026-03-24
+- evidence: local validation + reusable live-site regression harness pass (2026-03-24)
+- Scope:
+  - Add a top-level `testing/live-site/` workspace with an editable Markdown corpus, quirks ledger, TypeScript runners, and lightweight unit tests.
+  - Run checked-out local code for URL and browser-capture validation, plus dispatch GitHub Actions VM probes for URL-path production checks.
+  - Write timestamped reports with provenance, structured results, failure grouping, and rerun-friendly site filters.
+  - Add an extension popup target-tab test hook so the unpacked-extension smoke path can target a known page without depending on the Chrome Web Store build.
+- Key files/modules:
+  - `testing/live-site/*`
+  - `apps/extension/popup.js`
+  - `apps/extension/target-tab.mjs`
+  - `.github/workflows/probe-url-extraction.yml`
+  - `docs/Prompts.md`
+  - `docs/release-checklist.md`
+  - `scripts/README.md`
+- Acceptance criteria:
+  - One root command runs the default corpus against local latest code and production URL probes.
+  - `corpus.md` is the only file operators edit to manage the default target list.
+  - Local successful runs exercise RSS/media contract verification for ready items.
+  - Failures are grouped into product regression, expected site block, site behavior changed, and harness issue.
+  - The unpacked-extension smoke path uses checked-in extension code with runtime config redirected to the local app URL plus a matching temporary host-permission override in the manifest.
+- Verification commands:
+  - `pnpm --filter @articlepod/live-site test`
+  - `pnpm --filter @articlepod/live-site typecheck`
+  - `npm run live-sites:test -- --env local --limit 1`
+
+### M100 - Importance + Tags for Captures
+
+- status: Done
+- target_finish: 2026-03-31
+- completed_on: 2026-03-25
+- evidence: local validation + importance/tags capture metadata pass + optional-details/queued-confirmation UX pass (2026-03-25)
+- Scope:
+  - Replace user-facing `Priority` copy with `Importance` while keeping the existing `LOW` / `MEDIUM` / `HIGH` backing contract.
+  - Add optional freeform comma-separated item tags for URL, PDF, and Chrome extension capture, stored in normalized lowercase form.
+  - Surface importance and tags in `/app` Recent items, and provide lightweight client-side filters for importance and tag in `/app/summary` article selection.
+  - Make optional metadata visibly secondary in both the web submit flow and Chrome extension popup.
+  - Reduce double-submit confusion after extension capture with persistent popup success state and same-page button lockout while queued.
+  - Keep route compatibility by accepting both canonical `importance` and legacy `priority` payloads during rollout.
+- Key files/modules:
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/app/api/items/*`
+  - `apps/extension/popup.html`
+  - `apps/extension/popup.js`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `apps/extension/README.md`
+- Acceptance criteria:
+  - URL, PDF, and HTML snapshot ingest routes accept `importance`, legacy `priority`, and tags, then persist canonical importance and normalized tags.
+  - Existing items keep their current priority-backed value and default to empty tags without backfill or destructive reset.
+  - `/app` shows saved importance/tag metadata and lets users filter recent items without breaking polling or media playback token stability.
+  - Web and extension capture UIs make `Title` / `Importance` / `Tags` clearly optional via compact secondary grouping, without redundant helper copy in the extension popup.
+  - Chrome extension capture exposes the same metadata fields as the web submit flow, keeps them collapsed by default until the user expands them, remembers the user's last toggle choice per Chrome profile, and clearly confirms queued captures without inviting a second click.
+  - The extension popup disables the queued button for the already-captured page and re-enables capture when the target page changes.
+- Verification commands:
+  - `pnpm --filter @articlepod/core test`
+  - `pnpm --filter @articlepod/core typecheck`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/auth-routes.test.ts tests/auth-extension.integration.test.ts`
+  - `pnpm --filter @articlepod/web exec tsx --test tests/app-dashboard-layout.test.ts tests/dashboard-polling.test.ts`
+  - `pnpm --filter @articlepod/web typecheck`
+
+### M101 - Extraction Quality Audit + Bulk HTML Regression Harness
+
+- status: Done
+- target_finish: 2026-04-02
+- completed_on: 2026-03-25
+- evidence: local validation + extraction-quality audit/bulk comparison harness pass (2026-03-25); standalone image-asset URL cleanup follow-up (2026-04-04); raw citation URL + escaped markdown cleanup follow-up (2026-04-06); stored-markdown vs. narration cleanup split follow-up (2026-04-07)
+- Scope:
+  - Tighten shared markdown cleanup for BBC-style leading metadata plus image-credit caption leakage.
+  - Keep standalone leaked image-asset URL fragments and raw citation/source URLs out of narration while still allowing useful source references to persist in stored markdown when appropriate.
+  - Strip malformed escaped markdown punctuation before stored markdown or narration text would speak it aloud.
+  - Add shared markdown quality analysis in core so audits and comparison tooling can classify cleanup issues consistently.
+  - Add top-level `testing/extraction-quality/` workspace with a checked-in sample corpus, artifact audit runner, and extraction-only URL vs. extension comparison runner.
+  - Follow up with server-side extraction fixes that flatten table-heavy HTML into markdown/text and classify lightweight Cloudflare-style verification interstitials before generic extraction failures.
+  - Keep bulk comparison local/latest-code only and stop before DB writes, queueing, and audio generation.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/src/extract/markdownCleanup.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `packages/core/tests/extension-capture.test.ts`
+  - `packages/core/tests/markdownCleanup.test.ts`
+  - `packages/core/tests/markdownQuality.test.ts`
+  - `testing/extraction-quality/*`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+- Acceptance criteria:
+  - BBC/Substack/Meta cleanup regressions are covered with shared tests and the stored markdown vs. narration boundary stays explicit.
+  - Stored markdown keeps useful links, URLs, captions, metadata, and table structure, while narration no longer speaks standalone raw image-asset URL lines, citation/source-attribution URL tails, or escaped markdown backslashes.
+  - Table-heavy/list-heavy extracted pages no longer persist raw `href` blobs from extraction, and narration no longer leaks legacy HTML/markdown table markup into spoken text.
+  - Lightweight challenge pages (for example Cloudflare `Verifying...`) fail with explicit blocked/interstitial guidance on both URL and snapshot extraction paths.
+  - `npm run extraction-quality:audit` scans stored item markdown plus digest markdown and writes grouped issue reports.
+
+### M108 - User-Centric Markdown Storage Layout
+
+- status: Done
+- target_finish: 2026-04-14
+- completed_on: 2026-04-11
+- evidence: local typecheck + markdown layout migration validation + doc/runbook sync pass (2026-04-11)
+- Scope:
+  - Move canonical item, digest, and manual-summary markdown blobs into a user-centric namespace rooted at `users/<userId>/markdown/...`.
+  - Leave uploads, raw source artifacts, and all audio/MP3 blob paths unchanged so feed and media behavior stay stable.
+  - Add shared key builders plus an idempotent migration script that copies markdown blobs, updates metadata pointers, and optionally removes legacy markdown blobs after verification.
+  - Update audit/runbook tooling so local and production markdown checks understand the new layout during and after migration.
+- Key files/modules:
+  - `packages/core/src/storage/keys.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/jobs/processSummaryRunJob.ts`
+  - `apps/web/src/lib/markdown-storage-layout.ts`
+  - `apps/web/scripts/migrate-markdown-storage-layout.ts`
+  - `testing/extraction-quality/src/audit.ts`
+  - `testing/extraction-quality/src/prod-audit.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/operations.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - New item markdown writes land at `users/<userId>/markdown/items/<itemId>/canonical.md`.
+  - New digest summary/email markdown writes land at `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`.
+  - New manual summary markdown writes land at `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`.
+  - Existing metadata readers continue to work because migration updates `ItemArtifact.storageKey`, `DigestRun.summaryStorageKey`, `DigestRun.emailStorageKey`, and `SummaryRun.summaryStorageKey` in place.
+  - Audio/media/RSS paths remain unchanged.
+- Migration/backfill plan:
+  - Ship the new key builders and markdown write paths first.
+  - Run `npm run artifacts:migrate-layout -- --dry-run` to inspect the pending move set.
+  - Run `npm run artifacts:migrate-layout -- --user-id <userId>` for targeted verification or `npm run artifacts:migrate-layout` for the full backfill.
+  - After verification, run `npm run artifacts:migrate-layout -- --delete-legacy` to remove old markdown blobs whose metadata now points at the user-centric keys.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/markdown-storage-layout.test.ts tests/markdown-artifact-backfill.test.ts tests/digest-routes.test.ts tests/summary-routes.test.ts tests/auth-routes.test.ts`
+  - `DATABASE_URL=file:/tmp/articlepod-worker-markdown-layout.sqlite corepack pnpm --filter @articlepod/web run db:bootstrap`
+  - `DATABASE_URL=file:/tmp/articlepod-worker-markdown-layout.sqlite ARTICLEPOD_TEST_DB_READY=1 corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/digest-jobs.test.ts tests/summary-jobs.test.ts`
+  - `corepack pnpm --filter @articlepod/core exec tsc --noEmit`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `npm run extraction-quality:test` compares URL and extension extraction outputs without generating audio and stores per-target raw/cleaned markdown files plus comparison diagnostics.
+  - The harness supports `--input`, `--site`, `--limit`, `--concurrency-url`, `--concurrency-extension`, and `--headed`.
+- Verification commands:
+  - `pnpm --filter @articlepod/core exec tsx --test tests/extract.test.ts tests/extension-capture.test.ts`
+  - `pnpm --filter @articlepod/core exec tsx --test tests/markdownCleanup.test.ts tests/markdownQuality.test.ts`
+  - `pnpm --filter @articlepod/extraction-quality typecheck`
+  - `pnpm --filter @articlepod/extraction-quality test`
+  - `npm run extraction-quality:audit`
+
+### M102 - Azure VM Disk Guardrails + Maintenance Automation
+
+- status: Done
+- target_finish: 2026-04-04
+- completed_on: 2026-03-28
+- evidence: local validation + Azure VM disk guardrail/deploy maintenance pass (2026-03-28)
+- Scope:
+  - Stop syncing non-runtime local artifacts such as `exports/`, worktrees, and test report directories to the VM staging/runtime paths.
+  - Add remote disk-headroom checks before VM sync and before promote/build, with automatic safe cleanup and actionable failure output when free space stays below the configured floor.
+  - Install journald size/retention caps on Azure VMs and a recurring root-owned maintenance timer for journal vacuuming, staging cleanup, pressure-based cache cleanup, and safe pruning of unused legacy runtime trees.
+  - Align Azure env/docs defaults so local structured logs age out after 7 days and operators can tune journald/disk thresholds without editing scripts.
+- Key files/modules:
+  - `scripts/azure/sync-excludes.txt`
+  - `scripts/azure/push-to-vm.sh`
+  - `scripts/azure/promote-runtime.sh`
+  - `scripts/azure/deploy-changes.sh`
+  - `scripts/azure/deploy-vm-runtime.sh`
+  - `scripts/azure/bootstrap-vm.sh`
+  - `scripts/azure/install-systemd.sh`
+  - `scripts/azure/configure-journald.sh`
+  - `scripts/azure/cleanup-vm-disk.sh`
+  - `infra/systemd/articlepod-maintenance.service`
+  - `infra/systemd/articlepod-maintenance.timer`
+  - `docs/Prompts.md`
+  - `docs/env.md`
+  - `docs/azure-ci-cd.md`
+  - `docs/azure-deploy.md`
+  - `scripts/azure/README.md`
+- Acceptance criteria:
+  - Deploy sync and runtime promotion exclude `exports/` and other non-runtime artifact directories from the VM.
+  - `deploy-changes.sh` fails before sync/promote when remote free space remains below the configured floor after safe cleanup, and prints enough context for operators to understand where disk is going.
+  - Bootstrap/runtime install journald caps and an enabled maintenance timer on the VM without requiring manual post-deploy steps.
+  - The maintenance routine vacuums systemd journal, prunes staging-only artifacts and stale env uploads, and escalates to cache cleanup only when free space drops below the configured threshold.
+  - Azure env examples/docs expose the log-retention and VM disk-guard variables with sensible low-cost defaults.
+- Verification commands:
+  - `bash -n scripts/azure/push-to-vm.sh scripts/azure/promote-runtime.sh scripts/azure/deploy-changes.sh scripts/azure/deploy-vm-runtime.sh scripts/azure/bootstrap-vm.sh scripts/azure/install-systemd.sh scripts/azure/render-env.sh scripts/azure/configure-journald.sh scripts/azure/cleanup-vm-disk.sh`
+  - `./scripts/azure/deploy-changes.sh --help`
+  - `TARGET_HOST=<vm-ip-or-fqdn> APP_URL=https://articlepod.com CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com LETSENCRYPT_EMAIL=<email> ./scripts/azure/deploy-changes.sh --render-env --skip-healthcheck`
+
+### M103 - Severity-Split Local Log Retention
+
+- status: Done
+- target_finish: 2026-04-05
+- completed_on: 2026-03-28
+- evidence: local validation + severity-split local log retention pass (2026-03-28)
+- Scope:
+  - Split local structured logs into separate activity vs. `ERROR`/`FATAL` directory trees so routine noise and failures can age independently on disk.
+  - Add a dedicated `LOG_ERROR_RETENTION_DAYS` control for web, worker, python-tts, and Azure env rendering while keeping the default error window longer than the general activity window.
+  - Keep recursive diagnostics tooling working without changing how operators collect or triage logs from the repo root.
+  - Update Azure cleanup behavior and repo docs so maintenance scripts prune rotated `events/` and `errors/` archives independently.
+- Key files/modules:
+  - `packages/core/src/logging/structured.ts`
+  - `packages/core/tests/logging.test.ts`
+  - `apps/web/src/lib/env.ts`
+  - `apps/web/src/lib/logger.ts`
+  - `apps/worker/src/lib/env.ts`
+  - `apps/worker/src/lib/logger.ts`
+  - `services/python-tts/app/main.py`
+  - `services/python-tts/tests/test_logging_split.py`
+  - `scripts/azure/cleanup-vm-disk.sh`
+  - `scripts/azure/render-env.sh`
+  - `.env.azure.example`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/env.md`
+  - `docs/operations.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/billing/README.md`
+- Acceptance criteria:
+  - `DEBUG`/`INFO`/`WARN` events write to `LOG_ROOT/events/<service>/events.log.jsonl`.
+  - `ERROR`/`FATAL` events write to `LOG_ROOT/errors/<service>/errors.log.jsonl`.
+  - `LOG_RETENTION_DAYS` and `LOG_ERROR_RETENTION_DAYS` can differ, with error retention defaulting longer than routine activity retention.
+  - VM cleanup prunes rotated `events/` and `errors/` archives independently without breaking older mixed-layout cleanup.
+  - Existing recursive log collection/triage tooling continues to work against the new directory layout.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/logging.test.ts`
+  - `corepack pnpm --filter @articlepod/web typecheck`
+  - `corepack pnpm --filter @articlepod/worker typecheck`
+  - `services/python-tts/.venv/bin/python3 -m pytest services/python-tts/tests/test_logging_split.py`
+  - `bash -n scripts/azure/cleanup-vm-disk.sh scripts/azure/render-env.sh`
+
+### M104 - Public Episode Share Links
+
+- status: Done
+- target_finish: 2026-04-06
+- completed_on: 2026-03-28
+- evidence: local validation + public episode share link implementation pass (2026-03-28)
+- Scope:
+  - Add per-item stable, revocable public share links for owner-owned ready episodes while keeping the existing workspace demo share flow separate.
+  - Make item action rows keep download/share/revoke/delete together, and make item share actions copy-first with inline confirmation feedback for create/copy/revoke flows.
+  - Reuse `ShareToken` rows with scope `public_episode_item:<itemId>` and derive deterministic page/media signatures from the stored share hash instead of persisting plaintext public secrets.
+  - Add a branded public share page with playback, download, optional source attribution, concise trust messaging, and signup/pricing CTAs.
+  - Add a dedicated public share-media route with `HEAD` and byte-range `206` support so public playback does not reuse private RSS/media auth.
+  - Capture raw share-growth analytics events for link creation, page views, playback starts, and CTA clicks.
+- Key files/modules:
+  - `apps/web/src/lib/share-links.ts`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/dashboard.ts`
+  - `apps/web/src/lib/metadata-primary-auth.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/src/analytics/types.ts`
+  - `apps/web/src/app/api/share/episode/[itemId]/route.ts`
+  - `apps/web/src/app/share/episode/[shareId]/[sig]/page.tsx`
+  - `apps/web/src/app/api/share-media/[...path]/route.ts`
+  - `apps/web/src/app/api/share/cta/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/tests/share-episode.test.ts`
+- Acceptance criteria:
+  - Creating a public share for the same `userId + itemId` returns the same URL until the owner revokes it.
+  - Only owner-owned `READY` items with a published episode can be shared.
+  - Episode action rows keep download plus share/revoke/delete in one consistent row, while creating or reusing a share from `/app` copies the share URL immediately and shows inline action feedback, and revoke confirms inline without leaving the item row ambiguous.
+  - Public episode pages show playback, download, source attribution when available, and CTA links without exposing owner identity.
+  - Shared media requests support `HEAD`, `Range`, and `206 Partial Content`.
+  - Revoking the share invalidates both the public page and shared media immediately.
+  - Private RSS/feed/media auth remains unchanged by episode-share creation, viewing, or revocation.
+- Verification commands:
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/share-episode.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/media-route.test.ts tests/middleware-auth.test.ts tests/app-dashboard-layout.test.ts`
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/core run typecheck`
+
+---
+
+### M105 - Audio Retention Lifecycle
+
+- status: Done
+- target_finish: 2026-04-07
+- completed_on: 2026-03-28
+- evidence: local validation + audio retention expiry/backfill/purge pass (2026-03-28)
+- Scope:
+  - Add a first-class 60-day retention expiry to generated item, digest, and summary audio metadata.
+  - Stamp new audio rows with `expiresAt` during worker publish and backfill existing stored episode rows without destructive resets.
+  - Hide expired audio from RSS feeds, dashboard/share playback surfaces, and media authorization so retention is honored before physical purge runs.
+  - Extend purge tooling to delete expired audio blobs/objects plus their episode rows, while keeping raw-source retention behavior unchanged.
+  - Update user-facing FAQ copy and internal runbooks/docs for the MP3 retention policy.
+- Key files/modules:
+  - `packages/core/src/audio/retention.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/worker/src/jobs/processSummaryRunJob.ts`
+  - `apps/web/src/lib/audio-retention.ts`
+  - `apps/web/src/lib/audio-retention-backfill.ts`
+  - `apps/web/src/lib/audio-retention-purge.ts`
+  - `apps/web/src/app/rss/[token]/route.ts`
+  - `apps/web/src/app/rss/digest/[token]/route.ts`
+  - `apps/web/src/app/api/media/[...path]/route.ts`
+  - `apps/web/src/app/api/digest-media/[...path]/route.ts`
+  - `apps/web/src/lib/share-links.ts`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+- Acceptance criteria:
+  - New item, digest, and summary episodes persist a 60-day `expiresAt` derived from `publishedAt`.
+  - Expired audio no longer appears in private RSS feeds, shared episode playback, digest history playback, or dashboard playback controls.
+  - Expired audio requests do not silently enqueue regeneration just because the blob/object is missing by retention policy.
+  - Backfill tooling stamps existing rows idempotently, and purge tooling removes expired audio blobs/objects plus their corresponding episode rows.
+  - Prisma and Azure Table primary metadata paths preserve the same episode expiry semantics.
+- Verification commands:
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=1 npx pnpm --filter @articlepod/web exec tsx --test tests/audio-retention-ops.test.ts tests/rss-delete-route.test.ts tests/media-route.test.ts tests/digest-routes.test.ts tests/share-episode.test.ts`
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run audio:backfill-retention -- --dry-run`
+
+---
+
+### M106 - Site-Wide Action Hierarchy Refresh
+
+- status: Done
+- target_finish: 2026-04-08
+- completed_on: 2026-04-01
+- evidence: local validation + action hierarchy refresh + dashboard Playwright + podcast contract pass (2026-04-01)
+- Scope:
+  - Rebalance signed-in page hierarchy so highlight styling points to the primary task on each page instead of over-emphasizing navigation.
+  - Keep `Feedback` discoverable in the signed-in nav while softening it to a secondary hint.
+  - Make the `/app` submit surface, `/app/podcast-apps` feed-copy surface, `/app/chrome-extension` setup surface, and `/app/summary` composition surface read as the dominant above-the-fold action clusters.
+  - Update docs and dashboard e2e coverage so the new copy and hierarchy expectations stay in sync.
+- Key files/modules:
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/components/feed-url-actions.tsx`
+  - `apps/web/src/components/chrome-extension-setup-card.tsx`
+  - `apps/web/src/components/summary-studio-client.tsx`
+  - `apps/web/e2e/auth.setup.ts`
+  - `apps/web/e2e/dashboard.spec.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - The strongest visual emphasis on `/app` is the active URL/PDF submission cluster, not a nav pill, with duplicate explanatory copy removed and non-blocking quota/capacity status kept secondary below the submit control.
+  - The shared signed-in header keeps the ArticlePod icon, compact billing pill, and all active navigation destinations visible while users scroll or switch pages.
+  - `/app/podcast-apps` makes the feed URL copy action visually dominant, with app buttons clearly grouped as the next step.
+  - `Feedback` remains easy to find without outranking page-level CTAs.
+  - Chrome extension setup and summary creation pages emphasize their live controls over instructional copy.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+  - `npx pnpm --filter @articlepod/worker run test`
+  - `npx pnpm --filter @articlepod/web run seed:demo`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts`
+  - `./scripts/verify_podcast_contract.sh "http://localhost:3000/rss/WQlDaJKFmKiAVuSOf5JWR_xhcW2vy0M7xlOQj63fscc.xml"`
+
+---
+
+### M107 - Public Marketing SEO Hardening
+
+- status: Done
+- target_finish: 2026-04-09
+- completed_on: 2026-04-02
+- evidence: local validation + public homepage + SEO metadata/schema/crawl pass (2026-04-02)
+- Scope:
+  - Move the tuned social-first auth + marketing surface to `/` so the site has one canonical public homepage instead of splitting the public experience across `/` and `/login`.
+  - Convert `/login` into a compatibility redirect back to `/` so search traffic and auth entry both land on the same maintained page.
+  - Add route-specific metadata, structured data, crawl rules, sitemap updates, and stronger internal-link coverage across the public marketing pages.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/page.tsx`
+  - `apps/web/src/app/login/layout.tsx`
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/app/robots.ts`
+  - `apps/web/src/app/sitemap.ts`
+  - `apps/web/src/lib/seo.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/` renders the combined signed-out auth + marketing landing page with canonical metadata and a crawlable H1.
+  - `/login` redirects to `/` while preserving relevant query params such as auth return targets and OAuth errors.
+  - Public marketing pages expose route-specific canonical metadata plus accurate structured data where applicable.
+  - `robots.txt` and `sitemap.xml` focus crawlers on the canonical public marketing routes and keep private/share/authenticated surfaces out of discovery.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `npm run license:check`
+  - `./scripts/verify_podcast_contract.sh "http://127.0.0.1:3000/rss/<feed_token>.xml"`
+
+---
+
+### M108 - Public Marketing Chrome Cleanup
+
+- status: Done
+- target_finish: 2026-04-10
+- completed_on: 2026-04-03
+- evidence: local validation + duplicate marketing footer cleanup + public-page Playwright pass (2026-04-03)
+- Scope:
+  - Remove the repeated bottom footer chrome from `/product`, `/pricing`, `/resources`, `/faq`, and `/about` so the pages rely on the shared header plus CTA only.
+  - Keep the signed-out homepage, signed-in workspace, admin, and share surfaces unchanged because they already use non-duplicative navigation patterns.
+  - Update tests and docs so the public-site contract now expects one primary marketing nav and no footer navigation on the secondary public pages.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/seo-routes.test.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render the shared header navigation once and do not render a footer navigation landmark.
+  - Each secondary public marketing page still ends with the focused CTA block, including the primary `Start your knowledge feed` action.
+  - `/` continues to render the signed-out auth/marketing homepage without a duplicate footer.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M109 - Persistent Public Marketing Header and Footer
+
+- status: Done
+- target_finish: 2026-04-11
+- completed_on: 2026-04-04
+- evidence: local validation + shared marketing layout + persistent public header/footer pass (2026-04-04)
+- Scope:
+  - Move the signed-out homepage plus `/product`, `/pricing`, `/resources`, `/faq`, and `/about` under one shared App Router marketing layout so the public-site header and footer CTA are structural.
+  - Keep the public marketing header fixed to the logo, `ArticlePod`, and the `Product`, `Pricing`, `Resources`, `FAQ`, and `About` menu entries.
+  - Keep the public marketing footer fixed to `Start your knowledge feed` and `See pricing` on every public marketing page, while leaving `/login`, `/app`, `/admin`, and `/share` outside that layout.
+  - Lock the public marketing shell to the viewport height so the page content is the only scrollable area.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/(marketing)/page.tsx`
+  - `apps/web/src/app/(marketing)/product/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/app/(marketing)/about/page.tsx`
+  - `apps/web/src/components/auth-landing-page.tsx`
+  - `apps/web/src/components/marketing-header.tsx`
+  - `apps/web/src/components/marketing-cta.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/tests/seo-routes.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+- Acceptance criteria:
+  - `/`, `/product`, `/pricing`, `/resources`, `/faq`, and `/about` render exactly one shared primary navigation and one shared footer CTA block.
+  - The footer CTA always includes `Start your knowledge feed` linking to `/` and `See pricing` linking to `/pricing`.
+  - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
+  - The signed-out auth landing page no longer renders its own page-local header.
+  - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
+  - `/about` presents Vishal Chowdhary first as co-founder, with his portrait and motivation-led story, followed by Smita Busar's co-founder portrait, motivation, early-user feedback, and personal results. Explicit leadership and feature-build credit statements are omitted.
+  - Founder portraits stay compact, with desktop text wrapping beneath them and a stacked mobile layout rather than full-height empty image columns.
+  - Both founder stories retain the site's calm, practical language without em dashes and preserve the original mission/live/product proof content lower on the page.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M110 - Hybrid Runtime HTML Extraction Selection
+
+- status: Done
+- target_finish: 2026-04-12
+- completed_on: 2026-04-08
+- evidence: local validation + production hybrid HTML extraction selection pass (2026-04-08)
+- Scope:
+  - Run the existing `Readability` extraction path and `defuddle` against the same fetched or captured HTML instead of forcing a single extractor path.
+  - Score both candidates using narratable text volume plus markdown-quality penalties for image-only blocks, caption-like residue, and presentational clutter, then keep the better result before the shared cleanup and narration stages continue.
+  - Persist the existing fetch diagnostics while adding per-item extraction-selection logging so production traces show the selected engine and losing-lane scorecard over time.
+  - Persist a compact extraction-selection scorecard on each HTML `Item` in both Prisma and Azure Table primary modes so production review can query the durable metadata plane directly.
+- Key files/modules:
+  - `packages/core/src/extract/html.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/tests/extract.test.ts`
+  - `packages/core/tests/azure-table-primary-store.test.ts`
+  - `packages/core/package.json`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/web/scripts/extraction-selection-report.ts`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/prisma/migrations/20260408193000_add_item_extraction_selection_summary/migration.sql`
+  - `apps/web/src/lib/ops/azure-table-primary-backfill.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/THIRD_PARTY.md`
+- Acceptance criteria:
+  - URL and HTML-snapshot extraction both evaluate `Readability` and `defuddle` on the same HTML payload and return the selected engine plus both candidate diagnostics.
+  - Selection scoring prefers richer results on landing/feed surfaces without regressing the existing cleaner article-path behavior on representative fixture tests.
+  - Worker extraction logs include the selected engine, selection mode, score margin, and condensed per-engine candidate metrics for later audit/reporting.
+  - HTML items persist the compact selection winner/score summary into durable metadata, while older rows remain valid with null fields until they are reprocessed.
+  - `ops:extraction-selection-report` works against local Prisma and Azure Table primary environments so local debugging and production inspection use the same scorecard shape.
+  - Existing fetch fallback and blocked/interstitial semantics remain unchanged while the new extractor lane stays MIT-licensed and declared in repo attribution docs.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/core run test`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/extraction-quality run extraction-quality:test:defuddle -- --limit 10`
+
+---
+
+### M111 - Public Marketing FAQ Structure Refresh
+
+- status: Done
+- target_finish: 2026-04-13
+- completed_on: 2026-04-05
+- evidence: local validation + FAQ section grouping + quick-answer anchor coverage pass (2026-04-05)
+- Scope:
+  - Reorganize the public `/faq` page from one flat accordion list into grouped sections without changing the existing question and answer copy.
+  - Add a compact above-the-fold `Quick answers` band so visitors can jump to the part of the FAQ they care about most.
+  - Keep FAQ schema coverage and shared public marketing chrome behavior unchanged while syncing the updated information architecture in docs and tests.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` groups the current FAQ content under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
+  - A `Quick answers` band appears above the grouped FAQ sections and links to section anchors without auto-opening any question accordions.
+  - FAQ question and answer copy stays unchanged, and FAQ JSON-LD still includes the same question set.
+  - Public marketing docs and tests reflect the new FAQ grouping and anchor-navigation behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium`
+
+---
+
+### M112 - Public Marketing FAQ Conversion and Discovery Refresh
+
+- status: Done
+- target_finish: 2026-04-20
+- completed_on: 2026-04-05
+- evidence: local validation + FAQ search/filter/deep-link coverage pass (2026-04-05)
+- Scope:
+  - Replace the older support-style FAQ copy with higher-conversion questions that answer product-fit, pricing, privacy, and listening-routine concerns more directly.
+  - Move FAQ content into a shared rich-content model so the rendered answers can use short paragraphs, bullets, and links while schema output stays flat.
+  - Add topic chips, lightweight search, and question-level deep links that auto-open the matching answer without changing the shared public marketing shell.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/components/faq-explorer.tsx`
+  - `apps/web/src/lib/faq-page-content.ts`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` renders the same five sections but with refreshed, conversion-focused questions and friendlier answer tone.
+  - FAQ answers support richer paragraphs, bullets, and internal links while FAQ JSON-LD remains sourced from a flattened question/answer list.
+  - Visitors can filter by topic chip, search by keyword, and open a specific answer directly via `#question-*` hashes.
+  - Public marketing docs and tests reflect the richer FAQ discovery behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq keeps quick answers, topic filters, and question permalinks close to the fold" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M113 - Chrome Selection Snippets Workspace
+
+- status: Done
+- target_finish: 2026-04-18
+- completed_on: 2026-04-06
+- evidence: local validation + snippet persistence, `/app/snippets`, and extension context-menu capture pass (2026-04-06)
+- follow-up evidence: local validation + rich snippet capture metadata/context/template persistence pass (2026-04-08)
+- production follow-up evidence: Azure log triage + long-title extension normalization pass for X/Twitter snippet saves (2026-05-10 UTC)
+- Scope:
+  - Add a dedicated `Snippet` persistence contract separate from episode `Item`s so saved text selections never enqueue podcast generation work.
+  - Extend the MV3 Chrome extension with selection-only right-click actions for immediate save and save-with-comment flows using the existing paired extension token.
+  - Add `/app/snippets` so signed-in users can review saved snippets, edit comments, and delete entries later without changing RSS/media/feed behavior.
+- Migration/backfill/compatibility:
+  - Expand-only rollout: add a new `Snippet` table/model in Prisma plus a new `snippets` table in Azure Table primary metadata; no existing `Item`, feed-token, media-token, or summary contracts change.
+  - No backfill is required because snippets are net-new data; existing accounts keep working without token rotation, queue mutation, or RSS regeneration.
+  - Existing extension tokens remain valid and unchanged; the new snippet create path accepts the same paired extension token used for HTML snapshot capture.
+  - Rich snippet follow-up remains expand-only: add optional snippet capture columns/fields (`selectedHtml`, `selectionMarkdown`, `contextMarkdown`, `captureMarkdown`, `pageMetadataJson`) while older snippet rows continue to load with null rich fields.
+  - Long-title/rich-field normalization remains client-only and schema-preserving; no persisted snippet schema or token contract changes are required.
+  - Safe-disable path: hide `/app/snippets` and remove extension context menus while leaving stored snippet rows intact and isolated from podcast flows.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/src/lib/snippets.ts`
+  - `apps/web/src/app/api/snippets/route.ts`
+  - `apps/web/src/app/app/snippets/page.tsx`
+  - `apps/extension/background.js`
+  - `apps/extension/snippet-capture.mjs`
+  - `apps/extension/snippet-service.mjs`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `packages/core/src/snippets/richCapture.ts`
+- Acceptance criteria:
+  - A selected text range can be saved from the extension immediately or through a comment-first flow.
+  - Saved snippets appear newest-first in `/app/snippets`, preserve source URL/title plus selected text, and retain reusable context markdown plus normalized page metadata behind a collapsed capture-details action.
+  - Existing snippet rows remain readable even when they predate the richer capture fields.
+  - Saving a snippet does not create `Item` rows, does not enqueue `Job`s, and does not make the snippet available in summary item selection.
+  - Feed/media auth and RSS behavior remain unchanged.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/core run test`
+  - `npx pnpm --filter @articlepod/web run test`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M114 - Public Marketing FAQ Control-Density Trim
+
+- status: Done
+- target_finish: 2026-04-21
+- completed_on: 2026-04-06
+- evidence: local validation + FAQ compact controls and deep-link coverage pass (2026-04-06)
+- Scope:
+  - Keep `Quick answers` and `Browse by topic` on `/faq`, but compress both into smaller wrap rows so users get to the actual answers faster.
+  - Remove the separate FAQ search box for the current question count while preserving the grouped-section structure, topic filtering, quick-answer anchors, and question-level permalinks.
+  - Keep FAQ schema output, shared marketing chrome, and the richer answer content model unchanged.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/components/faq-explorer.tsx`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` still surfaces `Quick answers` and `Browse by topic`, but both controls occupy noticeably less vertical space than the previous card-and-search layout.
+  - Visitors can still jump by quick-answer anchor, filter by topic chip, and deep-link directly to `#question-*` answers.
+  - The separate FAQ search field is gone, and the answer list sits closer to the hero copy.
+  - Public marketing docs and tests reflect the compact FAQ discovery behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq keeps quick answers, topic filters, and question permalinks close to the fold" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M115 - Public Marketing FAQ Navigation Simplification
+
+- status: Done
+- target_finish: 2026-04-25
+- completed_on: 2026-04-10
+- evidence: local validation + FAQ quick-answers-only navigation pass (2026-04-10)
+- Scope:
+  - Keep the compact `Quick answers` row on `/faq`, but remove the separate `Browse by topic` strip so the page focuses on the actual question list.
+  - Remove the per-question `Link` button while preserving hash-driven auto-open behavior for direct `#question-*` URLs.
+  - Keep rich in-answer links, grouped sections, FAQ schema output, and shared marketing chrome unchanged.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/faq/page.tsx`
+  - `apps/web/src/components/faq-explorer.tsx`
+  - `apps/web/tests/faq-page.test.ts`
+  - `apps/web/tests/marketing-content.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `/faq` still shows compact `Quick answers`, but no longer renders `Browse by topic`.
+  - FAQ answers retain their richer internal links, and direct `#question-*` hashes still auto-open the matching answer.
+  - The visible `Link` button is gone from each FAQ question card.
+  - Public marketing docs and tests reflect the simplified FAQ navigation behavior.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run lint`
+  - `npx pnpm --filter @articlepod/web exec tsx --test tests/faq-page.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 npx pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "/faq keeps quick answers while removing extra FAQ chrome" --no-deps`
+  - `npx pnpm --filter @articlepod/web run build`
+
+---
+
+### M116 - Mobile Header Density Pass
+
+- status: Done
+- target_finish: 2026-04-26
+- completed_on: 2026-04-10
+- evidence: local validation + compact mobile marketing/workspace header pass (2026-04-10)
+- Scope:
+  - Keep the public marketing menu on one compact mobile row and keep the shared footer CTA buttons on one row.
+  - Trim mobile header/footer/main shell padding on public pages so more reading content appears above the fold.
+  - Rebuild the signed-in mobile workspace header into two compact rows without changing the desktop header contract.
+  - Hide `Chrome Extension` and `Snippets` from the signed-in mobile header so the core workspace destinations remain readable on one row.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/app/layout.tsx`
+  - `apps/web/src/components/brand-logo.tsx`
+  - `apps/web/src/components/marketing-header.tsx`
+  - `apps/web/src/components/marketing-cta.tsx`
+  - `apps/web/src/components/app-shell-header.tsx`
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/components/workspace-billing-summary.tsx`
+  - `apps/web/tests/app-dashboard-layout.test.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/dashboard.spec.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing nav items stay on one mobile row instead of wrapping.
+  - `Start your knowledge feed` and `See pricing` stay side by side on one mobile row.
+  - Public mobile shell padding is smaller so the scrollable reading area starts sooner.
+  - Signed-in mobile header shows `Upgrade to Pro`, `Feedback`, `Settings`, and `Logout` on the first row.
+  - Signed-in mobile header shows `Episodes`, `Podcast Apps`, and `Summaries` on the second row, while hiding `Chrome Extension` and `Snippets`.
+  - Desktop marketing and workspace header behavior remains unchanged.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web run lint`
+  - `corepack pnpm --filter @articlepod/web run test`
+  - `corepack pnpm --filter @articlepod/web run build`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile marketing chrome keeps nav items and footer actions on single rows" --no-deps`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/dashboard.spec.ts --config=playwright.config.ts --project=chromium --grep "mobile workspace header keeps the compact two-row navigation" --no-deps`
+
+---
+
+### M117 - Public Marketing Usability Polish
+
+- status: Done
+- target_finish: 2026-04-27
+- completed_on: 2026-04-10
+- evidence: local validation + marketing scroll/404/auth-feedback usability pass (2026-04-10)
+- Scope:
+  - Replace the nested public marketing scroll pane with standard browser page scrolling while keeping the shared header/footer chrome.
+  - Let unknown public paths render a branded not-found page instead of redirecting them to `/`.
+  - Move root email auth feedback closer to the relevant field(s) and add invalid-input highlighting for overlooked login/signup errors.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/not-found.tsx`
+  - `apps/web/src/components/auth-landing-page.tsx`
+  - `apps/web/src/middleware.ts`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/tests/middleware-auth.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `apps/web/e2e/auth.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing pages scroll with the browser window instead of a nested content pane.
+  - Visiting `/nonexistent` stays on `/nonexistent` and renders a clear branded not-found message with recovery links.
+  - Invalid login/signup attempts surface inline feedback near the relevant input and visually mark invalid fields.
+  - Shared public header/footer chrome, mobile compact rows, and existing auth redirects remain intact.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web run lint`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/middleware-auth.test.ts tests/form-submit-affordances.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts e2e/auth.spec.ts --config=playwright.config.ts --project=chromium --grep "standard page scrolling|proper not-found page|wrong password shows error" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M118 - Resources Chrome Walkthrough Balance Pass
+
+- status: Done
+- target_finish: 2026-04-29
+- completed_on: 2026-04-11
+- evidence: local validation + compact resources Chrome walkthrough layout pass (2026-04-11)
+- Scope:
+  - Rebalance the `/resources` Chrome extension section so the copy and walkthrough start together on desktop instead of centering against a tall media panel.
+  - Reduce the perceived white space by slightly tightening the desktop GIF presentation and simplifying the layered framing around it.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/resources/page.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - The `/resources` Chrome extension copy column and GIF panel align from the top on desktop.
+  - The extension walkthrough GIF presents inside one cleaner card instead of a visibly nested double-box treatment.
+  - The desktop GIF footprint is slightly smaller so the section feels denser without hurting mobile readability.
+  - Existing CTA behavior, supported app content, and signed-in vs signed-out links remain unchanged.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts tests/app-dashboard-layout.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "Chrome extension walkthrough aligned and compact" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M119 - Public Marketing Chrome Persistence Restore
+
+- status: Done
+- target_finish: 2026-04-30
+- completed_on: 2026-04-11
+- evidence: local validation + restored persistent public header/footer chrome pass (2026-04-11)
+- Scope:
+  - Restore the shared public marketing header and footer CTA so they stay visible while visitors scroll long marketing pages.
+  - Preserve standard browser page scrolling and add enough content inset so the fixed chrome does not overlap the first or last content blocks.
+- Key files/modules:
+  - `apps/web/src/app/(marketing)/layout.tsx`
+  - `apps/web/src/app/not-found.tsx`
+  - `apps/web/tests/marketing-pages.test.ts`
+  - `apps/web/e2e/health-and-public.spec.ts`
+  - `docs/Prompts.md`
+  - `docs/documentation.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - Public marketing pages keep the shared header pinned to the top of the viewport during scroll.
+  - Public marketing pages keep the shared footer CTA pinned to the bottom of the viewport during scroll.
+  - Content remains readable and is not covered by the fixed shared chrome.
+  - Standard browser page scrolling, 404 recovery links, and mobile one-row CTA/menu behavior remain intact.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/marketing-pages.test.ts tests/marketing-content.test.ts`
+  - `APP_URL=http://127.0.0.1:3000 corepack pnpm --filter @articlepod/web exec playwright test e2e/health-and-public.spec.ts --config=playwright.config.ts --project=chromium --grep "header and footer stay pinned during page scroll|persistent footer CTA on desktop" --no-deps`
+  - `corepack pnpm --filter @articlepod/web run build`
+
+---
+
+### M120 - Per-User Karpathy-Core LLM Wiki
+
+- status: Done
+- target_finish: 2026-05-01
+- completed_on: 2026-04-11
+- evidence: local validation + wiki prepare/publish/browser integration pass (2026-04-11)
+- Scope:
+  - Add an operator-run local wiki workflow that copies Andrej Karpathy's original `llm-wiki.md` prompt verbatim into each prepared user workspace and keeps all app-specific binding instructions in generated wrapper docs.
+  - Build the v1 corpus from existing READY item markdown artifacts plus saved snippets, with incremental rebuild decisions based on prompt hash, source hashes, deleted sources, and corpus churn.
+  - Publish the resulting wiki back into blob storage and expose it through a signed-in `/app/wiki` browse-first surface.
+- Key files/modules:
+  - `apps/web/src/lib/wiki.ts`
+  - `apps/web/scripts/wiki-prepare.ts`
+  - `apps/web/scripts/wiki-lint.ts`
+  - `apps/web/scripts/wiki-verify.ts`
+  - `apps/web/scripts/wiki-publish.ts`
+  - `apps/web/src/app/app/wiki/[[...slug]]/page.tsx`
+  - `apps/web/src/components/wiki-browser-client.tsx`
+  - `apps/web/src/components/app-shell-nav.tsx`
+  - `apps/web/src/app/api/account/delete/route.ts`
+  - `packages/core/src/wiki/*`
+  - `apps/web/tests/wiki-tools.test.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+  - `docs/plans.md`
+- Acceptance criteria:
+  - `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` creates `.runtime/wiki-builds/<runId>/<userId>/` with the copied Karpathy prompt, wrapper docs, a local `WIKI_CONVENTIONS.md` schema companion, raw item/snippet markdown, and a restored incremental `wiki/` tree when a prior publish exists.
+  - `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the workspace without introducing a second wiki schema, including checks that the long-form concept-page convention file is present and referenced.
+  - `pnpm wiki:publish --run <runId>` publishes changed wiki pages plus `manifest.json` and the current build-state blob under `users/<userId>/wiki/...`, deleting removed pages and replacing older build-state blobs.
+  - Signed-in `/app/wiki` renders the published wiki with a denser one-card browse rail, cleaned markdown display, long-form concept pages with an executive summary, `At a glance` table, richer synthesis body split into subsections, synthesis-first article sections with visually emphasized `Executive summary` and `Working synthesis` headers, an inline `Sources` list that shows five short previews and a `Show all` control, title/tag/summary filtering, backlinks between visible pages, default landing on `overview.md` when present, wiki-internal links with auto-prefetch disabled to avoid first-load request storms, and externalized reference links instead of raw source file paths.
+  - Wiki storage remains upgrade-in-place and blob-only for v1; no new Prisma or Azure Table primary schema is required.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts tests/wiki-markdown.test.ts`
+  - `corepack pnpm --filter @articlepod/web exec tsx --test tests/wiki-tools.test.ts`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+
+---
+
+### M121 - Summary Mode Item Summaries and Explicit TTS
+
+- status: Done
+- target_finish: 2026-04-29
+- completed_on: 2026-04-29
+- evidence: local implementation + targeted typecheck/test pass (2026-04-29); Postgres parity schema alignment + regression pass (2026-05-10)
+- Scope:
+  - Add a per-user `/app` workspace-header processing-mode slider for future URL/PDF/Chrome captures.
+  - Let `SUMMARY_ONLY` submissions extract/store canonical markdown, then queue `ArticleSummaryTask` rows for the remaining per-item summary generation while skipping TTS/RSS until explicit user request.
+  - Add explicit `Request TTS` for summary items that generates the same full-article audio path as the existing episode flow.
+  - Preserve digest/wiki synthesis quality by preferring item summaries for digests while still feeding full article markdown into wiki builds with the summary prepended as guidance.
+  - Add separate paid daily Summary Mode capacity while keeping explicit TTS on normal podcast capacity.
+- Key files/modules:
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/schema.postgres.prisma`
+  - `apps/web/prisma/migrations/20260429120000_add_summary_mode/migration.sql`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/digest/summary.ts`
+  - `packages/core/src/storage/keys.ts`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/submission-quota.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/web/src/app/api/account/processing-mode/route.ts`
+  - `apps/web/src/app/api/items/[id]/summary/route.ts`
+  - `apps/web/src/app/api/items/[id]/request-tts/route.ts`
+  - `docs/article-summary-task-processing.md`
+  - `apps/worker/src/jobs/processDigestRunJob.ts`
+  - `apps/web/src/lib/wiki.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - New users default to `FULL_EPISODE`; using the workspace-header mode slider persists `User.defaultItemProcessingMode` without rotating feed/media tokens.
+  - Summary Mode submissions create `Item.processingMode=SUMMARY_ONLY`, canonical `MARKDOWN`, and an `ArticleSummaryTask`; they do not create podcast/audio `Job` rows or dispatch messages.
+  - `processArticleSummaryTask` consumes stored canonical markdown and completes `summaryStatus=SUCCEEDED` with summary metadata from the worker loop.
+  - Summary Mode completion creates no `Episode`, audio object, RSS item, or media token.
+  - Recent items shows summary state, opens summary markdown in a right-side drawer/full-screen mobile sheet, and closes on Escape.
+  - `Request TTS` creates `Job.jobKind=REQUEST_TTS`, consumes podcast capacity, and prefers stored canonical markdown so audio requests are restartable without re-fetching when possible.
+  - Digests prefer item summary markdown and fall back to canonical article markdown.
+  - Wiki source preparation keeps full article markdown, with item summary prepended as compact source guidance when present.
+  - Paid plan defaults are updated: monthly `12` podcast/day + `36` summary-mode/day + `15` manual summaries/7 days; annual `15` podcast/day + `45` summary-mode/day + `30` manual summaries/7 days.
+- Migration/backfill plan:
+  - Expand-only Prisma migration adds `User.defaultItemProcessingMode`, `Item.processingMode`, `Item.summary*`, and `Job.jobKind` with backward-compatible defaults.
+  - Postgres parity/fallback schema mirrors the same additive fields and `ArticleSummaryTask` model; `db:bootstrap`/deploy schema sync applies them without resets.
+  - Azure Table primary rows dual-read defaults when the new properties are absent, so existing users/items/jobs remain valid without a table reset.
+  - Existing items remain `FULL_EPISODE` / `NOT_REQUESTED` until reprocessed or explicitly summarized through new work.
+  - New summary blobs are additive under `users/<userId>/markdown/items/<itemId>/summary.md`; cleanup on item/account deletion removes these blobs.
+  - Rollback is safe-disable: hide the toggle and stop creating `ArticleSummaryTask` rows; existing summary metadata/blobs/tasks can remain inert.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/core run typecheck`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+  - `npx pnpm --filter @articlepod/worker run typecheck`
+  - `npx pnpm --filter @articlepod/core exec tsx --test tests/storage-keys.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/web exec tsx --test tests/submission-quota.test.ts`
+  - `cd apps/worker && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 npx pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/summary-jobs.test.ts tests/digest-jobs.test.ts`
+
+---
+
+### M122 - Internal Podcast Transcript Auto-Detection
+
+- status: Done
+- target_finish: 2026-05-10
+- completed_on: 2026-05-10
+- evidence: local implementation + targeted typecheck/test pass (2026-05-10)
+- Scope:
+  - Keep the existing URL paste and Chrome extension capture UX while internally detecting Apple Podcasts episode URLs and direct public transcript files.
+  - Resolve Apple episode pages through Apple lookup, publisher RSS feeds, and `podcast:transcript` tags; require the Apple `i=` episode id and prefer transcript formats in VTT, SRT, TXT, HTML order.
+  - Normalize VTT/SRT/TXT/HTML transcript content into canonical markdown, create `PODCAST_TRANSCRIPT` summary-only items, and queue `ArticleSummaryTask`.
+  - Create failed `PODCAST_TRANSCRIPT` items for confident podcast detections when no usable public transcript can be found.
+  - Block `Request TTS` for transcript items and keep transcript imports out of podcast episode/audio/RSS/media/feed-token paths.
+- Key files/modules:
+  - `packages/core/src/transcripts/podcastTranscript.ts`
+  - `packages/core/src/types/domain.ts`
+  - `packages/core/src/errors/codes.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/app/api/items/url/route.ts`
+  - `apps/web/src/app/api/items/html-snapshot/route.ts`
+  - `apps/web/src/app/api/items/[id]/request-tts/route.ts`
+  - `apps/web/src/components/dashboard-client.tsx`
+  - `apps/worker/src/jobs/processArticleSummaryTask.ts`
+  - `apps/worker/src/index.ts`
+  - `docs/Prompts.md`
+  - `docs/architecture.md`
+  - `docs/documentation.md`
+  - `docs/article-summary-task-processing.md`
+- Acceptance criteria:
+  - Pasting an Apple Podcasts episode URL with a public RSS transcript creates `Item.sourceType=PODCAST_TRANSCRIPT`, forces `processingMode=SUMMARY_ONLY`, stores canonical markdown, and creates `ArticleSummaryTask`.
+  - Capturing the same Apple Podcasts page through `/api/items/html-snapshot` bypasses HTML snapshot storage and creates the same transcript summary item.
+  - Apple show pages without `i=` and episode pages without usable public transcript return success at the API boundary while leaving a failed Recent item with a clear extraction message.
+  - Direct public VTT/SRT/TXT/HTML transcript URLs import as transcript summary items; unsupported, private/internal, oversized, or empty transcripts fail clearly.
+  - Non-podcast URL paste and normal Chrome extension captures continue through existing article behavior unchanged.
+  - Transcript imports consume summary quota, remain eligible for digest/wiki synthesis, and do not create `Job`, `Episode`, audio blobs, RSS items, media tokens, or feed-token rotations.
+  - UI labels stay plain, hide audio/play/download/share/request-TTS affordances for transcript items, and reuse the summary drawer for successful summaries.
+- Migration/backfill plan:
+  - No schema migration is required because `Item.sourceType` is stored as a durable string contract in Prisma and Azure Table primary.
+  - Existing items remain unchanged; only new detected transcript submissions write `PODCAST_TRANSCRIPT`.
+  - Rollback is safe-disable: turn off podcast/direct transcript classification in submit routes; existing transcript items remain readable as summary-only markdown artifacts.
+  - Old and new code remain compatible because unknown source types already surface safely in labels, while the new code explicitly includes `PODCAST_TRANSCRIPT` in summary/digest/wiki/analytics allowlists.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/core exec tsx --test tests/podcast-transcript.test.ts tests/domain.test.ts`
+  - `cd apps/web && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 corepack pnpm --filter @articlepod/web exec tsx --test tests/summary-mode-routes.test.ts`
+  - `cd apps/worker && DATABASE_URL=file:${PWD}/.data/db.sqlite ARTICLEPOD_TEST_DB_READY=0 corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/summary-jobs.test.ts`
+
 ---
 
 ## Security Hardening Track (S01–S18)
@@ -2708,6 +4420,7 @@ Milestone metadata contract:
 ---
 
 ### S01 — Apple Sign-In JWT Cryptographic Verification
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -2744,6 +4457,7 @@ Milestone metadata contract:
 ---
 
 ### S02 — Drop Plaintext Token Storage from Database
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -2794,6 +4508,7 @@ Milestone metadata contract:
 ---
 
 ### S03 — Login Brute-Force Rate Limiting + Timing Oracle Fix
+
 - status: Planned
 - priority: P0 (Critical)
 - target_finish: 2026-03-07
@@ -2830,6 +4545,7 @@ Milestone metadata contract:
 ---
 
 ### S04 — Move Admin Bootstrap Out of Request Path
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -2866,6 +4582,7 @@ Milestone metadata contract:
 ---
 
 ### S05 — ChunkCache Cross-User Audio Privacy and Reliability
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-14
@@ -2904,6 +4621,7 @@ Milestone metadata contract:
 ---
 
 ### S06 — digestSchedulerSecret Startup Assertion
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -2936,6 +4654,7 @@ Milestone metadata contract:
 ---
 
 ### S07 — Python TTS Sidecar Authentication + Non-Root Docker
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -2974,6 +4693,7 @@ Milestone metadata contract:
 ---
 
 ### S08 — SSRF DNS Rebinding TOCTOU Fix
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-14
@@ -3010,6 +4730,7 @@ Milestone metadata contract:
 ---
 
 ### S09 — HTTP Security Headers
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3041,6 +4762,7 @@ Milestone metadata contract:
 ---
 
 ### S10 — Global Auth Middleware
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3063,7 +4785,7 @@ Milestone metadata contract:
 - Key files/modules:
   - `apps/web/src/middleware.ts`
 - Acceptance criteria:
-  - `GET /app/settings` without session cookie returns redirect to `/login`.
+  - `GET /app/settings` without session cookie returns redirect to `/?next=%2Fapp%2Fsettings` (or equivalent root auth landing redirect).
   - `POST /api/items/url` without session returns 401.
   - `GET /api/health` without session returns 200 (public route).
   - All existing auth tests still pass.
@@ -3074,6 +4796,7 @@ Milestone metadata contract:
 ---
 
 ### S11 — Shared-State Rate Limiter (Multi-Instance Correctness)
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-21
@@ -3107,6 +4830,7 @@ Milestone metadata contract:
 ---
 
 ### S12 — Worker Process Health Probe
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3139,6 +4863,7 @@ Milestone metadata contract:
 ---
 
 ### S13 — PDF Magic-Byte Validation Before Storage Write
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3168,6 +4893,7 @@ Milestone metadata contract:
 ---
 
 ### S14 — Username Enumeration Normalization
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-07
@@ -3197,6 +4923,7 @@ Milestone metadata contract:
 ---
 
 ### S15 — Stale-Job Reclaim Atomic Fix
+
 - status: Planned
 - priority: P2 (Medium)
 - target_finish: 2026-03-14
@@ -3228,6 +4955,7 @@ Milestone metadata contract:
 ---
 
 ### S16 — Feed Token Signed-URL Pattern (Tokens Out of Enclosure URLs)
+
 - status: Done
 - priority: P3 (Medium-Long)
 - target_finish: 2026-03-28
@@ -3273,6 +5001,7 @@ Milestone metadata contract:
 ---
 
 ### S17 — DB Role Field Hardened to Enum Constraint
+
 - status: Planned
 - priority: P3 (Medium-Long)
 - target_finish: 2026-03-28
@@ -3282,7 +5011,7 @@ Milestone metadata contract:
     string that silently passes or fails the `role === "ADMIN"` check unpredictably.
 - Options considered:
   - **Option A (chosen):** When migrating to PostgreSQL (parity/azure profile), define `role` as a
-    Postgres `ENUM` type via a raw migration. Add a `@@check(fields: [role], expression: "role IN ('USER','ADMIN')")` 
+    Postgres `ENUM` type via a raw migration. Add a `@@check(fields: [role], expression: "role IN ('USER','ADMIN')")`
     to the Prisma schema (Prisma 5+ supported). For the SQLite dev profile, add a Zod enum validation
     in `normalizeRole()` that throws on unrecognized values instead of silently defaulting.
   - **Option B:** Add a check constraint only in the application layer (`normalizeRole` throwing).
@@ -3305,6 +5034,7 @@ Milestone metadata contract:
 ---
 
 ### S18 — Session Cookie `secure` Flag Tied to Runtime Profile
+
 - status: Planned
 - priority: P1 (High)
 - target_finish: 2026-03-07
@@ -3336,6 +5066,7 @@ Milestone metadata contract:
 ## Cost Optimization Track (C01-C07)
 
 ### C01 - Cost Baseline, B2s Right-Sizing, and Rollback Guardrails
+
 - status: Done
 - target_finish: 2026-03-10
 - completed_on: 2026-03-07
@@ -3358,112 +5089,189 @@ Milestone metadata contract:
   - `npm run check:env:azure`
   - `npm run costs:build`
 
-### B01 - Billing Track Kickoff and Contract Sync
-- status: In Progress
+### B01 - Billing Track Reconciliation and Scope Lock
+
+- status: Done
 - target_finish: 2026-04-18
+- completed_on: 2026-03-29
+- evidence: local docs sync + billing milestone expansion pass (2026-03-28), annual pricing + usage guardrail follow-up (2026-03-29)
 - Scope:
-  - Add billing milestones, env contract, dependency attribution, and cross-doc product language for Stripe-hosted Pro billing.
-  - Keep cost optimization `C06` visible as an active track while billing work begins in parallel.
+  - Audit current repo reality against docs so billing is no longer described as both "implemented" and "planned."
+  - Lock MVP defaults from the Stripe spec: hosted Checkout, hosted Customer Portal, card only, cancel at period end, proration on, no coupons, no trials, and a single paid Pro tier with monthly plus annual cadences.
+  - Document the split between developer-owned work and founder-owned Stripe Dashboard setup before additional billing hardening starts.
 - Key files/modules:
   - `docs/Prompts.md`
   - `docs/plans.md`
-  - `docs/architecture.md`
-  - `docs/documentation.md`
-  - `docs/env.md`
-  - `docs/THIRD_PARTY.md`
+  - `docs/billing/README.md`
 - Acceptance criteria:
-  - Billing terminology is consistent across prompts, plans, architecture, and operator docs.
-  - New billing env vars and dependency attribution are documented before the feature is marked done.
+  - `docs/plans.md`, `docs/Prompts.md`, and billing handoff docs describe the same billing scope and same responsibility split.
+  - The expanded billing track preserves the current `Starter` + `Pro` MVP, with annual enabled for the same paid tier while `Team`, coupons, trials, seats, usage billing, and non-card methods remain out of scope.
 - Verification commands:
   - Manual cross-doc review
 
-### B02 - Billing Data Model and Metadata Backend Parity
-- status: Planned
+### B02 - Billing State Contract Hardening
+
+- status: Done
 - target_finish: 2026-04-25
+- completed_on: 2026-03-28
+- evidence: additive billing schema + Azure Table compatibility + targeted validation (2026-03-28)
 - Scope:
-  - Extend `User` with Stripe customer/subscription state, complimentary Pro override, and effective paid-access cache.
-  - Add `BillingWebhookEvent` idempotency storage in both Prisma and Azure Table primary metadata paths.
+  - Extend persisted billing state to capture Stripe sync fields needed for supportability and entitlement decisions without destructive resets.
+  - Add a forward migration and compatibility plan for both Prisma and Azure Table primary metadata paths before schema work begins.
 - Key files/modules:
   - `apps/web/prisma/schema.prisma`
   - `apps/web/prisma/schema.postgres.prisma`
   - `apps/web/src/lib/metadata-primary-auth.ts`
   - `packages/core/src/metadata/azureTablePrimaryStore.ts`
 - Acceptance criteria:
-  - Both Prisma and Azure Table runtimes can persist equivalent billing state.
-  - Existing quota logic continues to read effective paid access from local metadata without direct Stripe calls.
+  - Local billing state can represent Stripe customer id, subscription id, price id, subscription status, current period end, cancel-at-period-end, last payment status, entitlement/access level, and processed-event audit data.
+  - Both Prisma and Azure Table runtimes can persist equivalent billing state while existing quota logic continues to read local effective access without direct Stripe calls.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run typecheck`
   - `npx pnpm --filter @articlepod/web run test -- billing`
 
-### B03 - Stripe Checkout for Pro Upgrade
-- status: Planned
+### B03 - Plan Catalog and Checkout Contract
+
+- status: Done
 - target_finish: 2026-05-02
+- completed_on: 2026-03-29
+- evidence: server-side plan catalog + checkout hardening + targeted validation (2026-03-28), annual cadence activation follow-up (2026-03-29)
 - Scope:
-  - Create authenticated checkout-session route for `PRO_MONTHLY`.
-  - Reuse or create Stripe customers keyed to local users.
-  - Wire `/pricing` to start checkout when billing is configured.
+  - Refactor checkout around an approved server-side plan catalog that supports `PRO_MONTHLY` and `PRO_ANNUAL` without ever trusting client-supplied Stripe price ids.
+  - Ensure checkout reuses or creates Stripe customers, attaches metadata, uses idempotency where appropriate, and never grants access from the redirect alone.
 - Key files/modules:
   - `apps/web/src/lib/billing.ts`
   - `apps/web/src/app/api/billing/checkout/route.ts`
-  - `apps/web/src/app/pricing/page.tsx`
+  - `apps/web/src/app/(marketing)/pricing/page.tsx`
 - Acceptance criteria:
-  - Signed-in users can start Stripe-hosted checkout from `/pricing`.
-  - Billing-unconfigured environments fail with a clear user-facing message instead of crashing.
+  - Signed-in users can create hosted Stripe subscription checkout sessions from `/pricing` or settings only for approved internal plan keys.
+  - Signing in from `/pricing` preserves the upgrade journey and returns the user to billing-ready UI instead of the generic workspace landing page.
+  - Successful Stripe Checkout redirects back to `/app`, where the workspace shows an upgrade or status card without forcing users through settings.
+  - Billing-unconfigured environments fail with a clear user-facing message, and the app shows a pending activation state until webhook confirmation arrives.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B04 - Webhook-Driven Billing State and Portal Access
-- status: Planned
+### B04 - Webhook and Entitlement Engine
+
+- status: Done
 - target_finish: 2026-05-09
+- completed_on: 2026-03-28
+- evidence: invoice-aware webhook entitlement engine + targeted validation (2026-03-28)
 - Scope:
-  - Verify Stripe webhook signatures, dedupe event ids, and sync subscription state into local metadata.
-  - Add `/app/settings` billing card and Stripe Customer Portal launch.
+  - Expand webhook handling beyond subscription lifecycle events to include `invoice.paid`, `invoice.payment_failed`, and `invoice.payment_action_required`.
+  - Define entitlement rules so paid invoices extend access, subscription updates sync plan and renewal flags, payment failures surface account issues, and deletion revokes or downgrades access per product policy.
 - Key files/modules:
   - `apps/web/src/app/api/billing/webhook/route.ts`
-  - `apps/web/src/app/api/billing/portal/route.ts`
-  - `apps/web/src/app/app/settings/page.tsx`
   - `apps/web/src/lib/billing.ts`
+  - `apps/web/tests/billing.test.ts`
 - Acceptance criteria:
-  - Webhook replays do not double-apply state changes.
-  - Settings page shows current plan/status and can launch the portal for Stripe-managed subscriptions.
+  - Invalid Stripe signatures are rejected, duplicate deliveries are idempotent, and out-of-order events do not corrupt billing state.
+  - Webhook-driven billing state includes payment-issue and entitlement outcomes that can drive user-facing billing UX without relying on Stripe redirects.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B05 - Admin Complimentary Access and Quota Integration
-- status: Planned
+### B05 - Billing Settings UX and Customer Portal
+
+- status: Done
 - target_finish: 2026-05-16
+- completed_on: 2026-03-28
+- evidence: billing settings UX + hosted portal recovery paths + targeted validation (2026-03-28)
 - Scope:
-  - Replace the raw admin `paid` toggle with a complimentary Pro override.
-  - Keep extra submission credits for free-tier support scenarios.
-  - Expose billing state in admin quota management to reduce support confusion.
+  - Upgrade `/app/settings` billing UI to show current plan, subscription status, renewal date, cancel-at-period-end state, payment-issue banners, and hosted portal entry.
+  - Mirror a concise billing summary or upgrade surface onto `/app` so workspace users always see their current plan or upgrade path.
+  - Keep Stripe Customer Portal as the only MVP surface for payment-method updates, invoices, cancelation, and any later self-serve plan switching.
+- Key files/modules:
+  - `apps/web/src/app/app/settings/page.tsx`
+  - `apps/web/src/app/api/billing/portal/route.ts`
+  - `apps/web/src/lib/billing.ts`
+- Acceptance criteria:
+  - Users can understand whether billing is active, pending, canceling, or blocked, and can reach the correct Stripe-hosted recovery path from settings.
+  - Complimentary access messaging stays distinct from Stripe-managed subscriptions.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - `npx pnpm --filter @articlepod/web run typecheck`
+
+### B06 - Admin Support Visibility and Operational Observability
+
+- status: Done
+- target_finish: 2026-05-23
+- completed_on: 2026-03-28
+- evidence: admin billing visibility + webhook observability runbook pass (2026-03-28)
+- Scope:
+  - Add read-only support visibility for user email, Stripe customer id, Stripe subscription id, plan, status, renewal date, last invoice or payment state, and Stripe Dashboard deep link.
+  - Add structured billing logs, webhook processing result logs, and alert or runbook coverage for webhook failures.
 - Key files/modules:
   - `apps/web/src/app/api/admin/users/quota/route.ts`
   - `apps/web/src/components/admin-quota-manager.tsx`
-  - `apps/web/src/lib/submission-quota.ts`
+  - `apps/web/src/lib/billing.ts`
+  - `docs/operations.md`
 - Acceptance criteria:
-  - Admin overrides do not clobber Stripe-managed billing state.
-  - Complimentary access still unlocks unlimited submissions through the existing quota gate.
+  - Support can inspect billing state without mutating Stripe records.
+  - Operations can detect broken webhook sync quickly through logs, explicit failure states, or alerting guidance.
 - Verification commands:
-  - `npx pnpm --filter @articlepod/web run test -- submission-quota`
+  - `npx pnpm --filter @articlepod/web run test -- billing`
   - `npx pnpm --filter @articlepod/web run typecheck`
 
-### B06 - Billing Validation, Release Notes, and Operator Readiness
-- status: Planned
-- target_finish: 2026-05-23
+### B07 - Founder Stripe Configuration and Environment Promotion
+
+- status: Done
+- target_finish: 2026-05-30
+- completed_on: 2026-03-28
+- evidence: founder Stripe setup + secret-promotion docs pass (2026-03-28)
 - Scope:
-  - Finish billing regression coverage, env examples, operations/runbook notes, and release-verification evidence.
-  - Run full repo verification prompts after the billing track lands.
+  - Capture founder or operator-owned Stripe Dashboard work: account verification, bank setup, product and price creation, portal configuration, retry and email settings, branding, and tax decision.
+  - Document the exact billing secrets required in test, staging, and production, with separate webhook secrets per environment.
 - Key files/modules:
+  - `docs/billing/README.md`
+  - `docs/env.md`
   - `docs/operations.md`
-  - `.env.example`
-  - `.env.simple.example`
-  - `.env.parity.example`
-  - `.env.azure.example`
 - Acceptance criteria:
-  - Billing setup and webhook troubleshooting are documented for local and Azure environments.
-  - Billing changes pass workspace, license, and podcast contract gates before sign-off.
+  - The billing track clearly shows what engineering owns versus what founders must complete before staging and live launch.
+  - Stripe Dashboard setup, policy decisions, and secret-management requirements are documented for both `Pro monthly` and `Pro annual`, without expanding MVP scope beyond a single paid Pro tier.
+- Verification commands:
+  - Manual Stripe setup checklist review
+
+### B08 - Lifecycle QA with Stripe CLI and Test Clocks
+
+- status: Done
+- target_finish: 2026-06-06
+- completed_on: 2026-03-28
+- evidence: lifecycle QA checklist + webhook resilience tests pass (2026-03-28)
+- Scope:
+  - Add reproducible local and staging procedures for Stripe CLI webhook forwarding, Stripe test cards, failure simulations, and Test Clock lifecycle testing.
+  - Cover purchase success, initial payment failure, renewal success, renewal failure, cancel at period end, portal update flow, plan-change behavior, duplicate deliveries, out-of-order events, and invalid signatures.
+- Key files/modules:
+  - `apps/web/tests/billing.test.ts`
+  - `docs/billing/README.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Billing QA no longer relies only on happy-path manual checks.
+  - The billing track includes reproducible lifecycle validation steps for both local development and staging.
+- Verification commands:
+  - `npx pnpm --filter @articlepod/web run test -- billing`
+  - Manual Stripe CLI + Test Clock checklist
+
+### B09 - Staging Certification and Launch Readiness
+
+- status: In Progress
+- target_finish: 2026-06-13
+- Scope:
+  - Add a final release milestone covering staging validation, support docs, rollback or safe-disable notes, and production launch evidence.
+  - Include both the manual founder launch checklist and engineering launch checklist, with a clear blocker if the Stripe tax decision is unresolved.
+  - Keep live Stripe as the default production path while allowing admins and explicit tester emails to exercise a separate sandbox Stripe lane from Settings.
+- Key files/modules:
+  - `apps/web/src/lib/billing.ts`
+  - `apps/web/src/app/api/billing/mode/route.ts`
+  - `apps/web/src/app/api/billing/webhook/sandbox/route.ts`
+  - `docs/release-checklist.md`
+  - `docs/billing/README.md`
+  - `docs/operations.md`
+- Acceptance criteria:
+  - Staging proves live checkout, sandbox checkout, portal flows, webhook sync, access-control changes, observability, and production-secret isolation before live credentials are introduced.
+  - Sandbox purchases never grant live paid access, never change quotas, and never overwrite canonical live billing state.
+  - Launch notes include support ownership and rollback or safe-disable guidance for billing incidents.
 - Verification commands:
   - `npm run typecheck`
   - `npm run lint`
@@ -3473,6 +5281,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C02 - Queue-Pressure Overflow Lane Scaffolding (Local-First Default)
+
 - status: Done
 - target_finish: 2026-03-14
 - completed_on: 2026-03-07
@@ -3498,6 +5307,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/worker run test`
 
 ### C03 - Metadata and Queue Adapter Interfaces (Postgres Default)
+
 - status: Done
 - target_finish: 2026-03-21
 - completed_on: 2026-03-07
@@ -3520,6 +5330,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C04 - Serverless Table/Blob Metadata Adapter Implementation
+
 - status: Done
 - target_finish: 2026-03-28
 - completed_on: 2026-03-07
@@ -3541,6 +5352,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C05 - Dual-Write, Backfill, and Consistency Certification
+
 - status: Done
 - target_finish: 2026-04-04
 - completed_on: 2026-03-07
@@ -3562,6 +5374,7 @@ Milestone metadata contract:
   - `npx pnpm --filter @articlepod/web run test`
 
 ### C06 - Canary and Full Serverless Metadata Cutover
+
 - status: Done
 - target_finish: 2026-04-11
 - completed_on: 2026-03-17
@@ -3577,7 +5390,7 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Serverless metadata path runs stable through full cutover window.
   - PostgreSQL dependency can be disabled without user-facing regressions.
-  - Fresh-start Azure deployment uses Azure Table primary metadata + Azure Blob artifacts + local auxiliary SQLite.
+  - Fresh-start Azure deployment uses Azure Table primary metadata + Azure Blob artifacts, with no required local SQLite contract in production.
   - Live Azure feed/media contract passed after PostgreSQL was stopped, and exploratory PostgreSQL data was intentionally left behind.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run test`
@@ -3585,6 +5398,7 @@ Milestone metadata contract:
   - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`
 
 ### C07 - Financial Guardrails and Incident Controls
+
 - status: Done
 - target_finish: 2026-04-18
 - completed_on: 2026-03-07
@@ -3602,6 +5416,85 @@ Milestone metadata contract:
 - Acceptance criteria:
   - Budget and anomaly alerts are documented with action thresholds.
   - Operators can execute a known rollback path within one runbook cycle.
+
+### C08 - Queue-Backed Item Dispatch and Durable Lease Cutover
+
+- status: Done
+- target_finish: 2026-04-25
+- completed_on: 2026-03-29
+- evidence: local typecheck + worker queue resilience validation + docs/migration sync pass (2026-03-29)
+- Scope:
+  - Add a dedicated item dispatch queue adapter with `prisma` and Azure Queue Storage backends.
+  - Expand durable item job rows with `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
+  - Move item worker pickup to queue reservation plus durable lease claim while keeping digest and summary flows on their existing path.
+  - Keep the default runtime shape unchanged: one worker process on the same VM, with remote workers remaining an opt-in future operation.
+- Key files/modules:
+  - `packages/core/src/queue/*`
+  - `packages/core/src/metadata/azureTablePrimaryStore.ts`
+  - `apps/web/src/lib/items.ts`
+  - `apps/web/src/lib/item-dispatch-queue.ts`
+  - `apps/worker/src/jobs/processItemJob.ts`
+  - `apps/worker/src/lib/item-dispatch-queue.ts`
+  - `apps/web/prisma/schema.prisma`
+  - `apps/web/prisma/migrations/20260329163000_add_item_dispatch_queue_and_job_leases/migration.sql`
+  - `docs/architecture.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - A single worker still processes item jobs end-to-end without requiring more compute.
+  - Any trusted first-party worker can reserve an item dispatch message, claim the durable lease, and renew it during long TTS runs without duplicate completion.
+  - Crashed or stale item work can be reclaimed safely, while stale retries still yield to newer queued jobs before retrying.
+  - Rollout is upgrade-in-place with nullable schema expansion, backfillable dispatch messages, and no reset/drop migration story.
+- Migration/backfill plan:
+  - Expand `Job` with nullable lease fields and add `DispatchQueueMessage`.
+  - New item submissions dual-write durable `Job` rows plus dispatch messages immediately.
+  - Primary workers reconcile missing dispatch messages for existing eligible jobs so pre-cutover queued work is backfilled in place.
+  - Rollback is safe-disable: switch `ITEM_DISPATCH_BACKEND` back to `prisma` or pause dispatch consumers; durable item/job state remains authoritative.
+- Verification commands:
+  - `corepack pnpm --filter @articlepod/core run typecheck`
+  - `corepack pnpm --filter @articlepod/worker run typecheck`
+  - `corepack pnpm --filter @articlepod/web run typecheck`
+  - `corepack pnpm --filter @articlepod/worker exec tsx --test --test-concurrency=1 tests/queue-resilience.test.ts`
 - Verification commands:
   - `npm run check:env:azure`
   - `npm run costs:build`
+
+### C09 - Eastus Blue/Green Primary Rebuild and ACA Overflow Cutover
+
+- status: In Progress
+- target_finish: 2026-04-17
+- completed_on: —
+- evidence: eastus resource group + VM + ACR + ACA environment provisioned, live prod env cloned, and overflow deployment wiring added (2026-04-10)
+- Scope:
+  - Rebuild the primary runtime in `eastus` on `Standard_D2as_v5`.
+  - Reuse the live Blob/Table/OpenAI data plane exactly as-is, with no PostgreSQL in the new resource group.
+  - Clone `/etc/articlepod/articlepod.env` and current TLS material from the live VM before first start; do not depend on cloning VM-local database state.
+  - Deploy a private Azure Container Apps overflow app with `worker` + `python-tts` sidecar and queue-based wake-up.
+  - Validate the new primary and overflow lanes before the final Squarespace DNS flip.
+- Key files/modules:
+  - `infra/eastus-bluegreen.bicep`
+  - `scripts/azure/provision-eastus-bluegreen.sh`
+  - `scripts/azure/clone-vm-state.sh`
+  - `scripts/azure/deploy-aca-overflow.sh`
+  - `Dockerfile.worker`
+  - `services/python-tts/Dockerfile`
+  - `services/python-tts/bootstrap_assets.py`
+  - `docs/azure-deploy.md`
+  - `docs/architecture.md`
+  - `docs/env.md`
+- Acceptance criteria:
+  - New eastus primary VM runs the same production env/settings as the live VM without rotating secrets or signing keys.
+  - ACA overflow app can scale from zero, process item-generation overflow work, and stand back down when backlog clears.
+  - No PostgreSQL resources are provisioned or required in the new eastus cutover path.
+  - Final DNS cutover only requires updating the apex `A` record and `www` CNAME in Squarespace after prestage validation succeeds.
+- Migration/backfill plan:
+  - Keep the existing `centralus` VM live and unchanged during prestage and early cutover.
+  - Clone live runtime env and TLS material forward to the eastus VM; do not render a fresh env file for the first bring-up.
+  - Reuse the existing Azure Storage account, Azure Table data, Azure Queue dispatch lane, and Azure OpenAI account.
+  - Rollback is DNS-first: point `articlepod.com` back to the old VM while leaving data plane resources untouched.
+- Verification commands:
+  - `bash -n scripts/azure/provision-eastus-bluegreen.sh`
+  - `bash -n scripts/azure/clone-vm-state.sh`
+  - `bash -n scripts/azure/deploy-aca-overflow.sh`
+  - `python3 -m py_compile services/python-tts/bootstrap_assets.py`
+  - `curl -k --resolve articlepod.com:443:<new-eastus-ip> https://articlepod.com/api/health`
+  - `./scripts/verify_podcast_contract.sh "<FEED_URL>"`

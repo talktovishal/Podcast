@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -54,4 +55,29 @@ test("explicit schema path wins over profile defaults", () => {
     }),
     "/tmp/custom.prisma"
   );
+});
+
+test("postgres prisma schema keeps audio retention expiry fields used by parity and azure feeds", () => {
+  const sqliteSchema = readFileSync(resolve(process.cwd(), "prisma/schema.prisma"), "utf8");
+  const postgresSchema = readFileSync(resolve(process.cwd(), "prisma/schema.postgres.prisma"), "utf8");
+
+  for (const modelName of ["Episode", "DigestEpisode", "SummaryEpisode"]) {
+    assert.match(sqliteSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?expiresAt\\s+DateTime\\?`));
+    assert.match(postgresSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?expiresAt\\s+DateTime\\?`));
+    assert.match(postgresSchema, new RegExp(`model ${modelName} \\{[\\s\\S]*?@@index\\(\\[expiresAt\\]\\)`));
+  }
+});
+
+test("postgres prisma schema keeps summary mode fields used by parity and azure fallback", () => {
+  const postgresSchema = readFileSync(resolve(process.cwd(), "prisma/schema.postgres.prisma"), "utf8");
+
+  assert.match(postgresSchema, /model User \{[\s\S]*?defaultItemProcessingMode\s+String\s+@default\("FULL_EPISODE"\)/);
+  assert.match(postgresSchema, /model Item \{[\s\S]*?processingMode\s+String\s+@default\("FULL_EPISODE"\)/);
+  assert.match(postgresSchema, /model Item \{[\s\S]*?summaryStatus\s+String\s+@default\("NOT_REQUESTED"\)/);
+  assert.match(postgresSchema, /model Item \{[\s\S]*?summaryStorageKey\s+String\?/);
+  assert.match(postgresSchema, /model Item \{[\s\S]*?summaryCompletedAt\s+DateTime\?/);
+  assert.match(postgresSchema, /model Item \{[\s\S]*?articleSummaryTask\s+ArticleSummaryTask\?/);
+  assert.match(postgresSchema, /model ArticleSummaryTask \{[\s\S]*?itemId\s+String\s+@unique/);
+  assert.match(postgresSchema, /model ArticleSummaryTask \{[\s\S]*?@@index\(\[status, scheduledFor\]\)/);
+  assert.match(postgresSchema, /model Job \{[\s\S]*?jobKind\s+String\s+@default\("FULL_EPISODE"\)/);
 });

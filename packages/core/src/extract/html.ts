@@ -1,13 +1,22 @@
 import { AppError, errorCodes } from "../errors/codes";
 import { Readability } from "@mozilla/readability";
+import type { DefuddleResponse } from "defuddle";
+import { DefuddleClass } from "defuddle/node";
 import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { BRAND_BOT_USER_AGENT, BRAND_SNAPSHOT_FALLBACK_URL } from "../config/brand";
 import { extractNarrationTextFromHtml, resolveTitleFromHtmlWithAbogenFallback } from "./abogen/htmlToText";
+import { analyzeMarkdownQuality, lowSignalExtractionMessage, type MarkdownQualityAnalysis } from "./markdownCleanup";
 import https from "node:https";
 import http from "node:http";
 
 const FETCH_TIMEOUT_MS = 30_000;
+const LEADING_PRESENTATION_LABELS = new Set(["watch now", "close", "[close](#)", "advertisement", "stories for you"]);
+const IMAGE_ONLY_PARAGRAPH_PATTERN = /^!\[[\s\S]*?\]\([^)]+\)$/;
+const LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN = /^\[\s*!\[[\s\S]*?\]\([^)]+\)\s*(?:[^\]]*)\]\([^)]+\)$/i;
+const KEY_POINTS_LABEL_PATTERN = /^#{0,6}\s*key points\s*$/i;
+const CAPTION_LIKE_PARAGRAPH_PATTERN =
+  /(?:^image caption\b|\b(?:getty images|associated press|ap photo|reuters|image source|toggle caption|hide caption)\b|^\(?photo by\b)/i;
 
 type FetchResponseLike = {
   status: number;
@@ -26,8 +35,59 @@ export type HtmlFetchDiagnostics = {
   finalFetchStrategy: HtmlFetchStrategy;
 };
 
+export type HtmlExtractionEngine = "readability" | "defuddle";
+export type HtmlExtractionSelectionMode = "scored" | "readability_only" | "defuddle_only";
+export type HtmlExtractionCandidateDiagnostics = {
+  engine: HtmlExtractionEngine;
+  status: "passed" | "failed";
+  score: number | null;
+  titleLength: number;
+  textLength: number;
+  markdownLength: number;
+  rawIssueCount: number;
+  cleanedIssueCount: number;
+  hasNarratableText: boolean;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
+  errorMessage?: string;
+};
+export type HtmlExtractionSelectionDiagnostics = {
+  selectedEngine: HtmlExtractionEngine;
+  selectionMode: HtmlExtractionSelectionMode;
+  scoreMargin: number;
+  candidates: HtmlExtractionCandidateDiagnostics[];
+};
+export type HtmlExtractionSelectionSummaryCandidate = {
+  engine: HtmlExtractionEngine;
+  status: "passed" | "failed";
+  score: number | null;
+  textLength: number;
+  markdownLength: number;
+  rawIssueCount: number;
+  cleanedIssueCount: number;
+  hasNarratableText: boolean;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
+  errorMessage?: string;
+};
+export type HtmlExtractionSelectionSummary = {
+  version: 1;
+  selectedEngine: HtmlExtractionEngine;
+  selectionMode: HtmlExtractionSelectionMode;
+  scoreMargin: number;
+  candidates: HtmlExtractionSelectionSummaryCandidate[];
+};
+
 export const BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE =
   "This site blocked server-side access. If the page opens in your browser, capture it with the Chrome extension instead of submitting the URL directly.";
+export const BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE =
+  "This captured page looks like a CAPTCHA or anti-bot interstitial instead of the article. Clear the site challenge in your browser, then capture again.";
 
 type HtmlExtractionResult = {
   title: string;
@@ -35,11 +95,39 @@ type HtmlExtractionResult = {
   markdown: string;
   rawHtml: string;
   byline?: string | null;
+  selectionDiagnostics: HtmlExtractionSelectionDiagnostics;
 };
 
 type HtmlExtractionResultWithDiagnostics = HtmlExtractionResult & {
   diagnostics: HtmlFetchDiagnostics;
 };
+
+type HtmlExtractionCandidate = {
+  engine: HtmlExtractionEngine;
+  title: string;
+  byline: string | null;
+  text: string;
+  markdown: string;
+  rawAnalysis: MarkdownQualityAnalysis;
+  cleanedAnalysis: MarkdownQualityAnalysis;
+  score: number;
+  leadingPresentationBlocks: number;
+  standaloneImageParagraphs: number;
+  captionLikeParagraphs: number;
+  helpfulLeadSummary: boolean;
+  warningCount: number;
+};
+
+function pinnedIpv6Enabled(): boolean {
+  const explicit = process.env.PINNED_FETCH_IPV6_ENABLED;
+  if (explicit === "0") {
+    return false;
+  }
+  if (explicit === "1") {
+    return true;
+  }
+  return process.env.RUNTIME_PROFILE !== "azure";
+}
 
 function normalizeExtracted(input: string): string {
   return input.replace(/\r\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
@@ -53,13 +141,313 @@ function normalizeMarkdown(markdown: string): string {
     .trim();
 }
 
-function htmlToMarkdown(html: string): string {
+function wordCount(input: string): number {
+  if (!input) {
+    return 0;
+  }
+  return input.split(/\s+/g).filter(Boolean).length;
+}
+
+function substantialParagraphCount(markdown: string): number {
+  return markdown
+    .split(/\n{2,}/g)
+    .map((paragraph) => paragraph.replace(/^#{1,6}\s+/gm, "").replace(/\s+/g, " ").trim())
+    .filter((paragraph) => wordCount(paragraph) >= 12).length;
+}
+
+function hasStrongReadableArticleSignal(input: {
+  html: string;
+  sourceUrl: string;
+}): boolean {
+  try {
+    const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
+    const extractedWordCount = wordCount(normalizeExtracted(extracted.text));
+    const paragraphCount = substantialParagraphCount(normalizeMarkdown(extracted.markdown));
+    const extractedChars = normalizeExtracted(extracted.text).length;
+    return (extractedWordCount >= 90 && paragraphCount >= 2) || (extractedChars >= 450 && paragraphCount >= 2);
+  } catch {
+    return false;
+  }
+}
+
+function hasStrongDomArticleSignal(document: Document): boolean {
+  const candidateParagraphs = Array.from(
+    document.querySelectorAll("article p, main p, [role='article'] p, article li, main li, [role='article'] li")
+  )
+    .map((node) => normalizeExtracted(node.textContent || ""))
+    .filter(Boolean);
+  const substantialParagraphs = candidateParagraphs.filter((paragraph) => wordCount(paragraph) >= 12);
+  const totalWords = substantialParagraphs.reduce((sum, paragraph) => sum + wordCount(paragraph), 0);
+  return (substantialParagraphs.length >= 3 && totalWords >= 70) || (substantialParagraphs.length >= 2 && totalWords >= 100);
+}
+
+function countIssueTotal(analysis: MarkdownQualityAnalysis): number {
+  return Object.values(analysis.issueCounts).reduce((sum, value) => sum + value, 0);
+}
+
+function splitMarkdownParagraphs(markdown: string): string[] {
+  return markdown
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/g)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function normalizeParagraphLabel(paragraph: string): string {
+  return paragraph.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isLeadingPresentationParagraph(paragraph: string): boolean {
+  const normalized = normalizeParagraphLabel(paragraph);
+  if (LEADING_PRESENTATION_LABELS.has(normalized)) {
+    return true;
+  }
+  return IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph) || LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph);
+}
+
+function countLeadingPresentationBlocks(markdown: string): number {
+  let count = 0;
+  for (const paragraph of splitMarkdownParagraphs(markdown)) {
+    if (!isLeadingPresentationParagraph(paragraph)) {
+      break;
+    }
+    count += 1;
+  }
+  return count;
+}
+
+function countStandaloneImageParagraphs(markdown: string): number {
+  return splitMarkdownParagraphs(markdown).filter(
+    (paragraph) => IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph) || LINKED_IMAGE_ONLY_PARAGRAPH_PATTERN.test(paragraph)
+  ).length;
+}
+
+function countCaptionLikeParagraphs(markdown: string): number {
+  return splitMarkdownParagraphs(markdown).filter((paragraph) => {
+    if (paragraph.length > 220) {
+      return false;
+    }
+    return CAPTION_LIKE_PARAGRAPH_PATTERN.test(paragraph);
+  }).length;
+}
+
+function hasHelpfulLeadSummary(markdown: string): boolean {
+  const paragraphs = splitMarkdownParagraphs(markdown);
+  let index = 0;
+  while (index < paragraphs.length && isLeadingPresentationParagraph(paragraphs[index] || "")) {
+    index += 1;
+  }
+  if (!KEY_POINTS_LABEL_PATTERN.test(paragraphs[index] || "")) {
+    return false;
+  }
+
+  const bulletLines = (paragraphs[index + 1] || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+  return bulletLines.length >= 2;
+}
+
+function scoreHtmlExtractionCandidate(candidate: {
+  title: string;
+  byline: string | null;
+  text: string;
+  markdown: string;
+  rawAnalysis: MarkdownQualityAnalysis;
+  cleanedAnalysis: MarkdownQualityAnalysis;
+}): Pick<
+  HtmlExtractionCandidate,
+  "score" | "leadingPresentationBlocks" | "standaloneImageParagraphs" | "captionLikeParagraphs" | "helpfulLeadSummary"
+> {
+  const narratableChars = candidate.cleanedAnalysis.narrationText.replace(/\s+/g, " ").trim().length;
+  const normalizedTextLength = normalizeExtracted(candidate.text).length;
+  const rawIssueCount = countIssueTotal(candidate.rawAnalysis);
+  const cleanedIssueCount = countIssueTotal(candidate.cleanedAnalysis);
+  const leadingPresentationBlocks = countLeadingPresentationBlocks(candidate.markdown);
+  const standaloneImageParagraphs = countStandaloneImageParagraphs(candidate.markdown);
+  const captionLikeParagraphs = countCaptionLikeParagraphs(candidate.text);
+  const helpfulLeadSummary = hasHelpfulLeadSummary(candidate.markdown);
+
+  let score = Math.min(5_000, narratableChars) + Math.min(1_500, normalizedTextLength);
+  score -= cleanedIssueCount * 1_000;
+  score -= rawIssueCount * 250;
+  score -= leadingPresentationBlocks * 175;
+  score -= standaloneImageParagraphs * 125;
+  score -= captionLikeParagraphs * 175;
+  if (helpfulLeadSummary) {
+    score += 150;
+  }
+  if (candidate.title.trim()) {
+    score += 50;
+  }
+  if (candidate.byline?.trim()) {
+    score += 10;
+  }
+
+  return {
+    score,
+    leadingPresentationBlocks,
+    standaloneImageParagraphs,
+    captionLikeParagraphs,
+    helpfulLeadSummary
+  };
+}
+
+function buildCandidateDiagnostics(candidate: HtmlExtractionCandidate): HtmlExtractionCandidateDiagnostics {
+  return {
+    engine: candidate.engine,
+    status: "passed",
+    score: candidate.score,
+    titleLength: candidate.title.length,
+    textLength: candidate.text.length,
+    markdownLength: candidate.markdown.length,
+    rawIssueCount: countIssueTotal(candidate.rawAnalysis),
+    cleanedIssueCount: countIssueTotal(candidate.cleanedAnalysis),
+    hasNarratableText: candidate.cleanedAnalysis.hasNarratableText,
+    leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+    standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+    captionLikeParagraphs: candidate.captionLikeParagraphs,
+    helpfulLeadSummary: candidate.helpfulLeadSummary,
+    warningCount: candidate.warningCount
+  };
+}
+
+function buildFailedCandidateDiagnostics(engine: HtmlExtractionEngine, error: unknown): HtmlExtractionCandidateDiagnostics {
+  return {
+    engine,
+    status: "failed",
+    score: null,
+    titleLength: 0,
+    textLength: 0,
+    markdownLength: 0,
+    rawIssueCount: 0,
+    cleanedIssueCount: 0,
+    hasNarratableText: false,
+    leadingPresentationBlocks: 0,
+    standaloneImageParagraphs: 0,
+    captionLikeParagraphs: 0,
+    helpfulLeadSummary: false,
+    warningCount: 0,
+    errorMessage: error instanceof Error ? error.message : String(error)
+  };
+}
+
+export function summarizeHtmlExtractionSelection(
+  diagnostics: HtmlExtractionSelectionDiagnostics
+): HtmlExtractionSelectionSummary {
+  return {
+    version: 1,
+    selectedEngine: diagnostics.selectedEngine,
+    selectionMode: diagnostics.selectionMode,
+    scoreMargin: diagnostics.scoreMargin,
+    candidates: diagnostics.candidates.map((candidate) => ({
+      engine: candidate.engine,
+      status: candidate.status,
+      score: candidate.score,
+      textLength: candidate.textLength,
+      markdownLength: candidate.markdownLength,
+      rawIssueCount: candidate.rawIssueCount,
+      cleanedIssueCount: candidate.cleanedIssueCount,
+      hasNarratableText: candidate.hasNarratableText,
+      leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+      standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+      captionLikeParagraphs: candidate.captionLikeParagraphs,
+      helpfulLeadSummary: candidate.helpfulLeadSummary,
+      warningCount: candidate.warningCount,
+      errorMessage: candidate.errorMessage
+    }))
+  };
+}
+
+export function parseHtmlExtractionSelectionSummary(
+  value: string | null | undefined
+): HtmlExtractionSelectionSummary | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<HtmlExtractionSelectionSummary>;
+    if (
+      parsed.version !== 1 ||
+      (parsed.selectedEngine !== "readability" && parsed.selectedEngine !== "defuddle") ||
+      (parsed.selectionMode !== "scored" &&
+        parsed.selectionMode !== "readability_only" &&
+        parsed.selectionMode !== "defuddle_only") ||
+      typeof parsed.scoreMargin !== "number" ||
+      !Array.isArray(parsed.candidates)
+    ) {
+      return null;
+    }
+
+    const candidates = parsed.candidates.flatMap((candidate) => {
+      if (
+        !candidate ||
+        (candidate.engine !== "readability" && candidate.engine !== "defuddle") ||
+        (candidate.status !== "passed" && candidate.status !== "failed") ||
+        (candidate.score !== null && typeof candidate.score !== "number") ||
+        typeof candidate.textLength !== "number" ||
+        typeof candidate.markdownLength !== "number" ||
+        typeof candidate.rawIssueCount !== "number" ||
+        typeof candidate.cleanedIssueCount !== "number" ||
+        typeof candidate.hasNarratableText !== "boolean" ||
+        typeof candidate.leadingPresentationBlocks !== "number" ||
+        typeof candidate.standaloneImageParagraphs !== "number" ||
+        typeof candidate.captionLikeParagraphs !== "number" ||
+        typeof candidate.helpfulLeadSummary !== "boolean" ||
+        typeof candidate.warningCount !== "number"
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          engine: candidate.engine,
+          status: candidate.status,
+          score: candidate.score,
+          textLength: candidate.textLength,
+          markdownLength: candidate.markdownLength,
+          rawIssueCount: candidate.rawIssueCount,
+          cleanedIssueCount: candidate.cleanedIssueCount,
+          hasNarratableText: candidate.hasNarratableText,
+          leadingPresentationBlocks: candidate.leadingPresentationBlocks,
+          standaloneImageParagraphs: candidate.standaloneImageParagraphs,
+          captionLikeParagraphs: candidate.captionLikeParagraphs,
+          helpfulLeadSummary: candidate.helpfulLeadSummary,
+          warningCount: candidate.warningCount,
+          errorMessage: typeof candidate.errorMessage === "string" ? candidate.errorMessage : undefined
+        } satisfies HtmlExtractionSelectionSummaryCandidate
+      ];
+    });
+
+    if (candidates.length !== parsed.candidates.length) {
+      return null;
+    }
+
+    return {
+      version: 1,
+      selectedEngine: parsed.selectedEngine,
+      selectionMode: parsed.selectionMode,
+      scoreMargin: parsed.scoreMargin,
+      candidates
+    };
+  } catch {
+    return null;
+  }
+}
+
+function selectPreferredExtractionError(currentError: unknown, defuddleError: unknown, fallbackMessage: string): AppError {
+  const mappedCurrent = mapHtmlExtractionError(currentError, fallbackMessage);
+  const mappedDefuddle = mapHtmlExtractionError(defuddleError, fallbackMessage);
+  return preferMoreSpecificError(mappedCurrent, mappedDefuddle);
+}
+
+export function htmlToMarkdown(html: string): string {
   const turndown = new TurndownService({
     headingStyle: "atx",
     codeBlockStyle: "fenced",
     bulletListMarker: "-"
   });
-  turndown.keep(["table", "thead", "tbody", "tr", "th", "td"]);
   return normalizeMarkdown(turndown.turndown(html));
 }
 
@@ -97,24 +485,301 @@ function extractReadableWithAbogenCleanup(html: string, sourceUrl: string): {
   }
 }
 
-function extractFromHtml(input: {
-  html: string;
-  sourceUrl: string;
-}): HtmlExtractionResult {
+function extractReadabilityCandidate(input: { html: string; sourceUrl: string }): HtmlExtractionCandidate {
   const extracted = extractReadableWithAbogenCleanup(input.html, input.sourceUrl);
   const text = normalizeExtracted(extracted.text);
   const markdown = extracted.markdown && extracted.markdown.length >= 40 ? extracted.markdown : normalizeExtracted(text);
   if (text.length < 160) {
-    throw new AppError(errorCodes.EXTRACTION_EMPTY, "Extracted text is too short to narrate.", 400);
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
   }
 
-  return {
+  const rawAnalysis = analyzeMarkdownQuality(markdown);
+  const cleanedAnalysis = analyzeMarkdownQuality(rawAnalysis.cleanedMarkdown);
+  const score = scoreHtmlExtractionCandidate({
     title: extracted.title || "Untitled",
     byline: extracted.byline,
     text,
     markdown,
-    rawHtml: input.html
+    rawAnalysis,
+    cleanedAnalysis
+  });
+
+  return {
+    engine: "readability",
+    title: extracted.title || "Untitled",
+    byline: extracted.byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis,
+    score: score.score,
+    leadingPresentationBlocks: score.leadingPresentationBlocks,
+    standaloneImageParagraphs: score.standaloneImageParagraphs,
+    captionLikeParagraphs: score.captionLikeParagraphs,
+    helpfulLeadSummary: score.helpfulLeadSummary,
+    warningCount: 0
   };
+}
+
+function parseDefuddleMarkdown(html: string, sourceUrl: string): { result: DefuddleResponse; warningCount: number } {
+  const dom = new JSDOM(html, { url: sourceUrl });
+  try {
+    const defuddle = new DefuddleClass(dom.window.document, {
+      url: sourceUrl,
+      useAsync: false,
+      includeReplies: false
+    });
+    const suppressedWarnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      suppressedWarnings.push(args.map((value) => String(value)).join(" "));
+    };
+    try {
+      const result = defuddle.parse();
+      const markdown = result.content ? htmlToMarkdown(result.content) : "";
+      result.content = markdown;
+      result.contentMarkdown = markdown;
+      return {
+        result,
+        warningCount: suppressedWarnings.length
+      };
+    } finally {
+      console.warn = originalWarn;
+    }
+  } finally {
+    dom.window.close();
+  }
+}
+
+function extractDefuddleCandidate(input: { html: string; sourceUrl: string }): HtmlExtractionCandidate {
+  const { result, warningCount } = parseDefuddleMarkdown(input.html, input.sourceUrl);
+  const markdown = normalizeMarkdown((result.contentMarkdown || result.content || "").trim());
+  if (!markdown) {
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
+  }
+
+  const rawAnalysis = analyzeMarkdownQuality(markdown);
+  const cleanedAnalysis = analyzeMarkdownQuality(rawAnalysis.cleanedMarkdown);
+  if (!cleanedAnalysis.hasNarratableText) {
+    throw new AppError(errorCodes.EXTRACTION_EMPTY, lowSignalExtractionMessage, 400);
+  }
+
+  const text = normalizeExtracted(cleanedAnalysis.narrationText);
+  const title = result.title?.trim() || resolveTitleFromHtmlWithAbogenFallback(input.html, "Untitled") || "Untitled";
+  const byline = result.author?.trim() || null;
+  const score = scoreHtmlExtractionCandidate({
+    title,
+    byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis
+  });
+
+  return {
+    engine: "defuddle",
+    title,
+    byline,
+    text,
+    markdown,
+    rawAnalysis,
+    cleanedAnalysis,
+    score: score.score,
+    leadingPresentationBlocks: score.leadingPresentationBlocks,
+    standaloneImageParagraphs: score.standaloneImageParagraphs,
+    captionLikeParagraphs: score.captionLikeParagraphs,
+    helpfulLeadSummary: score.helpfulLeadSummary,
+    warningCount
+  };
+}
+
+function extractFromHtml(input: {
+  html: string;
+  sourceUrl: string;
+}): HtmlExtractionResult {
+  const attempts: Array<
+    | { engine: HtmlExtractionEngine; status: "passed"; candidate: HtmlExtractionCandidate }
+    | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+  > = [];
+
+  try {
+    attempts.push({
+      engine: "readability",
+      status: "passed",
+      candidate: extractReadabilityCandidate(input)
+    });
+  } catch (error) {
+    attempts.push({
+      engine: "readability",
+      status: "failed",
+      error
+    });
+  }
+
+  try {
+    attempts.push({
+      engine: "defuddle",
+      status: "passed",
+      candidate: extractDefuddleCandidate(input)
+    });
+  } catch (error) {
+    attempts.push({
+      engine: "defuddle",
+      status: "failed",
+      error
+    });
+  }
+
+  const successful = attempts.filter((attempt) => attempt.status === "passed") as Array<{
+    engine: HtmlExtractionEngine;
+    status: "passed";
+    candidate: HtmlExtractionCandidate;
+  }>;
+
+  if (successful.length === 0) {
+    const readabilityFailure = attempts.find((attempt) => attempt.engine === "readability" && attempt.status === "failed") as
+      | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+      | undefined;
+    const defuddleFailure = attempts.find((attempt) => attempt.engine === "defuddle" && attempt.status === "failed") as
+      | { engine: HtmlExtractionEngine; status: "failed"; error: unknown }
+      | undefined;
+    throw selectPreferredExtractionError(
+      readabilityFailure?.error,
+      defuddleFailure?.error,
+      lowSignalExtractionMessage
+    );
+  }
+
+  let selected = successful[0]!.candidate;
+  let selectionMode: HtmlExtractionSelectionMode = successful[0]!.engine === "readability" ? "readability_only" : "defuddle_only";
+  let scoreMargin = 0;
+
+  if (successful.length === 2) {
+    const readabilityCandidate = successful.find((attempt) => attempt.engine === "readability")!.candidate;
+    const defuddleCandidate = successful.find((attempt) => attempt.engine === "defuddle")!.candidate;
+    selected = defuddleCandidate.score > readabilityCandidate.score ? defuddleCandidate : readabilityCandidate;
+    selectionMode = "scored";
+    scoreMargin = Math.abs(defuddleCandidate.score - readabilityCandidate.score);
+  }
+
+  const selectionDiagnostics: HtmlExtractionSelectionDiagnostics = {
+    selectedEngine: selected.engine,
+    selectionMode,
+    scoreMargin,
+    candidates: attempts.map((attempt) =>
+      attempt.status === "passed"
+        ? buildCandidateDiagnostics(attempt.candidate)
+        : buildFailedCandidateDiagnostics(attempt.engine, attempt.error)
+    )
+  };
+
+  return {
+    title: selected.title || "Untitled",
+    byline: selected.byline,
+    text: selected.text,
+    markdown: selected.markdown,
+    rawHtml: input.html,
+    selectionDiagnostics
+  };
+}
+
+function detectCapturedPageInterstitial(input: {
+  html: string;
+  sourceUrl: string;
+}): { code: "challenge_frame" | "interstitial_text" } | null {
+  const dom = new JSDOM(input.html, { url: input.sourceUrl });
+  try {
+    const titleText = normalizeExtracted(dom.window.document.title || "").toLowerCase();
+    const bodyText = normalizeExtracted(dom.window.document.body?.textContent || dom.window.document.documentElement?.textContent || "").toLowerCase();
+    const rawHtml = input.html.toLowerCase();
+    const combinedText = `${titleText} ${bodyText}`.trim();
+    const bodyWordCount = wordCount(bodyText);
+    const challengeInfrastructurePattern =
+      /\bcloudflare\b|\bcf-wrapper\b|\bcdn-cgi\b|\bchallenge-platform\b|\bturnstile\b|\brecaptcha\b|\bdatadome\b/;
+    const hasChallengeInfrastructure = challengeInfrastructurePattern.test(`${combinedText} ${rawHtml}`);
+    const hasStrongArticleSignal = hasStrongReadableArticleSignal(input) || hasStrongDomArticleSignal(dom.window.document);
+
+    const challengeFramePattern = /(captcha-delivery|datadome|captcha|challenge|recaptcha|turnstile|challenge-platform)/;
+    const hasVisibleChallengeFrame = Array.from(dom.window.document.querySelectorAll("iframe")).some((frame) => {
+      const signal = `${frame.getAttribute("src") || ""} ${frame.getAttribute("title") || ""} ${frame.getAttribute("name") || ""}`.toLowerCase();
+      if (!challengeFramePattern.test(signal)) {
+        return false;
+      }
+
+      if (frame.hidden || frame.getAttribute("aria-hidden") === "true") {
+        return false;
+      }
+
+      const inlineStyle = (frame.getAttribute("style") || "").toLowerCase();
+      if (inlineStyle.includes("display:none") || inlineStyle.includes("visibility:hidden")) {
+        return false;
+      }
+
+      const computed = dom.window.getComputedStyle(frame);
+      if (computed.display === "none" || computed.visibility === "hidden") {
+        return false;
+      }
+
+      return true;
+    });
+
+    const hardBlockPatterns = [
+      /\battention required\b/,
+      /\bsorry, you have been blocked\b/,
+      /\bwhy have i been blocked\b/,
+      /\bcloudflare ray id\b/,
+      /\bperformance [& ] security by cloudflare\b/
+    ];
+    const strongBlockPatterns = [
+      /\bjust a moment\b/,
+      /\bchecking your browser\b/,
+      /\bverify you are human\b/,
+      /\benable javascript and cookies to continue\b/
+    ];
+    const supportingBlockPatterns = [
+      /\bunable to access\b/,
+      /\bsecurity service to protect itself from online attacks\b/,
+      /\bcaptcha\b/,
+      /\bchallenge\b/,
+      /\bturnstile\b/,
+      /\brecaptcha\b/,
+      /\bdatadome\b/,
+      /\baccess denied\b/,
+      /\bbot verification\b/,
+      /\bchallenge-platform\b/
+    ];
+
+    const strongMatches = strongBlockPatterns.filter((pattern) => pattern.test(combinedText)).length;
+    const supportingMatches = supportingBlockPatterns.filter((pattern) => pattern.test(`${combinedText} ${rawHtml}`)).length;
+    const hardBlockMatches = hardBlockPatterns.filter((pattern) => pattern.test(combinedText)).length;
+
+    if (hardBlockMatches >= 1) {
+      return { code: "interstitial_text" };
+    }
+
+    if (hasVisibleChallengeFrame && !hasStrongArticleSignal) {
+      return { code: "challenge_frame" };
+    }
+
+    if ((strongMatches >= 2 || (strongMatches >= 1 && supportingMatches >= 1)) && !hasStrongArticleSignal) {
+      return { code: "interstitial_text" };
+    }
+
+    const lightweightChallengeTextPatterns = [
+      /^(?:verifying|just a moment)\.{0,3}$/,
+      /\bverifying\b/,
+      /\bchecking if the site connection is secure\b/,
+      /\bplease wait while we verify\b/
+    ];
+    const lightweightMatches = lightweightChallengeTextPatterns.filter((pattern) => pattern.test(combinedText)).length;
+    if (hasChallengeInfrastructure && lightweightMatches >= 1 && bodyWordCount <= 120 && !hasStrongArticleSignal) {
+      return { code: "interstitial_text" };
+    }
+
+    return null;
+  } finally {
+    dom.window.close();
+  }
 }
 
 function mapFetchStatusToAppError(status: number): AppError {
@@ -215,6 +880,9 @@ function mapHtmlExtractionError(error: unknown, fallbackMessage: string): AppErr
 
 function errorSpecificityScore(error: AppError): number {
   const message = error.userMessage.toLowerCase();
+  if (message.includes("chrome extension instead")) {
+    return 95;
+  }
   if (message.includes("blocked access")) {
     return 90;
   }
@@ -257,6 +925,13 @@ function cloneDiagnostics(diagnostics: HtmlFetchDiagnostics): HtmlFetchDiagnosti
   };
 }
 
+function throwIfCapturedPageInterstitial(input: { html: string; sourceUrl: string }, message: string): void {
+  const accessInterstitial = detectCapturedPageInterstitial(input);
+  if (accessInterstitial) {
+    throw new AppError(errorCodes.EXTRACTION_FAILED, message, 400);
+  }
+}
+
 function attachFetchDiagnostics(error: AppError, diagnostics: HtmlFetchDiagnostics): AppError {
   return Object.assign(error, {
     fetchDiagnostics: cloneDiagnostics(diagnostics)
@@ -281,6 +956,10 @@ function isBlockedFetchStatus(status: number | null | undefined): boolean {
 export function shouldSuggestHtmlSnapshotForError(error: unknown): boolean {
   if (!(error instanceof AppError) || error.code !== errorCodes.EXTRACTION_FAILED) {
     return false;
+  }
+
+  if (error.userMessage === BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE) {
+    return true;
   }
 
   const diagnostics = getHtmlFetchDiagnostics(error);
@@ -345,6 +1024,24 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
       }
     } as ConstructorParameters<typeof https.Agent>[0]);
 
+    let settled = false;
+    const settleResolve = (response: FetchResponseLike) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(response);
+    };
+    const settleReject = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    };
+
     const timer = setTimeout(() => {
       req.destroy(Object.assign(new Error("ETIMEDOUT"), { code: "ETIMEDOUT" }));
     }, timeoutMs);
@@ -355,22 +1052,25 @@ function fetchWithPinnedIp(urlStr: string, resolvedIp: string, timeoutMs: number
         port,
         path: `${parsedUrl.pathname}${parsedUrl.search}`,
         method: "GET",
+        family,
         headers: { "user-agent": BRAND_BOT_USER_AGENT, host: parsedUrl.host },
         agent
       },
       (res) => {
-        clearTimeout(timer);
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => chunks.push(chunk));
         res.on("end", () => {
           const body = Buffer.concat(chunks).toString("utf8");
           const status = res.statusCode ?? 200;
-          resolve({ status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) });
+          settleResolve({ status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) });
         });
-        res.on("error", reject);
+        res.on("error", settleReject);
       }
     );
-    req.on("error", (err) => { clearTimeout(timer); reject(err); });
+    req.on("socket", (socket) => {
+      socket.on("error", settleReject);
+    });
+    req.on("error", settleReject);
     req.end();
   });
 }
@@ -391,14 +1091,25 @@ async function fetchWithHostname(urlStr: string, timeoutMs: number): Promise<Fet
 function normalizePinnedIpCandidates(resolvedIp?: string | string[]): string[] {
   const candidates = Array.isArray(resolvedIp) ? resolvedIp : resolvedIp ? [resolvedIp] : [];
   const unique = new Set<string>();
+  const allowIpv6 = pinnedIpv6Enabled();
   for (const candidate of candidates) {
     const normalized = candidate.trim();
     if (!normalized) {
       continue;
     }
+    if (!allowIpv6 && normalized.includes(":")) {
+      continue;
+    }
     unique.add(normalized);
   }
-  return Array.from(unique);
+  return Array.from(unique).sort((left, right) => {
+    const leftIsIpv6 = left.includes(":");
+    const rightIsIpv6 = right.includes(":");
+    if (leftIsIpv6 === rightIsIpv6) {
+      return 0;
+    }
+    return leftIsIpv6 ? 1 : -1;
+  });
 }
 
 function shouldTryNextPinnedIp(error: unknown): boolean {
@@ -448,6 +1159,7 @@ async function attemptHostnameFallback(
 
   const html = await response.text();
   try {
+    throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
     return {
       ...extractFromHtml({ html, sourceUrl: url }),
       diagnostics: cloneDiagnostics(diagnostics)
@@ -476,6 +1188,7 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 
     const html = await response.text();
     try {
+      throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
       return {
         ...extractFromHtml({ html, sourceUrl: url }),
         diagnostics: cloneDiagnostics(diagnostics)
@@ -532,6 +1245,7 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 
   const html = await pinnedResponse.text();
   try {
+    throwIfCapturedPageInterstitial({ html, sourceUrl: url }, BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE);
     return {
       ...extractFromHtml({ html, sourceUrl: url }),
       diagnostics: cloneDiagnostics(diagnostics)
@@ -545,11 +1259,27 @@ export async function extractHtmlFromUrlWithDiagnostics(url: string, resolvedIp?
 export function extractHtmlSnapshot(input: {
   html: string;
   url?: string;
-}): { title: string; text: string; markdown: string; rawHtml: string; byline?: string | null } {
+}): {
+  title: string;
+  text: string;
+  markdown: string;
+  rawHtml: string;
+  byline?: string | null;
+  selectionDiagnostics: HtmlExtractionSelectionDiagnostics;
+} {
+  const sourceUrl = input.url || BRAND_SNAPSHOT_FALLBACK_URL;
+  throwIfCapturedPageInterstitial(
+    {
+      html: input.html,
+      sourceUrl
+    },
+    BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
+
   try {
     return extractFromHtml({
       html: input.html,
-      sourceUrl: input.url || BRAND_SNAPSHOT_FALLBACK_URL
+      sourceUrl
     });
   } catch (error) {
     throw mapHtmlExtractionError(error, "Could not extract readable content from this page snapshot.");
@@ -563,6 +1293,7 @@ export async function extractHtmlFromUrl(url: string, resolvedIp?: string | stri
     text: extracted.text,
     markdown: extracted.markdown,
     rawHtml: extracted.rawHtml,
-    byline: extracted.byline
+    byline: extracted.byline,
+    selectionDiagnostics: extracted.selectionDiagnostics
   };
 }

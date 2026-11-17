@@ -13,18 +13,28 @@ model User {
   passwordHash String?
   name         String?
   role         String      @default("USER")
+  billingLanePreference String @default("LIVE")
   complimentaryPro Boolean @default(false)
   billingProvider String?
   billingCustomerId String? @unique
   billingSubscriptionId String? @unique
+  billingPriceId String?
   billingPlanCode String @default("STARTER")
   billingStatus String @default("NONE")
+  billingEntitlementStatus String @default("INACTIVE")
+  billingLastPaymentStatus String @default("NONE")
+  billingLastInvoiceId String?
   billingCurrentPeriodEnd DateTime?
   billingCancelAtPeriodEnd Boolean @default(false)
+  billingLastStripeEventId String?
+  billingLastStripeEventCreatedAt DateTime?
+  billingLastSubscriptionEventAt DateTime?
+  billingLastInvoiceEventAt DateTime?
   billingUpdatedAt DateTime?
   isPaid       Boolean     @default(false)
   submissionCount Int      @default(0)
   extraSubmissionCredits Int @default(0)
+  defaultItemProcessingMode String @default("FULL_EPISODE")
   ttsProvider  String      @default("kokoro")
   ttsVoice     String      @default("af_heart")
   firstSeenAt  DateTime?
@@ -42,6 +52,7 @@ model User {
   feedTokens   FeedToken[]
   shareTokens  ShareToken[]
   items        Item[]
+  snippets     Snippet[]
   oauthIdentities OAuthIdentity[]
   extensionConnectCodes ExtensionConnectCode[]
   extensionTokens ExtensionToken[]
@@ -56,6 +67,31 @@ model User {
   demographicSurvey UserDemographicSurvey?
   feedbackSubmissions UserFeedback[]
   billingWebhookEvents BillingWebhookEvent[]
+  sandboxBillingAccount SandboxBillingAccount?
+}
+
+model SandboxBillingAccount {
+  userId                        String   @id
+  billingProvider               String?
+  billingCustomerId             String?  @unique
+  billingSubscriptionId         String?  @unique
+  billingPriceId                String?
+  billingPlanCode               String   @default("STARTER")
+  billingStatus                 String   @default("NONE")
+  billingEntitlementStatus      String   @default("INACTIVE")
+  billingLastPaymentStatus      String   @default("NONE")
+  billingLastInvoiceId          String?
+  billingCurrentPeriodEnd       DateTime?
+  billingCancelAtPeriodEnd      Boolean  @default(false)
+  billingLastStripeEventId      String?
+  billingLastStripeEventCreatedAt DateTime?
+  billingLastSubscriptionEventAt DateTime?
+  billingLastInvoiceEventAt     DateTime?
+  billingUpdatedAt              DateTime?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -104,10 +140,29 @@ model Item {
   sourceHtml    String?
   sourceCapturedAt DateTime?
   status        String      @default("QUEUED")
+  processingMode String     @default("FULL_EPISODE")
   priority      String      @default("LOW")
+  tagsJson      String      @default("[]")
   errorCode     String?
   errorMessage  String?
   textHash      String?
+  summaryStatus String      @default("NOT_REQUESTED")
+  summaryTitle  String?
+  summaryStorageKey String?
+  summaryBytes  Int?
+  summaryProvider String?
+  summaryModel String?
+  summaryDeployment String?
+  summaryInputTokens Int?
+  summaryOutputTokens Int?
+  summaryErrorCode String?
+  summaryErrorMessage String?
+  summaryCompletedAt DateTime?
+  extractionEngine String?
+  extractionSelectionMode String?
+  extractionScoreMargin Float?
+  extractionSummaryJson String?
+  extractionSelectionRecordedAt DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -116,12 +171,56 @@ model Item {
   jobEvents     JobEvent[]
   episode       Episode?
   artifacts     ItemArtifact[]
+  articleSummaryTask ArticleSummaryTask?
   chunkCaches   ChunkCache[]
   summaryRunItems SummaryRunItem[]
   demoExtractionTrace DemoExtractionTrace?
   analyticsEvents AnalyticsEvent[]
 
   @@index([userId, status])
+}
+
+model ArticleSummaryTask {
+  id           String    @id @default(cuid())
+  itemId       String    @unique
+  userId       String
+  status       String    @default("QUEUED")
+  attempt      Int       @default(0)
+  scheduledFor DateTime?
+  nextRetryAt  DateTime?
+  lockedAt     DateTime?
+  leaseId      String?
+  leaseOwner   String?
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([status, nextRetryAt])
+  @@index([userId, createdAt])
+}
+
+model Snippet {
+  id           String   @id @default(cuid())
+  userId       String
+  sourceUrl    String
+  sourceTitle  String?
+  selectedText String
+  selectedHtml String?
+  selectionMarkdown String?
+  contextMarkdown String?
+  captureMarkdown String?
+  pageMetadataJson String?
+  comment      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model ItemArtifact {
@@ -197,19 +296,28 @@ model Episode {
   audioBytes   Int
   mimeType     String
   publishedAt  DateTime @default(now())
+  expiresAt    DateTime?
   createdAt    DateTime @default(now())
 
   item         Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([publishedAt])
+  @@index([expiresAt])
 }
 
 model Job {
   id          String    @id @default(cuid())
   itemId      String
+  jobKind     String    @default("FULL_EPISODE")
   attempt     Int       @default(0)
   status      String    @default("QUEUED")
   lockedAt    DateTime?
+  leaseId     String?
+  leaseOwner  String?
+  leaseExpiresAt DateTime?
+  lastHeartbeatAt DateTime?
+  dispatchMessageId String?
+  scheduledFor DateTime?
   nextRetryAt DateTime?
   errorCode   String?
   errorMessage String?
@@ -217,9 +325,28 @@ model Job {
   updatedAt   DateTime  @updatedAt
 
   item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  dispatchMessage DispatchQueueMessage?
   events      JobEvent[]
 
   @@index([status, createdAt])
+  @@index([status, leaseExpiresAt])
+}
+
+model DispatchQueueMessage {
+  id               String   @id @default(cuid())
+  jobId             String   @unique
+  jobKind           String
+  visibleAt         DateTime @default(now())
+  dequeueCount      Int      @default(0)
+  reservationToken  String?
+  reservedBy        String?
+  reservedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  job              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([visibleAt, createdAt])
 }
 
 model JobEvent {
@@ -419,12 +546,14 @@ model DigestEpisode {
   audioBytes Int
   mimeType   String
   publishedAt DateTime @default(now())
+  expiresAt  DateTime?
   createdAt  DateTime @default(now())
 
   digestRun DigestRun @relation(fields: [digestRunId], references: [id], onDelete: Cascade)
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, publishedAt])
+  @@index([expiresAt])
 }
 
 model SummaryRun {
@@ -492,12 +621,14 @@ model SummaryEpisode {
   audioBytes  Int
   mimeType    String
   publishedAt DateTime @default(now())
+  expiresAt   DateTime?
   createdAt   DateTime @default(now())
 
   summaryRun SummaryRun @relation(fields: [summaryRunId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, publishedAt])
+  @@index([expiresAt])
 }
 
 model DigestSchedulerTick {
@@ -559,9 +690,12 @@ model BillingWebhookEvent {
   provider            String
   providerEventId     String
   eventType           String
+  eventCreatedAt      DateTime?
+  objectId            String?
   userId              String?
   customerId          String?
   subscriptionId      String?
+  invoiceId           String?
   status              String   @default("PROCESSED")
   errorMessage        String?
   processedAt         DateTime?

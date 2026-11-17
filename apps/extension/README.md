@@ -1,6 +1,6 @@
 # ArticlePod Capture — Chrome Extension
 
-A Manifest V3 Chrome extension that captures the current browser tab and adds it to your private ArticlePod podcast feed.
+A Manifest V3 Chrome extension that captures the current browser tab, safely reveals likely article content when needed, and adds it to your private ArticlePod podcast feed.
 
 ---
 
@@ -18,12 +18,12 @@ A Manifest V3 Chrome extension that captures the current browser tab and adds it
 
 ## Prerequisites
 
-| Requirement | Notes |
-|---|---|
-| Node.js ≥ 18 + npm | For the packaging and validation scripts |
-| Python 3 | For icon generation (`generate-extension-icons.py`) |
-| Chrome browser | Developer mode for local unpacked loading |
-| ArticlePod server running | Local or deployed URL configured in `apps/extension/runtime-config.js` |
+| Requirement               | Notes                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Node.js ≥ 18 + npm        | For the packaging and validation scripts                                                             |
+| Python 3                  | For icon generation (`generate-extension-icons.py`); non-macOS packaging reuses checked-in assets when `sips` is unavailable |
+| Chrome browser            | Developer mode for local unpacked loading                                                            |
+| ArticlePod server running | `https://articlepod.com` by default; local debugging can override `apps/extension/runtime-config.js` |
 
 ---
 
@@ -31,6 +31,7 @@ A Manifest V3 Chrome extension that captures the current browser tab and adds it
 
 Use this when developing the extension or testing against a local ArticlePod server.
 No Chrome Web Store account required.
+This is the right path for source-code iteration, but it is not enough for release sign-off.
 
 1. From the repo root, generate the icons (one-time):
 
@@ -70,9 +71,10 @@ Server targets are configured in:
 `apps/extension/runtime-config.js`
 
 Default behavior:
-- `localServerUrl` points to `https://articlepod.com`
-- optional `privateStoreServerUrl` / `publicStoreServerUrl` can be set for store deployments
-- optional `byExtensionId` maps extension IDs to `private` or `public` target channel
+
+- `serverUrl` points to `https://articlepod.com`
+- the packaged manifest keeps broad `http://*/*` + `https://*/*` host access so users can capture arbitrary pages without Chrome asking for one-time per-site access
+- if you want to test against a different local/dev ArticlePod origin, temporarily change `serverUrl` before loading unpacked
 
 ---
 
@@ -95,7 +97,32 @@ This flow works the same whether you are using the local development server or y
    The connect-code field is hidden once connected.
 
 6. Navigate to any HTTP/HTTPS page and click **Capture Current Page**.
-   The page is queued immediately; refresh your ArticlePod dashboard to see it.
+   The popup keeps `Importance` and `Tags` inside a bordered optional box with a visible **Optional** badge so it is clear you can skip them.
+   That optional block starts hidden by default and remembers whether you last left it expanded in the current Chrome profile.
+   A small footer hyperlink labeled `articlepod.com` also opens the site directly so users always have an obvious way back to the web app.
+   Optional metadata in the popup:
+   - choose an **Importance** level (`Low`, `Medium`, `High`)
+   - add comma-separated **Tags** such as `financial, personal, retirement`
+     The extension does a bounded smart-capture pass first:
+   - it can reveal likely article continuations with safe `Load more` / `Read more` style clicks
+   - it can do a few bounded scroll passes for lazy-loaded content
+   - it removes inert scripts, styles, templates, noscript blocks, and HTML comments before upload
+   - it stays conservative on thread/feed-style hosts such as X/Twitter and Reddit
+   - it leaves article-vs-block/interstitial classification to the server extraction path instead of trying to fully judge that in the popup
+     When capture succeeds, the popup button stays in a green queued state and becomes non-clickable for that same page so users do not double-submit.
+     The button returns to normal after you switch tabs or navigate to a different page.
+     The page is queued immediately after capture; refresh your ArticlePod dashboard to see it.
+
+7. To save a text highlight without creating a podcast item yet:
+   - select text on any HTTP/HTTPS page
+   - right-click and choose **Save selection to ArticlePod** for an immediate save
+   - or choose **Save selection with comment to ArticlePod...** to add a note before saving
+   The immediate save flow shows a small in-page status toast when Chrome allows page injection, with the toolbar badge as a fallback. Saved selections land in the web app's **Snippets** workspace instead of the podcast queue.
+
+### Capture size guardrail
+
+ArticlePod still enforces a hard snapshot size limit on the server.
+The extension now checks the cleaned HTML size before upload and fails early if the page is still too large after safe cleanup, instead of sending a risky partial snapshot.
 
 ### Disconnecting / rotating the token
 
@@ -106,25 +133,60 @@ To reconnect, generate a new connect code from the web app and repeat the steps 
 
 ## Building the package
 
-Run both commands from the repo root:
+Run this from the repo root for a release candidate package:
 
 ```bash
-npm run extension:package   # build the ZIP + copy listing templates
-npm run extension:validate  # verify the package is Chrome Web Store ready
+corepack pnpm extension:package
 ```
 
 `extension:package` produces:
 
-| File | Purpose |
-|---|---|
-| `dist/extension/articlepod-capture-v<version>.zip` | Upload this to Chrome Web Store |
-| `dist/extension/articlepod-capture-v<version>.sha256` | Integrity checksum |
-| `dist/extension/webstore/` | Pre-filled listing text templates |
-| `dist/extension/README.txt` | Quick checklist |
+| File                                                  | Purpose                           |
+| ----------------------------------------------------- | --------------------------------- |
+| `dist/extension/articlepod-capture-v<version>.zip`    | Upload this to Chrome Web Store   |
+| `dist/extension/articlepod-capture-v<version>.sha256` | Integrity checksum                |
+| `dist/extension/webstore/`                            | Pre-filled listing text templates |
+| `dist/extension/README.txt`                           | Quick checklist                   |
 
-`extension:validate` checks all technical Chrome Web Store requirements (manifest fields, icon dimensions, CSP compliance, listing character limits) and exits non-zero if anything is wrong.
+`extension:package` now runs extension-specific release gates before it leaves behind a ZIP:
+
+- core extension capture tests
+- web auth/exchange integration tests that cover connect-code and snapshot submission
+- live-site extension harness tests, including packaged-artifact dependency checks
+- package build + packaged-artifact validation
+
+If you only want the low-level ZIP builder without the release checks, use:
+
+```bash
+corepack pnpm extension:package:raw
+```
 
 **Always confirm the output ends with `TECHNICALLY READY` before uploading.**
+
+### Release-candidate testing
+
+Do not rely on `apps/extension` alone when you are about to upload or publish.
+
+1. Run the full release gate:
+
+   ```bash
+   corepack pnpm extension:release:check
+   ```
+
+   This runs the packaged smoke flow against the app's stable local fixture page at `/extension-smoke.html`, so the release gate does not depend on a third-party site staying unchanged.
+   The packaged smoke now also proves the popup metadata block starts collapsed, can be expanded, and stays expanded after reopening the popup in the same Chrome profile.
+
+2. If you want a manual local install before Web Store upload, open `chrome://extensions`, enable **Developer mode**, and load unpacked from:
+
+   ```text
+   <repo-root>/dist/extension/package
+   ```
+
+3. Generate a fresh connect code from `/app/chrome-extension`, connect the packaged popup, and submit one real capture.
+
+4. After the store updates, repeat one human smoke test from the actual store-installed extension before calling the release done.
+
+Use `apps/extension` for development. Use `dist/extension/package` or the actual store listing for release confidence.
 
 ---
 
@@ -144,6 +206,7 @@ npm run extension:validate  # verify the package is Chrome Web Store ready
 The Chrome Web Store requires a publicly reachable privacy policy URL.
 
 Recommended approach:
+
 - **GitHub Gist**: create a public gist, paste the contents of
   `apps/extension/webstore/privacy-policy.md`, and use the raw URL (click **Raw** on the Gist
   page to get a permanent `https://gist.githubusercontent.com/…/raw/…` URL).
@@ -155,6 +218,7 @@ Copy the public URL — you will paste it in the listing form.
 The store requires at least **one screenshot** at exactly **1280×800 or 640×400** pixels.
 
 Suggested screenshots to take:
+
 1. The popup in its unconfigured state (white, connect-code visible).
 2. The popup in configured state (blue) after a successful capture.
 
@@ -166,11 +230,10 @@ Suggested screenshots to take:
 1. Build and validate:
 
    ```bash
-   npm run extension:package
-   npm run extension:validate
+   corepack pnpm extension:release:check
    ```
 
-   Confirm output ends with **"TECHNICALLY READY"**.
+   Confirm the package step ends with **"TECHNICALLY READY"** and the packaged smoke run passes.
 
 2. Open <https://chrome.google.com/webstore/devconsole> and click **New item** (or open an existing draft).
 
@@ -179,18 +242,18 @@ Suggested screenshots to take:
 
 4. Fill in the listing fields using the pre-filled templates from `dist/extension/webstore/`:
 
-   | Store field | Template file | Note |
-   |---|---|---|
-   | Short description | `listing-short-description.txt` | Paste as-is |
-   | Detailed description | `listing-description.md` | Plain text only — remove the `#` headers and `**bold**` markers before pasting; the store does not render Markdown |
-   | Privacy policy URL | hosted URL from the prep step above | |
-   | Release notes | `release-notes.md` | Remove `#` headers before pasting |
+   | Store field          | Template file                       | Note                                                                                                               |
+   | -------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+   | Short description    | `listing-short-description.txt`     | Paste as-is                                                                                                        |
+   | Detailed description | `listing-description.md`            | Plain text only — remove the `#` headers and `**bold**` markers before pasting; the store does not render Markdown |
+   | Privacy policy URL   | hosted URL from the prep step above |                                                                                                                    |
+   | Release notes        | `release-notes.md`                  | Remove `#` headers before pasting                                                                                  |
 
 5. Upload your screenshots.
 
-6. In the **Justify your permissions** field (shown because of the broad `host_permissions`), enter:
+6. In the Chrome Web Store permissions justification field, explain:
 
-   > The extension supports local, private-test, and public ArticlePod deployments via packaged runtime configuration, so it must reach configured HTTP/HTTPS origins.
+   > ArticlePod Capture is a user-invoked tool that must read the current HTTP/HTTPS page to capture it into the user's private podcast queue. The packaged popup still sends captures only to ArticlePod.
 
 7. Set visibility and distribution:
    - **Visibility**: `Private`
@@ -206,6 +269,7 @@ Suggested screenshots to take:
 ### Making the extension public (optional)
 
 To allow anyone to install the extension from the store:
+
 - Change **Visibility** to `Public` in the listing settings.
 - Re-submit for review.
 
@@ -214,13 +278,12 @@ To allow anyone to install the extension from the store:
 ## Updating an existing listing
 
 1. Make your code changes in `apps/extension/`.
-2. Bump `version` in `apps/extension/manifest.json` (e.g. `"0.1.0"` → `"0.2.0"`).
+2. Bump `version` in `apps/extension/manifest.json` (e.g. `"0.1.3"` → `"0.1.4"`).
 3. Update `apps/extension/webstore/release-notes.md` with a summary of what changed.
 4. Rebuild and validate:
 
    ```bash
-   npm run extension:package
-   npm run extension:validate
+   corepack pnpm extension:release:check
    ```
 
 5. In the Chrome Web Store Developer Dashboard, open your existing listing and click **Upload new package**.
@@ -233,11 +296,12 @@ To allow anyone to install the extension from the store:
 
 The extension communicates with these ArticlePod API endpoints:
 
-| Method | Path | Purpose |
-|---|---|---|
+| Method | Path                               | Purpose                                                                     |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------- |
 | `POST` | `/api/auth/extension/connect-code` | Generate a one-time connect code (24-hour default, called from the web app) |
-| `POST` | `/api/auth/extension/exchange` | Exchange connect code for an extension token that stays valid until revoked |
-| `POST` | `/api/items/html-snapshot` | Submit a captured page HTML snapshot |
+| `POST` | `/api/auth/extension/exchange`     | Exchange connect code for an extension token that stays valid until revoked |
+| `POST` | `/api/items/html-snapshot`         | Submit a captured page HTML snapshot                                        |
+| `POST` | `/api/snippets`                    | Save a selected text snippet with optional comment                          |
 
 Authentication uses a scoped **extension token** (Bearer) obtained during the connect flow.
 Tokens can be rotated or revoked from the web app at any time.

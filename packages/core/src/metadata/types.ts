@@ -19,6 +19,7 @@ export type JobQueueProjection = {
   createdAt: Date;
   updatedAt: Date;
   lockedAt?: Date | null;
+  scheduledFor?: Date | null;
   nextRetryAt?: Date | null;
   errorCode?: string | null;
   errorMessage?: string | null;

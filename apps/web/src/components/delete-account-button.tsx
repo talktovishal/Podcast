@@ -13,7 +13,7 @@ export function DeleteAccountButton() {
         if (!confirmed) return;
 
         await fetch("/api/account/delete", { method: "DELETE" });
-        router.push("/login");
+        router.push("/");
         router.refresh();
       }}
     >

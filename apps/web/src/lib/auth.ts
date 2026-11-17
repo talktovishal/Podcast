@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import type { NextRequest, NextResponse } from "next/server";
 import type { AnalyticsAuthMethod } from "@articlepod/core";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "./admin-analytics/events";
+import { DEFAULT_POST_AUTH_REDIRECT, normalizePostAuthRedirect } from "./auth-redirect";
 import { env } from "./env";
 import { resolveGeoSnapshotFromHeaders } from "./geo";
 import type { OAuthProvider } from "./oauth-providers";
@@ -12,7 +13,9 @@ import {
   createPrimaryExtensionConnectCode,
   createPrimaryExtensionToken,
   createPrimaryFeedToken,
+  deletePrimaryShareTokensByUserIdAndScope,
   type PrimaryFeedTokenRecord,
+  type PrimaryShareTokenRecord,
   createPrimarySession,
   createPrimaryShareToken,
   createPrimaryOAuthIdentity,
@@ -24,6 +27,7 @@ import {
   findPrimaryExtensionConnectCodeWithUserByHash,
   findPrimaryExtensionTokenWithUserByHash,
   findPrimaryOAuthIdentityWithUser,
+  findPrimaryShareTokenByUserIdAndScope,
   findPrimaryShareTokenWithUserByHash,
   findPrimarySessionWithUserByTokenHash,
   findPrimaryUserByEmail,
@@ -36,11 +40,13 @@ import {
   upsertPrimaryDigestSettings,
   consumePrimaryExtensionConnectCode
 } from "./metadata-primary-auth";
+import { buildPublicEpisodeShareScope, buildPublicEpisodeShareUrl, isExpiredShare } from "./share-links";
 
 const SESSION_COOKIE = AUTH_COOKIE_NAMES.session;
 const LEGACY_SESSION_COOKIE = AUTH_COOKIE_NAMES.legacySession;
 const OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.oauthPrefix;
 const LEGACY_OAUTH_STATE_COOKIE_PREFIX = AUTH_COOKIE_NAMES.legacyOauthPrefix;
+const POST_AUTH_REDIRECT_COOKIE = "articlepod_auth_return";
 const EXTENSION_CONNECT_CODE_TTL_MINUTES = Number(process.env.EXTENSION_CONNECT_CODE_TTL_MINUTES ?? 24 * 60);
 const OAUTH_PLACEHOLDER_DOMAIN = "oauth.articlepod.local";
 
@@ -388,6 +394,42 @@ export async function createShareToken(userId: string, expiresAt?: Date): Promis
   return token.plain;
 }
 
+export async function ensurePublicEpisodeShareLink(
+  userId: string,
+  itemId: string
+): Promise<{ share: PrimaryShareTokenRecord; shareUrl: string; created: boolean }> {
+  const scope = buildPublicEpisodeShareScope(itemId);
+  const existing = await findPrimaryShareTokenByUserIdAndScope(userId, scope);
+  if (existing && !isExpiredShare(existing)) {
+    return {
+      share: existing,
+      shareUrl: buildPublicEpisodeShareUrl(existing),
+      created: false
+    };
+  }
+
+  if (existing) {
+    await deletePrimaryShareTokensByUserIdAndScope(userId, scope);
+  }
+
+  const token = createSecretToken();
+  const share = await createPrimaryShareToken({
+    userId,
+    tokenHash: token.hash,
+    scope
+  });
+
+  return {
+    share,
+    shareUrl: buildPublicEpisodeShareUrl(share),
+    created: true
+  };
+}
+
+export async function revokePublicEpisodeShareLink(userId: string, itemId: string): Promise<number> {
+  return deletePrimaryShareTokensByUserIdAndScope(userId, buildPublicEpisodeShareScope(itemId));
+}
+
 export async function getUserByShareToken(plain: string): Promise<AuthUser | null> {
   const tokenHash = hashIncomingToken(plain);
   const share = await findPrimaryShareTokenWithUserByHash(tokenHash);
@@ -456,6 +498,37 @@ export function clearOAuthStateCookie(response: NextResponse, provider: OAuthPro
   response.cookies.set({
     name: oauthStateCookieName(LEGACY_OAUTH_STATE_COOKIE_PREFIX, provider),
     ...expiredCookie
+  });
+}
+
+export function setPostAuthRedirectCookie(response: NextResponse, value: string | null | undefined): void {
+  const normalized = normalizePostAuthRedirect(value);
+  if (normalized === DEFAULT_POST_AUTH_REDIRECT) {
+    clearPostAuthRedirectCookie(response);
+    return;
+  }
+
+  response.cookies.set({
+    name: POST_AUTH_REDIRECT_COOKIE,
+    value: normalized,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: env.runtimeProfile !== "simple",
+    path: "/",
+    maxAge: 60 * 10
+  });
+}
+
+export function getPostAuthRedirectFromRequest(request: NextRequest): string {
+  return normalizePostAuthRedirect(request.cookies.get(POST_AUTH_REDIRECT_COOKIE)?.value ?? null);
+}
+
+export function clearPostAuthRedirectCookie(response: NextResponse): void {
+  response.cookies.set({
+    name: POST_AUTH_REDIRECT_COOKIE,
+    value: "",
+    expires: new Date(0),
+    path: "/"
   });
 }
 

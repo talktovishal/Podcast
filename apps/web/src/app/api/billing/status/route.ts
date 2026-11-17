@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getBillingAccountSnapshot } from "@/lib/billing";
+import { getBillingSettingsState } from "@/lib/billing";
 import { requireAuthUser } from "@/lib/auth";
 import { fromError } from "@/lib/http";
 
@@ -9,8 +9,16 @@ export async function GET(request: NextRequest) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
     const user = await requireAuthUser(request);
-    const billing = await getBillingAccountSnapshot(user.id);
-    return NextResponse.json({ ok: true, billing });
+    const state = await getBillingSettingsState(user.id);
+    const view = request.nextUrl.searchParams.get("view");
+    const billing = view === "selected" ? state.selectedBilling : state.liveBilling;
+    return NextResponse.json({
+      ok: true,
+      billing,
+      mode: state.mode,
+      liveBilling: state.liveBilling,
+      sandboxBilling: state.sandboxBilling
+    });
   } catch (error) {
     return fromError(error, {
       requestId,

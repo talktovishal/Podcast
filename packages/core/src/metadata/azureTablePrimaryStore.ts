@@ -1,4 +1,8 @@
 import { TableClient, type TableEntity, type TableEntityResult } from "@azure/data-tables";
+import { AppError, errorCodes } from "../errors/codes";
+import { parseStoredItemTags, serializeItemTags, type SnippetPageMetadata } from "../types/domain";
+import { parseSnippetPageMetadata, serializeSnippetPageMetadata } from "../snippets/richCapture";
+import { matchesBillingEventVersion, type BillingEventVersion } from "./billingEventVersion";
 
 type AzureTablePrimaryStoreOptions = {
   tablePrefix: string;
@@ -6,19 +10,24 @@ type AzureTablePrimaryStoreOptions = {
   accountUrl?: string;
   sasToken?: string;
   createTablesIfMissing?: boolean;
+  deferInitialization?: boolean;
 };
 
 type TableKey =
   | "users"
   | "sessions"
+  | "sandboxBillingAccounts"
   | "billingWebhookEvents"
+  | "feedback"
   | "feedTokens"
   | "digestFeedTokens"
   | "shareTokens"
   | "oauthIdentities"
   | "extensionConnectCodes"
   | "extensionTokens"
+  | "snippets"
   | "items"
+  | "articleSummaryTasks"
   | "jobs"
   | "itemArtifacts"
   | "episodes"
@@ -40,18 +49,28 @@ export type AzureTablePrimaryUser = {
   passwordHash: string | null;
   name: string | null;
   role: string;
+  billingLanePreference: string;
   complimentaryPro: boolean;
   billingProvider: string | null;
   billingCustomerId: string | null;
   billingSubscriptionId: string | null;
+  billingPriceId: string | null;
   billingPlanCode: string;
   billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
   billingCurrentPeriodEnd: Date | null;
   billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
   billingUpdatedAt: Date | null;
   isPaid: boolean;
   submissionCount: number;
   extraSubmissionCredits: number;
+  defaultItemProcessingMode: string;
   ttsProvider: string;
   ttsVoice: string;
   firstSeenAt: Date | null;
@@ -62,6 +81,28 @@ export type AzureTablePrimaryUser = {
   lastSeenCountryCode: string | null;
   lastSeenRegionCode: string | null;
   lastSeenCity: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimarySandboxBillingAccount = {
+  userId: string;
+  billingProvider: string | null;
+  billingCustomerId: string | null;
+  billingSubscriptionId: string | null;
+  billingPriceId: string | null;
+  billingPlanCode: string;
+  billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
+  billingCurrentPeriodEnd: Date | null;
+  billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
+  billingUpdatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -79,13 +120,35 @@ export type AzureTablePrimaryBillingWebhookEvent = {
   provider: string;
   providerEventId: string;
   eventType: string;
+  eventCreatedAt: Date | null;
+  objectId: string | null;
   userId: string | null;
   customerId: string | null;
   subscriptionId: string | null;
+  invoiceId: string | null;
   status: string;
   errorMessage: string | null;
   processedAt: Date | null;
   createdAt: Date;
+};
+
+export type AzureTablePrimaryFeedback = {
+  id: string;
+  userId: string;
+  message: string;
+  feedbackType: string | null;
+  featureArea: string | null;
+  allowEmailContact: boolean;
+  status: string;
+  sourcePath: string | null;
+  mirrorStatus: string;
+  mirrorIssueNumber: number | null;
+  mirrorIssueUrl: string | null;
+  mirrorAttemptedAt: Date | null;
+  mirrorErrorCode: string | null;
+  mirrorErrorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type AzureTablePrimaryTokenRow = {
@@ -151,10 +214,45 @@ export type AzureTablePrimaryItem = {
   sourceHtml: string | null;
   sourceCapturedAt: Date | null;
   status: string;
+  processingMode: string;
   priority: string;
+  tags: string[];
   errorCode: string | null;
   errorMessage: string | null;
   textHash: string | null;
+  summaryStatus: string;
+  summaryTitle: string | null;
+  summaryStorageKey: string | null;
+  summaryBytes: number | null;
+  summaryProvider: string | null;
+  summaryModel: string | null;
+  summaryDeployment: string | null;
+  summaryInputTokens: number | null;
+  summaryOutputTokens: number | null;
+  summaryErrorCode: string | null;
+  summaryErrorMessage: string | null;
+  summaryCompletedAt: Date | null;
+  extractionEngine: string | null;
+  extractionSelectionMode: string | null;
+  extractionScoreMargin: number | null;
+  extractionSummaryJson: string | null;
+  extractionSelectionRecordedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimarySnippet = {
+  id: string;
+  userId: string;
+  sourceUrl: string;
+  sourceTitle: string | null;
+  selectedText: string;
+  selectedHtml: string | null;
+  selectionMarkdown: string | null;
+  contextMarkdown: string | null;
+  captureMarkdown: string | null;
+  pageMetadata: SnippetPageMetadata | null;
+  comment: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -163,10 +261,34 @@ export type AzureTablePrimaryJob = {
   id: string;
   itemId: string;
   userId: string;
+  jobKind: string;
   attempt: number;
   status: string;
   lockedAt: Date | null;
+  leaseId: string | null;
+  leaseOwner: string | null;
+  leaseExpiresAt: Date | null;
+  lastHeartbeatAt: Date | null;
+  dispatchMessageId: string | null;
+  scheduledFor: Date | null;
   nextRetryAt: Date | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AzureTablePrimaryArticleSummaryTask = {
+  id: string;
+  itemId: string;
+  userId: string;
+  status: string;
+  attempt: number;
+  scheduledFor: Date | null;
+  nextRetryAt: Date | null;
+  lockedAt: Date | null;
+  leaseId: string | null;
+  leaseOwner: string | null;
   errorCode: string | null;
   errorMessage: string | null;
   createdAt: Date;
@@ -195,6 +317,7 @@ export type AzureTablePrimaryEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -277,6 +400,7 @@ export type AzureTablePrimaryDigestEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -330,6 +454,7 @@ export type AzureTablePrimarySummaryEpisode = {
   audioBytes: number;
   mimeType: string;
   publishedAt: Date;
+  expiresAt: Date | null;
   createdAt: Date;
 };
 
@@ -507,6 +632,14 @@ function parseNumber(input: unknown, fallback = 0): number {
   return fallback;
 }
 
+function parseNullableNumber(input: unknown): number | null {
+  if (input === null || input === undefined || input === "") {
+    return null;
+  }
+  const value = parseNumber(input, Number.NaN);
+  return Number.isFinite(value) ? value : null;
+}
+
 function parseBoolean(input: unknown, fallback = false): boolean {
   if (typeof input === "boolean") {
     return input;
@@ -540,6 +673,52 @@ function sortByTwoDatesDesc<T>(entries: T[], primary: (entry: T) => Date, second
   });
 }
 
+function jobLeaseDeadline(job: {
+  leaseExpiresAt: Date | null;
+  lockedAt: Date | null;
+}): Date | null {
+  return job.leaseExpiresAt ?? job.lockedAt;
+}
+
+function jobLeaseExpired(
+  job: {
+    leaseExpiresAt: Date | null;
+    lockedAt: Date | null;
+  },
+  now: Date,
+  legacyLockMs = 0
+): boolean {
+  const deadline = job.leaseExpiresAt
+    ? job.leaseExpiresAt
+    : job.lockedAt
+      ? new Date(job.lockedAt.getTime() + legacyLockMs)
+      : null;
+  return deadline !== null && deadline.getTime() <= now.getTime();
+}
+
+function jobEligibleForClaim(
+  job: {
+    status: string;
+    attempt: number;
+    scheduledFor: Date | null;
+    nextRetryAt: Date | null;
+    leaseExpiresAt: Date | null;
+    lockedAt: Date | null;
+  },
+  now: Date,
+  maxRetryAttempts: number,
+  legacyLockMs = 0
+): boolean {
+  const retryable =
+    job.status === "FAILED" &&
+    job.attempt < maxRetryAttempts &&
+    job.nextRetryAt !== null &&
+    job.nextRetryAt.getTime() <= now.getTime();
+  const queuedReady = job.status === "QUEUED" && (job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime());
+  const expiredProcessing = job.status === "PROCESSING" && jobLeaseExpired(job, now, legacyLockMs);
+  return queuedReady || retryable || expiredProcessing;
+}
+
 function isNotFoundError(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "statusCode" in error && (error as { statusCode?: unknown }).statusCode === 404);
 }
@@ -555,22 +734,36 @@ function isPreconditionError(error: unknown): boolean {
 export class AzureTablePrimaryStore {
   readonly backend = "azure_table" as const;
 
-  private readonly clients: Record<TableKey, TableClient>;
-  private readonly ensureTablesPromise: Promise<void>;
+  private clients: Record<TableKey, TableClient> | undefined;
+  private ensureTablesPromise: Promise<void> | undefined;
 
-  constructor(input: AzureTablePrimaryStoreOptions) {
+  constructor(private readonly input: AzureTablePrimaryStoreOptions) {
+    if (!input.deferInitialization) {
+      void this.initialize();
+    }
+  }
+
+  private initialize(): Promise<void> {
+    if (this.ensureTablesPromise) {
+      return this.ensureTablesPromise;
+    }
+    const input = this.input;
     const createClient = buildClientFactory(input);
     this.clients = {
       users: createClient(buildTableName(input.tablePrefix, "users")),
       sessions: createClient(buildTableName(input.tablePrefix, "sessions")),
+      sandboxBillingAccounts: createClient(buildTableName(input.tablePrefix, "sandboxbilling")),
       billingWebhookEvents: createClient(buildTableName(input.tablePrefix, "billingevents")),
+      feedback: createClient(buildTableName(input.tablePrefix, "feedback")),
       feedTokens: createClient(buildTableName(input.tablePrefix, "feedtokens")),
       digestFeedTokens: createClient(buildTableName(input.tablePrefix, "digestfeedtokens")),
       shareTokens: createClient(buildTableName(input.tablePrefix, "sharetokens")),
       oauthIdentities: createClient(buildTableName(input.tablePrefix, "oauthidentities")),
       extensionConnectCodes: createClient(buildTableName(input.tablePrefix, "extensioncodes")),
       extensionTokens: createClient(buildTableName(input.tablePrefix, "extensiontokens")),
+      snippets: createClient(buildTableName(input.tablePrefix, "snippets")),
       items: createClient(buildTableName(input.tablePrefix, "items")),
+      articleSummaryTasks: createClient(buildTableName(input.tablePrefix, "articlesummarytasks")),
       jobs: createClient(buildTableName(input.tablePrefix, "jobs")),
       itemArtifacts: createClient(buildTableName(input.tablePrefix, "artifacts")),
       episodes: createClient(buildTableName(input.tablePrefix, "episodes")),
@@ -586,10 +779,11 @@ export class AzureTablePrimaryStore {
     };
 
     const shouldCreate = input.createTablesIfMissing ?? true;
-    this.ensureTablesPromise = shouldCreate ? this.ensureTables() : Promise.resolve();
+    this.ensureTablesPromise = shouldCreate ? this.ensureTables(this.clients) : Promise.resolve();
+    return this.ensureTablesPromise;
   }
 
-  private async ensureTables(): Promise<void> {
+  private async ensureTables(clients: Record<TableKey, TableClient>): Promise<void> {
     const createIfMissing = async (client: TableClient) => {
       await client.createTable().catch((error: unknown) => {
         const code =
@@ -600,14 +794,17 @@ export class AzureTablePrimaryStore {
       });
     };
 
-    await Promise.all(Object.values(this.clients).map((client) => createIfMissing(client)));
+    await Promise.all(Object.values(clients).map((client) => createIfMissing(client)));
   }
 
   private async ready(): Promise<void> {
-    await this.ensureTablesPromise;
+    await this.initialize();
   }
 
   private client(key: TableKey): TableClient {
+    if (!this.clients) {
+      throw new Error("Azure Table primary store is not initialized.");
+    }
     return this.clients[key];
   }
 
@@ -642,8 +839,13 @@ export class AzureTablePrimaryStore {
   }
 
   private async firstEntity<T extends Record<string, unknown>>(key: TableKey, filter?: string): Promise<TableEntityResult<T> | null> {
-    const entities = await this.listEntities<T>(key, filter);
-    return entities[0] ?? null;
+    await this.ready();
+    for await (const entity of this.client(key).listEntities<T>({
+      queryOptions: filter ? { filter } : undefined
+    })) {
+      return entity;
+    }
+    return null;
   }
 
   private async createEntity<T extends Record<string, unknown>>(
@@ -715,18 +917,28 @@ export class AzureTablePrimaryStore {
       passwordHash: parseString(entity.passwordHash),
       name: parseString(entity.name),
       role: parseRequiredString(entity.role, "role"),
+      billingLanePreference: parseString(entity.billingLanePreference) || "LIVE",
       complimentaryPro: parseBoolean(entity.complimentaryPro, false),
       billingProvider: parseString(entity.billingProvider),
       billingCustomerId: parseString(entity.billingCustomerId),
       billingSubscriptionId: parseString(entity.billingSubscriptionId),
+      billingPriceId: parseString(entity.billingPriceId),
       billingPlanCode: parseString(entity.billingPlanCode) || "STARTER",
       billingStatus: parseString(entity.billingStatus) || "NONE",
+      billingEntitlementStatus: parseString(entity.billingEntitlementStatus) || "INACTIVE",
+      billingLastPaymentStatus: parseString(entity.billingLastPaymentStatus) || "NONE",
+      billingLastInvoiceId: parseString(entity.billingLastInvoiceId),
       billingCurrentPeriodEnd: parseDate(entity.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: parseBoolean(entity.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId: parseString(entity.billingLastStripeEventId),
+      billingLastStripeEventCreatedAt: parseDate(entity.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: parseDate(entity.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: parseDate(entity.billingLastInvoiceEventAt),
       billingUpdatedAt: parseDate(entity.billingUpdatedAt),
       isPaid: parseBoolean(entity.isPaid, false),
       submissionCount: parseNumber(entity.submissionCount, 0),
       extraSubmissionCredits: parseNumber(entity.extraSubmissionCredits, 0),
+      defaultItemProcessingMode: parseString(entity.defaultItemProcessingMode) || "FULL_EPISODE",
       ttsProvider: parseString(entity.ttsProvider) || "kokoro",
       ttsVoice: parseString(entity.ttsVoice) || "af_heart",
       firstSeenAt: parseDate(entity.firstSeenAt),
@@ -742,15 +954,42 @@ export class AzureTablePrimaryStore {
     };
   }
 
+  private toSandboxBillingAccount(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySandboxBillingAccount {
+    return {
+      userId: String(entity.rowKey),
+      billingProvider: parseString(entity.billingProvider),
+      billingCustomerId: parseString(entity.billingCustomerId),
+      billingSubscriptionId: parseString(entity.billingSubscriptionId),
+      billingPriceId: parseString(entity.billingPriceId),
+      billingPlanCode: parseString(entity.billingPlanCode) || "STARTER",
+      billingStatus: parseString(entity.billingStatus) || "NONE",
+      billingEntitlementStatus: parseString(entity.billingEntitlementStatus) || "INACTIVE",
+      billingLastPaymentStatus: parseString(entity.billingLastPaymentStatus) || "NONE",
+      billingLastInvoiceId: parseString(entity.billingLastInvoiceId),
+      billingCurrentPeriodEnd: parseDate(entity.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd: parseBoolean(entity.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId: parseString(entity.billingLastStripeEventId),
+      billingLastStripeEventCreatedAt: parseDate(entity.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: parseDate(entity.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: parseDate(entity.billingLastInvoiceEventAt),
+      billingUpdatedAt: parseDate(entity.billingUpdatedAt),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
   private toBillingWebhookEvent(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryBillingWebhookEvent {
     return {
       id: parseRequiredString(entity.id, "id"),
       provider: parseRequiredString(entity.provider, "provider"),
       providerEventId: parseRequiredString(entity.providerEventId, "providerEventId"),
       eventType: parseRequiredString(entity.eventType, "eventType"),
+      eventCreatedAt: parseDate(entity.eventCreatedAt),
+      objectId: parseString(entity.objectId),
       userId: parseString(entity.userId),
       customerId: parseString(entity.customerId),
       subscriptionId: parseString(entity.subscriptionId),
+      invoiceId: parseString(entity.invoiceId),
       status: parseString(entity.status) || "PROCESSED",
       errorMessage: parseString(entity.errorMessage),
       processedAt: parseDate(entity.processedAt),
@@ -842,10 +1081,68 @@ export class AzureTablePrimaryStore {
       sourceHtml: parseString(entity.sourceHtml),
       sourceCapturedAt: parseDate(entity.sourceCapturedAt),
       status: parseRequiredString(entity.status, "status"),
+      processingMode: parseString(entity.processingMode) || "FULL_EPISODE",
       priority: parseString(entity.priority) ?? "LOW",
+      tags: parseStoredItemTags(entity.tagsJson),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       textHash: parseString(entity.textHash),
+      summaryStatus: parseString(entity.summaryStatus) || "NOT_REQUESTED",
+      summaryTitle: parseString(entity.summaryTitle),
+      summaryStorageKey: parseString(entity.summaryStorageKey),
+      summaryBytes: parseNullableNumber(entity.summaryBytes),
+      summaryProvider: parseString(entity.summaryProvider),
+      summaryModel: parseString(entity.summaryModel),
+      summaryDeployment: parseString(entity.summaryDeployment),
+      summaryInputTokens: parseNullableNumber(entity.summaryInputTokens),
+      summaryOutputTokens: parseNullableNumber(entity.summaryOutputTokens),
+      summaryErrorCode: parseString(entity.summaryErrorCode),
+      summaryErrorMessage: parseString(entity.summaryErrorMessage),
+      summaryCompletedAt: parseDate(entity.summaryCompletedAt),
+      extractionEngine: parseString(entity.extractionEngine),
+      extractionSelectionMode: parseString(entity.extractionSelectionMode),
+      extractionScoreMargin: parseNullableNumber(entity.extractionScoreMargin),
+      extractionSummaryJson: parseString(entity.extractionSummaryJson),
+      extractionSelectionRecordedAt: parseDate(entity.extractionSelectionRecordedAt),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toSnippet(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimarySnippet {
+    return {
+      id: String(entity.rowKey),
+      userId: parseRequiredString(entity.userId, "userId"),
+      sourceUrl: parseRequiredString(entity.sourceUrl, "sourceUrl"),
+      sourceTitle: parseString(entity.sourceTitle),
+      selectedText: parseRequiredString(entity.selectedText, "selectedText"),
+      selectedHtml: parseString(entity.selectedHtml),
+      selectionMarkdown: parseString(entity.selectionMarkdown),
+      contextMarkdown: parseString(entity.contextMarkdown),
+      captureMarkdown: parseString(entity.captureMarkdown),
+      pageMetadata: parseSnippetPageMetadata(parseString(entity.pageMetadataJson)),
+      comment: parseString(entity.comment),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toFeedback(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryFeedback {
+    return {
+      id: String(entity.rowKey),
+      userId: parseRequiredString(entity.userId, "userId"),
+      message: parseRequiredString(entity.message, "message"),
+      feedbackType: parseString(entity.feedbackType),
+      featureArea: parseString(entity.featureArea),
+      allowEmailContact: parseBoolean(entity.allowEmailContact, true),
+      status: parseString(entity.status) ?? "NEW",
+      sourcePath: parseString(entity.sourcePath),
+      mirrorStatus: parseString(entity.mirrorStatus) ?? "PENDING",
+      mirrorIssueNumber: parseNullableNumber(entity.mirrorIssueNumber),
+      mirrorIssueUrl: parseString(entity.mirrorIssueUrl),
+      mirrorAttemptedAt: parseDate(entity.mirrorAttemptedAt),
+      mirrorErrorCode: parseString(entity.mirrorErrorCode),
+      mirrorErrorMessage: parseString(entity.mirrorErrorMessage),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
       updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
     };
@@ -856,10 +1153,36 @@ export class AzureTablePrimaryStore {
       id: String(entity.rowKey),
       itemId: parseRequiredString(entity.itemId, "itemId"),
       userId: parseRequiredString(entity.userId, "userId"),
+      jobKind: parseString(entity.jobKind) || "FULL_EPISODE",
       attempt: parseNumber(entity.attempt, 0),
       status: parseRequiredString(entity.status, "status"),
       lockedAt: parseDate(entity.lockedAt),
+      leaseId: parseString(entity.leaseId),
+      leaseOwner: parseString(entity.leaseOwner),
+      leaseExpiresAt: parseDate(entity.leaseExpiresAt),
+      lastHeartbeatAt: parseDate(entity.lastHeartbeatAt),
+      dispatchMessageId: parseString(entity.dispatchMessageId),
+      scheduledFor: parseDate(entity.scheduledFor),
       nextRetryAt: parseDate(entity.nextRetryAt),
+      errorCode: parseString(entity.errorCode),
+      errorMessage: parseString(entity.errorMessage),
+      createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
+      updatedAt: parseRequiredDate(entity.updatedAt, "updatedAt")
+    };
+  }
+
+  private toArticleSummaryTask(entity: TableEntityResult<Record<string, unknown>>): AzureTablePrimaryArticleSummaryTask {
+    return {
+      id: String(entity.rowKey),
+      itemId: parseRequiredString(entity.itemId, "itemId"),
+      userId: parseRequiredString(entity.userId, "userId"),
+      status: parseRequiredString(entity.status, "status"),
+      attempt: parseNumber(entity.attempt, 0),
+      scheduledFor: parseDate(entity.scheduledFor),
+      nextRetryAt: parseDate(entity.nextRetryAt),
+      lockedAt: parseDate(entity.lockedAt),
+      leaseId: parseString(entity.leaseId),
+      leaseOwner: parseString(entity.leaseOwner),
       errorCode: parseString(entity.errorCode),
       errorMessage: parseString(entity.errorMessage),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt"),
@@ -892,6 +1215,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -984,6 +1308,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -1045,6 +1370,7 @@ export class AzureTablePrimaryStore {
       audioBytes: parseNumber(entity.audioBytes, 0),
       mimeType: parseRequiredString(entity.mimeType, "mimeType"),
       publishedAt: parseRequiredDate(entity.publishedAt, "publishedAt"),
+      expiresAt: parseDate(entity.expiresAt),
       createdAt: parseRequiredDate(entity.createdAt, "createdAt")
     };
   }
@@ -1106,6 +1432,19 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toUser(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
+  async findSandboxBillingAccountByUserId(userId: string): Promise<AzureTablePrimarySandboxBillingAccount | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", userId);
+    return entity ? this.toSandboxBillingAccount(entity) : null;
+  }
+
+  async findSandboxBillingAccountByBillingCustomerId(customerId: string): Promise<AzureTablePrimarySandboxBillingAccount | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "sandboxBillingAccounts",
+      joinFilters(filterEquals("PartitionKey", "sandboxBilling"), filterEquals("billingCustomerId", customerId))
+    );
+    return entity ? this.toSandboxBillingAccount(entity) : null;
+  }
+
   async countUsers(): Promise<number> {
     const rows = await this.listEntities<Record<string, unknown>>("users", filterEquals("PartitionKey", "user"));
     return rows.length;
@@ -1124,9 +1463,12 @@ export class AzureTablePrimaryStore {
     provider: string;
     providerEventId: string;
     eventType: string;
+    eventCreatedAt?: Date | null;
+    objectId?: string | null;
     userId?: string | null;
     customerId?: string | null;
     subscriptionId?: string | null;
+    invoiceId?: string | null;
     status?: string;
     errorMessage?: string | null;
     processedAt?: Date | null;
@@ -1140,9 +1482,12 @@ export class AzureTablePrimaryStore {
       provider: input.provider,
       providerEventId: input.providerEventId,
       eventType: input.eventType,
+      eventCreatedAt: isoOrNull(input.eventCreatedAt),
+      objectId: input.objectId ?? null,
       userId: input.userId ?? null,
       customerId: input.customerId ?? null,
       subscriptionId: input.subscriptionId ?? null,
+      invoiceId: input.invoiceId ?? null,
       status: input.status ?? "PROCESSED",
       errorMessage: input.errorMessage ?? null,
       processedAt: isoOrNull(input.processedAt ?? createdAt),
@@ -1158,18 +1503,28 @@ export class AzureTablePrimaryStore {
     passwordHash?: string | null;
     name?: string | null;
     role: string;
+    billingLanePreference?: string;
     complimentaryPro?: boolean;
     billingProvider?: string | null;
     billingCustomerId?: string | null;
     billingSubscriptionId?: string | null;
+    billingPriceId?: string | null;
     billingPlanCode?: string;
     billingStatus?: string;
+    billingEntitlementStatus?: string;
+    billingLastPaymentStatus?: string;
+    billingLastInvoiceId?: string | null;
     billingCurrentPeriodEnd?: Date | null;
     billingCancelAtPeriodEnd?: boolean;
+    billingLastStripeEventId?: string | null;
+    billingLastStripeEventCreatedAt?: Date | null;
+    billingLastSubscriptionEventAt?: Date | null;
+    billingLastInvoiceEventAt?: Date | null;
     billingUpdatedAt?: Date | null;
     isPaid?: boolean;
     submissionCount?: number;
     extraSubmissionCredits?: number;
+    defaultItemProcessingMode?: string;
     ttsProvider?: string;
     ttsVoice?: string;
     createdAt?: Date;
@@ -1182,18 +1537,28 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash ?? null,
       name: input.name ?? null,
       role: input.role,
+      billingLanePreference: input.billingLanePreference ?? "LIVE",
       complimentaryPro: input.complimentaryPro ?? false,
       billingProvider: input.billingProvider ?? null,
       billingCustomerId: input.billingCustomerId ?? null,
       billingSubscriptionId: input.billingSubscriptionId ?? null,
+      billingPriceId: input.billingPriceId ?? null,
       billingPlanCode: input.billingPlanCode ?? "STARTER",
       billingStatus: input.billingStatus ?? "NONE",
+      billingEntitlementStatus: input.billingEntitlementStatus ?? "INACTIVE",
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? "NONE",
+      billingLastInvoiceId: input.billingLastInvoiceId ?? null,
       billingCurrentPeriodEnd: isoOrNull(input.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? false,
+      billingLastStripeEventId: input.billingLastStripeEventId ?? null,
+      billingLastStripeEventCreatedAt: isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt: isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt: isoOrNull(input.billingLastInvoiceEventAt),
       billingUpdatedAt: isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? false,
       submissionCount: input.submissionCount ?? 0,
       extraSubmissionCredits: input.extraSubmissionCredits ?? 0,
+      defaultItemProcessingMode: input.defaultItemProcessingMode ?? "FULL_EPISODE",
       ttsProvider: input.ttsProvider ?? "kokoro",
       ttsVoice: input.ttsVoice ?? "af_heart",
       createdAt: createdAt.toISOString(),
@@ -1210,18 +1575,28 @@ export class AzureTablePrimaryStore {
       passwordHash: string | null;
       name: string | null;
       role: string;
+      billingLanePreference: string;
       complimentaryPro: boolean;
       billingProvider: string | null;
       billingCustomerId: string | null;
       billingSubscriptionId: string | null;
+      billingPriceId: string | null;
       billingPlanCode: string;
       billingStatus: string;
+      billingEntitlementStatus: string;
+      billingLastPaymentStatus: string;
+      billingLastInvoiceId: string | null;
       billingCurrentPeriodEnd: Date | null;
       billingCancelAtPeriodEnd: boolean;
+      billingLastStripeEventId: string | null;
+      billingLastStripeEventCreatedAt: Date | null;
+      billingLastSubscriptionEventAt: Date | null;
+      billingLastInvoiceEventAt: Date | null;
       billingUpdatedAt: Date | null;
       isPaid: boolean;
       submissionCount: number;
       extraSubmissionCredits: number;
+      defaultItemProcessingMode: string;
       ttsProvider: string;
       ttsVoice: string;
       firstSeenAt: Date | null;
@@ -1232,9 +1607,18 @@ export class AzureTablePrimaryStore {
       lastSeenCountryCode: string | null;
       lastSeenRegionCode: string | null;
       lastSeenCity: string | null;
-    }>
+    }>,
+    expectedBillingVersion?: BillingEventVersion
   ): Promise<AzureTablePrimaryUser | null> {
     const current = await this.getEntity<Record<string, unknown>>("users", "user", userId);
+    if (expectedBillingVersion !== undefined) {
+      if (!current || !matchesBillingEventVersion(this.toUser(current), expectedBillingVersion)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
+      if (!current.etag || current.etag === "*") {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
     if (!current) {
       return null;
     }
@@ -1248,20 +1632,38 @@ export class AzureTablePrimaryStore {
       passwordHash: input.passwordHash === undefined ? current.passwordHash : input.passwordHash,
       name: input.name === undefined ? current.name : input.name,
       role: input.role ?? current.role,
+      billingLanePreference: input.billingLanePreference ?? current.billingLanePreference,
       complimentaryPro: input.complimentaryPro ?? current.complimentaryPro,
       billingProvider: input.billingProvider === undefined ? current.billingProvider : input.billingProvider,
       billingCustomerId: input.billingCustomerId === undefined ? current.billingCustomerId : input.billingCustomerId,
       billingSubscriptionId:
         input.billingSubscriptionId === undefined ? current.billingSubscriptionId : input.billingSubscriptionId,
+      billingPriceId: input.billingPriceId === undefined ? current.billingPriceId : input.billingPriceId,
       billingPlanCode: input.billingPlanCode ?? current.billingPlanCode,
       billingStatus: input.billingStatus ?? current.billingStatus,
+      billingEntitlementStatus: input.billingEntitlementStatus ?? current.billingEntitlementStatus,
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? current.billingLastPaymentStatus,
+      billingLastInvoiceId: input.billingLastInvoiceId === undefined ? current.billingLastInvoiceId : input.billingLastInvoiceId,
       billingCurrentPeriodEnd:
         input.billingCurrentPeriodEnd === undefined ? current.billingCurrentPeriodEnd : isoOrNull(input.billingCurrentPeriodEnd),
       billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? current.billingCancelAtPeriodEnd,
+      billingLastStripeEventId:
+        input.billingLastStripeEventId === undefined ? current.billingLastStripeEventId : input.billingLastStripeEventId,
+      billingLastStripeEventCreatedAt:
+        input.billingLastStripeEventCreatedAt === undefined
+          ? current.billingLastStripeEventCreatedAt
+          : isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt:
+        input.billingLastSubscriptionEventAt === undefined
+          ? current.billingLastSubscriptionEventAt
+          : isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt:
+        input.billingLastInvoiceEventAt === undefined ? current.billingLastInvoiceEventAt : isoOrNull(input.billingLastInvoiceEventAt),
       billingUpdatedAt: input.billingUpdatedAt === undefined ? current.billingUpdatedAt : isoOrNull(input.billingUpdatedAt),
       isPaid: input.isPaid ?? current.isPaid,
       submissionCount: input.submissionCount ?? current.submissionCount,
       extraSubmissionCredits: input.extraSubmissionCredits ?? current.extraSubmissionCredits,
+      defaultItemProcessingMode: input.defaultItemProcessingMode ?? current.defaultItemProcessingMode ?? "FULL_EPISODE",
       ttsProvider: input.ttsProvider ?? current.ttsProvider,
       ttsVoice: input.ttsVoice ?? current.ttsVoice,
       firstSeenAt: input.firstSeenAt === undefined ? current.firstSeenAt : isoOrNull(input.firstSeenAt),
@@ -1278,9 +1680,106 @@ export class AzureTablePrimaryStore {
 
     const success = await this.updateEntity("users", next, current.etag);
     if (!success) {
+      if (expectedBillingVersion !== undefined) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
       return this.findUserById(userId);
     }
     return this.toUser(next as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async upsertSandboxBillingAccount(
+    input: {
+      userId: string;
+      billingProvider?: string | null;
+      billingCustomerId?: string | null;
+      billingSubscriptionId?: string | null;
+      billingPriceId?: string | null;
+      billingPlanCode?: string;
+      billingStatus?: string;
+      billingEntitlementStatus?: string;
+      billingLastPaymentStatus?: string;
+      billingLastInvoiceId?: string | null;
+      billingCurrentPeriodEnd?: Date | null;
+      billingCancelAtPeriodEnd?: boolean;
+      billingLastStripeEventId?: string | null;
+      billingLastStripeEventCreatedAt?: Date | null;
+      billingLastSubscriptionEventAt?: Date | null;
+      billingLastInvoiceEventAt?: Date | null;
+      billingUpdatedAt?: Date | null;
+      createdAt?: Date;
+    },
+    expectedBillingVersion?: BillingEventVersion | null
+  ): Promise<AzureTablePrimarySandboxBillingAccount> {
+    const current = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", input.userId);
+    if (expectedBillingVersion !== undefined) {
+      const matches = expectedBillingVersion === null
+        ? current === null
+        : current !== null && matchesBillingEventVersion(this.toSandboxBillingAccount(current), expectedBillingVersion);
+      if (!matches) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+      if (current && (!current.etag || current.etag === "*")) {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
+    const createdAt = current ? parseRequiredDate(current.createdAt, "createdAt") : input.createdAt ?? new Date();
+    const updatedAt = new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...(current ?? {}),
+      partitionKey: "sandboxBilling",
+      rowKey: input.userId,
+      userId: input.userId,
+      billingProvider: input.billingProvider === undefined ? current?.billingProvider ?? null : input.billingProvider,
+      billingCustomerId: input.billingCustomerId === undefined ? current?.billingCustomerId ?? null : input.billingCustomerId,
+      billingSubscriptionId:
+        input.billingSubscriptionId === undefined ? current?.billingSubscriptionId ?? null : input.billingSubscriptionId,
+      billingPriceId: input.billingPriceId === undefined ? current?.billingPriceId ?? null : input.billingPriceId,
+      billingPlanCode: input.billingPlanCode ?? (parseString(current?.billingPlanCode) || "STARTER"),
+      billingStatus: input.billingStatus ?? (parseString(current?.billingStatus) || "NONE"),
+      billingEntitlementStatus: input.billingEntitlementStatus ?? (parseString(current?.billingEntitlementStatus) || "INACTIVE"),
+      billingLastPaymentStatus: input.billingLastPaymentStatus ?? (parseString(current?.billingLastPaymentStatus) || "NONE"),
+      billingLastInvoiceId: input.billingLastInvoiceId === undefined ? current?.billingLastInvoiceId ?? null : input.billingLastInvoiceId,
+      billingCurrentPeriodEnd:
+        input.billingCurrentPeriodEnd === undefined
+          ? current?.billingCurrentPeriodEnd ?? null
+          : isoOrNull(input.billingCurrentPeriodEnd),
+      billingCancelAtPeriodEnd:
+        input.billingCancelAtPeriodEnd ?? parseBoolean(current?.billingCancelAtPeriodEnd, false),
+      billingLastStripeEventId:
+        input.billingLastStripeEventId === undefined ? current?.billingLastStripeEventId ?? null : input.billingLastStripeEventId,
+      billingLastStripeEventCreatedAt:
+        input.billingLastStripeEventCreatedAt === undefined
+          ? current?.billingLastStripeEventCreatedAt ?? null
+          : isoOrNull(input.billingLastStripeEventCreatedAt),
+      billingLastSubscriptionEventAt:
+        input.billingLastSubscriptionEventAt === undefined
+          ? current?.billingLastSubscriptionEventAt ?? null
+          : isoOrNull(input.billingLastSubscriptionEventAt),
+      billingLastInvoiceEventAt:
+        input.billingLastInvoiceEventAt === undefined ? current?.billingLastInvoiceEventAt ?? null : isoOrNull(input.billingLastInvoiceEventAt),
+      billingUpdatedAt: input.billingUpdatedAt === undefined ? current?.billingUpdatedAt ?? null : isoOrNull(input.billingUpdatedAt),
+      createdAt: createdAt.toISOString(),
+      updatedAt: updatedAt.toISOString()
+    };
+
+    if (expectedBillingVersion === undefined) {
+      await this.upsertEntity("sandboxBillingAccounts", entity);
+    } else if (current) {
+      if (!await this.updateEntity("sandboxBillingAccounts", entity, current.etag)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+    } else {
+      try {
+        await this.createEntity("sandboxBillingAccounts", entity);
+      } catch (error) {
+        if (isConflictError(error)) {
+          throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+        }
+        throw error;
+      }
+    }
+    return this.toSandboxBillingAccount(entity as TableEntityResult<Record<string, unknown>>);
   }
 
   async deleteUser(userId: string): Promise<void> {
@@ -1452,6 +1951,40 @@ export class AzureTablePrimaryStore {
       joinFilters(filterEquals("PartitionKey", "share"), filterEquals("tokenHash", tokenHash))
     );
     return entity ? this.toShareTokenRow(entity) : null;
+  }
+
+  async findShareTokenById(id: string): Promise<AzureTablePrimaryShareTokenRow | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("shareTokens", "share", id);
+    return entity ? this.toShareTokenRow(entity) : null;
+  }
+
+  async findShareTokenByUserIdAndScope(userId: string, scope: string): Promise<AzureTablePrimaryShareTokenRow | null> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId), filterEquals("scope", scope))
+    );
+    const shareRows = rows.map((row) => this.toShareTokenRow(row)).sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+    return shareRows[0] ?? null;
+  }
+
+  async listShareTokensByUserIdAndScopePrefix(userId: string, scopePrefix: string): Promise<AzureTablePrimaryShareTokenRow[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId))
+    );
+    return rows
+      .map((row) => this.toShareTokenRow(row))
+      .filter((row) => row.scope.startsWith(scopePrefix))
+      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
+  }
+
+  async deleteShareTokensByUserIdAndScope(userId: string, scope: string): Promise<number> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "shareTokens",
+      joinFilters(filterEquals("PartitionKey", "share"), filterEquals("userId", userId), filterEquals("scope", scope))
+    );
+    await Promise.all(rows.map((row) => this.deleteEntity("shareTokens", "share", String(row.rowKey))));
+    return rows.length;
   }
 
   async findOAuthIdentity(provider: string, providerUserId: string): Promise<AzureTablePrimaryOAuthIdentity | null> {
@@ -1626,6 +2159,215 @@ export class AzureTablePrimaryStore {
     return entity ? this.toItem(entity) : null;
   }
 
+  async findSnippetById(snippetId: string): Promise<AzureTablePrimarySnippet | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("snippets", "snippet", snippetId);
+    return entity ? this.toSnippet(entity) : null;
+  }
+
+  async findFeedbackById(feedbackId: string): Promise<AzureTablePrimaryFeedback | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("feedback", "feedback", feedbackId);
+    return entity ? this.toFeedback(entity) : null;
+  }
+
+  async listSnippetsByUser(userId: string, limit = 100): Promise<AzureTablePrimarySnippet[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "snippets",
+      joinFilters(filterEquals("PartitionKey", "snippet"), filterEquals("userId", userId))
+    );
+    return sortByTwoDatesDesc(rows.map((row) => this.toSnippet(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(
+      0,
+      limit
+    );
+  }
+
+  async listFeedback(limit = 500): Promise<AzureTablePrimaryFeedback[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("feedback", filterEquals("PartitionKey", "feedback"));
+    return sortByTwoDatesDesc(rows.map((row) => this.toFeedback(row)), (entry) => entry.createdAt, (entry) => entry.updatedAt).slice(
+      0,
+      limit
+    );
+  }
+
+  async createSnippet(input: {
+    id: string;
+    userId: string;
+    sourceUrl: string;
+    sourceTitle?: string | null;
+    selectedText: string;
+    selectedHtml?: string | null;
+    selectionMarkdown?: string | null;
+    contextMarkdown?: string | null;
+    captureMarkdown?: string | null;
+    pageMetadata?: SnippetPageMetadata | null;
+    comment?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimarySnippet> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "snippet",
+      rowKey: input.id,
+      userId: input.userId,
+      sourceUrl: input.sourceUrl,
+      sourceTitle: input.sourceTitle ?? null,
+      selectedText: input.selectedText,
+      selectedHtml: input.selectedHtml ?? null,
+      selectionMarkdown: input.selectionMarkdown ?? null,
+      contextMarkdown: input.contextMarkdown ?? null,
+      captureMarkdown: input.captureMarkdown ?? null,
+      pageMetadataJson: serializeSnippetPageMetadata(input.pageMetadata) ?? null,
+      comment: input.comment ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("snippets", entity);
+    return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async createFeedback(input: {
+    id: string;
+    userId: string;
+    message: string;
+    feedbackType?: string | null;
+    featureArea?: string | null;
+    allowEmailContact?: boolean;
+    status?: string;
+    sourcePath?: string | null;
+    mirrorStatus?: string;
+    mirrorIssueNumber?: number | null;
+    mirrorIssueUrl?: string | null;
+    mirrorAttemptedAt?: Date | null;
+    mirrorErrorCode?: string | null;
+    mirrorErrorMessage?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimaryFeedback> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "feedback",
+      rowKey: input.id,
+      userId: input.userId,
+      message: input.message,
+      feedbackType: input.feedbackType ?? null,
+      featureArea: input.featureArea ?? null,
+      allowEmailContact: input.allowEmailContact ?? true,
+      status: input.status ?? "NEW",
+      sourcePath: input.sourcePath ?? null,
+      mirrorStatus: input.mirrorStatus ?? "PENDING",
+      mirrorIssueNumber: input.mirrorIssueNumber ?? null,
+      mirrorIssueUrl: input.mirrorIssueUrl ?? null,
+      mirrorAttemptedAt: input.mirrorAttemptedAt?.toISOString() ?? null,
+      mirrorErrorCode: input.mirrorErrorCode ?? null,
+      mirrorErrorMessage: input.mirrorErrorMessage ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("feedback", entity);
+    return this.toFeedback(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateSnippet(
+    snippetId: string,
+    input: Partial<{
+      sourceUrl: string;
+      sourceTitle: string | null;
+      selectedText: string;
+      selectedHtml: string | null;
+      selectionMarkdown: string | null;
+      contextMarkdown: string | null;
+      captureMarkdown: string | null;
+      pageMetadata: SnippetPageMetadata | null;
+      comment: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimarySnippet | null> {
+    const current = await this.getEntity<Record<string, unknown>>("snippets", "snippet", snippetId);
+    if (!current) {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "snippet",
+      rowKey: snippetId,
+      sourceUrl: input.sourceUrl ?? parseRequiredString(current.sourceUrl, "sourceUrl"),
+      sourceTitle: input.sourceTitle === undefined ? current.sourceTitle ?? null : input.sourceTitle,
+      selectedText: input.selectedText ?? parseRequiredString(current.selectedText, "selectedText"),
+      selectedHtml: input.selectedHtml === undefined ? current.selectedHtml ?? null : input.selectedHtml,
+      selectionMarkdown: input.selectionMarkdown === undefined ? current.selectionMarkdown ?? null : input.selectionMarkdown,
+      contextMarkdown: input.contextMarkdown === undefined ? current.contextMarkdown ?? null : input.contextMarkdown,
+      captureMarkdown: input.captureMarkdown === undefined ? current.captureMarkdown ?? null : input.captureMarkdown,
+      pageMetadataJson:
+        input.pageMetadata === undefined
+          ? current.pageMetadataJson ?? null
+          : serializeSnippetPageMetadata(input.pageMetadata) ?? null,
+      comment: input.comment === undefined ? current.comment ?? null : input.comment,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("snippets", entity, current.etag);
+    if (!success) {
+      return this.findSnippetById(snippetId);
+    }
+    return this.toSnippet(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateFeedback(
+    feedbackId: string,
+    input: Partial<{
+      message: string;
+      feedbackType: string | null;
+      featureArea: string | null;
+      allowEmailContact: boolean;
+      status: string;
+      sourcePath: string | null;
+      mirrorStatus: string;
+      mirrorIssueNumber: number | null;
+      mirrorIssueUrl: string | null;
+      mirrorAttemptedAt: Date | null;
+      mirrorErrorCode: string | null;
+      mirrorErrorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryFeedback | null> {
+    const current = await this.getEntity<Record<string, unknown>>("feedback", "feedback", feedbackId);
+    if (!current) {
+      return null;
+    }
+
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "feedback",
+      rowKey: feedbackId,
+      message: input.message ?? parseRequiredString(current.message, "message"),
+      feedbackType: input.feedbackType === undefined ? current.feedbackType ?? null : input.feedbackType,
+      featureArea: input.featureArea === undefined ? current.featureArea ?? null : input.featureArea,
+      allowEmailContact:
+        input.allowEmailContact === undefined ? parseBoolean(current.allowEmailContact, true) : input.allowEmailContact,
+      status: input.status ?? (parseString(current.status) ?? "NEW"),
+      sourcePath: input.sourcePath === undefined ? current.sourcePath ?? null : input.sourcePath,
+      mirrorStatus: input.mirrorStatus ?? (parseString(current.mirrorStatus) ?? "PENDING"),
+      mirrorIssueNumber:
+        input.mirrorIssueNumber === undefined ? parseNullableNumber(current.mirrorIssueNumber) : input.mirrorIssueNumber,
+      mirrorIssueUrl: input.mirrorIssueUrl === undefined ? current.mirrorIssueUrl ?? null : input.mirrorIssueUrl,
+      mirrorAttemptedAt:
+        input.mirrorAttemptedAt === undefined
+          ? current.mirrorAttemptedAt ?? null
+          : input.mirrorAttemptedAt?.toISOString() ?? null,
+      mirrorErrorCode: input.mirrorErrorCode === undefined ? current.mirrorErrorCode ?? null : input.mirrorErrorCode,
+      mirrorErrorMessage:
+        input.mirrorErrorMessage === undefined ? current.mirrorErrorMessage ?? null : input.mirrorErrorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("feedback", entity, current.etag);
+    if (!success) {
+      return this.findFeedbackById(feedbackId);
+    }
+    return this.toFeedback(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async deleteSnippet(snippetId: string): Promise<void> {
+    await this.deleteEntity("snippets", "snippet", snippetId);
+  }
+
   async listItemsByUser(userId: string, limit = 50): Promise<AzureTablePrimaryItem[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "items",
@@ -1634,12 +2376,38 @@ export class AzureTablePrimaryStore {
     return sortByDateDesc(rows.map((row) => this.toItem(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
+  async listItemsWithExtractionSelection(limit = 100): Promise<AzureTablePrimaryItem[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("items", filterEquals("PartitionKey", "item"));
+    return rows
+      .map((row) => this.toItem(row))
+      .filter((item) => item.extractionSelectionRecordedAt !== null)
+      .sort((left, right) => {
+        const leftAt = left.extractionSelectionRecordedAt ?? left.createdAt;
+        const rightAt = right.extractionSelectionRecordedAt ?? right.createdAt;
+        return rightAt.getTime() - leftAt.getTime();
+      })
+      .slice(0, limit);
+  }
+
   async countItems(status?: string): Promise<number> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "items",
       joinFilters(filterEquals("PartitionKey", "item"), status ? filterEquals("status", status) : undefined)
     );
     return rows.length;
+  }
+
+  async listItemsPage(cursor?: string, limit = 100): Promise<AzureTablePrimaryItem[]> {
+    if (limit <= 0) {
+      return [];
+    }
+
+    const rows = await this.listEntities<Record<string, unknown>>("items", filterEquals("PartitionKey", "item"));
+    return rows
+      .map((row) => this.toItem(row))
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .filter((item) => !cursor || item.id > cursor)
+      .slice(0, limit);
   }
 
   async createItem(input: {
@@ -1652,10 +2420,29 @@ export class AzureTablePrimaryStore {
     sourceHtml?: string | null;
     sourceCapturedAt?: Date | null;
     status: string;
+    processingMode?: string | null;
     priority?: string | null;
+    tags?: string[] | null;
     errorCode?: string | null;
     errorMessage?: string | null;
     textHash?: string | null;
+    summaryStatus?: string | null;
+    summaryTitle?: string | null;
+    summaryStorageKey?: string | null;
+    summaryBytes?: number | null;
+    summaryProvider?: string | null;
+    summaryModel?: string | null;
+    summaryDeployment?: string | null;
+    summaryInputTokens?: number | null;
+    summaryOutputTokens?: number | null;
+    summaryErrorCode?: string | null;
+    summaryErrorMessage?: string | null;
+    summaryCompletedAt?: Date | null;
+    extractionEngine?: string | null;
+    extractionSelectionMode?: string | null;
+    extractionScoreMargin?: number | null;
+    extractionSummaryJson?: string | null;
+    extractionSelectionRecordedAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryItem> {
     const createdAt = input.createdAt ?? new Date();
@@ -1670,10 +2457,29 @@ export class AzureTablePrimaryStore {
       sourceHtml: input.sourceHtml ?? null,
       sourceCapturedAt: isoOrNull(input.sourceCapturedAt ?? null),
       status: input.status,
+      processingMode: input.processingMode ?? "FULL_EPISODE",
       priority: input.priority ?? "LOW",
+      tagsJson: serializeItemTags(input.tags),
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
       textHash: input.textHash ?? null,
+      summaryStatus: input.summaryStatus ?? "NOT_REQUESTED",
+      summaryTitle: input.summaryTitle ?? null,
+      summaryStorageKey: input.summaryStorageKey ?? null,
+      summaryBytes: input.summaryBytes ?? null,
+      summaryProvider: input.summaryProvider ?? null,
+      summaryModel: input.summaryModel ?? null,
+      summaryDeployment: input.summaryDeployment ?? null,
+      summaryInputTokens: input.summaryInputTokens ?? null,
+      summaryOutputTokens: input.summaryOutputTokens ?? null,
+      summaryErrorCode: input.summaryErrorCode ?? null,
+      summaryErrorMessage: input.summaryErrorMessage ?? null,
+      summaryCompletedAt: isoOrNull(input.summaryCompletedAt ?? null),
+      extractionEngine: input.extractionEngine ?? null,
+      extractionSelectionMode: input.extractionSelectionMode ?? null,
+      extractionScoreMargin: input.extractionScoreMargin ?? null,
+      extractionSummaryJson: input.extractionSummaryJson ?? null,
+      extractionSelectionRecordedAt: isoOrNull(input.extractionSelectionRecordedAt ?? null),
       createdAt: createdAt.toISOString(),
       updatedAt: createdAt.toISOString()
     };
@@ -1689,16 +2495,38 @@ export class AzureTablePrimaryStore {
       sourceFilePath: string | null;
       sourceHtml: string | null;
       status: string;
+      processingMode: string;
       priority: string;
+      tags: string[];
       errorCode: string | null;
       errorMessage: string | null;
       textHash: string | null;
+      summaryStatus: string;
+      summaryTitle: string | null;
+      summaryStorageKey: string | null;
+      summaryBytes: number | null;
+      summaryProvider: string | null;
+      summaryModel: string | null;
+      summaryDeployment: string | null;
+      summaryInputTokens: number | null;
+      summaryOutputTokens: number | null;
+      summaryErrorCode: string | null;
+      summaryErrorMessage: string | null;
+      summaryCompletedAt: Date | null;
+      extractionEngine: string | null;
+      extractionSelectionMode: string | null;
+      extractionScoreMargin: number | null;
+      extractionSummaryJson: string | null;
+      extractionSelectionRecordedAt: Date | null;
       updatedAt: Date;
     }>
-  ): Promise<AzureTablePrimaryItem | null> {
+  ): Promise<AzureTablePrimaryItem> {
     const current = await this.getEntity<Record<string, unknown>>("items", "item", itemId);
     if (!current) {
-      return null;
+      throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+    }
+    if (!current.etag || current.etag === "*") {
+      throw new AppError(errorCodes.STORAGE_FAILED, "The item version could not be verified. Please retry.", 503);
     }
     const updatedAt = input.updatedAt ?? new Date();
     const entity: TableEntity<Record<string, unknown>> = {
@@ -1710,15 +2538,48 @@ export class AzureTablePrimaryStore {
       sourceFilePath: input.sourceFilePath === undefined ? current.sourceFilePath : input.sourceFilePath,
       sourceHtml: input.sourceHtml === undefined ? current.sourceHtml : input.sourceHtml,
       status: input.status ?? current.status,
+      processingMode: input.processingMode ?? current.processingMode ?? "FULL_EPISODE",
       priority: input.priority ?? current.priority ?? "LOW",
+      tagsJson: input.tags === undefined ? current.tagsJson ?? "[]" : serializeItemTags(input.tags),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
       textHash: input.textHash === undefined ? current.textHash : input.textHash,
+      summaryStatus: input.summaryStatus ?? current.summaryStatus ?? "NOT_REQUESTED",
+      summaryTitle: input.summaryTitle === undefined ? current.summaryTitle : input.summaryTitle,
+      summaryStorageKey: input.summaryStorageKey === undefined ? current.summaryStorageKey : input.summaryStorageKey,
+      summaryBytes: input.summaryBytes === undefined ? current.summaryBytes : input.summaryBytes,
+      summaryProvider: input.summaryProvider === undefined ? current.summaryProvider : input.summaryProvider,
+      summaryModel: input.summaryModel === undefined ? current.summaryModel : input.summaryModel,
+      summaryDeployment: input.summaryDeployment === undefined ? current.summaryDeployment : input.summaryDeployment,
+      summaryInputTokens: input.summaryInputTokens === undefined ? current.summaryInputTokens : input.summaryInputTokens,
+      summaryOutputTokens: input.summaryOutputTokens === undefined ? current.summaryOutputTokens : input.summaryOutputTokens,
+      summaryErrorCode: input.summaryErrorCode === undefined ? current.summaryErrorCode : input.summaryErrorCode,
+      summaryErrorMessage: input.summaryErrorMessage === undefined ? current.summaryErrorMessage : input.summaryErrorMessage,
+      summaryCompletedAt: input.summaryCompletedAt === undefined ? current.summaryCompletedAt : isoOrNull(input.summaryCompletedAt),
+      extractionEngine: input.extractionEngine === undefined ? current.extractionEngine : input.extractionEngine,
+      extractionSelectionMode:
+        input.extractionSelectionMode === undefined ? current.extractionSelectionMode : input.extractionSelectionMode,
+      extractionScoreMargin:
+        input.extractionScoreMargin === undefined ? current.extractionScoreMargin : input.extractionScoreMargin,
+      extractionSummaryJson:
+        input.extractionSummaryJson === undefined ? current.extractionSummaryJson : input.extractionSummaryJson,
+      extractionSelectionRecordedAt:
+        input.extractionSelectionRecordedAt === undefined
+          ? current.extractionSelectionRecordedAt
+          : isoOrNull(input.extractionSelectionRecordedAt),
       updatedAt: updatedAt.toISOString()
     };
-    const success = await this.updateEntity("items", entity, current.etag);
-    if (!success) {
-      return this.findItemById(itemId);
+    try {
+      // The boolean helper discards the distinction between conflict and absence.
+      await this.client("items").updateEntity(entity, "Replace", { etag: current.etag });
+    } catch (error) {
+      if (isPreconditionError(error)) {
+        throw new AppError(errorCodes.ITEM_UPDATE_CONFLICT, "The item changed while it was being saved. Please retry.", 409);
+      }
+      if (isNotFoundError(error)) {
+        throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+      }
+      throw error;
     }
     return this.toItem(entity as TableEntityResult<Record<string, unknown>>);
   }
@@ -1739,13 +2600,176 @@ export class AzureTablePrimaryStore {
     );
   }
 
+  async createArticleSummaryTask(input: {
+    id: string;
+    itemId: string;
+    userId: string;
+    status?: string | null;
+    attempt?: number;
+    scheduledFor?: Date | null;
+    nextRetryAt?: Date | null;
+    lockedAt?: Date | null;
+    leaseId?: string | null;
+    leaseOwner?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    createdAt?: Date;
+  }): Promise<AzureTablePrimaryArticleSummaryTask> {
+    const createdAt = input.createdAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      partitionKey: "articleSummaryTask",
+      rowKey: input.id,
+      itemId: input.itemId,
+      userId: input.userId,
+      status: input.status ?? "QUEUED",
+      attempt: input.attempt ?? 0,
+      scheduledFor: isoOrNull(input.scheduledFor ?? null),
+      nextRetryAt: isoOrNull(input.nextRetryAt ?? null),
+      lockedAt: isoOrNull(input.lockedAt ?? null),
+      leaseId: input.leaseId ?? null,
+      leaseOwner: input.leaseOwner ?? null,
+      errorCode: input.errorCode ?? null,
+      errorMessage: input.errorMessage ?? null,
+      createdAt: createdAt.toISOString(),
+      updatedAt: createdAt.toISOString()
+    };
+    await this.createEntity("articleSummaryTasks", entity);
+    return this.toArticleSummaryTask(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async findArticleSummaryTaskById(taskId: string): Promise<EntityWithEtag<AzureTablePrimaryArticleSummaryTask> | null> {
+    const entity = await this.getEntity<Record<string, unknown>>("articleSummaryTasks", "articleSummaryTask", taskId);
+    return entity ? { ...this.toArticleSummaryTask(entity), etag: entity.etag } : null;
+  }
+
+  async findArticleSummaryTaskByItemId(itemId: string): Promise<AzureTablePrimaryArticleSummaryTask | null> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("itemId", itemId))
+    );
+    const sorted = rows
+      .map((row) => this.toArticleSummaryTask(row))
+      .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+    return sorted[0] ?? null;
+  }
+
+  async listArticleSummaryTasksByUser(userId: string, limit = 100): Promise<AzureTablePrimaryArticleSummaryTask[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toArticleSummaryTask(row)), (entry) => entry.createdAt).slice(0, limit);
+  }
+
+  async listNextEligibleArticleSummaryTasks(
+    now: Date,
+    maxRetryAttempts: number,
+    limit = 100
+  ): Promise<AzureTablePrimaryArticleSummaryTask[]> {
+    const queued = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("status", "QUEUED"))
+    );
+    const retryable = await this.listEntities<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(
+        filterEquals("PartitionKey", "articleSummaryTask"),
+        filterEquals("status", "FAILED"),
+        filterLessThan("attempt", maxRetryAttempts),
+        filterLessThanOrEqual("nextRetryAt", now)
+      )
+    );
+
+    return [
+      ...queued.map((row) => this.toArticleSummaryTask(row)).filter((task) => task.scheduledFor === null || task.scheduledFor.getTime() <= now.getTime()),
+      ...retryable.map((row) => this.toArticleSummaryTask(row))
+    ]
+      .sort((left, right) => {
+        const leftPrimary =
+          left.status === "FAILED"
+            ? (left.nextRetryAt ?? left.createdAt).getTime()
+            : (left.scheduledFor ?? left.createdAt).getTime();
+        const rightPrimary =
+          right.status === "FAILED"
+            ? (right.nextRetryAt ?? right.createdAt).getTime()
+            : (right.scheduledFor ?? right.createdAt).getTime();
+        if (leftPrimary !== rightPrimary) {
+          return leftPrimary - rightPrimary;
+        }
+        return left.createdAt.getTime() - right.createdAt.getTime();
+      })
+      .slice(0, Math.max(0, limit));
+  }
+
+  async updateArticleSummaryTask(
+    taskId: string,
+    input: Partial<{
+      status: string;
+      attempt: number;
+      scheduledFor: Date | null;
+      nextRetryAt: Date | null;
+      lockedAt: Date | null;
+      leaseId: string | null;
+      leaseOwner: string | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryArticleSummaryTask | null> {
+    const current = await this.getEntity<Record<string, unknown>>("articleSummaryTasks", "articleSummaryTask", taskId);
+    if (!current) {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "articleSummaryTask",
+      rowKey: taskId,
+      status: input.status ?? current.status,
+      attempt: input.attempt ?? current.attempt,
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
+      nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
+      lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.leaseId === undefined ? current.leaseId : input.leaseId,
+      leaseOwner: input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
+      errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("articleSummaryTasks", entity, current.etag);
+    if (!success) {
+      const latest = await this.findArticleSummaryTaskById(taskId);
+      return latest ? { ...latest } : null;
+    }
+    return this.toArticleSummaryTask(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async deleteArticleSummaryTask(taskId: string): Promise<void> {
+    await this.deleteEntity("articleSummaryTasks", "articleSummaryTask", taskId);
+  }
+
+  async deleteArticleSummaryTasksByItemId(itemId: string): Promise<number> {
+    return this.deleteEntitiesByFilter<Record<string, unknown>>(
+      "articleSummaryTasks",
+      joinFilters(filterEquals("PartitionKey", "articleSummaryTask"), filterEquals("itemId", itemId)) as string,
+      "articleSummaryTask"
+    );
+  }
+
   async createJob(input: {
     id: string;
     itemId: string;
     userId: string;
+    jobKind?: string | null;
     attempt?: number;
     status: string;
     lockedAt?: Date | null;
+    leaseId?: string | null;
+    leaseOwner?: string | null;
+    leaseExpiresAt?: Date | null;
+    lastHeartbeatAt?: Date | null;
+    dispatchMessageId?: string | null;
+    scheduledFor?: Date | null;
     nextRetryAt?: Date | null;
     errorCode?: string | null;
     errorMessage?: string | null;
@@ -1757,9 +2781,16 @@ export class AzureTablePrimaryStore {
       rowKey: input.id,
       itemId: input.itemId,
       userId: input.userId,
+      jobKind: input.jobKind ?? "FULL_EPISODE",
       attempt: input.attempt ?? 0,
       status: input.status,
       lockedAt: isoOrNull(input.lockedAt ?? null),
+      leaseId: input.leaseId ?? null,
+      leaseOwner: input.leaseOwner ?? null,
+      leaseExpiresAt: isoOrNull(input.leaseExpiresAt ?? null),
+      lastHeartbeatAt: isoOrNull(input.lastHeartbeatAt ?? null),
+      dispatchMessageId: input.dispatchMessageId ?? null,
+      scheduledFor: isoOrNull(input.scheduledFor ?? null),
       nextRetryAt: isoOrNull(input.nextRetryAt ?? null),
       errorCode: input.errorCode ?? null,
       errorMessage: input.errorMessage ?? null,
@@ -1773,6 +2804,14 @@ export class AzureTablePrimaryStore {
   async findJobById(jobId: string): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
     return entity ? { ...this.toJob(entity), etag: entity.etag } : null;
+  }
+
+  async listJobsByUser(userId: string, limit = 100): Promise<AzureTablePrimaryJob[]> {
+    const rows = await this.listEntities<Record<string, unknown>>(
+      "jobs",
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("userId", userId))
+    );
+    return sortByDateDesc(rows.map((row) => this.toJob(row)), (entry) => entry.createdAt).slice(0, limit);
   }
 
   async listJobsByItemId(itemId: string): Promise<AzureTablePrimaryJob[]> {
@@ -1823,9 +2862,14 @@ export class AzureTablePrimaryStore {
   async listStaleJobs(staleBefore: Date): Promise<Array<EntityWithEtag<AzureTablePrimaryJob>>> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "jobs",
-      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"), filterLessThan("lockedAt", staleBefore))
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"))
     );
-    return rows.map((row) => ({ ...this.toJob(row), etag: row.etag }));
+    return rows
+      .map((row) => ({ ...this.toJob(row), etag: row.etag }))
+      .filter((row) => {
+        const deadline = jobLeaseDeadline(row);
+        return deadline !== null && deadline.getTime() < staleBefore.getTime();
+      });
   }
 
   async countStuckJobs(staleBefore: Date): Promise<number> {
@@ -1833,29 +2877,38 @@ export class AzureTablePrimaryStore {
     return rows.length;
   }
 
-  async claimJob(jobId: string, now: Date, maxRetryAttempts: number): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
-    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
+  async claimJob(input: {
+    jobId: string;
+    now: Date;
+    maxRetryAttempts: number;
+    staleProcessingMs?: number;
+    leaseId: string;
+    leaseOwner: string;
+    leaseExpiresAt: Date;
+    dispatchMessageId?: string | null;
+  }): Promise<EntityWithEtag<AzureTablePrimaryJob> | null> {
+    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", input.jobId);
     if (!current) {
       return null;
     }
     const job = this.toJob(current);
-    const retryable =
-      job.status === "FAILED" &&
-      job.attempt < maxRetryAttempts &&
-      job.nextRetryAt !== null &&
-      job.nextRetryAt.getTime() <= now.getTime();
-    if (!(job.status === "QUEUED" || retryable)) {
+    if (!jobEligibleForClaim(job, input.now, input.maxRetryAttempts, input.staleProcessingMs ?? 0)) {
       return null;
     }
 
     const claimedEntity: TableEntity<Record<string, unknown>> = {
       ...current,
       partitionKey: "job",
-      rowKey: jobId,
+      rowKey: input.jobId,
       status: "PROCESSING",
-      lockedAt: now.toISOString(),
+      lockedAt: input.now.toISOString(),
       attempt: job.attempt + 1,
-      updatedAt: now.toISOString()
+      leaseId: input.leaseId,
+      leaseOwner: input.leaseOwner,
+      leaseExpiresAt: input.leaseExpiresAt.toISOString(),
+      lastHeartbeatAt: input.now.toISOString(),
+      dispatchMessageId: input.dispatchMessageId ?? job.dispatchMessageId,
+      updatedAt: input.now.toISOString()
     };
     const success = await this.updateEntity("jobs", claimedEntity, current.etag);
     if (!success) {
@@ -1867,10 +2920,14 @@ export class AzureTablePrimaryStore {
     };
   }
 
-  async listNextEligibleJobs(now: Date, maxRetryAttempts: number): Promise<AzureTablePrimaryJob[]> {
+  async listNextEligibleJobs(now: Date, maxRetryAttempts: number, staleProcessingMs = 0): Promise<AzureTablePrimaryJob[]> {
     const queued = await this.listEntities<Record<string, unknown>>(
       "jobs",
       joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "QUEUED"))
+    );
+    const processing = await this.listEntities<Record<string, unknown>>(
+      "jobs",
+      joinFilters(filterEquals("PartitionKey", "job"), filterEquals("status", "PROCESSING"))
     );
     const retryable = await this.listEntities<Record<string, unknown>>(
       "jobs",
@@ -1881,9 +2938,29 @@ export class AzureTablePrimaryStore {
         filterLessThanOrEqual("nextRetryAt", now)
       )
     );
-    return sortByDateDesc(
-      [...queued, ...retryable].map((row) => this.toJob(row)),
-      (entry) => entry.createdAt
+    return [
+      ...queued.map((row) => this.toJob(row)).filter((job) => job.scheduledFor === null || job.scheduledFor.getTime() <= now.getTime()),
+      ...retryable.map((row) => this.toJob(row)),
+      ...processing.map((row) => this.toJob(row)).filter((job) => jobLeaseExpired(job, now, staleProcessingMs))
+    ].sort(
+      (left, right) => {
+        const leftPrimary =
+          left.status === "QUEUED"
+            ? (left.scheduledFor ?? left.createdAt).getTime()
+            : left.status === "FAILED"
+              ? (left.nextRetryAt ?? left.createdAt).getTime()
+              : (jobLeaseDeadline(left) ?? left.createdAt).getTime();
+        const rightPrimary =
+          right.status === "QUEUED"
+            ? (right.scheduledFor ?? right.createdAt).getTime()
+            : right.status === "FAILED"
+              ? (right.nextRetryAt ?? right.createdAt).getTime()
+              : (jobLeaseDeadline(right) ?? right.createdAt).getTime();
+        if (leftPrimary !== rightPrimary) {
+          return leftPrimary - rightPrimary;
+        }
+        return left.createdAt.getTime() - right.createdAt.getTime();
+      }
     );
   }
 
@@ -1893,6 +2970,12 @@ export class AzureTablePrimaryStore {
       status: string;
       attempt: number;
       lockedAt: Date | null;
+      leaseId: string | null;
+      leaseOwner: string | null;
+      leaseExpiresAt: Date | null;
+      lastHeartbeatAt: Date | null;
+      dispatchMessageId: string | null;
+      scheduledFor: Date | null;
       nextRetryAt: Date | null;
       errorCode: string | null;
       errorMessage: string | null;
@@ -1911,6 +2994,12 @@ export class AzureTablePrimaryStore {
       status: input.status ?? current.status,
       attempt: input.attempt ?? current.attempt,
       lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.leaseId === undefined ? current.leaseId : input.leaseId,
+      leaseOwner: input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      leaseExpiresAt: input.leaseExpiresAt === undefined ? current.leaseExpiresAt : isoOrNull(input.leaseExpiresAt),
+      lastHeartbeatAt: input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : isoOrNull(input.lastHeartbeatAt),
+      dispatchMessageId: input.dispatchMessageId === undefined ? current.dispatchMessageId : input.dispatchMessageId,
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
       nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
       errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
       errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
@@ -1919,6 +3008,63 @@ export class AzureTablePrimaryStore {
     const success = await this.updateEntity("jobs", entity, current.etag);
     if (!success) {
       return this.findJobById(jobId).then((row) => (row ? { ...row } : null));
+    }
+    return this.toJob(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
+  async updateJobIfLeaseMatches(
+    jobId: string,
+    leaseId: string,
+    input: Partial<{
+      status: string;
+      attempt: number;
+      lockedAt: Date | null;
+      clearLease: boolean;
+      leaseOwner: string | null;
+      leaseExpiresAt: Date | null;
+      lastHeartbeatAt: Date | null;
+      dispatchMessageId: string | null;
+      scheduledFor: Date | null;
+      nextRetryAt: Date | null;
+      errorCode: string | null;
+      errorMessage: string | null;
+      updatedAt: Date;
+    }>
+  ): Promise<AzureTablePrimaryJob | null> {
+    const current = await this.getEntity<Record<string, unknown>>("jobs", "job", jobId);
+    if (!current) {
+      return null;
+    }
+    const job = this.toJob(current);
+    if (job.leaseId !== leaseId || job.status !== "PROCESSING") {
+      return null;
+    }
+    const updatedAt = input.updatedAt ?? new Date();
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "job",
+      rowKey: jobId,
+      status: input.status ?? current.status,
+      attempt: input.attempt ?? current.attempt,
+      lockedAt: input.lockedAt === undefined ? current.lockedAt : isoOrNull(input.lockedAt),
+      leaseId: input.clearLease ? null : leaseId,
+      leaseOwner: input.clearLease ? null : input.leaseOwner === undefined ? current.leaseOwner : input.leaseOwner,
+      leaseExpiresAt: input.clearLease
+        ? null
+        : input.leaseExpiresAt === undefined
+          ? current.leaseExpiresAt
+          : isoOrNull(input.leaseExpiresAt),
+      lastHeartbeatAt: input.lastHeartbeatAt === undefined ? current.lastHeartbeatAt : isoOrNull(input.lastHeartbeatAt),
+      dispatchMessageId: input.dispatchMessageId === undefined ? current.dispatchMessageId : input.dispatchMessageId,
+      scheduledFor: input.scheduledFor === undefined ? current.scheduledFor : isoOrNull(input.scheduledFor),
+      nextRetryAt: input.nextRetryAt === undefined ? current.nextRetryAt : isoOrNull(input.nextRetryAt),
+      errorCode: input.errorCode === undefined ? current.errorCode : input.errorCode,
+      errorMessage: input.errorMessage === undefined ? current.errorMessage : input.errorMessage,
+      updatedAt: updatedAt.toISOString()
+    };
+    const success = await this.updateEntity("jobs", entity, current.etag);
+    if (!success) {
+      return null;
     }
     return this.toJob(entity as TableEntityResult<Record<string, unknown>>);
   }
@@ -1966,9 +3112,43 @@ export class AzureTablePrimaryStore {
     );
   }
 
-  async findChunkCacheByHash(hash: string): Promise<AzureTablePrimaryChunkCache | null> {
+  async listExpiredItemArtifacts(now: Date, limit = 1000): Promise<AzureTablePrimaryItemArtifact[]> {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error("Artifact expiry limit must be a positive integer.");
+    }
+    await this.ready();
+    const filter = `(PartitionKey eq 'artifact') and (expiresAt gt '') and (expiresAt le '${now.toISOString()}')`;
+    const results: AzureTablePrimaryItemArtifact[] = [];
+    for await (const row of this.client("itemArtifacts").listEntities({ queryOptions: { filter } })) {
+      results.push(this.toItemArtifact(row));
+      if (results.length === limit) break;
+    }
+    return results;
+  }
+
+  async deleteItemArtifact(itemId: string, kind: string): Promise<void> {
+    await this.deleteEntity("itemArtifacts", "artifact", `${itemId}::${kind}`);
+  }
+
+  async findChunkCacheByHash(hash: string): Promise<EntityWithEtag<AzureTablePrimaryChunkCache> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("chunkCache", "chunk", hash);
-    return entity ? this.toChunkCache(entity) : null;
+    return entity ? { ...this.toChunkCache(entity), etag: entity.etag } : null;
+  }
+
+  async deleteChunkCacheIfUnchanged(hash: string, etag: string | undefined): Promise<boolean> {
+    if (!etag || etag === "*") {
+      throw new Error("An exact cache ETag is required for conditional deletion.");
+    }
+    await this.ready();
+    try {
+      await this.client("chunkCache").deleteEntity("chunk", hash, { etag });
+      return true;
+    } catch (error) {
+      if (isPreconditionError(error) || isNotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async createChunkCache(input: {
@@ -2022,6 +3202,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryEpisode> {
     const createdAt = input.createdAt ?? new Date();
@@ -2039,6 +3220,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("episodes", entity);
@@ -2072,6 +3254,7 @@ export class AzureTablePrimaryStore {
       audioBytes: number;
       mimeType: string;
       publishedAt: Date;
+      expiresAt: Date | null;
     }>
   ): Promise<AzureTablePrimaryEpisode | null> {
     const current = await this.getEntity<Record<string, unknown>>("episodes", "episode", episodeId);
@@ -2088,7 +3271,8 @@ export class AzureTablePrimaryStore {
       audioPath: input.audioPath ?? current.audioPath,
       audioBytes: input.audioBytes ?? current.audioBytes,
       mimeType: input.mimeType ?? current.mimeType,
-      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
     };
     const success = await this.updateEntity("episodes", entity, current.etag);
     if (!success) {
@@ -2103,6 +3287,30 @@ export class AzureTablePrimaryStore {
       joinFilters(filterEquals("PartitionKey", "episode"), filterEquals("userId", userId))
     );
     return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listAllEpisodes(): Promise<AzureTablePrimaryEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("episodes", filterEquals("PartitionKey", "episode"));
+    return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async hasAudioReferences(paths: readonly string[]): Promise<boolean> {
+    if (paths.length === 0) {
+      throw new Error("Audio reference lookup requires at least one path.");
+    }
+    await this.ready();
+    const filter = paths.map((path) => `(${filterEquals("audioPath", path)})`).join(" or ");
+    const tables: TableKey[] = ["episodes", "digestEpisodes", "summaryEpisodes"];
+    for (const table of tables) {
+      for await (const row of this.client(table).listEntities({
+        queryOptions: { filter, select: ["RowKey"] }
+      })) {
+        if (row) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   async countEpisodes(): Promise<number> {
@@ -2515,6 +3723,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimaryDigestEpisode> {
     const existing = await this.findDigestEpisodeByRunId(input.digestRunId);
@@ -2532,6 +3741,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("digestEpisodes", entity);
@@ -2555,11 +3765,53 @@ export class AzureTablePrimaryStore {
     await this.deleteEntity("digestEpisodes", "digestEpisode", id);
   }
 
+  async updateDigestEpisode(
+    id: string,
+    input: Partial<{
+      guid: string;
+      title: string;
+      description: string;
+      audioPath: string;
+      audioBytes: number;
+      mimeType: string;
+      publishedAt: Date;
+      expiresAt: Date | null;
+    }>
+  ): Promise<AzureTablePrimaryDigestEpisode | null> {
+    const current = await this.getEntity<Record<string, unknown>>("digestEpisodes", "digestEpisode", id);
+    if (!current) {
+      return null;
+    }
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "digestEpisode",
+      rowKey: id,
+      guid: input.guid ?? current.guid,
+      title: input.title ?? current.title,
+      description: input.description ?? current.description,
+      audioPath: input.audioPath ?? current.audioPath,
+      audioBytes: input.audioBytes ?? current.audioBytes,
+      mimeType: input.mimeType ?? current.mimeType,
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
+    };
+    const success = await this.updateEntity("digestEpisodes", entity, current.etag);
+    if (!success) {
+      return this.findDigestEpisodeById(id);
+    }
+    return this.toDigestEpisode(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
   async listDigestEpisodesForUser(userId: string): Promise<AzureTablePrimaryDigestEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "digestEpisodes",
       joinFilters(filterEquals("PartitionKey", "digestEpisode"), filterEquals("userId", userId))
     );
+    return sortByDateDesc(rows.map((row) => this.toDigestEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async listAllDigestEpisodes(): Promise<AzureTablePrimaryDigestEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("digestEpisodes", filterEquals("PartitionKey", "digestEpisode"));
     return sortByDateDesc(rows.map((row) => this.toDigestEpisode(row)), (entry) => entry.publishedAt);
   }
 
@@ -2811,6 +4063,7 @@ export class AzureTablePrimaryStore {
     audioBytes: number;
     mimeType: string;
     publishedAt: Date;
+    expiresAt?: Date | null;
     createdAt?: Date;
   }): Promise<AzureTablePrimarySummaryEpisode> {
     const existing = await this.findSummaryEpisodeByRunId(input.summaryRunId);
@@ -2828,6 +4081,7 @@ export class AzureTablePrimaryStore {
       audioBytes: input.audioBytes,
       mimeType: input.mimeType,
       publishedAt: input.publishedAt.toISOString(),
+      expiresAt: isoOrNull(input.expiresAt ?? null),
       createdAt: existing?.createdAt.toISOString() ?? createdAt.toISOString()
     };
     await this.upsertEntity("summaryEpisodes", entity);
@@ -2851,11 +4105,65 @@ export class AzureTablePrimaryStore {
     await this.deleteEntity("summaryEpisodes", "summaryEpisode", id);
   }
 
+  async updateSummaryEpisode(
+    id: string,
+    input: Partial<{
+      guid: string;
+      title: string;
+      description: string;
+      audioPath: string;
+      audioBytes: number;
+      mimeType: string;
+      publishedAt: Date;
+      expiresAt: Date | null;
+    }>
+  ): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const current = await this.getEntity<Record<string, unknown>>("summaryEpisodes", "summaryEpisode", id);
+    if (!current) {
+      return null;
+    }
+    const entity: TableEntity<Record<string, unknown>> = {
+      ...current,
+      partitionKey: "summaryEpisode",
+      rowKey: id,
+      guid: input.guid ?? current.guid,
+      title: input.title ?? current.title,
+      description: input.description ?? current.description,
+      audioPath: input.audioPath ?? current.audioPath,
+      audioBytes: input.audioBytes ?? current.audioBytes,
+      mimeType: input.mimeType ?? current.mimeType,
+      publishedAt: input.publishedAt ? input.publishedAt.toISOString() : current.publishedAt,
+      expiresAt: input.expiresAt === undefined ? current.expiresAt : isoOrNull(input.expiresAt)
+    };
+    const success = await this.updateEntity("summaryEpisodes", entity, current.etag);
+    if (!success) {
+      return this.findSummaryEpisodeById(id);
+    }
+    return this.toSummaryEpisode(entity as TableEntityResult<Record<string, unknown>>);
+  }
+
   async listSummaryEpisodesForUser(userId: string): Promise<AzureTablePrimarySummaryEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>(
       "summaryEpisodes",
       joinFilters(filterEquals("PartitionKey", "summaryEpisode"), filterEquals("userId", userId))
     );
+    return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async findSummaryEpisodeByAudioPathForUser(audioPath: string, userId: string): Promise<AzureTablePrimarySummaryEpisode | null> {
+    const entity = await this.firstEntity<Record<string, unknown>>(
+      "summaryEpisodes",
+      joinFilters(
+        filterEquals("PartitionKey", "summaryEpisode"),
+        filterEquals("audioPath", audioPath),
+        filterEquals("userId", userId)
+      )
+    );
+    return entity ? this.toSummaryEpisode(entity) : null;
+  }
+
+  async listAllSummaryEpisodes(): Promise<AzureTablePrimarySummaryEpisode[]> {
+    const rows = await this.listEntities<Record<string, unknown>>("summaryEpisodes", filterEquals("PartitionKey", "summaryEpisode"));
     return sortByDateDesc(rows.map((row) => this.toSummaryEpisode(row)), (entry) => entry.publishedAt);
   }
 

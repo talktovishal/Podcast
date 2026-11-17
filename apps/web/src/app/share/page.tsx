@@ -1,14 +1,31 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { getTtsCatalog, normalizeTtsSelection, signStableMediaUrl } from "@articlepod/core";
+import {
+  getTtsCatalog,
+  normalizeTtsSelection,
+  signStableMediaUrl,
+} from "@articlepod/core";
 import { DashboardClient } from "@/components/dashboard-client";
 import { getUserByShareToken } from "@/lib/auth";
 import { getDashboardItems, getUserTtsSettings } from "@/lib/dashboard";
 import { env } from "@/lib/env";
 import { findPrimaryActiveFeedTokenByUserId } from "@/lib/metadata-primary-auth";
+import { buildPublicMetadata } from "@/lib/seo";
 import { getTtsProviderAvailability } from "@/lib/tts";
 
-export default async function SharePage({ searchParams }: { searchParams: { token?: string } }) {
-  const shareToken = searchParams.token;
+export const metadata: Metadata = buildPublicMetadata({
+  title: "Shared workspace",
+  description: "Read-only shared workspace view for ArticlePod.",
+  path: "/share",
+  noIndex: true,
+});
+
+export default async function SharePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string }>;
+}) {
+  const { token: shareToken } = await searchParams;
   if (!shareToken) {
     return (
       <main className="container-shell py-8">
@@ -38,14 +55,16 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
   const [items, ttsSettings, ttsAvailability] = await Promise.all([
     getDashboardItems(user.id),
     getUserTtsSettings(user.id),
-    getTtsProviderAvailability()
+    getTtsProviderAvailability(),
   ]);
   const ttsCatalog = getTtsCatalog();
   const normalizedSelection = normalizeTtsSelection({
     providerId: ttsSettings.providerId,
-    voice: ttsSettings.voice
+    voice: ttsSettings.voice,
   });
-  const feedUrl = feedAccess.tokenValue ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml` : null;
+  const feedUrl = feedAccess.tokenValue
+    ? `${env.appUrl}/rss/${feedAccess.tokenValue}.xml`
+    : null;
 
   return (
     <main className="py-5 sm:py-8">
@@ -53,8 +72,11 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
         <header className="card p-4 sm:p-5">
           <p className="text-sm text-[var(--muted)]">Read-only demo</p>
           <h1 className="font-bold text-2xl">{user.name || user.email}</h1>
-          <p className="mt-1 text-sm text-[var(--muted)]">This shared view is read-only. You can listen, browse status, and validate podcast playback behavior.</p>
-          <Link href="/login" className="mt-3 inline-block text-sm underline">
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            This shared view is read-only. You can listen, browse status, and
+            validate podcast playback behavior.
+          </p>
+          <Link href="/" className="mt-3 inline-block text-sm underline">
             Sign in to your own workspace
           </Link>
         </header>
@@ -77,9 +99,29 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
             sourceType: item.sourceType,
             sourceUrl: item.sourceUrl,
             status: item.status,
+            processingMode:
+              item.processingMode === "SUMMARY_ONLY"
+                ? "SUMMARY_ONLY"
+                : "FULL_EPISODE",
+            importance: item.importance,
+            tags: item.tags,
             errorCode: item.errorCode,
             errorMessage: item.errorMessage,
+            summaryStatus:
+              item.summaryStatus === "PROCESSING" ||
+              item.summaryStatus === "SUCCEEDED" ||
+              item.summaryStatus === "FAILED"
+                ? item.summaryStatus
+                : "NOT_REQUESTED",
+            summaryTitle: item.summaryTitle,
+            summaryCompletedAt: item.summaryCompletedAt
+              ? item.summaryCompletedAt.toISOString()
+              : null,
+            summaryErrorCode: item.summaryErrorCode,
+            summaryErrorMessage: item.summaryErrorMessage,
+            markdownBytes: item.markdownBytes,
             createdAt: item.createdAt.toISOString(),
+            share: item.share,
             episode: item.episode
               ? {
                   id: item.episode.id,
@@ -90,10 +132,10 @@ export default async function SharePage({ searchParams }: { searchParams: { toke
                     item.episode.audioPath,
                     env.mediaSigningKey || item.episode.guid,
                     feedAccess.tokenHash,
-                    item.episode.id
-                  )
+                    item.episode.id,
+                  ),
                 }
-              : null
+              : null,
           }))}
         />
       </div>

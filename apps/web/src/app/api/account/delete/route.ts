@@ -1,11 +1,26 @@
 import { rm } from "node:fs/promises";
+import { buildUserWikiBuildStateStorageKey, buildUserWikiManifestStorageKey } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { clearSessionCookie, getAuthUserFromRequest } from "@/lib/auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
+import { getUserWikiManifestForApp } from "@/lib/wiki";
+import { deleteUnreferencedAudioObject } from "@/lib/audio-ownership";
+import { fromError } from "@/lib/http";
 
 export async function DELETE(request: NextRequest) {
+  try {
+    return await deleteAccount(request);
+  } catch (error) {
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/account/delete"
+    });
+  }
+}
+
+async function deleteAccount(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -21,7 +36,9 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  const [items, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
+  const wikiManifest = await getUserWikiManifestForApp(user.id);
+
+  const [items, snippets, digestRuns, digestEpisodes, summaryRuns, summaryEpisodes] =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await Promise.all([
           (async () => {
@@ -39,6 +56,7 @@ export async function DELETE(request: NextRequest) {
               }))
             );
           })(),
+          webPrimaryStore.listSnippetsByUser(user.id, 500),
           webPrimaryStore.listDigestRunsByUser(user.id, 200),
           webPrimaryStore.listDigestEpisodesForUser(user.id),
           webPrimaryStore.listSummaryRunsByUser(user.id, 200),
@@ -48,6 +66,12 @@ export async function DELETE(request: NextRequest) {
           prisma.item.findMany({
             where: { userId: user.id },
             include: { episode: true, artifacts: true }
+          }),
+          prisma.snippet.findMany({
+            where: { userId: user.id },
+            select: {
+              id: true
+            }
           }),
           prisma.digestRun.findMany({
             where: { userId: user.id },
@@ -89,9 +113,11 @@ export async function DELETE(request: NextRequest) {
           item.episode ? store.deleteEpisode(item.episode.id) : Promise.resolve(),
           store.deleteItemArtifactsByItemId(item.id),
           store.deleteJobsByItemId(item.id),
+          store.deleteArticleSummaryTasksByItemId(item.id),
           store.deleteChunkCachesByItemId(item.id)
         ])
       ),
+      ...snippets.map((snippet) => store.deleteSnippet(snippet.id)),
       ...digestRuns.map((run) => store.deleteDigestRun(run.id)),
       ...digestEpisodes.map((episode) => store.deleteDigestEpisode(episode.id)),
       ...summaryRuns.map((run) => Promise.all([store.deleteSummaryRunItemsByRunId(run.id), store.deleteSummaryRun(run.id)])),
@@ -105,11 +131,7 @@ export async function DELETE(request: NextRequest) {
 
   for (const item of items) {
     if (item.episode?.audioPath) {
-      if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
-        await rm(item.episode.audioPath, { force: true });
-      } else {
-        await storage.deleteObject(item.episode.audioPath);
-      }
+      await deleteUnreferencedAudioObject(item.episode.audioPath);
     }
     if (item.sourceFilePath) {
       if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
@@ -118,8 +140,11 @@ export async function DELETE(request: NextRequest) {
         await storage.deleteObject(item.sourceFilePath);
       }
     }
+    if (item.summaryStorageKey) {
+      await storage.deleteObject(item.summaryStorageKey).catch(() => undefined);
+    }
     for (const artifact of item.artifacts) {
-      await storage.deleteObject(artifact.storageKey).catch(() => undefined);
+      await deleteUnreferencedAudioObject(artifact.storageKey);
     }
   }
 
@@ -133,7 +158,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   for (const episode of digestEpisodes) {
-    await storage.deleteObject(episode.audioPath).catch(() => undefined);
+    await deleteUnreferencedAudioObject(episode.audioPath);
   }
 
   for (const run of summaryRuns) {
@@ -143,7 +168,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   for (const episode of summaryEpisodes) {
-    await storage.deleteObject(episode.audioPath).catch(() => undefined);
+    await deleteUnreferencedAudioObject(episode.audioPath);
+  }
+
+  if (wikiManifest) {
+    for (const page of wikiManifest.pages) {
+      await storage.deleteObject(page.storageKey).catch(() => undefined);
+    }
+    await storage.deleteObject(buildUserWikiManifestStorageKey(user.id)).catch(() => undefined);
+    await storage.deleteObject(buildUserWikiBuildStateStorageKey(user.id, wikiManifest.buildRunId)).catch(() => undefined);
   }
 
   const response = NextResponse.json({ ok: true });

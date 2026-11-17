@@ -1,6 +1,6 @@
-import { join } from "node:path";
+import { buildUserItemMarkdownStorageKey } from "@articlepod/core";
 import { prisma } from "../src/lib/prisma";
-import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../src/lib/storage";
+import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "../src/lib/storage";
 
 function inferMarkdownFromPlainText(text: string): string {
   const cleaned = text.replace(/\r\n/g, "\n").trim();
@@ -43,7 +43,7 @@ async function main() {
         item.demoExtractionTrace?.extractedMarkdown ||
         inferMarkdownFromPlainText(item.demoExtractionTrace?.extractedText || item.episode?.description || "");
       if (sourceMarkdown) {
-        const key = normalizeStorageKey(join("items", item.id, "artifacts", "source.md"));
+        const key = buildUserItemMarkdownStorageKey(item.userId, item.id);
         const stored = await storage.putObject(key, Buffer.from(sourceMarkdown, "utf8"), {
           contentType: "text/markdown; charset=utf-8"
         });
@@ -93,4 +93,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

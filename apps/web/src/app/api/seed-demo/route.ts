@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signStableMediaUrl } from "@articlepod/core";
 import { ensureUserFeedTokenAccess, getAuthUserFromRequest } from "@/lib/auth";
-import { getDashboardItems, getDemoExtractionDiagnostics } from "@/lib/dashboard";
+import {
+  getDashboardItems,
+  getDemoExtractionDiagnostics,
+} from "@/lib/dashboard";
 import { env } from "@/lib/env";
 
 export async function GET(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
-    return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" },
+      { status: 401 },
+    );
   }
 
   const isDemoUser = user.email.toLowerCase() === env.demoEmail.toLowerCase();
   const [feedAccess, items, extractionDiagnostics] = await Promise.all([
     ensureUserFeedTokenAccess(user.id),
     getDashboardItems(user.id),
-    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([])
+    isDemoUser ? getDemoExtractionDiagnostics(user.id) : Promise.resolve([]),
   ]);
   const feedTokenHash = feedAccess.tokenHash;
   return NextResponse.json({
@@ -27,9 +33,21 @@ export async function GET(request: NextRequest) {
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
       status: item.status,
+      processingMode: item.processingMode,
+      importance: item.importance,
+      tags: item.tags,
       errorCode: item.errorCode,
       errorMessage: item.errorMessage,
+      summaryStatus: item.summaryStatus,
+      summaryTitle: item.summaryTitle,
+      summaryCompletedAt: item.summaryCompletedAt
+        ? item.summaryCompletedAt.toISOString()
+        : null,
+      summaryErrorCode: item.summaryErrorCode,
+      summaryErrorMessage: item.summaryErrorMessage,
+      markdownBytes: item.markdownBytes,
       createdAt: item.createdAt.toISOString(),
+      share: item.share,
       episode: item.episode
         ? {
             id: item.episode.id,
@@ -40,24 +58,37 @@ export async function GET(request: NextRequest) {
               item.episode.audioPath,
               env.mediaSigningKey || item.episode.guid,
               feedTokenHash,
-              item.episode.id
-            )
+              item.episode.id,
+            ),
           }
-        : null
-    }))
+        : null,
+    })),
   });
 }
 
 export async function POST(request: NextRequest) {
   const user = await getAuthUserFromRequest(request);
   if (!user) {
-    return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" },
+      { status: 401 },
+    );
   }
 
-  const existingReady = (await getDashboardItems(user.id)).find((item) => item.status === "READY");
+  const existingReady = (await getDashboardItems(user.id)).find(
+    (item) => item.status === "READY",
+  );
   if (existingReady) {
-    return NextResponse.json({ ok: true, seeded: false, reason: "already_exists" });
+    return NextResponse.json({
+      ok: true,
+      seeded: false,
+      reason: "already_exists",
+    });
   }
 
-  return NextResponse.json({ ok: true, seeded: false, reason: "seed handled via script" });
+  return NextResponse.json({
+    ok: true,
+    seeded: false,
+    reason: "seed handled via script",
+  });
 }

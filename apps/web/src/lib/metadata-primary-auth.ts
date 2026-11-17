@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { hashIncomingToken } from "@articlepod/core";
+import { AppError, errorCodes, hashIncomingToken, type BillingEventVersion } from "@articlepod/core";
+import { Prisma } from "@prisma/client";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
+import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
 
 export type PrimaryAuthUserRecord = {
   id: string;
@@ -9,7 +11,31 @@ export type PrimaryAuthUserRecord = {
   passwordHash: string | null;
   name: string | null;
   role: string;
+  billingLanePreference?: string;
+  defaultItemProcessingMode?: string;
   createdAt: Date;
+};
+
+export type PrimarySandboxBillingAccountRecord = {
+  userId: string;
+  billingProvider: string | null;
+  billingCustomerId: string | null;
+  billingSubscriptionId: string | null;
+  billingPriceId: string | null;
+  billingPlanCode: string;
+  billingStatus: string;
+  billingEntitlementStatus: string;
+  billingLastPaymentStatus: string;
+  billingLastInvoiceId: string | null;
+  billingCurrentPeriodEnd: Date | null;
+  billingCancelAtPeriodEnd: boolean;
+  billingLastStripeEventId: string | null;
+  billingLastStripeEventCreatedAt: Date | null;
+  billingLastSubscriptionEventAt: Date | null;
+  billingLastInvoiceEventAt: Date | null;
+  billingUpdatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type PrimaryAuthSessionWithUser = {
@@ -28,6 +54,16 @@ export type PrimaryFeedTokenRecord = {
   active: boolean;
   createdAt: Date;
   rotatedAt: Date | null;
+};
+
+export type PrimaryShareTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  tokenValue: string | null;
+  scope: string;
+  expiresAt: Date | null;
+  createdAt: Date;
 };
 
 function requirePrimaryStore() {
@@ -57,6 +93,8 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
         passwordHash: true,
         name: true,
         role: true,
+        billingLanePreference: true,
+        defaultItemProcessingMode: true,
         createdAt: true
       }
     });
@@ -73,6 +111,8 @@ export async function findPrimaryUserByEmail(email: string): Promise<PrimaryAuth
     passwordHash: user.passwordHash,
     name: user.name,
     role: user.role,
+    billingLanePreference: user.billingLanePreference,
+    defaultItemProcessingMode: user.defaultItemProcessingMode,
     createdAt: user.createdAt
   };
 }
@@ -97,14 +137,23 @@ export async function listPrimaryUsers(limit = 100) {
         email: true,
         name: true,
         role: true,
+        billingLanePreference: true,
         complimentaryPro: true,
         billingProvider: true,
         billingCustomerId: true,
         billingSubscriptionId: true,
+        billingPriceId: true,
         billingPlanCode: true,
         billingStatus: true,
+        billingEntitlementStatus: true,
+        billingLastPaymentStatus: true,
+        billingLastInvoiceId: true,
         billingCurrentPeriodEnd: true,
         billingCancelAtPeriodEnd: true,
+        billingLastStripeEventId: true,
+        billingLastStripeEventCreatedAt: true,
+        billingLastSubscriptionEventAt: true,
+        billingLastInvoiceEventAt: true,
         billingUpdatedAt: true,
         isPaid: true,
         submissionCount: true,
@@ -146,19 +195,28 @@ export async function createPrimaryUser(input: {
 
 export async function updatePrimaryUser(
   userId: string,
-  input: Partial<{
-    email: string;
-    passwordHash: string | null;
-    name: string | null;
-    role: string;
-    complimentaryPro: boolean;
+    input: Partial<{
+      email: string;
+      passwordHash: string | null;
+      name: string | null;
+      role: string;
+      billingLanePreference: string;
+      complimentaryPro: boolean;
     billingProvider: string | null;
     billingCustomerId: string | null;
     billingSubscriptionId: string | null;
+    billingPriceId: string | null;
     billingPlanCode: string;
     billingStatus: string;
+    billingEntitlementStatus: string;
+    billingLastPaymentStatus: string;
+    billingLastInvoiceId: string | null;
     billingCurrentPeriodEnd: Date | null;
     billingCancelAtPeriodEnd: boolean;
+    billingLastStripeEventId: string | null;
+    billingLastStripeEventCreatedAt: Date | null;
+    billingLastSubscriptionEventAt: Date | null;
+    billingLastInvoiceEventAt: Date | null;
     billingUpdatedAt: Date | null;
     firstSeenAt: Date | null;
     firstSeenCountryCode: string | null;
@@ -170,19 +228,28 @@ export async function updatePrimaryUser(
     lastSeenCity: string | null;
     ttsProvider: string;
     ttsVoice: string;
+    defaultItemProcessingMode: string;
     isPaid: boolean;
     submissionCount: number;
     extraSubmissionCredits: number;
-  }>
+  }>,
+  expectedBillingVersion?: BillingEventVersion
 ) {
   if (!webUsesAzureTablePrimary()) {
-    return prisma.user.update({
-      where: { id: userId },
-      data: input
-    });
+    try {
+      return await prisma.user.update({
+        where: { id: userId, ...expectedBillingVersion },
+        data: input
+      });
+    } catch (error) {
+      if (expectedBillingVersion !== undefined && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
+      throw error;
+    }
   }
 
-  return requirePrimaryStore().updateUser(userId, input);
+  return requirePrimaryStore().updateUser(userId, input, expectedBillingVersion);
 }
 
 export async function findPrimaryBillingWebhookEvent(provider: string, providerEventId: string) {
@@ -200,13 +267,129 @@ export async function findPrimaryBillingWebhookEvent(provider: string, providerE
   return requirePrimaryStore().findBillingWebhookEvent(provider, providerEventId);
 }
 
+export async function findPrimarySandboxBillingAccountByUserId(userId: string): Promise<PrimarySandboxBillingAccountRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.sandboxBillingAccount.findUnique({
+      where: { userId }
+    });
+  }
+
+  return requirePrimaryStore().findSandboxBillingAccountByUserId(userId);
+}
+
+export async function findPrimarySandboxBillingAccountByBillingCustomerId(
+  customerId: string
+): Promise<PrimarySandboxBillingAccountRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.sandboxBillingAccount.findUnique({
+      where: { billingCustomerId: customerId }
+    });
+  }
+
+  return requirePrimaryStore().findSandboxBillingAccountByBillingCustomerId(customerId);
+}
+
+export async function upsertPrimarySandboxBillingAccount(
+  input: {
+    userId: string;
+    billingProvider?: string | null;
+    billingCustomerId?: string | null;
+    billingSubscriptionId?: string | null;
+    billingPriceId?: string | null;
+    billingPlanCode?: string;
+    billingStatus?: string;
+    billingEntitlementStatus?: string;
+    billingLastPaymentStatus?: string;
+    billingLastInvoiceId?: string | null;
+    billingCurrentPeriodEnd?: Date | null;
+    billingCancelAtPeriodEnd?: boolean;
+    billingLastStripeEventId?: string | null;
+    billingLastStripeEventCreatedAt?: Date | null;
+    billingLastSubscriptionEventAt?: Date | null;
+    billingLastInvoiceEventAt?: Date | null;
+    billingUpdatedAt?: Date | null;
+    createdAt?: Date;
+  },
+  expectedBillingVersion?: BillingEventVersion | null
+) {
+  if (!webUsesAzureTablePrimary()) {
+    const operation = {
+      where: { userId: input.userId },
+      create: {
+        userId: input.userId,
+        billingProvider: input.billingProvider ?? null,
+        billingCustomerId: input.billingCustomerId ?? null,
+        billingSubscriptionId: input.billingSubscriptionId ?? null,
+        billingPriceId: input.billingPriceId ?? null,
+        billingPlanCode: input.billingPlanCode ?? "STARTER",
+        billingStatus: input.billingStatus ?? "NONE",
+        billingEntitlementStatus: input.billingEntitlementStatus ?? "INACTIVE",
+        billingLastPaymentStatus: input.billingLastPaymentStatus ?? "NONE",
+        billingLastInvoiceId: input.billingLastInvoiceId ?? null,
+        billingCurrentPeriodEnd: input.billingCurrentPeriodEnd ?? null,
+        billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd ?? false,
+        billingLastStripeEventId: input.billingLastStripeEventId ?? null,
+        billingLastStripeEventCreatedAt: input.billingLastStripeEventCreatedAt ?? null,
+        billingLastSubscriptionEventAt: input.billingLastSubscriptionEventAt ?? null,
+        billingLastInvoiceEventAt: input.billingLastInvoiceEventAt ?? null,
+        billingUpdatedAt: input.billingUpdatedAt ?? null,
+        ...(input.createdAt ? { createdAt: input.createdAt } : {})
+      },
+      update: {
+        ...(input.billingProvider !== undefined ? { billingProvider: input.billingProvider } : {}),
+        ...(input.billingCustomerId !== undefined ? { billingCustomerId: input.billingCustomerId } : {}),
+        ...(input.billingSubscriptionId !== undefined ? { billingSubscriptionId: input.billingSubscriptionId } : {}),
+        ...(input.billingPriceId !== undefined ? { billingPriceId: input.billingPriceId } : {}),
+        ...(input.billingPlanCode !== undefined ? { billingPlanCode: input.billingPlanCode } : {}),
+        ...(input.billingStatus !== undefined ? { billingStatus: input.billingStatus } : {}),
+        ...(input.billingEntitlementStatus !== undefined ? { billingEntitlementStatus: input.billingEntitlementStatus } : {}),
+        ...(input.billingLastPaymentStatus !== undefined ? { billingLastPaymentStatus: input.billingLastPaymentStatus } : {}),
+        ...(input.billingLastInvoiceId !== undefined ? { billingLastInvoiceId: input.billingLastInvoiceId } : {}),
+        ...(input.billingCurrentPeriodEnd !== undefined ? { billingCurrentPeriodEnd: input.billingCurrentPeriodEnd } : {}),
+        ...(input.billingCancelAtPeriodEnd !== undefined ? { billingCancelAtPeriodEnd: input.billingCancelAtPeriodEnd } : {}),
+        ...(input.billingLastStripeEventId !== undefined ? { billingLastStripeEventId: input.billingLastStripeEventId } : {}),
+        ...(input.billingLastStripeEventCreatedAt !== undefined
+          ? { billingLastStripeEventCreatedAt: input.billingLastStripeEventCreatedAt }
+          : {}),
+        ...(input.billingLastSubscriptionEventAt !== undefined
+          ? { billingLastSubscriptionEventAt: input.billingLastSubscriptionEventAt }
+          : {}),
+        ...(input.billingLastInvoiceEventAt !== undefined ? { billingLastInvoiceEventAt: input.billingLastInvoiceEventAt } : {}),
+        ...(input.billingUpdatedAt !== undefined ? { billingUpdatedAt: input.billingUpdatedAt } : {})
+      }
+    };
+    if (expectedBillingVersion !== undefined) {
+      try {
+        if (expectedBillingVersion === null) {
+          return await prisma.sandboxBillingAccount.create({ data: operation.create });
+        }
+        return await prisma.sandboxBillingAccount.update({
+          where: { userId: input.userId, ...expectedBillingVersion },
+          data: operation.update
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2025" || error.code === "P2002")) {
+          throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+        }
+        throw error;
+      }
+    }
+    return prisma.sandboxBillingAccount.upsert(operation);
+  }
+
+  return requirePrimaryStore().upsertSandboxBillingAccount(input, expectedBillingVersion);
+}
+
 export async function createPrimaryBillingWebhookEvent(input: {
   provider: string;
   providerEventId: string;
   eventType: string;
+  eventCreatedAt?: Date | null;
+  objectId?: string | null;
   userId?: string | null;
   customerId?: string | null;
   subscriptionId?: string | null;
+  invoiceId?: string | null;
   status?: string;
   errorMessage?: string | null;
   processedAt?: Date | null;
@@ -217,9 +400,12 @@ export async function createPrimaryBillingWebhookEvent(input: {
         provider: input.provider,
         providerEventId: input.providerEventId,
         eventType: input.eventType,
+        eventCreatedAt: input.eventCreatedAt ?? null,
+        objectId: input.objectId ?? null,
         userId: input.userId ?? null,
         customerId: input.customerId ?? null,
         subscriptionId: input.subscriptionId ?? null,
+        invoiceId: input.invoiceId ?? null,
         status: input.status ?? "PROCESSED",
         errorMessage: input.errorMessage ?? null,
         processedAt: input.processedAt ?? new Date()
@@ -232,9 +418,12 @@ export async function createPrimaryBillingWebhookEvent(input: {
     provider: input.provider,
     providerEventId: input.providerEventId,
     eventType: input.eventType,
+    eventCreatedAt: input.eventCreatedAt ?? null,
+    objectId: input.objectId ?? null,
     userId: input.userId ?? null,
     customerId: input.customerId ?? null,
     subscriptionId: input.subscriptionId ?? null,
+    invoiceId: input.invoiceId ?? null,
     status: input.status ?? "PROCESSED",
     errorMessage: input.errorMessage ?? null,
     processedAt: input.processedAt ?? new Date()
@@ -511,6 +700,7 @@ export async function createPrimaryShareToken(input: {
   userId: string;
   tokenHash: string;
   tokenValue?: string | null;
+  scope?: string;
   expiresAt?: Date;
 }) {
   if (!webUsesAzureTablePrimary()) {
@@ -519,6 +709,7 @@ export async function createPrimaryShareToken(input: {
         userId: input.userId,
         tokenHash: input.tokenHash,
         tokenValue: input.tokenValue ?? null,
+        scope: input.scope ?? "read_only",
         expiresAt: input.expiresAt
       }
     });
@@ -529,8 +720,63 @@ export async function createPrimaryShareToken(input: {
     userId: input.userId,
     tokenHash: input.tokenHash,
     tokenValue: input.tokenValue ?? null,
+    scope: input.scope ?? "read_only",
     expiresAt: input.expiresAt
   });
+}
+
+export async function findPrimaryShareTokenById(id: string): Promise<PrimaryShareTokenRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findUnique({
+      where: { id }
+    });
+  }
+
+  return requirePrimaryStore().findShareTokenById(id);
+}
+
+export async function findPrimaryShareTokenByUserIdAndScope(
+  userId: string,
+  scope: string
+): Promise<PrimaryShareTokenRecord | null> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findFirst({
+      where: { userId, scope },
+      orderBy: { createdAt: "asc" }
+    });
+  }
+
+  return requirePrimaryStore().findShareTokenByUserIdAndScope(userId, scope);
+}
+
+export async function listPrimaryShareTokensByUserIdAndScopePrefix(
+  userId: string,
+  scopePrefix: string
+): Promise<PrimaryShareTokenRecord[]> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.shareToken.findMany({
+      where: {
+        userId,
+        scope: {
+          startsWith: scopePrefix
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    });
+  }
+
+  return requirePrimaryStore().listShareTokensByUserIdAndScopePrefix(userId, scopePrefix);
+}
+
+export async function deletePrimaryShareTokensByUserIdAndScope(userId: string, scope: string): Promise<number> {
+  if (!webUsesAzureTablePrimary()) {
+    const result = await prisma.shareToken.deleteMany({
+      where: { userId, scope }
+    });
+    return result.count;
+  }
+
+  return requirePrimaryStore().deleteShareTokensByUserIdAndScope(userId, scope);
 }
 
 export async function findPrimaryUserByShareTokenHash(tokenHash: string): Promise<PrimaryAuthUserRecord | null> {
@@ -628,6 +874,22 @@ export async function findPrimaryOAuthIdentityWithUser(provider: string, provide
     updatedAt: identity.updatedAt,
     user
   };
+}
+
+export async function listPrimaryOAuthIdentitiesByUser(userId: string): Promise<Array<{ provider: string }>> {
+  if (!webUsesAzureTablePrimary()) {
+    return prisma.oAuthIdentity.findMany({
+      where: { userId },
+      select: {
+        provider: true
+      }
+    });
+  }
+
+  const identities = await requirePrimaryStore().listOAuthIdentitiesByUser(userId);
+  return identities.map((identity) => ({
+    provider: identity.provider
+  }));
 }
 
 export async function createPrimaryOAuthIdentity(input: {
@@ -864,7 +1126,7 @@ export async function upsertPrimaryDigestSettings(input: {
 
 export async function listPrimaryDigestRunsByUser(userId: string, limit = 20) {
   if (!webUsesAzureTablePrimary()) {
-    return prisma.digestRun.findMany({
+    const runs = await prisma.digestRun.findMany({
       where: { userId },
       orderBy: [{ scheduledFor: "desc" }, { createdAt: "desc" }],
       take: limit,
@@ -875,16 +1137,21 @@ export async function listPrimaryDigestRunsByUser(userId: string, limit = 20) {
             audioPath: true,
             audioBytes: true,
             mimeType: true,
-            publishedAt: true
+            publishedAt: true,
+            expiresAt: true
           }
         }
       }
     });
+    return runs.map((run) => ({
+      ...run,
+      episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
+    }));
   }
 
   const store = requirePrimaryStore();
   const [runs, digestEpisodes] = await Promise.all([store.listDigestRunsByUser(userId, limit), store.listDigestEpisodesForUser(userId)]);
-  const episodesByRunId = new Map(digestEpisodes.map((episode) => [episode.digestRunId, episode]));
+  const episodesByRunId = new Map(filterUnexpiredAudioEpisodes(digestEpisodes).map((episode) => [episode.digestRunId, episode]));
   return runs.map((run) => ({
     ...run,
     episode: episodesByRunId.get(run.id)

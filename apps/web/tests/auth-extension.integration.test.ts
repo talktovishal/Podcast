@@ -219,7 +219,9 @@ test("extension connect + html snapshot submission reaches user feed", async () 
         url: `https://example.com/private/${uniq}`,
         title: `Captured ${uniq}`,
         html,
-        capturedAt: new Date().toISOString()
+        capturedAt: new Date().toISOString(),
+        importance: "HIGH",
+        tags: "Financial, retirement, financial"
       })
     });
 
@@ -242,11 +244,15 @@ test("extension connect + html snapshot submission reaches user feed", async () 
       items: Array<{
         id: string;
         status: string;
+        importance: string;
+        tags: string[];
       }>;
     };
     assert.equal(refreshPayload.ok, true);
     const queuedItem = refreshPayload.items.find((entry) => entry.id === submitPayload.item_id);
     assert.equal(queuedItem?.status, "QUEUED");
+    assert.equal(queuedItem?.importance, "HIGH");
+    assert.deepEqual(queuedItem?.tags, ["financial", "retirement"]);
 
     const createdItem = await prisma.item.findUnique({
       where: { id: submitPayload.item_id },
@@ -263,6 +269,8 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     assert.ok(createdItem);
     assert.equal(createdItem?.userId, user.id);
     assert.equal(createdItem?.sourceType, "HTML_SNAPSHOT");
+    assert.equal(createdItem?.priority, "HIGH");
+    assert.equal(createdItem?.tagsJson, '["financial","retirement"]');
     assert.ok(createdItem?.sourceFilePath?.endsWith(".html"));
     assert.equal(createdItem?.sourceHtml, null);
 
@@ -273,7 +281,8 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     const chunks = chunkText(extracted.text);
     const cacheKey = sha256([user.id, "kokoro", "af_heart", ...chunks.map((chunk) => chunk.hash)].join("|"));
     const cachedAudioPath = `items/test-${uniq}/episode.mp3`;
-    await getArtifactStorage().putObject(cachedAudioPath, Buffer.from("cached-audio", "utf8"), {
+    const cachedAudio = Buffer.from("cached-audio", "utf8");
+    await getArtifactStorage().putObject(cachedAudioPath, cachedAudio, {
       contentType: "audio/mpeg"
     });
 
@@ -283,7 +292,7 @@ test("extension connect + html snapshot submission reaches user feed", async () 
         chunkIndex: 0,
         hash: cacheKey,
         filePath: cachedAudioPath,
-        audioBytes: 2048,
+        audioBytes: cachedAudio.length,
         mimeType: "audio/mpeg"
       }
     });
@@ -300,12 +309,14 @@ test("extension connect + html snapshot submission reaches user feed", async () 
     });
     assert.equal(finishedItem?.status, "READY");
     assert.ok(finishedItem?.episode);
+    assert.equal(finishedItem?.priority, "HIGH");
+    assert.equal(finishedItem?.tagsJson, '["financial","retirement"]');
     assert.equal(finishedItem?.sourceHtml, null);
     assert.ok(finishedItem?.sourceCapturedAt instanceof Date);
 
     const feedToken = await ensureUserFeedToken(user.id);
     const feedRequest = new NextRequest(`http://localhost/rss/${feedToken}.xml`);
-    const feedResponse = await rssGet(feedRequest, { params: { token: feedToken } });
+    const feedResponse = await rssGet(feedRequest, { params: Promise.resolve({ token: feedToken }) });
     assert.equal(feedResponse.status, 200);
 
     const feedXml = await feedResponse.text();

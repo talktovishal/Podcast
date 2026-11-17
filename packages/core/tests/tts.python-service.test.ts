@@ -39,7 +39,40 @@ test("python service surfaces structured detail as safe string", async () => {
   }
 });
 
-test("python service maps timeout errors to actionable guidance", async () => {
+test("python service hides provider internals for 5xx responses", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response("internal error", {
+      status: 500,
+      headers: { "content-type": "text/plain" }
+    })) as typeof fetch;
+
+  const provider = new PythonModelTtsProvider({
+    providerId: "kokoro",
+    baseUrl: "http://127.0.0.1:8010"
+  });
+
+  try {
+    await assert.rejects(
+      provider.synthesizeToFile({
+        text: "hello",
+        voice: "af_heart",
+        format: "mp3",
+        outPath: "/tmp/unused.mp3"
+      }),
+      (error: unknown) => {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, errorCodes.TTS_FAILED);
+        assert.equal(error.userMessage, "Audio processing failed. Please retry.");
+        return true;
+      }
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("python service maps timeout errors to a safe user-facing message", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () => {
     const error = new Error("The operation was aborted due to timeout.");
@@ -64,10 +97,7 @@ test("python service maps timeout errors to actionable guidance", async () => {
       (error: unknown) => {
         assert.ok(error instanceof AppError);
         assert.equal(error.code, errorCodes.TTS_FAILED);
-        assert.match(
-          error.userMessage,
-          /^Kokoro synthesis timed out after \d+s\. Increase PYTHON_TTS_TIMEOUT_MS or reduce WORKER_TTS_CHUNK_MAX_CHARS\.$/
-        );
+        assert.equal(error.userMessage, "Audio processing timed out. Please retry.");
         return true;
       }
     );

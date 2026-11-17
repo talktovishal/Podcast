@@ -59,6 +59,7 @@ export async function syncJobProjectionById(jobId: string): Promise<void> {
         createdAt: true,
         updatedAt: true,
         lockedAt: true,
+        scheduledFor: true,
         nextRetryAt: true,
         errorCode: true,
         errorMessage: true
@@ -93,6 +94,7 @@ export async function syncJobAndItemProjectionByJobId(jobId: string): Promise<vo
         createdAt: true,
         updatedAt: true,
         lockedAt: true,
+        scheduledFor: true,
         nextRetryAt: true,
         errorCode: true,
         errorMessage: true,
@@ -125,6 +127,7 @@ export async function syncJobAndItemProjectionByJobId(jobId: string): Promise<vo
         createdAt: job.createdAt,
         updatedAt: job.updatedAt,
         lockedAt: job.lockedAt,
+        scheduledFor: job.scheduledFor,
         nextRetryAt: job.nextRetryAt,
         errorCode: job.errorCode,
         errorMessage: job.errorMessage

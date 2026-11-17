@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { Item } from "@prisma/client";
+import { headObjectIfExists, type StoredObjectHead } from "@articlepod/core";
+import { enqueueItemDispatchMessage, webUsesPrismaDispatchQueue } from "./item-dispatch-queue";
+import { logger } from "./logger";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 import { getArtifactStorage } from "./storage";
+import { deriveAlternateAudioPath } from "./rss-media";
 
 type ResolvedEpisodeMedia = {
   audioPath: string;
@@ -30,16 +34,6 @@ function inferMimeType(path: string, fallback?: string | null): string {
   return "application/octet-stream";
 }
 
-function deriveAlternateAudioPath(path: string): string | null {
-  if (path.endsWith(".mp3")) {
-    return `${path.slice(0, -4)}.m4a`;
-  }
-  if (path.endsWith(".m4a")) {
-    return `${path.slice(0, -4)}.mp3`;
-  }
-  return null;
-}
-
 function canRegenerateMedia(item: Pick<Item, "sourceType" | "sourceUrl" | "sourceFilePath" | "sourceHtml">): boolean {
   if (item.sourceType === "URL") {
     return Boolean(item.sourceUrl);
@@ -58,6 +52,7 @@ export async function enqueueEpisodeMediaRepair(input: {
   userId?: string | null;
   expectedAudioPath?: string | null;
   reason?: string;
+  alternateHead?: StoredObjectHead | null;
 }): Promise<EnqueueEpisodeMediaRepairResult> {
   const episodeId = input.episodeId || "";
   if (!episodeId) {
@@ -122,9 +117,9 @@ export async function enqueueEpisodeMediaRepair(input: {
 
   const alternatePath = deriveAlternateAudioPath(episode.audioPath);
   if (alternatePath) {
-    const alternateHead = await getArtifactStorage()
-      .headObject(alternatePath)
-      .catch(() => null);
+    const alternateHead = input.alternateHead !== undefined
+      ? input.alternateHead
+      : await headObjectIfExists(getArtifactStorage(), alternatePath);
     if (alternateHead && alternateHead.bytes > 0) {
       const resolvedEpisode: ResolvedEpisodeMedia = {
         audioPath: alternatePath,
@@ -237,17 +232,31 @@ export async function enqueueEpisodeMediaRepair(input: {
       errorCode: null,
       errorMessage: input.reason || "Rebuilding missing audio file..."
     });
-    await store.createJob({
+    const createdJob = await store.createJob({
       id: randomUUID(),
       itemId: episode.itemId,
       userId: item.userId,
       status: "QUEUED",
       attempt: 0
     });
+    try {
+      const dispatchMessage = await enqueueItemDispatchMessage({
+        jobId: createdJob.id
+      });
+      await store.updateJob(createdJob.id, {
+        dispatchMessageId: dispatchMessage.messageId
+      });
+    } catch (error) {
+      await logger.warn("Media repair dispatch enqueue failed; leaving job for reconciliation", {
+        itemId: episode.itemId,
+        jobId: createdJob.id,
+        error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      });
+    }
     return { enqueued: true, itemId: episode.itemId };
   }
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const item = await tx.item.findUnique({
       where: { id: episode.itemId },
       select: { status: true }
@@ -288,14 +297,67 @@ export async function enqueueEpisodeMediaRepair(input: {
       }
     });
 
-    await tx.job.create({
+    const createdJob = await tx.job.create({
       data: {
         itemId: episode.itemId,
         status: "QUEUED",
         attempt: 0
+      },
+      select: {
+        id: true
       }
     });
 
+    if (webUsesPrismaDispatchQueue()) {
+      const dispatchMessage = await enqueueItemDispatchMessage({
+        jobId: createdJob.id,
+        client: tx
+      });
+      await tx.job.update({
+        where: { id: createdJob.id },
+        data: {
+          dispatchMessageId: dispatchMessage.messageId
+        }
+      });
+    }
+
     return { enqueued: true, itemId: episode.itemId };
   });
+
+  if (!webUsesPrismaDispatchQueue() && result.enqueued) {
+    const createdJob = await prisma.job.findFirst({
+      where: {
+        itemId: episode.itemId,
+        status: "QUEUED"
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      select: {
+        id: true,
+        dispatchMessageId: true
+      }
+    });
+    if (createdJob && !createdJob.dispatchMessageId) {
+      try {
+        const dispatchMessage = await enqueueItemDispatchMessage({
+          jobId: createdJob.id
+        });
+        await prisma.job.update({
+          where: { id: createdJob.id },
+          data: {
+            dispatchMessageId: dispatchMessage.messageId
+          }
+        });
+      } catch (error) {
+        await logger.warn("Media repair dispatch enqueue failed after job creation; leaving job for reconciliation", {
+          itemId: episode.itemId,
+          jobId: createdJob.id,
+          error: error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        });
+      }
+    }
+  }
+
+  return result;
 }

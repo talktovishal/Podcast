@@ -4,6 +4,7 @@ import { prisma } from "./lib/prisma.js";
 import { processNextQueuedJob } from "./jobs/processItemJob.js";
 import { processNextQueuedDigestRun } from "./jobs/processDigestRunJob.js";
 import { processNextQueuedSummaryRun } from "./jobs/processSummaryRunJob.js";
+import { processNextQueuedArticleSummaryTask } from "./jobs/processArticleSummaryTask.js";
 import { hasPendingDigestSchedulerTick, scheduleDigestRuns } from "./jobs/scheduleDigestRuns.js";
 import { workerLogger } from "./lib/logger.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "./lib/metadata-primary-store.js";
@@ -11,17 +12,39 @@ import { describeTtsRuntime } from "./lib/providers.js";
 import { evaluateOverflowPolicy, createInitialOverflowPolicyState, type OverflowPolicyConfig } from "./lib/overflowPolicy.js";
 import { loadQueuePressureSnapshot, type QueuePressureSnapshot } from "./jobs/queuePressure.js";
 import { workerMetadataMirror } from "./lib/metadata-mirror.js";
+import { createWorkerPoller } from "./lib/work-poller.js";
 
 const HEALTH_PORT = Number(process.env.WORKER_HEALTH_PORT ?? 3001);
 const MAX_BACKOFF_MS = 30_000;
 const OVERFLOW_POLICY_LOG_INTERVAL_MS = 60_000;
 let lastPollAt = 0;
 let consecutiveIdle = 0;
-let lastDigestSchedulerTickAt = 0;
 let lastOverflowPolicyEvalAt = 0;
 let lastOverflowPolicyLogAt = 0;
 let overflowPolicyState = createInitialOverflowPolicyState(new Date());
 let lastQueueSnapshot: QueuePressureSnapshot | null = null;
+
+const pollForWork = createWorkerPoller({
+  role: workerEnv.workerRole,
+  processors: {
+    item: processNextQueuedJob,
+    summary: processNextQueuedSummaryRun,
+    articleSummary: processNextQueuedArticleSummaryTask,
+    digest: processNextQueuedDigestRun
+  },
+  scheduler: {
+    internalEnabled: workerEnv.digestInternalSchedulerEnabled,
+    intervalMs: workerEnv.digestSchedulerTickMs,
+    hasPendingTick: hasPendingDigestSchedulerTick,
+    schedule: () => scheduleDigestRuns(false)
+  },
+  onError: async (workClass, error) => {
+    await workerLogger.error("Worker work poll failed", {
+      workClass,
+      error: serializeError(error)
+    });
+  }
+});
 
 function overflowPolicyConfig(): OverflowPolicyConfig {
   return {
@@ -109,7 +132,10 @@ function startHealthServer(): void {
       const stuckJobs = await (workerUsesAzureTablePrimary() && workerPrimaryStore
         ? workerPrimaryStore.countStuckJobs(staleBefore)
         : prisma.job.count({
-            where: { status: "PROCESSING", lockedAt: { lt: staleBefore } }
+            where: {
+              status: "PROCESSING",
+              OR: [{ leaseExpiresAt: { lt: new Date() } }, { leaseExpiresAt: null, lockedAt: { lt: staleBefore } }]
+            }
           })
       ).catch(() => -1);
       res.writeHead(200, { "content-type": "application/json" });
@@ -152,34 +178,8 @@ async function loop() {
     }
   }
 
-  const processedItem = await processNextQueuedJob();
-  if (processedItem) {
-    consecutiveIdle = 0;
-    return;
-  }
-
-  if (!digestProcessingEnabled()) {
-    await backoffOnIdle();
-    return;
-  }
-
-  const processedSummary = await processNextQueuedSummaryRun();
-  if (processedSummary) {
-    consecutiveIdle = 0;
-    return;
-  }
-
-  const now = Date.now();
-  const internalSchedulerDue =
-    workerEnv.digestInternalSchedulerEnabled && now - lastDigestSchedulerTickAt >= workerEnv.digestSchedulerTickMs;
-  const externalTickDue = !internalSchedulerDue && (await hasPendingDigestSchedulerTick());
-  if (internalSchedulerDue || externalTickDue) {
-    await scheduleDigestRuns(false);
-    lastDigestSchedulerTickAt = now;
-  }
-
-  const processedDigest = await processNextQueuedDigestRun();
-  if (!processedDigest) {
+  const processed = await pollForWork();
+  if (!processed) {
     await backoffOnIdle();
   } else {
     consecutiveIdle = 0;
@@ -196,6 +196,7 @@ async function main() {
     digestSchedulerTickMs: workerEnv.digestSchedulerTickMs,
     runtimeProfile: workerEnv.runtimeProfile,
     workerRole: workerEnv.workerRole,
+    workSchedulingPolicy: workerEnv.workerRole === "primary" ? "equal_round_robin" : "item_only",
     overflowEnabled: workerEnv.overflowEnabled,
     overflowPolicyEvalMs: workerEnv.overflowPolicyEvalMs,
     overflowActivateQueueDepth: workerEnv.overflowActivateQueueDepth,
@@ -207,6 +208,12 @@ async function main() {
     metadataMirrorBackend: workerMetadataMirror.backend,
     metadataMirrorDualWrite: workerEnv.metadataMirrorDualWrite,
     metadataCanaryCompare: workerEnv.metadataCanaryCompare,
+    itemDispatchBackend: workerEnv.itemDispatchBackend,
+    itemDispatchQueueName: workerEnv.itemDispatchQueueName,
+    itemDispatchVisibilityMs: workerEnv.itemDispatchVisibilityMs,
+    itemDispatchHeartbeatMs: workerEnv.itemDispatchHeartbeatMs,
+    itemDispatchMaxDeliveries: workerEnv.itemDispatchMaxDeliveries,
+    workerInstanceId: workerEnv.workerInstanceId,
     ttsLane: ttsRuntime.lane,
     ttsEndpoint: ttsRuntime.pythonTtsUrl
   });

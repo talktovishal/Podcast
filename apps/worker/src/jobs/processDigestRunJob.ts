@@ -3,10 +3,14 @@ import {
   AppError,
   buildEpisodeDescription,
   buildDigestGuid,
+  buildUserDigestEmailStorageKey,
+  buildUserDigestSummaryStorageKey,
   chunkText,
   digestTargetWords,
+  episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
+  summaryMarkdownToNarrationText,
   type DigestLengthMinutes
 } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
@@ -17,7 +21,7 @@ import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata
 import { prisma } from "../lib/prisma.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, normalizeStorageKey } from "../lib/storage.js";
-import { synthesizeEpisodeAudio } from "./processItemJob.js";
+import { synthesizeEpisodeAudio } from "../lib/audio-synthesis.js";
 import { syncDigestRunProjectionById } from "../lib/metadata-projection.js";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
@@ -32,22 +36,6 @@ function normalizeLengthMinutes(value: number): DigestLengthMinutes {
     return value;
   }
   return 15;
-}
-
-function markdownToNarrationText(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/^[-*+]\s+/gm, "")
-    .replace(/^\d+[.)]\s+/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function toSafeErrorMessage(input: unknown): string {
@@ -260,7 +248,10 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               .filter(
                 (item) =>
                   item.status === "READY" &&
-                  (item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT") &&
+                  (item.sourceType === "URL" ||
+                    item.sourceType === "PDF" ||
+                    item.sourceType === "HTML_SNAPSHOT" ||
+                    item.sourceType === "PODCAST_TRANSCRIPT") &&
                   item.createdAt.getTime() > claimResult.windowStart.getTime() &&
                   item.createdAt.getTime() <= claimResult.windowEnd.getTime()
               )
@@ -277,7 +268,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               userId: claimResult.userId,
               status: "READY",
               sourceType: {
-                in: ["URL", "PDF", "HTML_SNAPSHOT"]
+                in: ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"]
               },
               createdAt: {
                 gt: claimResult.windowStart,
@@ -296,18 +287,25 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     const sources = (
       await Promise.all(
         sourceItems.map(async (item) => {
-          const artifact = item.artifacts[0];
-          if (!artifact) {
+          const summaryStorageKey =
+            item.summaryStatus === "SUCCEEDED" && item.summaryStorageKey ? item.summaryStorageKey : null;
+          const storageKey = summaryStorageKey ?? item.artifacts[0]?.storageKey ?? null;
+          if (!storageKey) {
             return null;
           }
 
-          const markdown = (await storage.getObject(artifact.storageKey)).toString("utf8");
+          const markdown = (await storage.getObject(storageKey)).toString("utf8");
           return {
             itemId: item.id,
             title: item.title,
-            sourceType: (item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT"
+            sourceType: ([
+              "URL",
+              "PDF",
+              "HTML_SNAPSHOT",
+              "PODCAST_TRANSCRIPT"
+            ].includes(item.sourceType)
               ? item.sourceType
-              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT",
+              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT" | "PODCAST_TRANSCRIPT",
             sourceUrl: item.sourceUrl,
             createdAt: item.createdAt,
             markdown
@@ -357,7 +355,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     });
 
     const digestDir = normalizeStorageKey(join("digests", claimResult.userId, claimResult.cadence.toLowerCase(), claimResult.periodKey));
-    const summaryStorageKey = normalizeStorageKey(join(digestDir, "summary.md"));
+    const summaryStorageKey = buildUserDigestSummaryStorageKey(claimResult.userId, claimResult.cadence, claimResult.periodKey);
     const summaryStored = await storage.putObject(summaryStorageKey, Buffer.from(summary.markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
@@ -369,7 +367,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
 
     if (claimResult.emailEnabled) {
       emailSubject = `${summary.title}`;
-      emailStorageKey = normalizeStorageKey(join(digestDir, "email.md"));
+      emailStorageKey = buildUserDigestEmailStorageKey(claimResult.userId, claimResult.cadence, claimResult.periodKey);
       await storage.putObject(emailStorageKey, Buffer.from(summary.markdown, "utf8"), {
         contentType: "text/markdown; charset=utf-8"
       });
@@ -393,7 +391,7 @@ export async function processDigestRun(runId: string): Promise<boolean> {
     let podcastError: string | null = null;
     if (claimResult.podcastEnabled) {
       try {
-        const narration = markdownToNarrationText(summary.plainText || summary.markdown);
+        const narration = summaryMarkdownToNarrationText(summary.markdown);
         const chunks = chunkText(narration, workerEnv.ttsChunkMaxChars);
         if (chunks.length === 0) {
           throw new AppError(errorCodes.EXTRACTION_EMPTY, "Digest summary is empty.", 400);
@@ -415,7 +413,9 @@ export async function processDigestRun(runId: string): Promise<boolean> {
           cadence: claimResult.cadence === "WEEKLY" ? "WEEKLY" : "DAILY",
           periodKey: claimResult.periodKey
         });
-        const description = buildEpisodeDescription(summary.plainText || narration);
+        const description = buildEpisodeDescription(narration);
+        const publishedAt = new Date();
+        const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
         if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
           await workerPrimaryStore.upsertDigestEpisode({
@@ -428,7 +428,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: new Date()
+            publishedAt,
+            expiresAt
           });
         } else {
           await prisma.digestEpisode.upsert({
@@ -441,7 +442,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             },
             create: {
               digestRunId: claimResult.id,
@@ -452,7 +454,8 @@ export async function processDigestRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             }
           });
         }

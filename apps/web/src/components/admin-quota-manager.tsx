@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 
 type SubmissionQuotaSnapshot = {
   isPaid: boolean;
@@ -9,16 +9,35 @@ type SubmissionQuotaSnapshot = {
   extraSubmissionCredits: number;
   totalFreeSubmissionAllowance: number;
   remainingFreeSubmissions: number | null;
+  dailyPodcastLimit: number | null;
+  podcastsUsedLast24Hours: number;
+  remainingDailyPodcasts: number | null;
 };
 
 type BillingSnapshot = {
-  planCode: "STARTER" | "PRO_MONTHLY";
+  planCode: "STARTER" | "PRO_MONTHLY" | "PRO_ANNUAL";
+  planAccessLevel: "STARTER" | "PRO";
   status: "NONE" | "ACTIVE" | "GRACE_PERIOD" | "CANCELED" | "INCOMPLETE";
+  entitlementStatus: "INACTIVE" | "ACTIVE" | "GRACE_PERIOD";
+  lastPaymentStatus: "NONE" | "PAID" | "FAILED" | "ACTION_REQUIRED";
+  priceId: string | null;
+  customerId: string | null;
+  subscriptionId: string | null;
+  lastInvoiceId: string | null;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: string | null;
+  hasBillingIssue: boolean;
+  billingIssueReason: "payment_failed" | "action_required" | "activation_pending" | null;
+  billingIssueMessage: string | null;
   complimentaryPro: boolean;
   hasPaidAccess: boolean;
   accessReason: "billing" | "complimentary" | null;
+};
+
+type StripeDashboardLinks = {
+  customerUrl: string | null;
+  subscriptionUrl: string | null;
+  invoiceUrl: string | null;
 };
 
 type AdminQuotaUser = {
@@ -33,6 +52,7 @@ type AdminQuotaUser = {
   submissionCount: number;
   extraSubmissionCredits: number;
   billing: BillingSnapshot;
+  stripeDashboard: StripeDashboardLinks;
   quota: SubmissionQuotaSnapshot;
 };
 
@@ -106,6 +126,25 @@ export function AdminQuotaManager() {
     void loadUsers("");
   }, []);
 
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) {
+      return;
+    }
+    void loadUsers(query);
+  }
+
+  function handleSearchEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (loading) {
+      return;
+    }
+    void loadUsers(query);
+  }
+
   const dirtyUsers = useMemo(() => {
     return users.filter((user) => {
       const draft = drafts[user.id];
@@ -175,6 +214,25 @@ export function AdminQuotaManager() {
     }
   }
 
+  function handleUserSaveSubmit(event: FormEvent<HTMLFormElement>, user: AdminQuotaUser, isDirty: boolean) {
+    event.preventDefault();
+    if (!isDirty || savingUserId === user.id) {
+      return;
+    }
+    void saveUser(user);
+  }
+
+  function handleUserSaveEnter(event: KeyboardEvent<HTMLInputElement>, user: AdminQuotaUser, isDirty: boolean) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (!isDirty || savingUserId === user.id) {
+      return;
+    }
+    void saveUser(user);
+  }
+
   return (
     <section className="card p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -187,23 +245,22 @@ export function AdminQuotaManager() {
         <div className="text-xs text-[var(--muted)]">Unsaved rows: {dirtyUsers}</div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={handleSearchSubmit}>
         <input
           className="w-full rounded-lg border px-3 py-2 text-sm"
           placeholder="Search users by email or name"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={handleSearchEnter}
         />
         <button
           className="rounded-lg border px-3 py-2 text-sm"
           disabled={loading}
-          onClick={() => {
-            void loadUsers(query);
-          }}
+          type="submit"
         >
           {loading ? "Loading..." : "Search"}
         </button>
-      </div>
+      </form>
 
       {statusMessage ? <p className="mt-3 text-sm text-[var(--muted)]">{statusMessage}</p> : null}
 
@@ -226,14 +283,66 @@ export function AdminQuotaManager() {
                   </p>
                   <p className="text-xs text-[var(--muted)]">{quotaLabel(user)}</p>
                   <p className="text-xs text-[var(--muted)]">
-                    Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro" : "Starter"} · status:{" "}
+                    Billing plan: {user.billing.planCode === "PRO_MONTHLY" ? "Pro Monthly" : user.billing.planCode === "PRO_ANNUAL" ? "Pro Annual" : "Starter"} · status:{" "}
                     {user.billing.status.toLowerCase()}
                   </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Access: {user.billing.planAccessLevel} · entitlement: {user.billing.entitlementStatus.toLowerCase()} · payment:{" "}
+                    {user.billing.lastPaymentStatus.toLowerCase()}
+                  </p>
+                  {user.billing.currentPeriodEnd ? (
+                    <p className="text-xs text-[var(--muted)]">
+                      {user.billing.cancelAtPeriodEnd ? "Access ends" : "Renews"} on{" "}
+                      {new Date(user.billing.currentPeriodEnd).toLocaleDateString()}.
+                    </p>
+                  ) : null}
+                  {user.billing.billingIssueMessage ? <p className="text-xs text-[#8a271f]">{user.billing.billingIssueMessage}</p> : null}
+                  <p className="text-xs text-[var(--muted)]">
+                    Stripe customer: {user.billing.customerId ?? "not created"} · subscription: {user.billing.subscriptionId ?? "none"} · invoice:{" "}
+                    {user.billing.lastInvoiceId ?? "none"}
+                  </p>
+                  {(user.stripeDashboard.customerUrl || user.stripeDashboard.subscriptionUrl || user.stripeDashboard.invoiceUrl) ? (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                      {user.stripeDashboard.customerUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.customerUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Stripe customer
+                        </a>
+                      ) : null}
+                      {user.stripeDashboard.subscriptionUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.subscriptionUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Stripe subscription
+                        </a>
+                      ) : null}
+                      {user.stripeDashboard.invoiceUrl ? (
+                        <a
+                          className="rounded border px-2 py-1 text-[var(--ink)] hover:bg-slate-50"
+                          href={user.stripeDashboard.invoiceUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          Latest invoice
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 {isDirty ? <span className="text-xs text-[#8a5a00]">Unsaved changes</span> : null}
               </div>
 
-              <div className="mt-3 grid gap-3 sm:grid-cols-[180px_1fr_auto] sm:items-center">
+              <form
+                className="mt-3 grid gap-3 sm:grid-cols-[180px_1fr_auto] sm:items-center"
+                onSubmit={(event) => handleUserSaveSubmit(event, user, isDirty)}
+              >
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -266,6 +375,7 @@ export function AdminQuotaManager() {
                         extraSubmissionCredits: Number.isFinite(value) && value > 0 ? value : 0
                       }));
                     }}
+                    onKeyDown={(event) => handleUserSaveEnter(event, user, isDirty)}
                   />
                   <button
                     className="rounded-lg border px-2 py-1 text-xs"
@@ -296,13 +406,11 @@ export function AdminQuotaManager() {
                 <button
                   className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   disabled={!isDirty || savingUserId === user.id}
-                  onClick={() => {
-                    void saveUser(user);
-                  }}
+                  type="submit"
                 >
                   {savingUserId === user.id ? "Saving..." : "Save"}
                 </button>
-              </div>
+              </form>
             </article>
           );
         })}

@@ -2,10 +2,15 @@ import { join } from "node:path";
 import {
   AppError,
   buildEpisodeDescription,
+  buildUserSummaryRunStorageKey,
   chunkText,
   digestTargetWords,
+  episodeAudioExpiryDate,
   errorCodes,
   normalizeTtsSelection,
+  summaryMarkdownToNarrationText,
+  toSummaryPodcastUserMessage,
+  toSummaryRunUserMessage,
   type DigestLengthMinutes
 } from "@articlepod/core";
 import type { Prisma } from "@prisma/client";
@@ -15,7 +20,7 @@ import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata
 import { prisma } from "../lib/prisma.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, normalizeStorageKey } from "../lib/storage.js";
-import { synthesizeEpisodeAudio } from "./processItemJob.js";
+import { synthesizeEpisodeAudio } from "../lib/audio-synthesis.js";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 
@@ -29,22 +34,6 @@ function normalizeLengthMinutes(value: number): DigestLengthMinutes {
     return value;
   }
   return 15;
-}
-
-function markdownToNarrationText(markdown: string): string {
-  return markdown
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/^>\s?/gm, "")
-    .replace(/^[-*+]\s+/gm, "")
-    .replace(/^\d+[.)]\s+/gm, "")
-    .replace(/[*_~]/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function toSafeErrorMessage(input: unknown): string {
@@ -288,9 +277,14 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
           return {
             itemId: item.id,
             title: item.title,
-            sourceType: (item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT"
+            sourceType: ([
+              "URL",
+              "PDF",
+              "HTML_SNAPSHOT",
+              "PODCAST_TRANSCRIPT"
+            ].includes(item.sourceType)
               ? item.sourceType
-              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT",
+              : "URL") as "URL" | "PDF" | "HTML_SNAPSHOT" | "PODCAST_TRANSCRIPT",
             sourceUrl: item.sourceUrl,
             createdAt: item.createdAt,
             markdown
@@ -318,7 +312,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
     });
 
     const summaryDir = normalizeStorageKey(join("summaries", claimResult.userId, claimResult.id));
-    const summaryStorageKey = normalizeStorageKey(join(summaryDir, "summary.md"));
+    const summaryStorageKey = buildUserSummaryRunStorageKey(claimResult.userId, claimResult.id);
     const storedSummary = await storage.putObject(summaryStorageKey, Buffer.from(summary.markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
@@ -333,7 +327,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
 
     if (claimResult.podcastEnabled) {
       try {
-        const narration = markdownToNarrationText(summary.plainText || summary.markdown);
+        const narration = summaryMarkdownToNarrationText(summary.markdown);
         const chunks = chunkText(narration, workerEnv.ttsChunkMaxChars);
         if (chunks.length === 0) {
           throw new AppError(errorCodes.EXTRACTION_EMPTY, "Summary markdown is empty.", 400);
@@ -351,7 +345,9 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
           normalizeStorageKey(join(summaryDir, "episode.mp3"))
         );
         const guid = `summary-${claimResult.id}`;
-        const description = buildEpisodeDescription(summary.plainText || narration);
+        const description = buildEpisodeDescription(narration);
+        const publishedAt = new Date();
+        const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
 
         if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
           await workerPrimaryStore.upsertSummaryEpisode({
@@ -364,7 +360,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
             audioPath: audio.relativePath,
             audioBytes: audio.bytes,
             mimeType: audio.mimeType,
-            publishedAt: new Date()
+            publishedAt,
+            expiresAt
           });
         } else {
           await prisma.summaryEpisode.upsert({
@@ -377,7 +374,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             },
             create: {
               summaryRunId: claimResult.id,
@@ -388,7 +386,8 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
               audioPath: audio.relativePath,
               audioBytes: audio.bytes,
               mimeType: audio.mimeType,
-              publishedAt: new Date()
+              publishedAt,
+              expiresAt
             }
           });
         }
@@ -396,7 +395,10 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
         podcastStatus = "SUCCEEDED";
       } catch (error) {
         podcastStatus = "FAILED";
-        podcastError = toSafeErrorMessage(error);
+        podcastError = toSafeErrorMessage(
+          toSummaryPodcastUserMessage(error instanceof AppError ? error.userMessage : error instanceof Error ? error.message : null) ||
+            "The summary is ready, but we couldn't publish the audio version. Please try again."
+        );
       }
     }
 
@@ -458,7 +460,7 @@ export async function processSummaryRun(runId: string): Promise<boolean> {
   } catch (error) {
     const mappedError = mapSummaryError(error);
     const retryRecommended = claimResult.attempt < workerEnv.digestRunMaxRetryAttempts;
-    const safeErrorMessage = toSafeErrorMessage(mappedError.userMessage);
+    const safeErrorMessage = toSafeErrorMessage(toSummaryRunUserMessage(mappedError.userMessage, mappedError.code));
 
     try {
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {

@@ -7,6 +7,9 @@ import { getLogContext } from "../logging/context";
 import type { SynthesizeInput, TtsProvider, TtsProviderId } from "./types";
 
 type PythonProviderId = Extract<TtsProviderId, "kokoro" | "melo">;
+const GENERIC_AUDIO_FAILURE_MESSAGE = "Audio processing failed. Please retry.";
+const TEMPORARY_AUDIO_FAILURE_MESSAGE = "Audio processing is temporarily unavailable. Please retry shortly.";
+const AUDIO_TIMEOUT_MESSAGE = "Audio processing timed out. Please retry.";
 
 // ---------------------------------------------------------------------------
 // Simple in-memory circuit breaker for the Python TTS sidecar.
@@ -25,18 +28,14 @@ const _cb: { state: CbState; failCount: number; openedAt: number } = {
   openedAt: 0
 };
 
-function _cbCheck(providerId: string): void {
+function _cbCheck(): void {
   if (_cb.state === "closed") return;
   if (_cb.state === "open") {
     if (Date.now() - _cb.openedAt >= CB_OPEN_DURATION_MS) {
       _cb.state = "half-open";
       return;
     }
-    throw new AppError(
-      errorCodes.TTS_FAILED,
-      `${providerId} TTS service is temporarily unavailable. Try again shortly.`,
-      503
-    );
+    throw new AppError(errorCodes.TTS_FAILED, TEMPORARY_AUDIO_FAILURE_MESSAGE, 503);
   }
   // half-open: allow one probe through
 }
@@ -105,8 +104,17 @@ function isAbortLikeError(error: unknown): boolean {
   return name.includes("abort") || name.includes("timeout") || message.includes("abort") || message.includes("timeout");
 }
 
-function providerDisplayName(providerId: PythonProviderId): string {
-  return providerId === "kokoro" ? "Kokoro" : providerId;
+function toUserFacingServiceMessage(status: number, detail: string): string {
+  if (status === 400 || status === 422) {
+    return detail || GENERIC_AUDIO_FAILURE_MESSAGE;
+  }
+  if (status === 503) {
+    return TEMPORARY_AUDIO_FAILURE_MESSAGE;
+  }
+  if (status === 504) {
+    return AUDIO_TIMEOUT_MESSAGE;
+  }
+  return GENERIC_AUDIO_FAILURE_MESSAGE;
 }
 
 function runBinary(cmd: string, args: string[]): Promise<void> {
@@ -162,7 +170,7 @@ export class PythonModelTtsProvider implements TtsProvider {
 
   async synthesizeToFile({ text, voice, format, outPath, headers }: SynthesizeInput): Promise<void> {
     // Fail fast if the sidecar has been continuously failing.
-    _cbCheck(this.providerId);
+    _cbCheck();
     const workspace = await mkdtemp(join(tmpdir(), `articlepod-${this.providerId}-`));
     const wavPath = join(workspace, "speech.wav");
     const requestTimeoutMs = estimateSynthesisTimeoutMs(this.timeoutMs, text);
@@ -209,7 +217,7 @@ export class PythonModelTtsProvider implements TtsProvider {
         }
         throw new AppError(
           errorCodes.TTS_FAILED,
-          detail || `Python ${this.providerId} provider failed (${response.status}).`,
+          toUserFacingServiceMessage(response.status, detail),
           502
         );
       }
@@ -236,20 +244,10 @@ export class PythonModelTtsProvider implements TtsProvider {
       }
       if (isAbortLikeError(error)) {
         _cbFailure();
-        throw new AppError(
-          errorCodes.TTS_FAILED,
-          `${providerDisplayName(this.providerId)} synthesis timed out after ${Math.round(
-            requestTimeoutMs / 1000
-          )}s. Increase PYTHON_TTS_TIMEOUT_MS or reduce WORKER_TTS_CHUNK_MAX_CHARS.`,
-          504
-        );
+        throw new AppError(errorCodes.TTS_FAILED, AUDIO_TIMEOUT_MESSAGE, 504);
       }
       _cbFailure();
-      throw new AppError(
-        errorCodes.TTS_FAILED,
-        `Could not synthesize audio with ${this.providerId}. Ensure python-tts service is running.`,
-        502
-      );
+      throw new AppError(errorCodes.TTS_FAILED, TEMPORARY_AUDIO_FAILURE_MESSAGE, 502);
     } finally {
       await rm(workspace, { recursive: true, force: true });
     }

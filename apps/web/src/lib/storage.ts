@@ -3,9 +3,13 @@ import {
   AzureBlobObjectStorage,
   LocalObjectStorage,
   errorCodes,
+  normalizeStorageKey,
+  isLikelyLegacyAbsolutePath,
   type ObjectStorage
 } from "@articlepod/core";
 import { env } from "./env";
+
+export { normalizeStorageKey, isLikelyLegacyAbsolutePath };
 
 let cachedStorage: ObjectStorage | null = null;
 
@@ -34,12 +38,4 @@ export function getArtifactStorage(): ObjectStorage {
 
   cachedStorage = env.storageBackend === "azure_blob" ? makeAzureStorage() : new LocalObjectStorage(env.storageRoot);
   return cachedStorage;
-}
-
-export function normalizeStorageKey(key: string): string {
-  return key.replace(/^\/+/, "").replace(/\\/g, "/");
-}
-
-export function isLikelyLegacyAbsolutePath(path: string): boolean {
-  return path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path);
 }

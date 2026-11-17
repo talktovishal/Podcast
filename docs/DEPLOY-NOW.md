@@ -17,6 +17,7 @@ npm run azure:deploy:changes
 ```
 
 **Example:**
+
 ```bash
 TARGET_HOST="20.123.45.67" \
 CANONICAL_HOST="articlepod.com" \
@@ -96,16 +97,16 @@ For continuous deployment, set up GitHub Actions:
 
    **A. Manual Deploy:**
    - Go to Actions tab → "Deploy to Azure" → Run workflow on `main`
-   
-   **B. Auto Deploy on Push:**
-   - Commit with `[deploy]` in message: `git commit -m "Fix bug [deploy]"`
-   - Push to main branch
+
+   **B. Local Script Deploy:**
+   - Run `npm run azure:deploy:changes` with the required target host and domain env vars
 
 See `docs/azure-ci-cd.md` for complete setup instructions.
 
 ## Troubleshooting Quick Fixes
 
 ### "SSH key not found"
+
 ```bash
 # Check if key exists
 ls -la ~/.ssh/articlepod_azure
@@ -114,6 +115,7 @@ ls -la ~/.ssh/articlepod_azure
 ```
 
 ### "Missing target host"
+
 ```bash
 # Set the environment variable
 export TARGET_HOST="your-vm-ip"
@@ -125,6 +127,7 @@ npm run azure:deploy:changes
 ```
 
 ### "Health check failed"
+
 ```bash
 # Deploy without health check
 ./scripts/azure/deploy-changes.sh --host <vm-host> --skip-healthcheck
@@ -135,6 +138,7 @@ sudo systemctl status articlepod-web articlepod-worker articlepod-python-tts
 ```
 
 ### "could not build server_names_hash..." or "directive is duplicate"
+
 ```bash
 # On VM, clear legacy managed hash file and re-run ingress + TLS config
 ssh -i ~/.ssh/articlepod_azure azureuser@<vm-ip>
@@ -144,6 +148,7 @@ sudo CANONICAL_HOST="articlepod.com" HOST_ALIASES="www.articlepod.com" LETSENCRY
 ```
 
 ### "Permission denied (publickey)"
+
 ```bash
 # Check key permissions
 chmod 600 ~/.ssh/articlepod_azure

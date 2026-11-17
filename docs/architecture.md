@@ -1,6 +1,318 @@
 # ArticlePod Architecture
 
 ## Overview
+
+### Contributor command hygiene
+
+[Contributor instructions](../AGENTS.md#quick-commands-keep-these-accurate)
+now reference the actual pnpm workspaces and Python speech-service test gate,
+not the retired frontend/backend/Python-worker scaffold. This is documentation
+only; runtime architecture, data contracts and approval/security policy are unchanged.
+
+### Build-context hygiene (validated; not deployed)
+
+[Docker exclusions](../.dockerignore) cover local environment/runtime/data/cache/
+worktree state and generated artifacts at root or nested paths, retaining
+example environment templates. All three Dockerfiles use this root context;
+their runtime dependency-copy strategy is otherwise unchanged.
+[Packaging tests](../scripts/container-packaging.test.mjs) apply the actual
+Docker ignore implementation to a disposable context containing harmless
+canaries and required input files. Parity then inspects immutable web/worker
+images for required launch/generated files and absence of local env files,
+checks package resolution, and verifies running services without host checkout
+bind mounts. The startup check allows up to 60 seconds for an initially refused
+health connection; HTTP errors, malformed health responses and other failures
+still fail immediately. Runtime-created log/data directories are not confused with copied
+development state. These checks do not claim a complete production-only
+dependency closure, inspect real credentials or change protected deployment
+gates. No credential, persisted contract or data migration change.
+
+Verification (Docker required):
+`node --test --test-name-pattern='Docker context' scripts/container-packaging.test.mjs`.
+After starting the disposable parity stack:
+`node --test --test-name-pattern='relocated' scripts/container-packaging.test.mjs`.
+The existing full/parity CI job runs both; no deployment is performed by them.
+[Full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+passed on `aa05f54`: real Docker context canaries, web/worker image builds,
+contents, startup, parity smoke and podcast contracts. The startup-wait code
+also passed six controlled delayed-start/error/deadline cases. Local Docker
+was unavailable; no local image or production validation is claimed.
+
+### Provider/asset reproducibility proposal
+
+[Locked manifest inventory and design](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+records known source inputs, missing provenance/hashes, per-platform closure,
+two isolated builds, fresh-synthesis evidence and whole-runtime rollback.
+Design only; no guessed pins, dependency upgrades or live model replacement.
+
+### Shared synthesis boundary (extracted and validated; not deployed)
+
+Article, digest and Summary Studio jobs now import
+[audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts), rather than digest/
+summary workflows importing the article orchestrator. The implementation is
+moved unchanged: provider selection, inputs/options, progress callback, segment
+retry classification/delay, concatenation fallback, output format/key, storage
+upload and temporary cleanup. The common diagnostic formatter moves to the
+existing logger module instead of being copied. Claim/acceptance, item-owned
+cache handling, publication identities, retention and quotas stay with callers.
+This is an internal module, not a new service/process or workflow engine.
+No persisted contract or migration change.
+The moved synthesis block, options/format and diagnostic body were verified
+identical to their pre-extraction source. Dependency traversal found no path
+back to job modules; core/web/worker checks passed
+[CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+on candidate `a43cfa3`.
+
+### Provider verification audit (validated; not deployed)
+
+[Provider gate map](../services/python-tts/README.md#what-each-gate-proves)
+separates optional discovery, constructor concurrency, service behavior,
+controlled-fault sensitivity and real-model evidence. Four new parameterized
+cases cover the previously untested Melo success/error cleanup path and early
+voice rejection in both providers; existing coverage is reused. CI checks six
+controlled faults in disposable copies without installing model providers.
+No production behavior, provider versions, models or credentials change.
+[CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+passed on candidate `e4723bc`, including all six controlled-fault checks.
+
+### Bounded RSS preflight (implemented and validated; not deployed)
+
+The main-feed preflight uses four read workers, each checking an episode and any
+needed alternate format sequentially. Thus original plus alternate HEAD calls
+share the same maximum of four in flight; this is not four requests per episode.
+All workers settle before return, and any failure rejects the entire preflight
+before the route's repair loop. Completed results are assembled in input order,
+independent of completion order. Missing-object classification is unchanged.
+No token/URL/GUID, retention, storage contract or migration change.
+
+The focused regression models eight equal-latency reads in two waves instead
+of eight serial waves, checks the same bound with missing originals/alternates,
+and proves that a failed read cannot return partial repair information while a
+peer remains in flight. Route tests delay an outage until confirmed-missing
+results are available and still require zero repair mutations. This bounds
+parallelism, not total feed read count; SDK request timeouts remain unchanged.
+Local synthetic measurement (12 present objects, 20 ms per mocked HEAD, three
+runs each): serial median 261.761 ms, four-worker median 66.409 ms, identical 12
+calls/results, measured peak in flight 1 versus 4. All seven focused feed-helper
+tests passed. These measurements justify the small bound, not a production
+latency or capacity claim.
+Dependency-backed validation, including delayed-outage no-mutation route tests,
+passed [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+on candidate `6117789`.
+
+### Safe first-match read audit (implemented and validated; not deployed)
+
+`AzureTablePrimaryStore.firstEntity` now closes its async iterator after its
+first result, rather than materializing every matching result. Empty iteration
+still returns null; setup/read failures propagate. It preserves the same first
+row in storage order, not a new uniqueness guarantee.
+
+All 12 callers were checked:
+
+| First-match callers | Why early stop preserves behavior |
+|---|---|
+| `findUserByEmail`, `findUserByBillingCustomerId`, `findSandboxBillingAccountByBillingCustomerId` | Exact filtered lookup; previously returned storage-order first row without sorting or duplicate validation |
+| `findFeedTokenByHash`, `findFeedTokenByValue`, `findShareTokenByHash` | Exact credential match, with existing active filter where applicable; no token rotation or policy change |
+| `findEpisodeByItemId`, `findEpisodeByAudioPathForUser`, `findSummaryEpisodeByAudioPathForUser` | Existing first matching episode/owner lookup |
+| `findDigestRunByUserCadencePeriod`, `findDigestEpisodeByRunId`, `findSummaryEpisodeByRunId` | Exact logical run key; no newest/best-result contract |
+
+`findActiveFeedTokenByUserId` (newest) and `findShareTokenByUserIdAndScope`
+(oldest) intentionally still collect/sort their candidates. Sorted feed/due-work
+lists, global counts and bulk mutations are unchanged. Existing audio-reference
+existence checks already stop early and need no rewrite. An empty existence
+query can still scan its entire candidate set; Azure may prefetch a page or scan
+server-side even when this helper consumes one row. This is not a new index,
+strict single-row network-read guarantee or solution to every unbounded query.
+No data migration or durable contract change.
+Validated by [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+on candidate `c3ba8e5`, including the three iterator/ordering regressions.
+
+### Approved design-only follow-ups
+
+[Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+defines bounded checks, model/progress signals and staged consumer migration.
+It does not implement new endpoints or change liveness, gates or restart policy.
+[Durable summary acceptance](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+proposes discoverable preparation intent and worker extraction, with crash
+recovery and no second quota charge. It reconciles, rather than silently changes,
+the existing prepared-markdown task contract. No runtime/schema change yet.
+[Fenced publication](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+defines one commit authority, stale-owner rejection, a write-by-write crash
+matrix, convergent projections and compatible rollout/rollback. This remains a
+design, not an implemented cross-table transaction.
+[Quota reservation](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+defines user-scoped idempotency, same-partition Azure admission, SQL
+serialization, compensation and policy-preserving migration. It flags the
+completed-summary usage mismatch for explicit rollout review; no quotas change.
+[Conservative inference admission](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+proposes one service-wide active request, four waiters, finite waits, FIFO turns
+and explicit overload/cancellation/retry contracts. These are proposed limits,
+not measured production capacity or enabled settings.
+
+### Hard chunk-size bound (implemented and validated; not deployed)
+
+Chunk size continues to mean UTF-16 code units, preserving ordinary grouping and
+hashes. Limits must be integers >=2; that minimum makes an indivisible surrogate
+pair representable. Individual oversized sentences split after whitespace if
+available, otherwise without cutting a surrogate pair. Fragments concatenate
+exactly to the sentence, including internal whitespace. This is code-point-safe,
+not a promise to keep arbitrary combining-character/grapheme sequences together.
+Existing paragraph trimming and sentence-delimiter whitespace normalization are
+unchanged; concatenating all chunks does not reconstruct the raw source's
+paragraph separators. Each resulting chunk is within the bound and retains its
+content hash. Newly split input can increase chunk count and activate existing
+long-source policy; already published audio is not rewritten. No migration.
+Five focused cases pass locally using Node's built-in TypeScript support; the
+dependency-backed core/web/worker checks passed
+[CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+on candidate `11173bf`.
+
+### Main-feed candidate eligibility (implemented and validated; not deployed)
+
+The Azure feed resolves each distinct item ID among its unexpired episode
+candidates with a point read, sequentially (one lookup in flight), then requires
+the item to belong to the same user and be READY. A missing item is omitted, as
+with SQL's join; lookup outages are not converted into absence. Eligibility no
+longer depends on whether the item is among the user's newest 500 records.
+Existing feed sorting, retention, tokens, GUIDs and media URLs are unchanged.
+This bounds eligibility lookups to candidate IDs, not overall episode listing
+cost; the latter still needs the separate query-design work. No stored-contract
+change or migration is needed. Rollback restores the history-window defect.
+Validated by [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+on candidate `5e60fdb`, including >500-item SQL parity, missing/foreign/status
+filtering and propagated lookup failures.
+
+### Conditional billing event application (implemented and validated; not deployed)
+
+Live and sandbox webhook handlers carry the observed last-event ID, per-domain
+watermarks and billing-update timestamp into their save. SQL includes those
+fields in its atomic update predicate. Azure compares the observed snapshot,
+then writes with the exact current ETag. Initial sandbox creation uses
+create-if-absent, not an unconditional upsert. Checkout event saves are also
+guarded so their state-derived patches are recalculated after a conflict.
+
+A rejected save raises `BILLING_UPDATE_CONFLICT`; the handler rereads and
+recalculates the full operation, up to three attempts. A now-older subscription
+or invoice event is ignored using its domain watermark. Failure never creates a
+processed event record. Other storage failures propagate. Equal timestamps keep
+the pre-existing sequential rule: distinct events apply in successful-write
+order. This is not a claim of provider chronology or cross-domain precedence.
+Event audit persistence remains separate from account mutation; this change does
+not make those records transactional or fence non-webhook reconciliation writes.
+
+No persisted fields, keys, schema or dependencies change; the version condition
+is transient and uses existing fields. No migration/backfill is required.
+Use consistent updated web handlers when eventually activating; old handlers can
+still write without this guard. Rollback restores the race, without data rewrites.
+All 22 added SDK-boundary and SQL handler cases passed in
+[CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+on candidate `aef1035`, including both interleavings, live/sandbox lanes,
+subscription/invoice domains, equal timestamps and exhausted retries.
+
+### Per-model initialization guards (implemented and validated; not deployed)
+
+Kokoro and Melo model caches use provider/language-specific initialization locks.
+The cache is populated only after construction succeeds; a failure propagates and
+releases the guard so a waiting request can retry. Different model keys initialize
+independently. The lock ends before inference and does not change capacity or
+readiness policy. No persisted data, schema, dependencies or migration are involved.
+Five new concurrent initialization/retry cases and the existing model-free service
+suite passed in [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489)
+on candidate `72ecd2d`. This is not a real-model capacity test.
+
+### Equal round-robin work selection (implemented and validated; not deployed)
+
+Candidate `353f790` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397),
+including all 30 new scheduling cases, core/web/worker checks, authenticated RSS
+browser/build validation and container parity/podcast contracts. The 30 new
+cases plus four existing overflow-policy tests also passed locally.
+
+The primary worker rotates item jobs, Summary Studio runs, article-summary tasks
+and digest runs with equal weight. It advances its in-memory cursor before each
+attempt, stops after successful work, and skips empty or failed categories in
+the same poll. Each poll checks at most four categories. With all four busy,
+each gets one selection opportunity every four polls (three intervening turns).
+This assumes the sequential processors return; it does not preempt a long job
+or establish a wall-clock completion SLA. A restart resets the cursor.
+
+Due digest scheduling is checked before primary work selection, retaining the
+internal interval and external tick semantics. Scheduler and category exceptions
+are logged with their source and isolated so healthy categories still progress,
+rather than repeatedly restarting at the item queue. Failure to report an error
+still propagates to the existing fatal boundary. An all-empty/all-failing pass
+returns the normal idle signal; existing exponential backoff/reset behavior is
+unchanged. Overflow activation gating is unchanged and overflow polls only items.
+No additional job or synthesis concurrency is introduced.
+
+No persisted schema, queue payload, storage key or dependency changes are needed.
+Existing work remains in its current queues; no migration/backfill is required.
+Activation is deferred to the batch deployment. Rollback restores strict-priority
+polling and its starvation risk without rewriting data.
+
+### Explicit item mutation outcomes (implemented and validated; not deployed)
+
+Candidate `24b995b` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641),
+including 25 added regression cases, core/web/worker checks, authenticated RSS
+browser validation and container parity/podcast contracts. This follow-up is
+stacked on the audio-ownership branch and remains unmerged and undeployed.
+
+Azure `updateItem` returns an item only after its conditional write succeeds.
+An ETag conflict raises `ITEM_UPDATE_CONFLICT` (HTTP 409); an item missing before
+or during the write raises `ITEM_NOT_FOUND` (HTTP 404). Missing/wildcard versions
+are rejected, and other storage errors propagate. The adapter never rereads a
+different row as evidence of success or blindly retries a rejected mutation.
+Existing awaited ordering prevents audio/summary jobs from completing, and
+article-summary tasks from being removed as completed, after a failed required
+item update. Conflicts follow bounded job retries; missing items are terminal.
+HTTP errors retain standard logging/support IDs and recommend retry for conflicts.
+
+This is the narrow false-success part of review finding 01, not an atomic
+publication protocol. Episode, item and job writes remain separate in Azure;
+crash recovery and fencing stale publishers remain follow-up design work.
+The change adds error-code values to existing string fields/API responses, but
+requires no schema, storage-key migration or backfill. Successful response shapes
+and existing feed/media identities are unchanged. Deployment is deferred; a
+rollback needs no data rewrite but restores the original false-success behavior.
+
+Audio cache reuse verifies object existence before publication. Confirmed absence
+invalidates only the observed cache row, using SQL row identity or an Azure ETag;
+conflicting replacements are re-read. Storage outages preserve cache state and
+fail retryably.
+
+### Independent item audio (implemented and validated; not deployed)
+
+The `fix/independent-episode-audio` candidate at `6842529` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121),
+including core/web/worker checks, the authenticated RSS browser test and
+container parity/podcast contracts. This follow-up remains separate from main;
+deployment is deferred until the owner's next release batch.
+
+New cache hits copy the cached bytes to an item-owned object. Both copied and
+synthesized item audio use `items/<itemId>/audio/<publicationId>.<ext>`; old
+`items/<itemId>/episode.<ext>` objects are not overwritten by regeneration.
+The metadata schema is unchanged and reads remain path-driven. No existing
+episode path, public URL, GUID or token is migrated. Each worker attempt uses a
+fresh publication ID: even a later identical-content regeneration cannot race
+cleanup by reusing an old filename. Existing ItemArtifact records, with kind
+`EPISODE_AUDIO_<publicationId>_<ext>`, track the destination before writing and
+expire under audio retention. Failed and superseded copies therefore remain
+discoverable by normal item/account deletion and artifact expiry. No new table
+or schema migration is required. Artifact expiry supports both metadata modes
+and retains records whose objects are still referenced.
+
+Legacy shared objects remain in place while any episode references them.
+Deletion removes departing metadata first, then checks current references across
+item, digest and summary episodes before removing bytes. Item alternate-format
+paths count as references because RSS repair may switch between MP3 and M4A.
+Cache rows are not ownership references: stale cache entries are invalidated on
+reuse, and source disappearance during a copy must not publish a broken episode.
+All old workers must be stopped before activation; only new publishers may run
+with this cleanup policy. This is a compatibility transition, not a reference
+counter or garbage-collection service. It does not make multi-store publication
+or metadata/blob deletion transactional; storage failures must remain explicit.
+
 ArticlePod is an RSS-first ingestion and narration system with three runtime tiers:
 - `apps/web`: Next.js UI + API routes (auth, ingest, feed, media)
 - `apps/worker`: asynchronous extraction/TTS/publish pipeline
@@ -11,12 +323,13 @@ ArticlePod is an RSS-first ingestion and narration system with three runtime tie
 Primary entities:
 - `User`, `Session`, `FeedToken`, `ShareToken`
 - `Item` (source submission lifecycle)
-- `Job` + `JobEvent` (worker queue and deterministic events)
+- `Job` + `JobEvent` (worker queue and deterministic events; `jobKind` distinguishes `FULL_EPISODE`, `SUMMARY_ONLY`, and explicit `REQUEST_TTS`)
 - `Episode` (RSS/media metadata)
-- `ItemArtifact` (raw + markdown extraction artifact metadata)
+- `ItemArtifact` (raw/markdown extraction and item-audio lifecycle metadata)
 - `ChunkCache` (idempotent synthesis cache)
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
+- `Snippet` (user-saved extension selections with optional structured capture metadata/context)
 - `DemoExtractionTrace` (demo-only extraction diagnostics, last 10)
 - `UserDigestSettings` (per-user digest cadence/length/timezone defaults)
 - `DigestFeedToken` (private digest RSS access token with rotation)
@@ -25,6 +338,9 @@ Primary entities:
 - `DigestSchedulerTick` (external scheduler signal queue)
 - `UserDemographicSurvey` (optional self-reported age band + gender identity profile)
 - `UserFeedback` (message-first user suggestions with optional metadata, contact preference, triage state, and mirror status)
+- `Item` also carries an optional compact HTML extraction-selection scorecard (`extractionEngine`, `extractionSelectionMode`, `extractionScoreMargin`, `extractionSummaryJson`, `extractionSelectionRecordedAt`) so production trends can be queried from the primary metadata store without persisting verbose logs there.
+- `Item` also carries Summary Mode state (`processingMode`, `summaryStatus`, `summaryStorageKey`, provider/model/deployment/token metadata, and summary error/completion fields) so summary-only captures can finish without creating audio.
+- Published personal wiki artifacts are blob-only in v1, keyed per user under `users/<userId>/wiki/...`; no new Prisma or Azure Table primary entities are required for the wiki workflow.
 
 Auth profile metadata on `User`:
 - coarse geo snapshots from trusted proxy headers:
@@ -35,11 +351,17 @@ Auth profile metadata on `User`:
 Monetization/quota fields on `User`:
 - `complimentaryPro` (manual support override for non-Stripe paid access)
 - `billingProvider`, `billingCustomerId`, `billingSubscriptionId`
-- `billingPlanCode`, `billingStatus`, `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`, `billingUpdatedAt`
+- `billingPriceId`, `billingPlanCode`, `billingStatus`, `billingEntitlementStatus`
+- `billingLastPaymentStatus`, `billingLastInvoiceId`
+- `billingCurrentPeriodEnd`, `billingCancelAtPeriodEnd`
+- `billingLastStripeEventId`, `billingLastStripeEventCreatedAt`
+- `billingLastSubscriptionEventAt`, `billingLastInvoiceEventAt`
+- `billingUpdatedAt`
 - `isPaid` (effective access cache derived from billing state + complimentary override)
 - `submissionCount` (lifetime submission usage counter)
 - `extraSubmissionCredits` (admin-granted free-tier extensions)
-- `BillingWebhookEvent` (Stripe event idempotency + audit rows)
+- `defaultItemProcessingMode` (`FULL_EPISODE` or `SUMMARY_ONLY`) for new captures when the request does not explicitly choose a mode
+- `BillingWebhookEvent` (Stripe event idempotency + audit rows, including event/object ids, invoice ids, and apply result)
 - `AnalyticsEvent` (raw behavior events for KPI/retention/user analytics)
 - `AnalyticsDailyRollup` (daily additive counters for fast trend queries)
 - `AnalyticsCoverage` (metric coverage/backfill metadata, including forward-only metrics)
@@ -49,59 +371,105 @@ Monetization/quota fields on `User`:
 - `URL`
 - `PDF`
 - `HTML_SNAPSHOT` (Chrome extension captured HTML)
+- `PODCAST_TRANSCRIPT` (internal-only Apple Podcasts/direct transcript import; not a visible submit mode)
 
 The worker extraction adapter branches by source type:
-- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + readability + cleanup
+- URL: SSRF-validated backend fetch (pinned IP candidates first, hostname fallback when needed) + dual-candidate extraction (`Readability` and `defuddle`) + scored selection + cleanup, with fetched challenge/interstitial HTML classified before generic extraction fallback messaging
 - PDF: uploaded bytes from artifact storage + text extraction
-- HTML snapshot: parse raw HTML directly, no server-side fetch
+- HTML snapshot: parse raw HTML directly, no server-side fetch; snapshot block/interstitial classification happens here on the server instead of in the popup, including lightweight verification shells
+- Podcast transcript: web submit/capture routes detect Apple Podcasts episode pages and direct transcript files before normal article handling, resolve a public RSS `podcast:transcript` or direct VTT/SRT/TXT/HTML transcript, normalize it into canonical markdown, and enqueue only `ArticleSummaryTask` work
 
 ## Extraction Artifact Plane
 Current behavior (`M57`-`M64` implemented):
 - extraction emits both narration text and markdown from HTML/PDF/snapshot sources.
 - worker persists dual artifacts in object storage:
   - raw source artifacts (`RAW_HTML`, `RAW_PDF`) with retention expiry (default target: 90 days)
-  - markdown artifact (`MARKDOWN`) retained for downstream workflows
-  - summary markdown artifacts (`summaries/<user>/<run>/summary.md`) for manual summary publishing and reuse
+  - cleaned extracted item markdown artifacts retained under `users/<userId>/markdown/items/<itemId>/canonical.md`
+  - Summary Mode item summary markdown retained under `users/<userId>/markdown/items/<itemId>/summary.md`
+  - digest summary/email markdown retained under `users/<userId>/markdown/digests/<cadence>/<periodKey>/...`
+  - manual summary markdown retained under `users/<userId>/markdown/summaries/<summaryRunId>/summary.md`
+  - generated item/digest/summary episode audio retained for 60 days from `publishedAt` before purge removes the blob/object and episode row
+- `PODCAST_TRANSCRIPT` items store normalized transcript markdown as the canonical item `MARKDOWN` artifact only; they do not store Apple page snapshots, transcript raw-source artifacts, audio objects, or RSS/media state.
 - metadata is normalized via `ItemArtifact` records:
   - `kind`, `storageKey`, `contentType`, `byteLength`, `expiresAt`, `createdAt`
-- narration input contract uses markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+- extracted-item markdown passes through shared rule-based cleanup before persistence:
+  - remove obvious wrapper junk plus footer/legal/nav/share chrome while preserving richer source context such as links, raw URLs, bylines, dates, captions, and table structure in the durable `MARKDOWN` artifact
+  - strip timestamp/read-time chrome, subscriber upsell fragments, and short trailing tag-list paragraphs without treating ordinary article mentions of `privacy` / `terms` as footer noise
+  - normalize malformed leaked image wrapper fragments into URL-bearing stored content instead of silently deleting them
+  - narration cleanup is the aggressive boundary: strip residual raw HTML tags, raw URLs, image assets/wrappers, leading metadata/standfirst/caption noise, and flatten legacy HTML/markdown table remnants before narration text is derived
+  - shared markdown quality analysis reports stored-markdown wrapper/footer junk plus narration-surface URL, image, table, metadata, and low-signal residues for audits/tests
+  - preserve substantive prose, headings, meaningful inline link text, and reusable source references in stored markdown
+- HTML extraction diagnostics now log the selected engine plus both candidate scorecards per item so production traces can show where `Readability` or `defuddle` wins over time.
+- the worker also persists the compact extraction-selection winner + score summary onto the `Item` row after HTML extraction succeeds, so Azure Table primary can be inspected over time while detailed candidate traces remain in logs.
+- narration input contract uses cleaned markdown-derived normalized text while preserving deterministic chunk/hash behavior.
+- when cleanup leaves too little narratable prose, the worker fails the item with `EXTRACTION_EMPTY` instead of publishing junk audio.
+- summary and digest markdown artifacts remain author-polished stored outputs, while their podcast narration and description path now runs a later shared cleanup over stored markdown that removes trailing `Sources` / `References` appendices and other speech-only residue.
+- extraction-quality verification lives in `testing/extraction-quality/`, which reuses the same core URL and snapshot extraction code paths but stops before DB writes and TTS.
 
 ## Async pipeline
-1. Web validates request and enqueues `Item` + `Job`.
+1. Web validates request and enqueues `Item` + `Job` for full episode and explicit TTS work. Summary-only URL/PDF/snapshot captures and internal podcast transcript imports materialize canonical markdown first, then enqueue `ArticleSummaryTask` instead of a podcast/audio `Job`.
    - before enqueue, submission quota is consumed atomically for non-paid users.
-2. Worker claims due jobs (`QUEUED` or retry-eligible `FAILED`).
+   - item episode jobs also enqueue a tiny dispatch message (`jobId`, `kind`) so workers can use a competing-consumer pull model without scanning the durable job table.
+2. Worker reserves one visible dispatch message and then claims the matching durable job lease.
+   - the durable job row carries `leaseId`, `leaseOwner`, `leaseExpiresAt`, `lastHeartbeatAt`, and `dispatchMessageId`.
+   - only one worker may own the lease at a time; queue-only state is never the source of truth.
 3. Worker extracts + normalizes text.
-4. Worker chunks text deterministically and computes hash key.
-5. Worker resolves TTS selection and uses chunk cache when available.
-6. Worker writes final audio artifact to object storage and upserts `Episode`.
-7. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error.
+4. For `ArticleSummaryTask`, worker reads the existing canonical `MARKDOWN` artifact, generates and stores item summary markdown, marks the item ready, and skips TTS/audio/RSS publication.
+5. For `FULL_EPISODE` and `REQUEST_TTS`, worker chunks text deterministically. If full-episode narration exceeds `WORKER_TTS_MAX_CHUNKS` and no matching full-audio cache exists, the worker generates a shorter item summary, prepends a spoken disclosure that the transcript was summarized because it was too long, stores the summary artifact, and synthesizes the episode from that summarized narration. If the summary provider is rate-limited/unavailable or returns narration that still exceeds the ceiling, the worker falls back to a bounded deterministic abridged summary before TTS. `SOURCE_TOO_LONG` is reserved for the final invariant safety-net case where narration still cannot fit. During synthesis, retryable python-tts/Kokoro segment failures are retried within the current run before the job-level retry path is used.
+6. Worker computes the cache hash key, resolves TTS selection, and uses chunk cache when available.
+7. While long TTS runs are active, worker heartbeats both the queue reservation and durable lease.
+8. Worker writes final audio artifact to object storage, stamps a 60-day expiry on the episode metadata, and upserts `Episode`.
+9. Worker marks item/job `READY/SUCCEEDED` or `FAILED` with actionable error, then acknowledges or requeues the dispatch message.
+
+## Summary Mode pipeline
+1. User toggles `/app` between `FULL_EPISODE` and `SUMMARY_ONLY`; the default persists on `User.defaultItemProcessingMode`.
+2. Submit routes pass an explicit `mode` from the web form or inherit the persisted default for Chrome/PDF/API captures. Internal `PODCAST_TRANSCRIPT` detection overrides the effective mode to `SUMMARY_ONLY`.
+3. `SUMMARY_ONLY` captures store canonical item markdown exactly like full episodes, then enqueue `ArticleSummaryTask`.
+4. Summary output is stored at `users/<userId>/markdown/items/<itemId>/summary.md` and reflected on the `Item.summary*` metadata fields.
+5. No `Episode`, audio object, RSS item, or media token is created for summary-only completion.
+6. `POST /api/items/:id/request-tts` queues a `REQUEST_TTS` job, consumes normal podcast capacity, and the worker prefers the stored canonical markdown so explicit audio requests do not depend on re-fetching the original page. `PODCAST_TRANSCRIPT` items are rejected here.
+7. Retry preserves the last job kind, so summary failures retry as summaries and failed explicit TTS requests retry as TTS.
+8. Downstream synthesis reads summary artifacts selectively: digests prefer them as compact source inputs, while wiki preparation prepends them to the full article markdown instead of replacing the source.
+
+## Internal Podcast Transcript Detection
+
+This is an extraction/synthesis path, not an RSS/media feature. The user still pastes into `Submit URL` or uses extension capture/upload page. The server internally detects:
+
+- Apple Podcasts episode URLs from the URL itself or from the captured tab URL, requiring the `i=` episode id.
+- Direct public transcript URLs when the extension or content type is clearly VTT, SRT, TXT, or HTML.
+
+Apple episode resolution uses Apple lookup to find the publisher RSS feed, matches the episode by GUID first and conservative title/date fallback second, then reads `podcast:transcript` tags from the matched item. Transcript formats are preferred in order: `text/vtt`, `application/x-subrip`, `text/plain`, then `text/html`. The resolver rejects private/internal transcript URLs, unsupported formats, oversized files, empty/garbage text, Apple show pages without an episode id, and podcast episodes with no public transcript. It does not scrape Apple's transcript UI, fetch enclosures, run ASR, launch a browser, or support Spotify/YouTube Music in v1.
+
+Successful transcript imports create `Item.sourceType=PODCAST_TRANSCRIPT`, force `processingMode=SUMMARY_ONLY`, write canonical markdown, and create `ArticleSummaryTask`. Failed confident podcast detections create a failed `PODCAST_TRANSCRIPT` item so Recent items can show the extraction message.
 
 ## Billing flow
-1. Authenticated user starts Pro checkout from `/pricing` or `/app/settings`.
-2. Web creates a Stripe-hosted Checkout session and reuses/creates a Stripe customer keyed to the local `User`.
-3. Stripe handles payment method capture and recurring billing outside ArticlePod.
-4. Stripe webhooks update the local billing fields on `User` and create `BillingWebhookEvent` rows for idempotency.
-5. Effective paid access is derived from Stripe subscription state plus `complimentaryPro`, then cached onto `User.isPaid` so existing quota gates stay fast.
-6. `/app/settings` launches Stripe Customer Portal for self-serve updates, cancelation, and payment-method management.
+1. Authenticated user starts `Pro monthly` or `Pro annual` checkout from `/pricing` or `/app/settings`.
+2. Web maps the approved internal plan key to the configured Stripe price id, reuses or creates a Stripe customer keyed to the local `User`, and creates a hosted Checkout session in subscription mode.
+3. Stripe handles card capture and recurring billing outside ArticlePod; the redirect back to `/app/settings?billing=success` is treated only as a hint, not the access source of truth.
+4. `checkout.session.completed` records the Stripe customer and subscription linkage locally and may leave the account in `INCOMPLETE` pending activation.
+5. Subscription and invoice webhooks update the local billing cache on `User`, while `BillingWebhookEvent` rows record idempotency, stale-event ignores, and processing outcomes.
+6. `invoice.paid` grants or extends access through `currentPeriodEnd`; `invoice.payment_failed` and `invoice.payment_action_required` surface payment-recovery states without relying on the redirect flow.
+7. Effective paid access is derived from Stripe entitlement state plus `complimentaryPro`, then cached onto `User.isPaid` so existing quota gates stay fast.
+8. `/app/settings` launches Stripe Customer Portal for self-serve updates, invoice history, cancelation, and payment-method management, while `/admin` shows read-only Stripe identifiers and dashboard links for support.
 
 ## Digest automation pipeline (`M72`-`M79`)
 1. User configures digest preferences in `/app/settings` (daily/weekly email + podcast, timezone, schedule, target length).
 2. Worker scheduler pass evaluates due windows from `UserDigestSettings`.
 3. Scheduler enqueues idempotent `DigestRun` rows keyed by `(userId, cadence, periodKey)`.
-4. Digest processor claims queued/retryable runs and loads markdown artifacts from READY source items in window.
+4. Digest processor claims queued/retryable runs and loads READY source items in window, preferring each stored item summary and falling back to canonical item markdown when no item summary exists.
 5. Summary provider adapter generates digest markdown/text (stub, proxy, or Azure OpenAI depending on runtime env), while persisting provider/model/deployment/token usage metadata.
-6. Processor persists summary/email artifacts to object storage; email sender adapter records stub delivery status.
-7. When enabled, processor synthesizes digest audio with existing TTS selection and upserts `DigestEpisode`.
+6. Processor persists digest summary/email markdown under deterministic `users/<userId>/markdown/digests/...` keys; email sender adapter records stub delivery status.
+7. When enabled, processor derives narration text from stored digest markdown with the shared summary cleanup pass, then synthesizes audio and upserts `DigestEpisode`.
 8. Digest RSS route renders separate digest feed using `DigestFeedToken`; media served via digest media range route.
 
 ## Manual Summary Studio pipeline (`M86`-`M91`)
 1. Signed-in user opens `/app/summary`.
 2. Web lists READY items with markdown artifacts, default-selecting the last 7 days up to 30 items.
 3. User optionally refines selection, title, target length (`5 / 15 / 30`), and podcast toggle, then creates a `SummaryRun`.
-4. Worker claims queued/retryable summary runs and loads the selected markdown sources.
+4. Worker claims queued/retryable summary runs and loads the selected canonical markdown sources.
 5. Summary provider chooses Azure OpenAI `nano` for `5` and `15` minute runs, `mini` for `30` minute runs, and retries nano failures once on mini.
-6. Worker stores `summary.md` plus optional episode audio under deterministic `summaries/<user>/<run>/...` storage keys and records provider/model/deployment/token usage metadata.
-7. When podcast generation is enabled, the resulting `SummaryEpisode` is published into the existing private digest RSS/media surface.
+6. Worker stores summary markdown under deterministic `users/<userId>/markdown/summaries/<summaryRunId>/summary.md` keys and records provider/model/deployment/token usage metadata.
+7. When podcast generation is enabled, worker derives narration text from stored summary markdown with the shared summary cleanup pass, publishes `SummaryEpisode` audio, and surfaces it in the main private RSS/media feed alongside regular episodes.
 
 ## Admin analytics pipeline (`M66`-`M70`)
 Event sources:
@@ -149,6 +517,10 @@ Critical artifacts in object storage:
 - raw-source snapshots/artifacts (`RAW_HTML`, `RAW_PDF`) with retention policy
 - markdown artifacts (`MARKDOWN`) for diagnostics/reuse
 - manual summary markdown/audio artifacts for Summary Studio runs
+- personal wiki artifacts:
+  - `users/<userId>/wiki/manifest.json`
+  - `users/<userId>/wiki/pages/<pagePath>.md`
+  - `users/<userId>/wiki/state/builds/<runId>.json` (current build-state blob; older published state blobs are deleted on replacement)
 
 ## Media delivery contract
 `/api/media/[...path]` and `/api/digest-media/[...path]` are storage-backed and enforce podcast-compatible semantics:
@@ -165,11 +537,36 @@ Critical artifacts in object storage:
   - item media 404s can enqueue regeneration jobs and clear stale chunk cache references when source material is still available
   - if the expected key is missing but sibling `.mp3`/`.m4a` exists, episode metadata is reconciled in-place and served immediately
 
+## Public episode share flow (`M104`)
+1. An authenticated owner creates or reuses a stable item-scoped share row with scope `public_episode_item:<itemId>`.
+2. The owner dashboard stores and displays an owner-only share URL shaped like `/share/episode/<shareId>/<sig>`.
+3. The public share page resolves the share row by `shareId`, verifies the deterministic signature against the stored share-token hash and scope, and then loads the current item and episode for playback.
+4. The page renders a branded, `noindex` landing page with audio playback, direct download, optional source attribution, and signup/pricing CTAs.
+5. Playback and download requests go through `/api/share-media/[...path]`, which verifies a share-scoped media signature and then serves storage-backed audio with `HEAD`, byte-range, and `206 Partial Content` support.
+6. Revoking the share deletes the underlying `ShareToken` row, immediately invalidating both the public page and any shared playback/download URLs.
+
+Key invariants:
+- public episode sharing is separate from workspace demo share links
+- public episode sharing does not rotate or mutate private feed/media auth
+- item scope is stable across normal episode regeneration, so the public page can continue serving the current episode for that item until revoked
+
+Growth instrumentation:
+- raw analytics events capture:
+  - `SHARE_LINK_CREATED`
+  - `SHARE_PAGE_VIEWED`
+  - `SHARE_PLAYBACK_STARTED`
+  - `SHARE_CTA_CLICKED`
+- CTA clicks are logged through a small public redirect endpoint before sending users to `/` or `/pricing`
+
 ## Extension ingestion path
 1. User is authenticated on web app.
 2. Web mints one-time extension connect code (24-hour default).
 3. Extension exchanges code for a scoped token that does not expire automatically.
-4. Extension captures active-tab HTML (`document.documentElement.outerHTML`).
+4. Extension runs a popup-triggered smart-capture pass on the active tab:
+   - detect a likely main-content root
+   - do bounded safe load-more/read-more clicks and limited scroll passes when needed
+   - stay conservative on thread/feed-style hosts
+   - clone the final DOM and remove inert scripts, styles, templates, noscript blocks, and HTML comments
 5. Extension calls `POST /api/items/html-snapshot`.
 6. Item enters normal worker pipeline and appears in user feed.
 
@@ -178,32 +575,65 @@ Policy guardrails:
 - no credential forwarding/session replay to backend
 - no bypass automation (paywall/DRM/headless bypass)
 
+## Snippet capture path
+1. User highlights text on a page and uses the Chrome extension context menu.
+2. Extension captures the plain selected text plus a bounded structured bundle from the live DOM:
+   - sanitized selection HTML
+   - nearest useful context HTML, later converted to markdown server-side
+   - normalized page metadata (`canonicalUrl`, `siteName`, `description`, `author` / `byline`, `publishedAt`, `language`, `imageUrl`)
+   - heading-path structure for where the selection sits on the page
+3. `POST /api/snippets` validates the payload and derives reusable snippet fields:
+   - `selectionMarkdown`
+   - `contextMarkdown`
+   - `captureMarkdown` (default structured template combining metadata + selected passage + surrounding context)
+4. The snippet is stored in Prisma or Azure Table primary metadata without creating an `Item`, `Job`, or `Episode`.
+5. `/app/snippets` renders the saved excerpt, metadata, and structured context for later review.
+
+## Personal wiki pipeline (`M120`)
+1. An operator runs `pnpm wiki:prepare --users <id-or-email[,id-or-email...]>` locally with real blob credentials.
+2. The prepare step loads the user's READY item markdown artifacts plus all saved snippets, normalizes them into a local `raw/` workspace, copies the Karpathy `llm-wiki.md` prompt verbatim into `KARPATHY_LLM_WIKI.md`, and writes a minimal wrapper `AGENTS.md`, a local `WIKI_CONVENTIONS.md`, plus `WIKI_RUNTIME.md`.
+3. If a published wiki already exists for that user, the prepare step restores the current `wiki/` tree for incremental runs; full rebuilds keep any previous wiki in a side reference folder instead of mutating the prompt itself, and `overview.md` is regenerated on each prepare so the landing page metadata and entry summary stay current.
+4. Codex then operates locally inside the prepared workspace, reading `raw/` and updating only `wiki/` according to the Karpathy prompt pattern (`index.md`, `log.md`, concepts, entities, sources, outputs).
+5. `pnpm wiki:lint --run <runId>` and `pnpm wiki:verify --run <runId>` validate the copied prompt, required wrapper files, required wiki pages, internal wiki link hygiene, and the presence of the long-form concept-page conventions without introducing a second schema.
+6. `pnpm wiki:publish --run <runId>` rewrites internal wiki links to canonical `/app/wiki/...` routes, derives backlinks and lightweight search text, uploads changed markdown pages only, deletes removed pages, writes `manifest.json`, and replaces the current build-state blob.
+7. Signed-in `/app/wiki` loads the manifest and current page directly from artifact storage, hides source/log pages from the primary tree, strips internal markdown plumbing from the rendered article view, presents a denser one-card browse rail with clamped page summaries, expects concept pages to render as structured wiki articles with an executive summary, an `At a glance` table, a long-form `## Working synthesis` split into thematic subsections, and concise references, keeps synthesis content in the main article while placing a compact inline `Sources` list underneath it with five short previews by default, and routes source references back to the original URLs instead of exposing raw blob/page paths.
+
 ## Runtime profiles and parity
 - `simple`: local SQLite + local object storage + local python-tts
 - `parity`: Docker Compose with PostgreSQL + Azurite + python-tts + web + worker
 - `azure`: single VM compute + Azure Blob, with metadata primary selected by `METADATA_PRIMARY_BACKEND`
   - `prisma`: legacy Azure PostgreSQL-backed metadata
-  - `azure_table`: Azure Table-backed operational metadata with local SQLite reserved for auxiliary low-cost/admin state
+  - `azure_table`: Azure Table-backed operational metadata for production; local SQLite remains a local-dev and legacy-only escape hatch, not part of the normal Azure contract
 
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
 ## Durable Azure target (M35-M46)
+Operational repository separation is staged: private `Podcast-Deploy` will own
+production orchestration, verified SSH transport/inventory, source revision
+selection, remote sync, and ingress deployment. Source retains application
+runtime execution, service units/assets, and required build/maintenance support.
+The one-time source exporter is a fixed-recipient sealed-box transfer, not a
+runtime deployment or schema/data migration. Existing source operations remain
+until destination proof/checkout and live continuity are verified. See
+`docs/azure-ci-cd.md` for the gated cutover and exact transfer contract.
+
 Locked target architecture:
-- Compute: single Linux VM running `web`, `worker`, and `python-tts` as `systemd` services (cost baseline: `Standard_B2s`, `TTS_WORKERS=1`)
-- Optional overflow compute lane: `worker-overflow` service activated only under queue-pressure policy
+- Primary compute: `eastus` Linux VM running `web`, primary `worker`, and local `python-tts` as `systemd` services (`Standard_D2as_v5`, `TTS_WORKERS=1`)
+- Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, `1Gi` default worker memory, and no public ingress
 - Durable operational metadata: Azure Table when `METADATA_PRIMARY_BACKEND=azure_table`
+- Durable item dispatch: Azure Queue Storage in the same storage account when `ITEM_DISPATCH_BACKEND=azure_queue`
 - Azure OpenAI account in `eastus` for summary generation (runtime uses API-key auth in v1)
-- Rollback/canary metadata path: optional Prisma/PostgreSQL when explicitly enabled
+- No PostgreSQL is provisioned in the active blue/green target; Prisma/PostgreSQL remains legacy-only for parity or historical rollback research
 - Durable artifacts: Azure Blob Storage
-- Auxiliary local data: SQLite on VM for low-signal/admin-only state that does not need to sit in Azure Table
+- No required local database on the Azure VM; feedback and operational metadata live in Azure Table, while verbose diagnostics stay on local disk only
 - Migration track: queue/item/digest metadata can still be dual-written to Azure Table mirror for canary comparison and phased cutover
-- Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state
+- Diagnostic boundary: structured logs remain local by default; verbose diagnostics should not become Table-primary state, but compact per-item extraction-selection scorecards are first-class operational metadata.
 - Provisioning: Bicep + azd (`/Users/vishalchowdhary/Documents/Podcast/infra`)
 - Deployment automation: `/Users/vishalchowdhary/Documents/Podcast/scripts/azure/*.sh`
 
 Durability principle:
 - VM loss must not lose customer records, episodes, or media objects.
-- Recovery relies on re-provisioning compute, reconnecting to existing Azure Table + Blob state, and bootstrapping any auxiliary local SQLite tables as needed.
+- Recovery relies on re-provisioning compute and reconnecting to existing Azure Table + Queue + Blob state; no VM-local database copy is required.
 
 ## Observability contract (M47+)
 All runtime services emit structured JSON events with shared fields:
@@ -212,8 +642,9 @@ All runtime services emit structured JSON events with shared fields:
 - correlation keys: `trace_id`, `span_id`, `request_id`, `job_id`, `item_id`
 
 Local sink:
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/<service>/app.log.jsonl`
-- rotation/retention controlled by `LOG_MAX_BYTES`, `LOG_MAX_FILES`, `LOG_RETENTION_DAYS`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/<service>/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/<service>/errors.log.jsonl`
+- retention is controlled by `LOG_MAX_BYTES`, `LOG_MAX_FILES`, `LOG_RETENTION_DAYS`, and `LOG_ERROR_RETENTION_DAYS`
 
 Correlation propagation:
 - internal calls carry `traceparent`, `x-request-id`, `x-job-id`, `x-item-id`

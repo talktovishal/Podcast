@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildUserDigestSummaryStorageKey, buildUserItemMarkdownStorageKey, buildUserItemSummaryStorageKey } from "@articlepod/core";
 import { prisma } from "../src/lib/prisma.js";
 import { workerEnv } from "../src/lib/env.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
@@ -148,7 +149,7 @@ test("processDigestRun succeeds with markdown sources and stores summary + stub 
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const markdown = `# Summary ${uniq}\n\nThis is deterministic markdown content for digest tests.`;
     const stored = await storage.putObject(markdownKey, Buffer.from(markdown, "utf8"), {
       contentType: "text/markdown; charset=utf-8"
@@ -185,8 +186,91 @@ test("processDigestRun succeeds with markdown sources and stores summary + stub 
     assert.equal(refreshed?.status, "SUCCEEDED");
     assert.equal(refreshed?.sourceItemCount, 1);
     assert.equal(refreshed?.emailStatus, "STUB_STORED");
-    assert.ok(refreshed?.summaryStorageKey);
+    assert.equal(refreshed?.summaryStorageKey, buildUserDigestSummaryStorageKey(user.id, "DAILY", `success-${uniq}`));
     assert.ok(refreshed?.summaryBytes && refreshed.summaryBytes > 0);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("processDigestRun prefers item summaries before falling back to canonical markdown", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-source`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `digest-summary-source-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: `Digest source ${uniq}`,
+        sourceType: "URL",
+        sourceUrl: `https://example.com/${uniq}`,
+        status: "READY",
+        summaryStatus: "SUCCEEDED",
+        summaryStorageKey: buildUserItemSummaryStorageKey(user.id, `pending-${uniq}`)
+      }
+    });
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
+    const summaryKey = buildUserItemSummaryStorageKey(user.id, item.id);
+    const [storedMarkdown, storedSummary] = await Promise.all([
+      storage.putObject(markdownKey, Buffer.from(`# Canonical ${uniq}\n\nFULL_ARTICLE_MARKER`, "utf8"), {
+        contentType: "text/markdown; charset=utf-8"
+      }),
+      storage.putObject(summaryKey, Buffer.from(`# Item summary ${uniq}\n\nSUMMARY_MARKER`, "utf8"), {
+        contentType: "text/markdown; charset=utf-8"
+      })
+    ]);
+    await Promise.all([
+      prisma.item.update({
+        where: { id: item.id },
+        data: {
+          summaryStorageKey: storedSummary.key,
+          summaryBytes: storedSummary.bytes
+        }
+      }),
+      prisma.itemArtifact.create({
+        data: {
+          itemId: item.id,
+          kind: "MARKDOWN",
+          storageKey: storedMarkdown.key,
+          contentType: "text/markdown; charset=utf-8",
+          byteLength: storedMarkdown.bytes
+        }
+      })
+    ]);
+
+    const run = await prisma.digestRun.create({
+      data: {
+        userId: user.id,
+        cadence: "DAILY",
+        periodKey: `summary-source-${uniq}`,
+        windowStart: new Date(Date.now() - 60 * 60 * 1000),
+        windowEnd: new Date(Date.now() + 60 * 1000),
+        scheduledFor: new Date(),
+        status: "QUEUED",
+        targetLengthMinutes: 5,
+        emailEnabled: false,
+        podcastEnabled: false
+      }
+    });
+
+    const processed = await processDigestRun(run.id);
+    assert.equal(processed, true);
+
+    const refreshed = await prisma.digestRun.findUnique({ where: { id: run.id } });
+    assert.ok(refreshed?.summaryStorageKey);
+    const digestMarkdown = (await storage.getObject(refreshed.summaryStorageKey)).toString("utf8");
+    assert.match(digestMarkdown, /SUMMARY_MARKER/);
+    assert.doesNotMatch(digestMarkdown, /FULL_ARTICLE_MARKER/);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
@@ -220,7 +304,7 @@ test("processDigestRun marks FAILED and schedules retry when summary provider fa
         status: "READY"
       }
     });
-    const markdownKey = `items/${item.id}/artifacts/source.md`;
+    const markdownKey = buildUserItemMarkdownStorageKey(user.id, item.id);
     const stored = await storage.putObject(markdownKey, Buffer.from("# Fail case", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });

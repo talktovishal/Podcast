@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthUserFromRequest } from "@/lib/auth";
-import { buildBillingSnapshot, buildEffectivePaidState } from "@/lib/billing";
+import { buildBillingSnapshot, buildEffectivePaidState, buildStripeDashboardLinks } from "@/lib/billing";
 import { fromError } from "@/lib/http";
 import { findPrimaryUserById, listPrimaryUsers, updatePrimaryUser } from "@/lib/metadata-primary-auth";
 import { buildSubmissionQuotaSnapshot } from "@/lib/submission-quota";
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       users: filteredUsers.slice(0, 100).map((user) => {
         const quota = buildSubmissionQuotaSnapshot({
           isPaid: user.isPaid,
+          billingPlanCode: user.billingPlanCode,
           submissionCount: user.submissionCount,
           extraSubmissionCredits: user.extraSubmissionCredits
         });
@@ -57,6 +58,12 @@ export async function GET(request: NextRequest) {
           submissionCount: user.submissionCount,
           extraSubmissionCredits: user.extraSubmissionCredits,
           billing: buildBillingSnapshot(user),
+          stripeDashboard: buildStripeDashboardLinks({
+            provider: user.billingProvider,
+            customerId: user.billingCustomerId,
+            subscriptionId: user.billingSubscriptionId,
+            invoiceId: user.billingLastInvoiceId ?? null
+          }),
           quota
         };
       })
@@ -98,6 +105,7 @@ export async function POST(request: NextRequest) {
 
     const quota = buildSubmissionQuotaSnapshot({
       isPaid: user.isPaid,
+      billingPlanCode: user.billingPlanCode,
       submissionCount: user.submissionCount,
       extraSubmissionCredits: user.extraSubmissionCredits
     });
@@ -116,6 +124,12 @@ export async function POST(request: NextRequest) {
         submissionCount: user.submissionCount,
         extraSubmissionCredits: user.extraSubmissionCredits,
         billing: buildBillingSnapshot(user),
+        stripeDashboard: buildStripeDashboardLinks({
+          provider: user.billingProvider,
+          customerId: user.billingCustomerId,
+          subscriptionId: user.billingSubscriptionId,
+          invoiceId: user.billingLastInvoiceId ?? null
+        }),
         quota
       }
     });

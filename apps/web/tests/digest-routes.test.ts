@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { createSecretToken } from "@articlepod/core";
+import { buildUserDigestSummaryStorageKey, buildUserSummaryRunStorageKey, createSecretToken } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { POST as rotateDigestFeedTokenPost } from "../src/app/api/digest-feed-token/rotate/route";
 import { GET as digestRunsGet } from "../src/app/api/digest/runs/route";
@@ -219,7 +219,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
         status: "SUCCEEDED",
         targetLengthMinutes: 15,
         sourceItemCount: 3,
-        summaryStorageKey: `digests/${user.id}/weekly/2026-02-27/summary.md`,
+        summaryStorageKey: buildUserDigestSummaryStorageKey(user.id, "WEEKLY", "2026-02-27"),
         summaryBytes: 1200,
         emailEnabled: true,
         emailStatus: "STUB_STORED",
@@ -243,8 +243,8 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
       }
     });
 
-    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
-    const repeatRssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
+    const repeatRssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
     assert.equal(rssResponse.status, 200);
     assert.equal(repeatRssResponse.status, 200);
     const xml = await rssResponse.text();
@@ -267,7 +267,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
 
     const headResponse = await digestMediaHead(
       new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(headResponse.status, 200);
     assert.equal(headResponse.headers.get("content-type"), "audio/mpeg");
@@ -283,7 +283,7 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
           }
         }
       ),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(rangeResponse.status, 206);
     assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
@@ -297,12 +297,105 @@ test("digest rss and digest media routes return feed + range-compatible audio", 
           }
         }
       ),
-      { params: { path: enclosurePath.split("/") } }
+      { params: Promise.resolve({ path: enclosurePath.split("/") }) }
     );
     assert.equal(suffixRangeResponse.status, 206);
     assert.equal(suffixRangeResponse.headers.get("content-range"), "bytes 12-15/16");
     assert.equal(Buffer.from(await suffixRangeResponse.arrayBuffer()).toString("utf8"), "cdef");
   } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("digest rss omits expired digest episodes and does not list summary episodes", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-digest-expired`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `digest-expired-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const token = await ensureUserDigestFeedToken(user.id);
+    const digestAudioKey = `digests/${user.id}/expired/${uniq}/episode.mp3`;
+    const summaryAudioKey = `summaries/${user.id}/expired/${uniq}/episode.mp3`;
+    await Promise.all([
+      storage.putObject(digestAudioKey, Buffer.from("expired-digest", "utf8"), { contentType: "audio/mpeg" }),
+      storage.putObject(summaryAudioKey, Buffer.from("expired-summary", "utf8"), { contentType: "audio/mpeg" })
+    ]);
+
+    const digestRun = await prisma.digestRun.create({
+      data: {
+        userId: user.id,
+        cadence: "DAILY",
+        periodKey: `digest-expired-${uniq}`,
+        windowStart: new Date("2026-01-01T00:00:00.000Z"),
+        windowEnd: new Date("2026-01-02T00:00:00.000Z"),
+        scheduledFor: new Date("2026-01-02T00:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 5,
+        sourceItemCount: 1,
+        emailEnabled: false,
+        podcastEnabled: true
+      }
+    });
+
+    const summaryRun = await prisma.summaryRun.create({
+      data: {
+        userId: user.id,
+        windowStart: new Date("2026-01-01T00:00:00.000Z"),
+        windowEnd: new Date("2026-01-02T00:00:00.000Z"),
+        status: "SUCCEEDED",
+        targetLengthMinutes: 15,
+        selectedItemCount: 1,
+        podcastEnabled: true
+      }
+    });
+
+    await prisma.digestEpisode.create({
+      data: {
+        digestRunId: digestRun.id,
+        userId: user.id,
+        guid: `digest-expired-guid-${uniq}`,
+        title: "Expired Digest Episode",
+        description: "expired digest",
+        audioPath: digestAudioKey,
+        audioBytes: 14,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-02T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    await prisma.summaryEpisode.create({
+      data: {
+        summaryRunId: summaryRun.id,
+        userId: user.id,
+        guid: `summary-expired-guid-${uniq}`,
+        title: "Expired Summary Episode",
+        description: "expired summary",
+        audioPath: summaryAudioKey,
+        audioBytes: 15,
+        mimeType: "audio/mpeg",
+        publishedAt: new Date("2026-01-02T00:00:00.000Z"),
+        expiresAt: new Date("2026-03-01T00:00:00.000Z")
+      }
+    });
+
+    const response = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
+    assert.equal(response.status, 200);
+    const xml = await response.text();
+    assert.equal(xml.includes("Expired Digest Episode"), false);
+    assert.equal(xml.includes("Expired Summary Episode"), false);
+  } finally {
+    await storage.deleteObject(`digests/${user.id}/expired/${uniq}/episode.mp3`).catch(() => undefined);
+    await storage.deleteObject(`summaries/${user.id}/expired/${uniq}/episode.mp3`).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
@@ -348,7 +441,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
         status: "SUCCEEDED",
         targetLengthMinutes: 15,
         sourceItemCount: 1,
-        summaryStorageKey: `digests/${user.id}/weekly/${uniq}/summary.md`,
+        summaryStorageKey: buildUserDigestSummaryStorageKey(user.id, "WEEKLY", uniq),
         summaryBytes: 120,
         emailEnabled: false,
         emailStatus: "SKIPPED",
@@ -373,7 +466,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
     });
 
     const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${feedToken.plain}.xml`), {
-      params: { token: feedToken.plain }
+      params: Promise.resolve({ token: feedToken.plain })
     });
     assert.equal(rssResponse.status, 200);
 
@@ -387,7 +480,7 @@ test("digest rss self-heals mismatched digest feed token hashes without changing
   }
 });
 
-test("digest rss merges manual summary episodes and digest media serves them with summary scope", async () => {
+test("digest rss excludes manual summary episodes now that summary podcasts publish on the main feed", async () => {
   ensureDbBootstrap();
   const uniq = Date.now().toString(36);
   const storage = getArtifactStorage();
@@ -403,8 +496,8 @@ test("digest rss merges manual summary episodes and digest media serves them wit
 
   try {
     const token = await ensureUserDigestFeedToken(user.id);
-    const audioKey = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
-    await storage.putObject(audioKey, Buffer.from("abcdefghijklmnop", "utf8"), {
+    const userAudioKey = `summaries/${user.id}/summary-run-${uniq}/episode.mp3`;
+    await storage.putObject(userAudioKey, Buffer.from("abcdefghijklmnop", "utf8"), {
       contentType: "audio/mpeg"
     });
 
@@ -420,7 +513,7 @@ test("digest rss merges manual summary episodes and digest media serves them wit
         selectedItemCount: 2,
         podcastEnabled: true,
         podcastStatus: "SUCCEEDED",
-        summaryStorageKey: `summaries/${user.id}/summary-run-${uniq}/summary.md`,
+        summaryStorageKey: buildUserSummaryRunStorageKey(user.id, `summary-run-${uniq}`),
         summaryBytes: 400,
         completedAt: new Date("2026-02-27T16:05:00.000Z")
       }
@@ -433,41 +526,20 @@ test("digest rss merges manual summary episodes and digest media serves them wit
         guid: `summary-guid-${uniq}`,
         title: "Manual summary run",
         description: "Manual summary description",
-        audioPath: audioKey,
+        audioPath: userAudioKey,
         audioBytes: 16,
         mimeType: "audio/mpeg",
         publishedAt: new Date("2026-02-27T16:05:00.000Z")
       }
     });
 
-    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: { token } });
+    const rssResponse = await digestRssGet(new NextRequest(`http://localhost/rss/digest/${token}.xml`), { params: Promise.resolve({ token }) });
     assert.equal(rssResponse.status, 200);
     const xml = await rssResponse.text();
-    assert.equal(xml.includes("Manual summary run"), true);
-    const enclosureMatch = /enclosure url="([^"]*seid=[^"]+)"/.exec(xml);
-    assert.ok(enclosureMatch, "summary enclosure URL must include seid");
-    const enclosureUrl = enclosureMatch[1];
-    const enclosurePath = new URL(enclosureUrl).pathname.replace("/api/digest-media/", "");
-    const enclosureSearch = new URL(enclosureUrl).search;
-
-    const headResponse = await digestMediaHead(
-      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`),
-      { params: { path: enclosurePath.split("/") } }
-    );
-    assert.equal(headResponse.status, 200);
-    assert.equal(headResponse.headers.get("content-length"), "16");
-
-    const rangeResponse = await digestMediaGet(
-      new NextRequest(`http://localhost/api/digest-media/${enclosurePath}${enclosureSearch}`, {
-        headers: {
-          range: "bytes=0-1"
-        }
-      }),
-      { params: { path: enclosurePath.split("/") } }
-    );
-    assert.equal(rangeResponse.status, 206);
-    assert.equal(rangeResponse.headers.get("content-range"), "bytes 0-1/16");
+    assert.equal(xml.includes("Manual summary run"), false);
+    assert.equal(xml.includes("seid="), false);
   } finally {
+    await storage.deleteObject(`summaries/${user.id}/summary-run-${uniq}/episode.mp3`).catch(() => undefined);
     await prisma.user.delete({ where: { id: user.id } });
   }
 });

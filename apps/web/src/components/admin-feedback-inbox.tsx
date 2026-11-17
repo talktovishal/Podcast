@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   FEEDBACK_FEATURE_AREAS,
   FEEDBACK_MIRROR_STATUSES,
@@ -122,6 +122,21 @@ export function AdminFeedbackInbox() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, filters.status, filters.feedbackType, filters.featureArea, filters.mirrorStatus, filters.q]);
 
+  function handleFiltersSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1);
+    void loadFeedback(1);
+  }
+
+  function handleFiltersEnter(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    setPage(1);
+    void loadFeedback(1);
+  }
+
   const dirtyRows = useMemo(() => {
     return rows.filter((row) => (statusDrafts[row.id] || row.status) !== row.status).length;
   }, [rows, statusDrafts]);
@@ -193,87 +208,90 @@ export function AdminFeedbackInbox() {
         <p className="text-xs text-[var(--muted)]">Unsaved status rows: {dirtyRows}</p>
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-5">
-        <label className="text-xs">
-          Status
-          <select
-            className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
-            value={filters.status}
-            onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-          >
-            <option value="ALL">All statuses</option>
-            {FEEDBACK_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value.toLowerCase()}
-              </option>
-            ))}
-          </select>
-        </label>
+      <form onSubmit={handleFiltersSubmit}>
+        <div className="mt-4 grid gap-2 md:grid-cols-5">
+          <label className="text-xs">
+            Status
+            <select
+              className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
+              value={filters.status}
+              onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+            >
+              <option value="ALL">All statuses</option>
+              {FEEDBACK_STATUSES.map((value) => (
+                <option key={value} value={value}>
+                  {value.toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="text-xs">
-          Type
-          <select
-            className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
-            value={filters.feedbackType}
-            onChange={(event) => setFilters((current) => ({ ...current, feedbackType: event.target.value }))}
-          >
-            <option value="ALL">All types</option>
-            {FEEDBACK_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {feedbackTypeLabel(value)}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="text-xs">
+            Type
+            <select
+              className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
+              value={filters.feedbackType}
+              onChange={(event) => setFilters((current) => ({ ...current, feedbackType: event.target.value }))}
+            >
+              <option value="ALL">All types</option>
+              {FEEDBACK_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {feedbackTypeLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="text-xs">
-          Feature area
-          <select
-            className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
-            value={filters.featureArea}
-            onChange={(event) => setFilters((current) => ({ ...current, featureArea: event.target.value }))}
-          >
-            <option value="ALL">All areas</option>
-            {FEEDBACK_FEATURE_AREAS.map((value) => (
-              <option key={value} value={value}>
-                {feedbackFeatureAreaLabel(value)}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="text-xs">
+            Feature area
+            <select
+              className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
+              value={filters.featureArea}
+              onChange={(event) => setFilters((current) => ({ ...current, featureArea: event.target.value }))}
+            >
+              <option value="ALL">All areas</option>
+              {FEEDBACK_FEATURE_AREAS.map((value) => (
+                <option key={value} value={value}>
+                  {feedbackFeatureAreaLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="text-xs">
-          Mirror
-          <select
-            className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
-            value={filters.mirrorStatus}
-            onChange={(event) => setFilters((current) => ({ ...current, mirrorStatus: event.target.value }))}
-          >
-            <option value="ALL">All mirror states</option>
-            {FEEDBACK_MIRROR_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {value.toLowerCase()}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="text-xs">
+            Mirror
+            <select
+              className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
+              value={filters.mirrorStatus}
+              onChange={(event) => setFilters((current) => ({ ...current, mirrorStatus: event.target.value }))}
+            >
+              <option value="ALL">All mirror states</option>
+              {FEEDBACK_MIRROR_STATUSES.map((value) => (
+                <option key={value} value={value}>
+                  {value.toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="text-xs">
-          Search
-          <input
-            className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
-            placeholder="Email or text"
-            value={filters.q}
-            onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
-          />
-        </label>
-      </div>
+          <label className="text-xs">
+            Search
+            <input
+              className="mt-1 w-full rounded-lg border px-2 py-2 text-sm"
+              placeholder="Email or text"
+              value={filters.q}
+              onChange={(event) => setFilters((current) => ({ ...current, q: event.target.value }))}
+              onKeyDown={handleFiltersEnter}
+            />
+          </label>
+        </div>
 
-      <div className="mt-3 flex items-center gap-2">
-        <button className="rounded-lg border px-3 py-2 text-sm" disabled={loading} onClick={() => void loadFeedback(page)}>
-          {loading ? "Loading..." : "Refresh"}
-        </button>
-      </div>
+        <div className="mt-3 flex items-center gap-2">
+          <button className="rounded-lg border px-3 py-2 text-sm" disabled={loading} type="submit">
+            {loading ? "Loading..." : "Refresh"}
+          </button>
+        </div>
+      </form>
 
       {statusMessage ? <p className="mt-3 text-sm text-[var(--muted)]">{statusMessage}</p> : null}
 

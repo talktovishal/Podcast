@@ -9,6 +9,9 @@ export function sourceTypeBadgeLabel(sourceType: string): string {
   if (normalized === "PDF") {
     return "PDF";
   }
+  if (normalized === "PODCAST_TRANSCRIPT") {
+    return "Podcast transcript";
+  }
   return sourceType;
 }
 
@@ -22,6 +25,9 @@ export function sourceFallbackLabel(sourceType: string): string {
   }
   if (normalized === "PDF") {
     return "Uploaded PDF";
+  }
+  if (normalized === "PODCAST_TRANSCRIPT") {
+    return "Podcast transcript";
   }
   return sourceType;
 }

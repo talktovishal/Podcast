@@ -4,12 +4,17 @@ import { readFile } from "node:fs/promises";
 import { EventEmitter } from "node:events";
 import http from "node:http";
 import {
+  BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE,
+  BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE,
   extractHtmlFromUrl,
   extractHtmlFromUrlWithDiagnostics,
   extractHtmlSnapshot,
+  parseHtmlExtractionSelectionSummary,
+  summarizeHtmlExtractionSelection,
   shouldSuggestHtmlSnapshotForError
 } from "../src/extract/html";
 import { cleanPdfTextWithAbogenRules } from "../src/extract/abogen/pdfClean";
+import { cleanExtractedMarkdown, markdownToNarrationText } from "../src/extract/markdownCleanup";
 import { extractTextFromPdf } from "../src/extract/pdf";
 import { AppError, errorCodes } from "../src/errors/codes";
 
@@ -37,6 +42,13 @@ test("extractHtmlFromUrl extracts fixture", async () => {
   assert.ok(result.markdown.length > 80);
   assert.ok(result.rawHtml.includes("<html"));
   assert.ok(result.title.includes("Fixture"));
+  assert.match(result.selectionDiagnostics.selectedEngine, /^(readability|defuddle)$/);
+  assert.equal(result.selectionDiagnostics.candidates.length, 2);
+  assert.deepEqual(
+    result.selectionDiagnostics.candidates.map((candidate) => candidate.engine).sort(),
+    ["defuddle", "readability"]
+  );
+  assert.ok(result.selectionDiagnostics.candidates.every((candidate) => candidate.status === "passed"));
 
   globalThis.fetch = originalFetch;
 });
@@ -80,6 +92,96 @@ test("extractHtmlFromUrl applies abogen cleaner pipeline", async () => {
   assert.ok(!result.text.includes("Footnote marker gets stripped from text1"));
 
   globalThis.fetch = originalFetch;
+});
+
+test("extractHtmlSnapshot flattens table-heavy markup into markdown instead of preserving raw html", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Hacker News-style listing</title></head>
+      <body>
+        <main>
+          <table>
+            <tbody>
+              <tr>
+                <td><span>1.</span></td>
+                <td>
+                  <span>
+                    <a href="https://example.com/story">Story title</a>
+                    <span>(<a href="https://news.ycombinator.com/from?site=example.com">example.com</a>)</span>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <span>437 points by <a href="https://news.ycombinator.com/user?id=alice">alice</a> <a href="https://news.ycombinator.com/item?id=1">6 hours ago</a> | <a href="https://news.ycombinator.com/item?id=1">126 comments</a></span>
+                </td>
+              </tr>
+              <tr>
+                <td><span>2.</span></td>
+                <td>
+                  <span>
+                    <a href="https://example.com/second-story">Second story with enough descriptive words to stay stable in this extraction regression test</a>
+                    <span>(<a href="https://news.ycombinator.com/from?site=example.com">example.com</a>)</span>
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td colspan="2">
+                  <span>128 points by <a href="https://news.ycombinator.com/user?id=bob">bob</a> <a href="https://news.ycombinator.com/item?id=2">3 hours ago</a> | <a href="https://news.ycombinator.com/item?id=2">42 comments</a></span>
+                </td>
+              </tr>
+              <tr>
+                <td><a href="https://news.ycombinator.com/?p=2" rel="next">More</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </main>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://news.ycombinator.com/news"
+  });
+  const cleaned = cleanExtractedMarkdown(result.markdown);
+  const narration = markdownToNarrationText(cleaned);
+
+  assert.ok(!result.markdown.includes("<table"));
+  assert.ok(!result.markdown.includes("href="));
+  assert.match(cleaned, /\[Story title\]\(https:\/\/example\.com\/story\)/);
+  assert.match(cleaned, /Second story with enough descriptive words/);
+  assert.ok(cleaned.includes("https://example.com/story"));
+  assert.ok(!narration.includes("https://example.com/story"));
+  assert.match(result.selectionDiagnostics.selectedEngine, /^(readability|defuddle)$/);
+  assert.equal(result.selectionDiagnostics.candidates.length, 2);
+  assert.deepEqual(
+    result.selectionDiagnostics.candidates.map((candidate) => candidate.engine).sort(),
+    ["defuddle", "readability"]
+  );
+});
+
+test("HTML extraction selection summaries round-trip through compact persisted JSON", () => {
+  const result = extractHtmlSnapshot({
+    html: `
+      <html>
+        <body>
+          <article>
+            <h1>Round-trip fixture</h1>
+            <p>This fixture has enough text to produce a stable extraction selection summary for persistence tests.</p>
+            <p>It also includes a second paragraph so the cleanup and scoring paths have enough signal to compare.</p>
+          </article>
+        </body>
+      </html>
+    `,
+    url: "https://example.com/round-trip"
+  });
+
+  const summary = summarizeHtmlExtractionSelection(result.selectionDiagnostics);
+  const parsed = parseHtmlExtractionSelectionSummary(JSON.stringify(summary));
+
+  assert.deepEqual(parsed, summary);
 });
 
 test("extractHtmlFromUrl maps 403 to actionable extraction error", async () => {
@@ -159,6 +261,46 @@ test("extractHtmlFromUrl maps invalid pinned IP errors to actionable extraction 
   globalThis.fetch = originalFetch;
 });
 
+test("extractHtmlFromUrl classifies lightweight challenge pages as blocked-site failures with extension guidance", async () => {
+  const originalFetch = globalThis.fetch;
+  let caught: unknown = null;
+
+  globalThis.fetch = (async () =>
+    ({
+      ok: true,
+      status: 200,
+      text: async () => `
+        <!doctype html>
+        <html>
+          <head><title>Verifying...</title></head>
+          <body>
+            <main id="cf-wrapper">
+              <h1>Verifying...</h1>
+              <p>Please wait while we verify your browser.</p>
+              <p>Performance & security by Cloudflare</p>
+            </main>
+            <script src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"></script>
+          </body>
+        </html>
+      `
+    }) as unknown as Response) as typeof fetch;
+
+  await assert.rejects(
+    () => extractHtmlFromUrl("https://openai.com/index/introducing-gpt-5"),
+    (error: unknown) => {
+      caught = error;
+      return (
+        error instanceof AppError &&
+        error.code === errorCodes.EXTRACTION_FAILED &&
+        error.userMessage === BLOCKED_SITE_HTML_SNAPSHOT_MESSAGE
+      );
+    }
+  );
+  assert.equal(shouldSuggestHtmlSnapshotForError(caught), true);
+
+  globalThis.fetch = originalFetch;
+});
+
 test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachable fallback", async () => {
   const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
   const originalRequest = http.request;
@@ -221,6 +363,148 @@ test("extractHtmlFromUrl retries pinned IP candidates and succeeds on a reachabl
   } finally {
     http.request = originalRequest;
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl retries the next pinned candidate after a socket error", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  let requestCalls = 0;
+  let fallbackCalls = 0;
+
+  globalThis.fetch = (async () => {
+    fallbackCalls += 1;
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      if (requestCalls === 1) {
+        const socketEmitter = new EventEmitter();
+        process.nextTick(() => {
+          requestEmitter.emit("socket", socketEmitter);
+          socketEmitter.emit("error", Object.assign(new Error("network unreachable"), { code: "ENETUNREACH" }));
+        });
+        return;
+      }
+
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["2001:db8::1", "198.51.100.9"]);
+    assert.equal(requestCalls, 2);
+    assert.equal(fallbackCalls, 0);
+    assert.equal(result.diagnostics.finalFetchStrategy, "pinned");
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extractHtmlFromUrl skips ipv6 pinned candidates in azure runtime profile", async () => {
+  const html = await readFile(new URL("../../../fixtures/html/article.html", import.meta.url), "utf-8");
+  const originalRequest = http.request;
+  const originalFetch = globalThis.fetch;
+  const previousRuntimeProfile = process.env.RUNTIME_PROFILE;
+  const previousPinnedIpv6 = process.env.PINNED_FETCH_IPV6_ENABLED;
+  let requestCalls = 0;
+  const seenFamilies: Array<number | undefined> = [];
+
+  process.env.RUNTIME_PROFILE = "azure";
+  delete process.env.PINNED_FETCH_IPV6_ENABLED;
+  globalThis.fetch = (async () => {
+    throw new Error("unexpected hostname fallback");
+  }) as typeof fetch;
+
+  http.request = ((...args: unknown[]) => {
+    requestCalls += 1;
+    const options =
+      (typeof args[0] === "object" && args[0] !== null ? args[0] : {}) as {
+        family?: number;
+      };
+    seenFamilies.push(options.family);
+    const callback =
+      typeof args[1] === "function"
+        ? (args[1] as (response: EventEmitter & { statusCode?: number }) => void)
+        : typeof args[2] === "function"
+          ? (args[2] as (response: EventEmitter & { statusCode?: number }) => void)
+          : null;
+
+    const requestEmitter = new EventEmitter() as EventEmitter & {
+      end: () => void;
+      destroy: (error?: Error) => void;
+    };
+
+    requestEmitter.end = () => {
+      const responseEmitter = new EventEmitter() as EventEmitter & { statusCode?: number };
+      responseEmitter.statusCode = 200;
+      process.nextTick(() => {
+        callback?.(responseEmitter);
+        responseEmitter.emit("data", Buffer.from(html, "utf8"));
+        responseEmitter.emit("end");
+      });
+    };
+
+    requestEmitter.destroy = (error?: Error) => {
+      if (error) {
+        process.nextTick(() => requestEmitter.emit("error", error));
+      }
+    };
+
+    return requestEmitter as unknown as ReturnType<typeof http.request>;
+  }) as typeof http.request;
+
+  try {
+    const result = await extractHtmlFromUrlWithDiagnostics("http://example.com/article", ["2001:db8::1", "198.51.100.9"]);
+    assert.equal(requestCalls, 1);
+    assert.deepEqual(seenFamilies, [4]);
+    assert.equal(result.diagnostics.pinnedCandidateCount, 1);
+    assert.equal(result.diagnostics.finalFetchStrategy, "pinned");
+    assert.ok(result.text.length > 100);
+  } finally {
+    http.request = originalRequest;
+    globalThis.fetch = originalFetch;
+    if (previousRuntimeProfile === undefined) {
+      delete process.env.RUNTIME_PROFILE;
+    } else {
+      process.env.RUNTIME_PROFILE = previousRuntimeProfile;
+    }
+    if (previousPinnedIpv6 === undefined) {
+      delete process.env.PINNED_FETCH_IPV6_ENABLED;
+    } else {
+      process.env.PINNED_FETCH_IPV6_ENABLED = previousPinnedIpv6;
+    }
   }
 });
 
@@ -631,8 +915,128 @@ test("extractHtmlSnapshot fails with actionable message for low-signal content",
     (error: unknown) =>
       error instanceof AppError &&
       error.code === errorCodes.EXTRACTION_EMPTY &&
-      error.userMessage.toLowerCase().includes("too short")
+      error.userMessage.toLowerCase().includes("didn't contain enough article text")
   );
+});
+
+test("extractHtmlSnapshot rejects explicit Cloudflare block pages", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Attention Required! | Cloudflare</title></head>
+      <body>
+        <div id="cf-wrapper">
+          <h1>Sorry, you have been blocked</h1>
+          <p>You are unable to access geekwire.com.</p>
+          <p>Why have I been blocked? This website is using a security service to protect itself from online attacks.</p>
+          <p>Cloudflare Ray ID: 1234567890</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractHtmlSnapshot({
+        html,
+        url: "https://www.geekwire.com/blocked"
+      }),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage === BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
+});
+
+test("extractHtmlSnapshot rejects lightweight Cloudflare verification pages", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>Verifying...</title></head>
+      <body>
+        <main id="cf-wrapper">
+          <h1>Verifying...</h1>
+          <p>Please wait while we verify your browser.</p>
+          <p>Performance & security by Cloudflare</p>
+        </main>
+        <script src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"></script>
+      </body>
+    </html>
+  `;
+
+  assert.throws(
+    () =>
+      extractHtmlSnapshot({
+        html,
+        url: "https://openai.com/index/introducing-gpt-5"
+      }),
+    (error: unknown) =>
+      error instanceof AppError &&
+      error.code === errorCodes.EXTRACTION_FAILED &&
+      error.userMessage === BLOCKED_PAGE_HTML_SNAPSHOT_MESSAGE
+  );
+});
+
+test("extractHtmlSnapshot still extracts readable articles with hidden challenge plumbing", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>GeekWire-style article</title></head>
+      <body>
+        <article>
+          <h1>GeekWire-style article</h1>
+          <p>This visible article body is already readable and should not be rejected just because the site injects a hidden background challenge frame.</p>
+          <p>The server should still extract the article because the real content is present in the snapshot.</p>
+        </article>
+        <iframe
+          src="https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate/jsch/v1"
+          title="background challenge"
+          style="position:absolute;top:0;left:0;border:none;visibility:hidden"
+        ></iframe>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://www.geekwire.com/example-article/"
+  });
+
+  assert.match(result.text, /already readable/i);
+  assert.match(result.text, /real content is present in the snapshot/i);
+});
+
+test("extractHtmlSnapshot still extracts readable articles with visible recaptcha and paywall widgets", () => {
+  const html = `
+    <!doctype html>
+    <html>
+      <head><title>The Verge-style article</title></head>
+      <body>
+        <article>
+          <h1>The Verge-style article</h1>
+          <p>This visible article body already contains enough reporting to prove that the readable story is present, even though the page also carries newsletter, paywall, and recaptcha widgets around the edges.</p>
+          <p>The server should not classify the snapshot as a challenge page when the main article paragraphs are available and clearly exceed the normal low-signal threshold for extraction.</p>
+          <p>Sites sometimes inject footer badges and subscription prompts after the article body, and that chrome should be cleaned later instead of blocking snapshot ingestion up front.</p>
+        </article>
+        <div class="grecaptcha-badge">protected by reCAPTCHA</div>
+        <iframe
+          src="https://www.google.com/recaptcha/api2/anchor?ar=1"
+          title="recaptcha challenge"
+          style="position:fixed;bottom:0;right:0;width:256px;height:60px;visibility:visible"
+        ></iframe>
+        <aside>Continue reading with a Verge subscription</aside>
+        <footer>This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.</footer>
+      </body>
+    </html>
+  `;
+
+  const result = extractHtmlSnapshot({
+    html,
+    url: "https://www.theverge.com/example-article"
+  });
+
+  assert.match(result.text, /visible article body already contains enough reporting/i);
+  assert.match(result.text, /blocking snapshot ingestion up front/i);
 });
 
 test("extractTextFromPdf extracts text fixture", async () => {

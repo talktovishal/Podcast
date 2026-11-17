@@ -1,19 +1,31 @@
 import { randomUUID } from "node:crypto";
-import { AppError, errorCodes, type CreateSummaryRunInput } from "@articlepod/core";
+import {
+  AppError,
+  errorCodes,
+  parseStoredItemTags,
+  toSummaryPodcastUserMessage,
+  toSummaryRunUserMessage,
+  type CreateSummaryRunInput
+} from "@articlepod/core";
 import { prisma } from "./prisma";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { getArtifactStorage } from "./storage";
+import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
+import { consumeSummaryRunAllowance } from "./summary-usage";
 
 const DEFAULT_SUMMARY_ITEM_LIMIT = 200;
 const DEFAULT_SUMMARY_RUN_LIMIT = 20;
 const DEFAULT_SELECTION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_DEFAULT_SELECTION_COUNT = 30;
+const DEFAULT_ITEM_PRIORITY = "LOW";
 
 export type SelectableSummaryItem = {
   id: string;
   title: string | null;
   sourceType: string;
   sourceUrl: string | null;
+  importance: string;
+  tags: string[];
   createdAt: Date;
   defaultSelected: boolean;
 };
@@ -56,8 +68,16 @@ export type SummaryRunListEntry = {
     | null;
 };
 
+function toUserFacingSummaryRun(run: SummaryRunListEntry): SummaryRunListEntry {
+  return {
+    ...run,
+    podcastError: toSummaryPodcastUserMessage(run.podcastError),
+    errorMessage: toSummaryRunUserMessage(run.errorMessage, run.errorCode)
+  };
+}
+
 function isSupportedSummarySourceType(sourceType: string): boolean {
-  return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT";
+  return sourceType === "URL" || sourceType === "PDF" || sourceType === "HTML_SNAPSHOT" || sourceType === "PODCAST_TRANSCRIPT";
 }
 
 function compareNewestFirst<T extends { createdAt: Date; id: string }>(a: T, b: T): number {
@@ -109,6 +129,8 @@ export async function listSelectableSummaryItems(
         title: item.title,
         sourceType: item.sourceType,
         sourceUrl: item.sourceUrl,
+        importance: item.priority ?? DEFAULT_ITEM_PRIORITY,
+        tags: item.tags ?? [],
         createdAt: item.createdAt
       }))
       .filter((item) => {
@@ -127,7 +149,7 @@ export async function listSelectableSummaryItems(
       userId,
       status: "READY",
       sourceType: {
-        in: ["URL", "PDF", "HTML_SNAPSHOT"]
+        in: ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"]
       }
     },
     include: {
@@ -154,6 +176,8 @@ export async function listSelectableSummaryItems(
       title: item.title,
       sourceType: item.sourceType,
       sourceUrl: item.sourceUrl,
+      importance: item.priority ?? DEFAULT_ITEM_PRIORITY,
+      tags: parseStoredItemTags(item.tagsJson),
       createdAt: item.createdAt
     }));
 
@@ -161,6 +185,8 @@ export async function listSelectableSummaryItems(
 }
 
 export async function createSummaryRunForUser(userId: string, input: CreateSummaryRunInput): Promise<SummaryRunListEntry> {
+  await consumeSummaryRunAllowance(userId);
+
   const dedupedItemIds = Array.from(new Set(input.itemIds.map((value) => value.trim()).filter(Boolean)));
   if (dedupedItemIds.length === 0) {
     throw new AppError(errorCodes.INVALID_INPUT, "Choose at least one saved article to summarize.", 400);
@@ -231,7 +257,7 @@ export async function createSummaryRunForUser(userId: string, input: CreateSumma
       userId,
       status: "READY",
       sourceType: {
-        in: ["URL", "PDF", "HTML_SNAPSHOT"]
+        in: ["URL", "PDF", "HTML_SNAPSHOT", "PODCAST_TRANSCRIPT"]
       }
     },
     include: {
@@ -292,19 +318,21 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
       store.listSummaryRunsByUser(userId, normalizedLimit),
       store.listSummaryEpisodesForUser(userId)
     ]);
-    const episodesByRunId = new Map(episodes.map((episode) => [episode.summaryRunId, episode]));
-    return runs.map((run) => ({
-      ...run,
-      episode: episodesByRunId.get(run.id)
-        ? {
-            id: episodesByRunId.get(run.id)?.id || "",
-            audioPath: episodesByRunId.get(run.id)?.audioPath || "",
-            audioBytes: episodesByRunId.get(run.id)?.audioBytes || 0,
-            mimeType: episodesByRunId.get(run.id)?.mimeType || "audio/mpeg",
-            publishedAt: episodesByRunId.get(run.id)?.publishedAt || run.createdAt
-          }
-        : null
-    }));
+    const episodesByRunId = new Map(filterUnexpiredAudioEpisodes(episodes).map((episode) => [episode.summaryRunId, episode]));
+    return runs.map((run) =>
+      toUserFacingSummaryRun({
+        ...run,
+        episode: episodesByRunId.get(run.id)
+          ? {
+              id: episodesByRunId.get(run.id)?.id || "",
+              audioPath: episodesByRunId.get(run.id)?.audioPath || "",
+              audioBytes: episodesByRunId.get(run.id)?.audioBytes || 0,
+              mimeType: episodesByRunId.get(run.id)?.mimeType || "audio/mpeg",
+              publishedAt: episodesByRunId.get(run.id)?.publishedAt || run.createdAt
+            }
+          : null
+      })
+    );
   }
 
   return prisma.summaryRun.findMany({
@@ -318,11 +346,19 @@ export async function listSummaryRunsForUser(userId: string, limit = DEFAULT_SUM
           audioPath: true,
           audioBytes: true,
           mimeType: true,
-          publishedAt: true
+          publishedAt: true,
+          expiresAt: true
         }
       }
     }
-  });
+  }).then((runs) =>
+    runs.map((run) =>
+      toUserFacingSummaryRun({
+        ...run,
+        episode: run.episode && isAudioAvailable(run.episode.expiresAt) ? run.episode : null
+      })
+    )
+  );
 }
 
 export async function getSummaryRunMarkdown(userId: string, runId: string): Promise<{ title: string; markdown: string }> {

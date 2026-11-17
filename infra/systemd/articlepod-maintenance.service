@@ -1,0 +1,8 @@
+[Unit]
+Description=ArticlePod VM maintenance
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash -lc 'APP_DIR=/opt/articlepod STAGING_DIR=/home/azureuser/articlepod ENV_FILE=/etc/articlepod/articlepod.env /opt/articlepod/scripts/azure/cleanup-vm-disk.sh'

@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { z } from "zod";
+import { parseStoredItemTags, serializeItemTags, updateItemMetadataSchema } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { fromError } from "@/lib/http";
 import { getAuthUserFromRequest } from "@/lib/auth";
@@ -7,12 +7,21 @@ import { deleteQueueProjectionByItemId } from "@/lib/metadata-projection";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "@/lib/storage";
+import { deleteUnreferencedAudioObject } from "@/lib/audio-ownership";
 
-const updateItemPrioritySchema = z.object({
-  priority: z.enum(["LOW", "MEDIUM", "HIGH"])
-});
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    return await deleteItem(request, context);
+  } catch (error) {
+    return fromError(error, {
+      requestId: request.headers.get("x-request-id") || undefined,
+      route: "/api/items/[id]"
+    });
+  }
+}
 
-export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+async function deleteItem(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
   const user = await getAuthUserFromRequest(request);
   if (!user) {
     return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
@@ -22,10 +31,10 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     webUsesAzureTablePrimary() && webPrimaryStore
       ? await (async () => {
           const [itemRow, episode, artifacts, jobs] = await Promise.all([
-            webPrimaryStore.findItemById(context.params.id),
-            webPrimaryStore.findEpisodeByItemId(context.params.id),
-            webPrimaryStore.listItemArtifacts(context.params.id),
-            webPrimaryStore.listJobsByItemId(context.params.id)
+            webPrimaryStore.findItemById(id),
+            webPrimaryStore.findEpisodeByItemId(id),
+            webPrimaryStore.listItemArtifacts(id),
+            webPrimaryStore.listJobsByItemId(id)
           ]);
           return itemRow
             ? {
@@ -37,7 +46,7 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
             : null;
         })()
       : await prisma.item.findUnique({
-          where: { id: context.params.id },
+          where: { id },
           include: { episode: true, artifacts: true, jobs: { select: { id: true } } }
         });
   if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
@@ -50,6 +59,7 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
       item.episode ? webPrimaryStore.deleteEpisode(item.episode.id) : Promise.resolve(),
       webPrimaryStore.deleteItemArtifactsByItemId(item.id),
       webPrimaryStore.deleteJobsByItemId(item.id),
+      webPrimaryStore.deleteArticleSummaryTasksByItemId(item.id),
       webPrimaryStore.deleteChunkCachesByItemId(item.id)
     ]);
   } else {
@@ -63,11 +73,7 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
   const storage = getArtifactStorage();
 
   if (item.episode?.audioPath) {
-    if (isLikelyLegacyAbsolutePath(item.episode.audioPath)) {
-      await rm(item.episode.audioPath, { force: true });
-    } else {
-      await storage.deleteObject(item.episode.audioPath);
-    }
+    await deleteUnreferencedAudioObject(item.episode.audioPath);
   }
 
   if (item.sourceFilePath) {
@@ -78,38 +84,62 @@ export async function DELETE(request: NextRequest, context: { params: { id: stri
     }
   }
 
+  if (item.summaryStorageKey) {
+    await storage.deleteObject(item.summaryStorageKey).catch(() => undefined);
+  }
+
   for (const artifact of item.artifacts) {
-    await storage.deleteObject(artifact.storageKey).catch(() => undefined);
+    await deleteUnreferencedAudioObject(artifact.storageKey);
   }
 
   return NextResponse.json({ ok: true });
 }
 
-export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const requestId = request.headers.get("x-request-id") || undefined;
   try {
+    const { id } = await context.params;
     const user = await getAuthUserFromRequest(request);
     if (!user) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 401 });
     }
 
-    const { priority } = updateItemPrioritySchema.parse(await request.json());
+    const { importance, tags } = updateItemMetadataSchema.parse(await request.json());
 
     const item = webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findItemById(context.params.id)
-      : await prisma.item.findUnique({ where: { id: context.params.id } });
+      ? await webPrimaryStore.findItemById(id)
+      : await prisma.item.findUnique({ where: { id } });
 
     if (!item || (item.userId !== user.id && user.role !== "ADMIN")) {
       return NextResponse.json({ ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" }, { status: 403 });
     }
 
     if (webUsesAzureTablePrimary() && webPrimaryStore) {
-      await webPrimaryStore.updateItem(context.params.id, { priority });
+      await webPrimaryStore.updateItem(id, {
+        ...(importance !== undefined ? { priority: importance } : {}),
+        ...(tags !== undefined ? { tags } : {})
+      });
     } else {
-      await prisma.item.update({ where: { id: context.params.id }, data: { priority } });
+      await prisma.item.update({
+        where: { id },
+        data: {
+          ...(importance !== undefined ? { priority: importance } : {}),
+          ...(tags !== undefined ? { tagsJson: serializeItemTags(tags) } : {})
+        }
+      });
     }
 
-    return NextResponse.json({ ok: true, priority });
+    return NextResponse.json({
+      ok: true,
+      importance: importance ?? item.priority,
+      tags:
+        tags ??
+        ("tags" in item && Array.isArray(item.tags)
+          ? item.tags
+          : "tagsJson" in item
+            ? parseStoredItemTags(item.tagsJson)
+            : [])
+    });
   } catch (error) {
     return fromError(error, {
       requestId,

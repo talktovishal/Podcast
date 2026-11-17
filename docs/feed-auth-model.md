@@ -46,7 +46,7 @@ From the podcast app's point of view, both the feed URL and the episode enclosur
 ### Media auth token
 - Used by: episode enclosure/media URLs returned inside RSS
 - Surface: media route query params
-- Expected lifetime: stable for a given episode until the owning feed token is rotated
+- Expected lifetime: stable for a given episode until the owning feed token is rotated or the episode itself expires under product retention policy
 - Rotation trigger: explicit feed-token rotation or explicit episode/media regeneration that changes the underlying object key
 - Podcast app impact: during normal refreshes, enclosure URLs must not churn
 
@@ -65,11 +65,22 @@ From the podcast app's point of view, both the feed URL and the episode enclosur
 - Podcast app impact: none
 
 ### Share token
-- Used by: read-only shared workspace links
-- Surface: `/share?token=...`
-- Expected lifetime: revocable / expirable by product policy
-- Rotation trigger: explicit share-link creation/revocation
+- Used by: read-only shared workspace links and public episode share access
+- Surface:
+  - workspace demo share: `/share?token=...`
+  - public episode page: `/share/episode/<share_id>/<sig>`
+  - public shared media: `/api/share-media/...?...`
+- Expected lifetime: stable until explicit revoke, subject to product expiry policy
+- Rotation trigger:
+  - workspace demo share: explicit share-link creation/revocation
+  - public episode share: explicit create/revoke for that item scope
 - Podcast app impact: none
+
+Public episode shares intentionally do not depend on storing a plaintext public token:
+- the durable share row is identified by `share_id`
+- the public page URL includes a deterministic signature derived from `share_id`, the stored share-token hash, and the share scope
+- shared playback/download URLs use a separate deterministic media signature derived from the same share row
+- deleting the share row revokes both the page and the shared media access immediately
 
 ## Privacy and security goals
 
@@ -114,6 +125,7 @@ During normal usage, the following must stay stable:
 - reading dashboard state
 - repairing internal metadata drift
 - re-rendering RSS without content/auth changes
+- creating, viewing, or revoking public episode share links
 
 ## Internal repairs vs. external auth changes
 
@@ -167,6 +179,20 @@ If you touch feed/media auth, do all of the following:
 
 ## Required regression checks for auth changes
 
+Item RSS media validation must distinguish confirmed absence from storage failure.
+Media preflight runs at most four HEAD checks concurrently, including alternate
+formats, and settles all read workers before returning. Any outage rejects the
+whole preflight before repair; input ordering and existing public URLs are
+preserved even if checks finish in a different order.
+Azure eligibility checks resolve the owning item for each unexpired episode
+candidate, rather than a newest-500 item window. Items must belong to the feed
+owner and be READY. Point-read failures propagate; they are not missing items.
+This does not rotate feed/media credentials or change public episode identity.
+All episode and applicable alternate-path HEAD checks complete before repair.
+Timeouts, throttling, authorization errors and unknown provider failures return
+non-cacheable HTTP 503 with Retry-After instead of triggering regeneration or
+returning a misleading reduced feed. This does not rotate feed/media credentials.
+
 Any code change that touches feed/media auth must prove all of these:
 
 1. Repeated RSS fetches for unchanged episodes produce the same enclosure URLs
@@ -175,6 +201,7 @@ Any code change that touches feed/media auth must prove all of these:
 4. Background refresh routes do not rotate feed tokens
 5. Explicit rotate routes still issue a new token and invalidate the old one
 6. Podcast contract still passes (`HEAD` + `Range`)
+7. Public share-link flows do not mutate private feed or enclosure auth
 
 ## Current intended behavior summary
 
@@ -183,7 +210,10 @@ As of the current implementation:
 - Feed URL: stable until explicit user rotation
 - Digest feed URL: stable until explicit user rotation
 - Media/enclosure URLs: stable until feed rotation for unchanged episodes
+- Published episode audio itself may still age out under product retention policy; once expired, the episode is intentionally removed from active RSS/media surfaces instead of being regenerated silently
 - Extension connect code: short-lived and one-time
 - Extension installed token: does not expire automatically and stays valid until revoked
+- Workspace demo share link: separate from podcast auth and revocable by share policy
+- Public episode share page/media links: stable until explicit revoke for that item and separate from podcast auth
 
 If this document and the code ever disagree, treat the disagreement as a release blocker for any feed/media auth work.

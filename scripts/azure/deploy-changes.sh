@@ -6,6 +6,8 @@ cd "$ROOT_DIR"
 
 # shellcheck source=scripts/azure/runtime-naming.sh
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+source "$ROOT_DIR/scripts/azure/deployment-ssh.sh"
+SECRET_SOURCE="${ARTICLEPOD_SECRET_SOURCE-environment}"
 
 print_usage() {
   cat <<EOF
@@ -23,10 +25,14 @@ Options:
   --path <value>         VM staging path (default: ${RUNTIME_STAGING_DIR})
   --ssh-key <value>      SSH private key path (default: ~/.ssh/articlepod_azure)
   --ssh-port <value>     SSH port (default: 22)
+  --ssh-known-hosts <path>
+                         Independently verified known-hosts file; ignores SSH config
   --app-dir <value>      Runtime app dir on VM (default: ${RUNTIME_APP_DIR})
   --health-url <value>   Health endpoint to verify after deploy
   --health-retries <n>   Health-check retry count (default: 15)
   --health-delay <secs>  Delay between health retries (default: 2)
+  --warn-free-mb <n>     Warn when remote free space stays below this floor after cleanup
+  --fail-free-mb <n>     Abort when remote free space stays below this floor after cleanup
   --full-deploy          Force full runtime setup (dependencies + python-tts + demo seed)
   --render-env           Generate and upload runtime env file to VM before deploying
   --resource-group <rg>  Azure resource group used to auto-discover/provision Azure OpenAI when rendering env
@@ -46,15 +52,21 @@ Options:
 
 Environment variable equivalents:
   TARGET_HOST, TARGET_USER, TARGET_PATH, TARGET_SSH_KEY, TARGET_PORT, APP_DIR, HEALTH_URL,
-  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_FORCE_FULL, DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE,
-  CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL, DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES,
-  ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP
+  HEALTH_RETRIES, HEALTH_RETRY_DELAY, DEPLOY_WARN_FREE_MB, DEPLOY_FAIL_FREE_MB, DEPLOY_FORCE_FULL,
+  DEPLOY_RENDER_ENV, DEPLOY_DEMO_SEED_MODE, CANONICAL_HOST, HOST_ALIASES, LETSENCRYPT_EMAIL,
+  DEPLOY_CONFIGURE_INGRESS, APP_DOMAIN_ALIASES, ENABLE_OVERFLOW_WORKER_SERVICE, AZURE_RESOURCE_GROUP,
+  DEPLOY_SSH_CONNECT_TIMEOUT, DEPLOY_SSH_SERVER_ALIVE_INTERVAL, DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX
+  TARGET_KNOWN_HOSTS_FILE (required by the production workflow)
+  ARTICLEPOD_SECRET_SOURCE (environment, or keyvault for an already bootstrapped VM)
 
 When --render-env is used, the following env vars are forwarded to render-env.sh:
   DATABASE_URL, APP_URL, STORAGE_BACKEND, AZURE_STORAGE_CONTAINER,
-  AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, TTS_WORKERS,
+  AZURE_STORAGE_CONNECTION_STRING, PYTHON_TTS_URL, TTS_WORKERS, WORKER_TTS_CHUNK_MAX_CHARS,
+  WORKER_TTS_SEGMENT_MAX_ATTEMPTS, WORKER_TTS_SEGMENT_RETRY_BASE_MS,
+  PYTHON_TTS_RECYCLE_*, PYTHON_TTS_SYSTEMD_*,
   METADATA_PRIMARY_BACKEND, METADATA_MIRROR_*, AZURE_TABLE_*, WORKER_OVERFLOW_*, OVERFLOW_PYTHON_TTS_*,
-  ADMIN_PASSWORD, DEMO_PASSWORD, DIGEST_SUMMARY_PROVIDER, AZURE_OPENAI_*
+  ADMIN_PASSWORD, DEMO_PASSWORD, DIGEST_SUMMARY_PROVIDER, AZURE_OPENAI_*, LOG_*,
+  ARTICLEPOD_CONSOLE_LOGS, PODCAST_REQUEST_LOGGING, VM_JOURNAL_*, VM_CLEANUP_MIN_FREE_MB
 EOF
 }
 
@@ -99,15 +111,25 @@ HEALTH_URL_EXPLICIT=0
 SKIP_HEALTHCHECK=0
 HEALTH_RETRIES="${HEALTH_RETRIES:-15}"
 HEALTH_RETRY_DELAY="${HEALTH_RETRY_DELAY:-2}"
+DEPLOY_WARN_FREE_MB="${DEPLOY_WARN_FREE_MB:-}"
+DEPLOY_FAIL_FREE_MB="${DEPLOY_FAIL_FREE_MB:-}"
 DEPLOY_FORCE_FULL="${DEPLOY_FORCE_FULL:-0}"
 DEPLOY_RENDER_ENV="${DEPLOY_RENDER_ENV:-0}"
-DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE:-auto}"
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE-never}"
+  DEPLOY_CONFIGURE_INGRESS="${DEPLOY_CONFIGURE_INGRESS-0}"
+fi
+DEPLOY_DEMO_SEED_MODE="${DEPLOY_DEMO_SEED_MODE-auto}"
+OVERFLOW_EXPLICIT="${ENABLE_OVERFLOW_WORKER_SERVICE+x}"
 ENABLE_OVERFLOW_WORKER_SERVICE="${ENABLE_OVERFLOW_WORKER_SERVICE:-0}"
 CANONICAL_HOST="${CANONICAL_HOST:-}"
 HOST_ALIASES="${HOST_ALIASES:-${APP_DOMAIN_ALIASES:-}}"
 LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 DEPLOY_CONFIGURE_INGRESS="${DEPLOY_CONFIGURE_INGRESS:-1}"
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
+DEPLOY_SSH_CONNECT_TIMEOUT="${DEPLOY_SSH_CONNECT_TIMEOUT:-${PUSH_TO_VM_SSH_CONNECT_TIMEOUT:-15}}"
+DEPLOY_SSH_SERVER_ALIVE_INTERVAL="${DEPLOY_SSH_SERVER_ALIVE_INTERVAL:-${PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL:-15}}"
+DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX="${DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX:-${PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX:-4}}"
 
 is_ip_host() {
   local host="$1"
@@ -153,6 +175,250 @@ check_health_with_retries() {
   return 1
 }
 
+probe_remote_ssh() {
+  local remote="$1"
+
+  echo "[deploy-changes] probing SSH access to ${remote}"
+  if ssh "${SSH_ARGS[@]}" "$remote" "echo '[deploy-changes] ssh ok on '\"\$(hostname)\""; then
+    return 0
+  fi
+
+  echo "[deploy-changes] unable to establish SSH access to ${remote}" >&2
+  echo "[deploy-changes] verify the VM host, SSH key, and port 22 reachability before retrying" >&2
+  return 1
+}
+
+run_remote_disk_guard() {
+  local phase="$1"
+  local warn_mb="$2"
+  local fail_mb="$3"
+  local target_path_q
+  local app_dir_q
+  local phase_q
+  local remote_script
+
+  target_path_q="$(printf '%q' "$TARGET_PATH")"
+  app_dir_q="$(printf '%q' "$APP_DIR")"
+  phase_q="$(printf '%q' "$phase")"
+
+  remote_script=$(cat <<EOF
+set -euo pipefail
+TARGET_PATH=${target_path_q}
+APP_DIR=${app_dir_q}
+PHASE=${phase_q}
+SECRET_SOURCE=${SECRET_SOURCE}
+WARN_MB=${warn_mb}
+FAIL_MB=${fail_mb}
+
+disk_probe_path() {
+  if [[ -e "\$APP_DIR" ]]; then
+    printf '%s' "\$APP_DIR"
+  elif [[ -e "\$TARGET_PATH" ]]; then
+    printf '%s' "\$TARGET_PATH"
+  else
+    printf '/'
+  fi
+}
+
+free_mb() {
+  df -Pm "\$(disk_probe_path)" | awk 'NR==2 {print \$4}'
+}
+
+cleanup_path() {
+  local path="\$1"
+  if [[ -e "\$path" ]]; then
+    sudo rm -rf "\$path"
+    echo "[deploy-changes] \${PHASE}: removed \$path"
+  fi
+}
+
+top_usage() {
+  echo "[deploy-changes] \${PHASE}: top disk usage summary"
+  sudo du -x -m -d 1 /opt /home /var 2>/dev/null | sort -n | tail -n 15 || true
+  if command -v journalctl >/dev/null 2>&1; then
+    sudo journalctl --disk-usage || true
+  fi
+}
+
+legacy_runtime_in_use() {
+  local service
+  for service in listenlater-web.service listenlater-worker.service listenlater-python-tts.service; do
+    if systemctl cat "\$service" 2>/dev/null | grep -Fq /opt/listenlater; then
+      return 0
+    fi
+  done
+
+  if find /proc/[0-9]*/cwd -lname '/opt/listenlater*' -print -quit 2>/dev/null | grep -q .; then
+    return 0
+  fi
+
+  return 1
+}
+
+before_free="\$(free_mb)"
+echo "[deploy-changes] \${PHASE}: remote free space before cleanup \${before_free} MB"
+
+if [[ "\$SECRET_SOURCE" == "keyvault" ]]; then
+  if (( before_free < FAIL_MB )); then
+    echo "[deploy-changes] insufficient free space; retire files separately before vault deployment" >&2
+    exit 1
+  fi
+  echo "[deploy-changes] vault deployment retains existing caches, logs, and retired runtime trees"
+  exit 0
+fi
+
+if command -v journalctl >/dev/null 2>&1; then
+  sudo journalctl --vacuum-time=7d --vacuum-size=200M >/dev/null 2>&1 || true
+fi
+
+cleanup_path "\$TARGET_PATH/exports"
+cleanup_path "\$TARGET_PATH/.worktrees"
+cleanup_path "\$TARGET_PATH/.runtime"
+cleanup_path "\$TARGET_PATH/.turbo"
+cleanup_path "\$TARGET_PATH/coverage"
+cleanup_path "\$TARGET_PATH/playwright-report"
+cleanup_path "\$TARGET_PATH/test-results"
+cleanup_path "\$TARGET_PATH/node_modules"
+cleanup_path "\$TARGET_PATH/.venv"
+cleanup_path "\$TARGET_PATH/services/python-tts/.venv"
+cleanup_path "\$TARGET_PATH/apps/web/.next"
+cleanup_path "\$APP_DIR/exports"
+cleanup_path "\$APP_DIR/.worktrees"
+cleanup_path "\$APP_DIR/.turbo"
+cleanup_path "\$APP_DIR/coverage"
+cleanup_path "\$APP_DIR/playwright-report"
+cleanup_path "\$APP_DIR/test-results"
+
+if ! legacy_runtime_in_use; then
+  cleanup_path /opt/listenlater
+  cleanup_path /home/listenlater
+  cleanup_path /home/azureuser/listenlater
+fi
+
+sudo find /tmp -maxdepth 1 -name 'articlepod-env-upload-*' -mtime +1 -print -exec rm -rf {} + 2>/dev/null || true
+
+after_basic="\$(free_mb)"
+if (( after_basic < WARN_MB )); then
+  echo "[deploy-changes] \${PHASE}: free space \${after_basic} MB below warning floor \${WARN_MB} MB; running pressure cleanup"
+  sudo apt-get clean >/dev/null 2>&1 || true
+  sudo rm -rf \
+    /home/azureuser/.cache/pip \
+    /home/articlepod/.cache/pip \
+    /root/.cache/pip \
+    /home/azureuser/.npm/_cacache \
+    /home/articlepod/.npm/_cacache \
+    /root/.npm/_cacache \
+    /home/azureuser/.local/share/pnpm/store \
+    /home/articlepod/.local/share/pnpm/store \
+    /root/.local/share/pnpm/store \
+    /home/azureuser/.pnpm-store \
+    /home/articlepod/.pnpm-store \
+    /root/.pnpm-store \
+    "\$APP_DIR/apps/web/.next/cache" \
+    || true
+fi
+
+after_cleanup="\$(free_mb)"
+echo "[deploy-changes] \${PHASE}: remote free space after cleanup \${after_cleanup} MB"
+
+if (( after_cleanup < FAIL_MB )); then
+  echo "[deploy-changes] \${PHASE}: insufficient free space (\${after_cleanup} MB < \${FAIL_MB} MB)"
+  top_usage
+  exit 1
+fi
+
+if (( after_cleanup < WARN_MB )); then
+  echo "[deploy-changes] \${PHASE}: warning - free space remains below \${WARN_MB} MB"
+  top_usage
+fi
+EOF
+)
+
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "$remote_script"
+}
+
+run_remote_vault_command() {
+  local scope="$1"
+  shift
+  local command=(sudo -n -H)
+  if [[ "$scope" != "public-root" ]]; then
+    command+=(-u "$RUNTIME_APP_USER")
+  fi
+  command+=(python3 - --env-file "$RUNTIME_ENV_FILE")
+  case "$scope" in
+    public|public-root) command+=(--public-only) ;;
+    ops|web|worker|python-tts|worker-overflow) command+=(--service "$scope") ;;
+    *) echo "[deploy-changes] invalid remote credential scope" >&2; return 2 ;;
+  esac
+  command+=(-- "$@")
+  local quoted
+  printf -v quoted '%q ' "${command[@]}"
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "$quoted" < "$ROOT_DIR/scripts/azure/keyvault-exec.py"
+}
+
+preflight_remote_vault() {
+  local configured_url
+  run_remote_vault_command public-root python3 -c "$(< "$ROOT_DIR/scripts/azure/check-vault-deployment.py")" \
+    "$APP_DIR" "$TARGET_PATH" "$RUNTIME_ENV_FILE"
+  configured_url="$(run_remote_vault_command public python3 -c 'import os; print(os.environ["APP_URL"].rstrip("/"))')"
+  if [[ -n "$HEALTH_URL" && "$HEALTH_URL" != "$configured_url/api/health" ]]; then
+    echo "[deploy-changes] health URL must match the protected VM configuration" >&2
+    return 1
+  fi
+  HEALTH_URL="$configured_url/api/health"
+  run_remote_vault_command public /usr/bin/env bash --noprofile --norc -c '
+    for tool in node corepack python3; do
+      command -v "$tool" >/dev/null || { echo "[deploy-changes] required runtime tool missing" >&2; exit 1; }
+    done
+  '
+  if [[ -z "$OVERFLOW_EXPLICIT" ]]; then
+    ENABLE_OVERFLOW_WORKER_SERVICE="$(run_remote_vault_command public python3 -c '
+import subprocess, sys
+result = subprocess.run(["systemctl", "show", sys.argv[1], "--property=LoadState,ActiveState,UnitFileState"],
+                        capture_output=True, text=True)
+values = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+if result.returncode or values.get("LoadState") not in ("loaded", "not-found"):
+    print("[deploy-changes] cannot establish overflow service state", file=sys.stderr)
+    sys.exit(1)
+if values["LoadState"] == "not-found":
+    print("0")
+elif values.get("ActiveState") not in ("active", "activating", "inactive", "failed", "deactivating") or values.get("UnitFileState") not in ("enabled", "enabled-runtime", "disabled"):
+    print("[deploy-changes] unsupported overflow service state; select an explicit policy", file=sys.stderr)
+    sys.exit(1)
+else:
+    print("1" if values["ActiveState"] in ("active", "activating") or values["UnitFileState"].startswith("enabled") else "0")
+' "$(runtime_service_name worker-overflow)")"
+  fi
+  run_remote_vault_command public python3 -c '
+import subprocess, sys
+app, public_file, prefix, overflow = sys.argv[1:]
+services = ("web", "worker", "python-tts") + (("worker-overflow",) if overflow == "1" else ())
+for service in services:
+    unit = prefix + "-" + service + ".service"
+    command = subprocess.run(["systemctl", "show", unit, "--property=ExecStart", "--value"],
+                             capture_output=True, text=True)
+    environment = subprocess.run(["systemctl", "show", unit, "--property=EnvironmentFiles", "--value"],
+                                 capture_output=True, text=True)
+    route = app + "/scripts/azure/runtime-exec.sh " + service + " --env-file " + public_file + " --shell "
+    if command.returncode or environment.returncode or route not in command.stdout or environment.stdout.strip() != public_file + " (ignore_errors=no)":
+        print("[deploy-changes] existing units do not match the vault bootstrap contract", file=sys.stderr)
+        sys.exit(1)
+' "$APP_DIR" "$RUNTIME_ENV_FILE" "$RUNTIME_SERVICE_PREFIX" "$ENABLE_OVERFLOW_WORKER_SERVICE"
+  local service
+  for service in ops web worker python-tts; do
+    run_remote_vault_command "$service" /usr/bin/true
+  done
+  if [[ "$ENABLE_OVERFLOW_WORKER_SERVICE" == "1" ]]; then
+    run_remote_vault_command worker-overflow /usr/bin/true
+  fi
+  run_remote_vault_command ops python3 -c '
+import os, sys
+if os.environ["METADATA_PRIMARY_BACKEND"] == "prisma" and not os.environ.get("DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
+    print("[deploy-changes] vault Prisma deployment requires PostgreSQL", file=sys.stderr)
+    sys.exit(1)
+'
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --host)
@@ -175,6 +441,10 @@ while [[ $# -gt 0 ]]; do
       TARGET_PORT="${2:-}"
       shift 2
       ;;
+    --ssh-known-hosts)
+      TARGET_KNOWN_HOSTS_FILE="${2:-}"
+      shift 2
+      ;;
     --app-dir)
       APP_DIR="${2:-}"
       shift 2
@@ -190,6 +460,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --health-delay)
       HEALTH_RETRY_DELAY="${2:-}"
+      shift 2
+      ;;
+    --warn-free-mb)
+      DEPLOY_WARN_FREE_MB="${2:-}"
+      shift 2
+      ;;
+    --fail-free-mb)
+      DEPLOY_FAIL_FREE_MB="${2:-}"
       shift 2
       ;;
     --full-deploy)
@@ -234,10 +512,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --enable-overflow-worker)
       ENABLE_OVERFLOW_WORKER_SERVICE=1
+      OVERFLOW_EXPLICIT=1
       shift
       ;;
     --disable-overflow-worker)
       ENABLE_OVERFLOW_WORKER_SERVICE=0
+      OVERFLOW_EXPLICIT=1
       shift
       ;;
     -h|--help)
@@ -251,6 +531,16 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+case "$SECRET_SOURCE" in
+  environment) ;;
+  keyvault) ;;
+  *) echo "[deploy-changes] invalid secret source" >&2; exit 2 ;;
+esac
+if [[ "$ENABLE_OVERFLOW_WORKER_SERVICE" != "0" && "$ENABLE_OVERFLOW_WORKER_SERVICE" != "1" ]]; then
+  echo "[deploy-changes] overflow policy must be 0 or 1" >&2
+  exit 2
+fi
 
 if [[ -z "$TARGET_HOST" ]]; then
   echo "Missing target host. Set --host or TARGET_HOST."
@@ -272,9 +562,88 @@ if ! [[ "$HEALTH_RETRY_DELAY" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 
+if ! [[ "$DEPLOY_SSH_CONNECT_TIMEOUT" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_SSH_CONNECT_TIMEOUT" -lt 1 ]]; then
+  echo "Invalid DEPLOY_SSH_CONNECT_TIMEOUT: $DEPLOY_SSH_CONNECT_TIMEOUT (expected positive integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_SSH_SERVER_ALIVE_INTERVAL" =~ ^[0-9]+$ ]]; then
+  echo "Invalid DEPLOY_SSH_SERVER_ALIVE_INTERVAL: $DEPLOY_SSH_SERVER_ALIVE_INTERVAL (expected non-negative integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX" -lt 1 ]]; then
+  echo "Invalid DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX: $DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX (expected positive integer)"
+  exit 2
+fi
+
+if [[ -z "$DEPLOY_WARN_FREE_MB" ]]; then
+  if [[ "$DEPLOY_FORCE_FULL" == "1" ]]; then
+    DEPLOY_WARN_FREE_MB=8192
+  else
+    DEPLOY_WARN_FREE_MB=4096
+  fi
+fi
+
+if [[ -z "$DEPLOY_FAIL_FREE_MB" ]]; then
+  if [[ "$DEPLOY_FORCE_FULL" == "1" ]]; then
+    DEPLOY_FAIL_FREE_MB=4096
+  else
+    DEPLOY_FAIL_FREE_MB=2048
+  fi
+fi
+
+if ! [[ "$DEPLOY_WARN_FREE_MB" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_WARN_FREE_MB" -lt 1 ]]; then
+  echo "Invalid DEPLOY_WARN_FREE_MB: $DEPLOY_WARN_FREE_MB (expected positive integer)"
+  exit 2
+fi
+
+if ! [[ "$DEPLOY_FAIL_FREE_MB" =~ ^[0-9]+$ ]] || [[ "$DEPLOY_FAIL_FREE_MB" -lt 1 ]]; then
+  echo "Invalid DEPLOY_FAIL_FREE_MB: $DEPLOY_FAIL_FREE_MB (expected positive integer)"
+  exit 2
+fi
+
+if [[ "$DEPLOY_FAIL_FREE_MB" -gt "$DEPLOY_WARN_FREE_MB" ]]; then
+  echo "DEPLOY_FAIL_FREE_MB must be less than or equal to DEPLOY_WARN_FREE_MB"
+  exit 2
+fi
+
 if ! DEPLOY_CONFIGURE_INGRESS="$(parse_bool "$DEPLOY_CONFIGURE_INGRESS")"; then
   echo "Invalid DEPLOY_CONFIGURE_INGRESS: $DEPLOY_CONFIGURE_INGRESS (expected 1|0|true|false|yes|no)"
   exit 2
+fi
+if [[ "$SECRET_SOURCE" == "keyvault" ]] &&
+   [[ "$DEPLOY_RENDER_ENV" != "0" || "$DEPLOY_CONFIGURE_INGRESS" != "0" || "$DEPLOY_DEMO_SEED_MODE" != "never" ]]; then
+  echo "[deploy-changes] vault deployment preserves VM configuration and ingress and requires seed mode never" >&2
+  exit 2
+fi
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  if [[ -z "${TARGET_KNOWN_HOSTS_FILE-}" ]]; then
+    echo "[deploy-changes] vault deployment requires explicit independently verified host pins" >&2
+    exit 2
+  fi
+  if [[ ! "$RUNTIME_SERVICE_PREFIX" =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ||
+        ! "$RUNTIME_APP_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ||
+        ! "$RUNTIME_APP_GROUP" =~ ^[a-zA-Z_][a-zA-Z0-9_.-]*$ ]]; then
+    echo "[deploy-changes] invalid runtime service identity" >&2
+    exit 2
+  fi
+  python3 - "$ROOT_DIR" "$APP_DIR" "$RUNTIME_ENV_FILE" "$RUNTIME_SERVICE_PREFIX" "$RUNTIME_APP_USER" "$RUNTIME_APP_GROUP" <<'PY'
+from pathlib import Path
+import shlex, sys
+root, app, environment, prefix, user, group = sys.argv[1:]
+try:
+    for service in ("web", "worker", "python-tts", "worker-overflow"):
+        lines = (Path(root) / "infra/systemd" / (prefix + "-" + service + ".service")).read_text().splitlines()
+        def values(name):
+            return [line.split("=", 1)[1] for line in lines if line.startswith(name + "=")]
+        starts = values("ExecStart")
+        expected = ["/usr/bin/env", "bash", app + "/scripts/azure/runtime-exec.sh", service, "--env-file", environment]
+        if values("User") != [user] or values("Group") != [group] or [shlex.split(v) for v in values("EnvironmentFile")] != [[environment]] or len(starts) != 1 or shlex.split(starts[0])[:6] != expected:
+            raise ValueError()
+except (OSError, ValueError):
+    sys.exit("[deploy-changes] local unit templates do not match the selected vault runtime layout")
+PY
 fi
 
 case "$DEPLOY_DEMO_SEED_MODE" in
@@ -313,6 +682,28 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" && -n "${APP_URL:-}" && -n "$CANONICAL_HOST" ]
   fi
 fi
 
+configure_deployment_ssh "$DEPLOY_SSH_CONNECT_TIMEOUT" \
+  "$DEPLOY_SSH_SERVER_ALIVE_INTERVAL" "$DEPLOY_SSH_SERVER_ALIVE_COUNT_MAX"
+if [[ "${TARGET_KNOWN_HOSTS_FILE+x}" == "x" ]]; then
+  export TARGET_KNOWN_HOSTS_FILE
+fi
+
+REMOTE="${TARGET_USER}@${TARGET_HOST}"
+COPY_REMOTE="$REMOTE"
+if [[ "$TARGET_HOST" == *:* ]]; then
+  COPY_REMOTE="${TARGET_USER}@[${TARGET_HOST}]"
+fi
+
+probe_remote_ssh "$REMOTE"
+RUNTIME_ENV_FILE_Q="$(printf '%q' "$RUNTIME_ENV_FILE")"
+if [[ "$SECRET_SOURCE" == "keyvault" ]]; then
+  preflight_remote_vault
+else
+  ssh "${SSH_ARGS[@]}" "$REMOTE" "sudo -n python3 - $RUNTIME_ENV_FILE_Q" \
+    < "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py"
+fi
+run_remote_disk_guard "pre-sync" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
+
 echo "[deploy-changes] syncing code to ${TARGET_USER}@${TARGET_HOST}:${TARGET_PATH}"
 TARGET_HOST="$TARGET_HOST" \
 TARGET_USER="$TARGET_USER" \
@@ -320,22 +711,6 @@ TARGET_PATH="$TARGET_PATH" \
 TARGET_SSH_KEY="$TARGET_SSH_KEY" \
 TARGET_PORT="$TARGET_PORT" \
 "$ROOT_DIR/scripts/azure/push-to-vm.sh"
-
-# SSH args: use -i for key, -p for port, no extra verify flags (handled by ~/.ssh/config)
-SSH_ARGS=()
-if [[ -n "$TARGET_SSH_KEY" ]]; then
-  SSH_ARGS+=(-i "$TARGET_SSH_KEY")
-fi
-SSH_ARGS+=(-p "$TARGET_PORT")
-
-# SCP args mirror
-SCP_ARGS=()
-if [[ -n "$TARGET_SSH_KEY" ]]; then
-  SCP_ARGS+=(-i "$TARGET_SSH_KEY")
-fi
-SCP_ARGS+=(-P "$TARGET_PORT")
-
-REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
 # --- Render and upload runtime env file if requested ---
 if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
@@ -349,7 +724,7 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
   OUT_FILE="$RENDER_ENV_TEMP" "$ROOT_DIR/scripts/azure/render-env.sh"
 
   REMOTE_TEMP="/tmp/articlepod-env-upload-$$"
-  scp "${SCP_ARGS[@]}" "$RENDER_ENV_TEMP" "${REMOTE}:${REMOTE_TEMP}"
+  scp "${SCP_ARGS[@]}" "$RENDER_ENV_TEMP" "${COPY_REMOTE}:${REMOTE_TEMP}"
   rm -f "$RENDER_ENV_TEMP"
 
   RUNTIME_ENV_DIR="$(dirname "$RUNTIME_ENV_FILE")"
@@ -357,6 +732,8 @@ if [[ "$DEPLOY_RENDER_ENV" == "1" ]]; then
     "sudo mkdir -p '$RUNTIME_ENV_DIR' && sudo mv '$REMOTE_TEMP' '$RUNTIME_ENV_FILE' && sudo chown root:$RUNTIME_APP_GROUP '$RUNTIME_ENV_FILE' && sudo chmod 640 '$RUNTIME_ENV_FILE'"
   echo "[deploy-changes] uploaded env file to $RUNTIME_ENV_FILE"
 fi
+
+run_remote_disk_guard "pre-promote" "$DEPLOY_WARN_FREE_MB" "$DEPLOY_FAIL_FREE_MB"
 
 echo "[deploy-changes] promoting staged code + deploying runtime on VM"
 echo "[deploy-changes] runtime options: full=${DEPLOY_FORCE_FULL}, seed=${DEPLOY_DEMO_SEED_MODE}, ingress=${DEPLOY_CONFIGURE_INGRESS}, overflow=${ENABLE_OVERFLOW_WORKER_SERVICE}"
@@ -378,12 +755,23 @@ fi
 
 REMOTE_DEPLOY_SCRIPT=$(cat <<EOF
 set -euo pipefail
-if ! id -u '$RUNTIME_APP_USER' >/dev/null 2>&1; then
-  echo "[deploy-changes] runtime user '$RUNTIME_APP_USER' missing on VM; running bootstrap"
-  sudo '$TARGET_PATH/scripts/azure/bootstrap-vm.sh'
+APP_DIR=$(printf '%q' "$APP_DIR")
+STAGING_DIR=$(printf '%q' "$TARGET_PATH")
+APP_USER=$(printf '%q' "$RUNTIME_APP_USER")
+APP_GROUP=$(printf '%q' "$RUNTIME_APP_GROUP")
+SERVICE_PREFIX=$(printf '%q' "$RUNTIME_SERVICE_PREFIX")
+ENV_FILE=$(printf '%q' "$RUNTIME_ENV_FILE")
+SECRET_SOURCE=$(printf '%q' "$SECRET_SOURCE")
+if ! id -u "\$APP_USER" >/dev/null 2>&1; then
+  if [[ "\$SECRET_SOURCE" == 'keyvault' ]]; then
+    echo "[deploy-changes] vault deployment requires completed initial bootstrap" >&2
+    exit 1
+  fi
+  echo "[deploy-changes] runtime user missing on VM; running bootstrap"
+  sudo "\$STAGING_DIR/scripts/azure/bootstrap-vm.sh"
 fi
-sudo STAGING_DIR='$TARGET_PATH' APP_DIR='$APP_DIR' '$TARGET_PATH/scripts/azure/promote-runtime.sh'
-sudo APP_DIR='$APP_DIR' DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' ENABLE_OVERFLOW_WORKER_SERVICE='$ENABLE_OVERFLOW_WORKER_SERVICE' '$APP_DIR/scripts/azure/deploy-vm-runtime.sh'
+sudo ARTICLEPOD_SECRET_SOURCE="\$SECRET_SOURCE" ENV_FILE="\$ENV_FILE" STAGING_DIR="\$STAGING_DIR" APP_DIR="\$APP_DIR" APP_USER="\$APP_USER" APP_GROUP="\$APP_GROUP" "\$STAGING_DIR/scripts/azure/promote-runtime.sh"
+sudo ARTICLEPOD_SECRET_SOURCE="\$SECRET_SOURCE" ENV_FILE="\$ENV_FILE" APP_DIR="\$APP_DIR" STAGING_DIR="\$STAGING_DIR" APP_USER="\$APP_USER" APP_GROUP="\$APP_GROUP" RUNTIME_SERVICE_PREFIX="\$SERVICE_PREFIX" DEPLOY_FORCE_FULL='$DEPLOY_FORCE_FULL' DEPLOY_DEMO_SEED_MODE='$DEPLOY_DEMO_SEED_MODE' ENABLE_OVERFLOW_WORKER_SERVICE='$ENABLE_OVERFLOW_WORKER_SERVICE' "\$APP_DIR/scripts/azure/deploy-vm-runtime.sh"
 ${REMOTE_INGRESS_SCRIPT}
 EOF
 )

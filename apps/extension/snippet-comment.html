@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Save Snippet</title>
+    <link rel="stylesheet" href="snippet-comment.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <p class="eyebrow">ArticlePod Snippets</p>
+      <h1>Save selection with comment</h1>
+      <p class="muted">
+        Keep the exact text you highlighted, add a little context, and save it
+        to your private snippets workspace.
+      </p>
+
+      <section class="card">
+        <p id="source-title" class="source-title">Loading snippet...</p>
+        <a
+          id="source-url"
+          class="source-url"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+        ></a>
+        <pre id="selected-text" class="selected-text"></pre>
+      </section>
+
+      <label class="field">
+        <span>Comment</span>
+        <textarea
+          id="comment-input"
+          rows="5"
+          placeholder="Why did you save this?"
+        ></textarea>
+      </label>
+
+      <p id="status" class="status"></p>
+
+      <div class="actions">
+        <button id="cancel-btn" type="button" class="secondary">Cancel</button>
+        <button id="save-btn" type="button" class="primary">Save snippet</button>
+      </div>
+    </main>
+
+    <script type="module" src="snippet-comment.js"></script>
+  </body>
+</html>

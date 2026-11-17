@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from _thread import LockType
 import hmac
-import importlib.util
 import io
 import json
 import logging
 import os
 import secrets
+import threading
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -19,6 +20,9 @@ import soundfile as sf
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
+
+from .provider_discovery import optional_module_available
 
 app = FastAPI(title="ArticlePod Python TTS")
 
@@ -45,40 +49,87 @@ def _default_log_root() -> Path:
     return project_root / ".runtime" / "logs"
 
 
+def _read_non_negative_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return default
+    return max(0, parsed)
+
+
+def _read_non_negative_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = float(raw)
+    except ValueError:
+        return default
+    return max(0.0, parsed)
+
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_ROOT = Path(os.getenv("LOG_ROOT", str(_default_log_root())))
-LOG_PATH = LOG_ROOT / "python-tts" / "app.log.jsonl"
+LOG_EVENTS_PATH = LOG_ROOT / "events" / "python-tts" / "events.log.jsonl"
+LOG_ERRORS_PATH = LOG_ROOT / "errors" / "python-tts" / "errors.log.jsonl"
 LOG_MAX_BYTES = int(os.getenv("LOG_MAX_BYTES", str(1 * 1024 * 1024)))
 LOG_MAX_FILES = int(os.getenv("LOG_MAX_FILES", "10"))
 LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "14"))
+LOG_ERROR_RETENTION_DAYS = int(os.getenv("LOG_ERROR_RETENTION_DAYS", str(max(LOG_RETENTION_DAYS, 30))))
 TTS_MAX_TEXT_CHARS = int(os.getenv("TTS_MAX_TEXT_CHARS", "120000"))
+ERROR_LEVELS = {"ERROR", "FATAL"}
+GENERIC_AUDIO_FAILURE_DETAIL = "Audio processing failed. Please retry."
+TEMPORARY_AUDIO_FAILURE_DETAIL = "Audio processing is temporarily unavailable. Please retry shortly."
+PYTHON_TTS_RECYCLE_RSS_MB = _read_non_negative_int_env("PYTHON_TTS_RECYCLE_RSS_MB", 0)
+PYTHON_TTS_RECYCLE_IDLE_SECONDS = _read_non_negative_float_env("PYTHON_TTS_RECYCLE_IDLE_SECONDS", 0.0)
+PYTHON_TTS_RECYCLE_RSS_BYTES = PYTHON_TTS_RECYCLE_RSS_MB * 1024 * 1024
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
+
+_SYNTH_STATE_LOCK = threading.Lock()
+_ACTIVE_SYNTH_REQUESTS = 0
+_RECYCLE_REQUESTED = False
+_RECYCLE_THREAD: threading.Thread | None = None
+_LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
 
 
 def _utc_now_iso() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
 
 
-def _rotate_logs_if_needed() -> None:
+def _log_sink_for_level(level: str) -> tuple[Path, int]:
+    if level in ERROR_LEVELS:
+        return LOG_ERRORS_PATH, LOG_ERROR_RETENTION_DAYS
+    return LOG_EVENTS_PATH, LOG_RETENTION_DAYS
+
+
+def _rotate_logs_if_needed(log_path: Path, retention_days: int) -> None:
     try:
-        if not LOG_PATH.exists() or LOG_PATH.stat().st_size <= LOG_MAX_BYTES:
-            return
-        timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
-        rotated = LOG_PATH.with_name(f"{LOG_PATH.name}.{timestamp}")
-        LOG_PATH.rename(rotated)
-        LOG_PATH.touch(exist_ok=True)
+        if log_path.exists() and log_path.stat().st_size > LOG_MAX_BYTES:
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%dT%H%M%S")
+            rotated = log_path.with_name(f"{log_path.name}.{timestamp}")
+            log_path.rename(rotated)
+            log_path.touch(exist_ok=True)
     except Exception:
         return
 
     try:
+        cutoff = time.time() - retention_days * 24 * 60 * 60
+        kept = 0
         rotated_logs = sorted(
-            [entry for entry in LOG_PATH.parent.glob(f"{LOG_PATH.name}.*") if entry.is_file()],
+            [entry for entry in log_path.parent.glob(f"{log_path.name}.*") if entry.is_file()],
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        for stale in rotated_logs[LOG_MAX_FILES:]:
-            stale.unlink(missing_ok=True)
+        for stale in rotated_logs:
+            stale_mtime = stale.stat().st_mtime
+            if stale_mtime < cutoff or kept >= LOG_MAX_FILES:
+                stale.unlink(missing_ok=True)
+                continue
+            kept += 1
     except Exception:
         pass
 
@@ -120,7 +171,7 @@ def _log_event(
     traceparent: str | None = None,
     attrs: dict[str, Any] | None = None,
 ) -> None:
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    log_path, retention_days = _log_sink_for_level(level)
     event = {
         "ts": _utc_now_iso(),
         "level": level,
@@ -136,9 +187,13 @@ def _log_event(
         "user_id_hash": _safe_user_hash(os.getenv("DEMO_EMAIL")),
         "attrs": attrs or {},
     }
-    with LOG_PATH.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, ensure_ascii=True) + "\n")
-    _rotate_logs_if_needed()
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, ensure_ascii=True) + "\n")
+        _rotate_logs_if_needed(log_path, retention_days)
+    except Exception as exc:
+        logging.warning("Structured log write failed for %s: %s", log_path, exc)
 
 
 def _request_context(request: Request) -> dict[str, str | None]:
@@ -148,6 +203,136 @@ def _request_context(request: Request) -> dict[str, str | None]:
         "job_id": request.headers.get("x-job-id"),
         "item_id": request.headers.get("x-item-id"),
     }
+
+
+def _read_current_rss_bytes() -> int | None:
+    status_path = Path("/proc/self/status")
+    try:
+        for line in status_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("VmRSS:"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    return int(parts[1]) * 1024
+                return None
+    except Exception:
+        return None
+    return None
+
+
+def _state_snapshot() -> tuple[int, bool]:
+    with _SYNTH_STATE_LOCK:
+        return _ACTIVE_SYNTH_REQUESTS, _RECYCLE_REQUESTED
+
+
+def _note_synth_started() -> None:
+    global _ACTIVE_SYNTH_REQUESTS, _LAST_SYNTH_ACTIVITY_MONOTONIC
+    with _SYNTH_STATE_LOCK:
+        _ACTIVE_SYNTH_REQUESTS += 1
+        _LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
+
+
+def _should_request_recycle(rss_bytes: int | None) -> bool:
+    return PYTHON_TTS_RECYCLE_RSS_BYTES > 0 and rss_bytes is not None and rss_bytes >= PYTHON_TTS_RECYCLE_RSS_BYTES
+
+
+def _request_process_recycle(
+    request_ctx: dict[str, str | None],
+    *,
+    rss_bytes: int,
+    provider: str,
+    text_chars: int,
+) -> None:
+    global _RECYCLE_REQUESTED
+
+    with _SYNTH_STATE_LOCK:
+        if _RECYCLE_REQUESTED:
+            return
+        _RECYCLE_REQUESTED = True
+        active_requests = _ACTIVE_SYNTH_REQUESTS
+
+    _log_event(
+        "WARN",
+        "python-tts recycle requested after high RSS",
+        error_code="TTS_RECYCLE_REQUESTED",
+        request_id=request_ctx["request_id"],
+        job_id=request_ctx["job_id"],
+        item_id=request_ctx["item_id"],
+        traceparent=request_ctx["traceparent"],
+        attrs={
+            "provider": provider,
+            "text_chars": text_chars,
+            "rss_mb": round(rss_bytes / (1024 * 1024), 2),
+            "rss_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB,
+            "idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+            "active_requests": active_requests,
+        },
+    )
+
+
+def _should_restart_after_idle(now: float | None = None) -> bool:
+    current_time = time.monotonic() if now is None else now
+    with _SYNTH_STATE_LOCK:
+        if not _RECYCLE_REQUESTED or _ACTIVE_SYNTH_REQUESTS > 0:
+            return False
+        idle_for = current_time - _LAST_SYNTH_ACTIVITY_MONOTONIC
+    return idle_for >= PYTHON_TTS_RECYCLE_IDLE_SECONDS
+
+
+def _trigger_process_restart() -> None:
+    logging.shutdown()
+    os._exit(0)
+
+
+def _recycle_when_idle() -> None:
+    global _RECYCLE_THREAD
+
+    wait_seconds = 0.25 if PYTHON_TTS_RECYCLE_IDLE_SECONDS <= 0 else min(1.0, PYTHON_TTS_RECYCLE_IDLE_SECONDS)
+    while True:
+        if _should_restart_after_idle():
+            rss_bytes = _read_current_rss_bytes()
+            _log_event(
+                "WARN",
+                "python-tts recycling after idle threshold",
+                error_code="TTS_RECYCLE",
+                attrs={
+                    "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+                    "rss_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB,
+                    "idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+                },
+            )
+            with _SYNTH_STATE_LOCK:
+                _RECYCLE_THREAD = None
+            _trigger_process_restart()
+            return
+
+        with _SYNTH_STATE_LOCK:
+            if not _RECYCLE_REQUESTED:
+                _RECYCLE_THREAD = None
+                return
+
+        time.sleep(wait_seconds)
+
+
+def _arm_recycle_thread_if_needed() -> None:
+    global _RECYCLE_THREAD
+
+    with _SYNTH_STATE_LOCK:
+        if not _RECYCLE_REQUESTED or _ACTIVE_SYNTH_REQUESTS > 0 or _RECYCLE_THREAD is not None:
+            return
+        _RECYCLE_THREAD = threading.Thread(target=_recycle_when_idle, name="python-tts-recycle", daemon=True)
+        recycle_thread = _RECYCLE_THREAD
+
+    recycle_thread.start()
+
+
+def _finish_synth_request() -> None:
+    global _ACTIVE_SYNTH_REQUESTS, _LAST_SYNTH_ACTIVITY_MONOTONIC
+
+    with _SYNTH_STATE_LOCK:
+        _ACTIVE_SYNTH_REQUESTS = max(0, _ACTIVE_SYNTH_REQUESTS - 1)
+        _LAST_SYNTH_ACTIVITY_MONOTONIC = time.monotonic()
+
+    _arm_recycle_thread_if_needed()
 
 
 class SynthesizePayload(BaseModel):
@@ -184,6 +369,8 @@ MELO_ENGLISH_VOICES = [
 
 _kokoro_pipelines: Dict[str, Any] = {}
 _melo_models: Dict[str, Any] = {}
+_MODEL_INIT_LOCKS: Dict[tuple[str, str], LockType] = {}
+_MODEL_INIT_LOCKS_GUARD = threading.Lock()
 NLTK_RESOURCE_PATHS = {
     "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng",
     "cmudict": "corpora/cmudict",
@@ -191,10 +378,10 @@ NLTK_RESOURCE_PATHS = {
 
 
 def _kokoro_health() -> ProviderHealth:
-    if importlib.util.find_spec("kokoro") is None:
+    if not optional_module_available("kokoro"):
         return ProviderHealth(available=False, reason="kokoro package is not installed.")
 
-    if importlib.util.find_spec("en_core_web_sm") is None:
+    if not optional_module_available("en_core_web_sm"):
         return ProviderHealth(
             available=False,
             reason="spaCy model 'en_core_web_sm' is missing. Run scripts/bootstrap-python-tts.sh.",
@@ -204,7 +391,7 @@ def _kokoro_health() -> ProviderHealth:
 
 
 def _melo_health() -> ProviderHealth:
-    if importlib.util.find_spec("melo.api") is None:
+    if not optional_module_available("melo.api"):
         return ProviderHealth(available=False, reason="melo package is not installed.")
 
     try:
@@ -235,55 +422,70 @@ def _melo_health() -> ProviderHealth:
     return ProviderHealth(available=True)
 
 
-def _provider_health() -> Dict[str, ProviderHealth]:
-    return {
-        "kokoro": _kokoro_health(),
-        "melo": _melo_health(),
-    }
+def _provider_health(provider: str | None = None) -> Dict[str, ProviderHealth]:
+    checks = {"kokoro": _kokoro_health, "melo": _melo_health}
+    selected = [provider] if provider is not None else checks
+    return {name: checks[name]() for name in selected}
+
+
+def _model_init_lock(provider: str, language: str) -> LockType:
+    key = (provider, language)
+    with _MODEL_INIT_LOCKS_GUARD:
+        if key not in _MODEL_INIT_LOCKS:
+            _MODEL_INIT_LOCKS[key] = threading.Lock()
+        return _MODEL_INIT_LOCKS[key]
 
 
 def _get_kokoro_pipeline(language_code: str) -> Any:
-    if language_code not in _kokoro_pipelines:
-        from kokoro import KPipeline
+    with _model_init_lock("kokoro", language_code):
+        if language_code not in _kokoro_pipelines:
+            from kokoro import KPipeline
 
-        _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
-    return _kokoro_pipelines[language_code]
+            _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
+        return _kokoro_pipelines[language_code]
 
 
-def _synthesize_kokoro(text: str, voice: str, speed: float) -> tuple[np.ndarray, int]:
+def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> bytes:
     if "_" not in voice:
         raise ValueError("Kokoro voice must include a language prefix (for example af_heart).")
 
     language_code = voice.split("_", 1)[0][0].lower()
     pipeline = _get_kokoro_pipeline(language_code)
-    chunks: list[np.ndarray] = []
+    stream = io.BytesIO()
+    wrote_audio = False
 
     try:
-        try:
-            segments = pipeline(text, voice=voice, speed=speed)
-        except TypeError:
-            segments = pipeline(text, voice=voice)
+        with sf.SoundFile(stream, mode="w", samplerate=24_000, channels=1, format="WAV", subtype="PCM_16") as sink:
+            try:
+                segments = pipeline(text, voice=voice, speed=speed)
+            except TypeError:
+                segments = pipeline(text, voice=voice)
 
-        for _graphemes, _phonemes, audio in segments:
-            if audio is None:
-                continue
-            chunks.append(np.asarray(audio, dtype=np.float32))
+            for _graphemes, _phonemes, audio in segments:
+                if audio is None:
+                    continue
+                segment = np.asarray(audio, dtype=np.float32)
+                if segment.ndim > 1:
+                    segment = np.mean(segment, axis=1)
+                sink.write(segment)
+                wrote_audio = True
     except Exception as exc:
         raise RuntimeError(f"Kokoro synthesis failed: {exc}") from exc
 
-    if not chunks:
+    if not wrote_audio:
         raise RuntimeError("Kokoro synthesis returned no audio chunks.")
 
-    return np.concatenate(chunks), 24_000
+    return stream.getvalue()
 
 
 def _get_melo_model() -> Any:
     key = "EN"
-    if key not in _melo_models:
-        from melo.api import TTS
+    with _model_init_lock("melo", key):
+        if key not in _melo_models:
+            from melo.api import TTS
 
-        _melo_models[key] = TTS(language="EN", device="auto")
-    return _melo_models[key]
+            _melo_models[key] = TTS(language="EN", device="auto")
+        return _melo_models[key]
 
 
 def _synthesize_melo(text: str, voice: str, speed: float) -> tuple[np.ndarray, int]:
@@ -319,11 +521,21 @@ def _audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
 @app.get("/health")
 def health() -> dict[str, Any]:
     health_info = _provider_health()
+    rss_bytes = _read_current_rss_bytes()
+    active_requests, recycle_requested = _state_snapshot()
     return {
         "status": "ok",
         "providers": {
             provider_id: {"available": value.available, "reason": value.reason}
             for provider_id, value in health_info.items()
+        },
+        "process": {
+            "rss_bytes": rss_bytes,
+            "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+            "recycle_threshold_mb": PYTHON_TTS_RECYCLE_RSS_MB or None,
+            "recycle_idle_seconds": PYTHON_TTS_RECYCLE_IDLE_SECONDS,
+            "recycle_requested": recycle_requested,
+            "active_synth_requests": active_requests,
         },
     }
 
@@ -351,6 +563,8 @@ def providers(_auth: None = Depends(_require_sidecar_auth)) -> dict[str, Any]:
 def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depends(_require_sidecar_auth)) -> Response:
     started = time.perf_counter()
     request_ctx = _request_context(request)
+    response: Response | None = None
+    _note_synth_started()
     _log_event(
         "INFO",
         "TTS synth request received",
@@ -360,30 +574,69 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
         traceparent=request_ctx["traceparent"],
         attrs={"provider": payload.provider, "voice": payload.voice, "text_chars": len(payload.text)},
     )
-    health_info = _provider_health()
-    provider_health = health_info[payload.provider]
-    if not provider_health.available:
-        _log_event(
-            "ERROR",
-            "TTS provider unavailable",
-            error_code="TTS_UNAVAILABLE",
-            request_id=request_ctx["request_id"],
-            job_id=request_ctx["job_id"],
-            item_id=request_ctx["item_id"],
-            traceparent=request_ctx["traceparent"],
-            attrs={"provider": payload.provider, "reason": provider_health.reason},
-        )
-        raise HTTPException(status_code=503, detail=provider_health.reason or "Provider unavailable.")
-
     try:
+        health_info = _provider_health(payload.provider)
+        provider_health = health_info[payload.provider]
+        if not provider_health.available:
+            _log_event(
+                "ERROR",
+                "TTS provider unavailable",
+                error_code="TTS_UNAVAILABLE",
+                request_id=request_ctx["request_id"],
+                job_id=request_ctx["job_id"],
+                item_id=request_ctx["item_id"],
+                traceparent=request_ctx["traceparent"],
+                attrs={"provider": payload.provider, "reason": provider_health.reason},
+            )
+            raise HTTPException(status_code=503, detail=TEMPORARY_AUDIO_FAILURE_DETAIL)
+
         if payload.provider == "kokoro":
             if payload.voice not in KOKORO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Kokoro voice: {payload.voice}")
-            audio, sample_rate = _synthesize_kokoro(payload.text, payload.voice, payload.speed)
+            wav_bytes = _synthesize_kokoro_to_wav_bytes(payload.text, payload.voice, payload.speed)
+            sample_rate = 24_000
         else:
             if payload.voice not in MELO_ENGLISH_VOICES:
                 raise HTTPException(status_code=400, detail=f"Unsupported Melo voice: {payload.voice}")
             audio, sample_rate = _synthesize_melo(payload.text, payload.voice, payload.speed)
+            wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+        rss_bytes = _read_current_rss_bytes()
+        if _should_request_recycle(rss_bytes):
+            _request_process_recycle(
+                request_ctx,
+                rss_bytes=rss_bytes,
+                provider=payload.provider,
+                text_chars=len(payload.text),
+            )
+
+        _log_event(
+            "INFO",
+            "TTS synth completed",
+            request_id=request_ctx["request_id"],
+            job_id=request_ctx["job_id"],
+            item_id=request_ctx["item_id"],
+            traceparent=request_ctx["traceparent"],
+            attrs={
+                "provider": payload.provider,
+                "voice": payload.voice,
+                "sample_rate": sample_rate,
+                "duration_ms": elapsed_ms,
+                "bytes": len(wav_bytes),
+                "rss_mb": round(rss_bytes / (1024 * 1024), 2) if rss_bytes is not None else None,
+                "recycle_requested": _state_snapshot()[1],
+            },
+        )
+        response = Response(
+            content=wav_bytes,
+            media_type="audio/wav",
+            headers={
+                "x-provider": payload.provider,
+                "x-sample-rate": str(sample_rate),
+            },
+            background=BackgroundTask(_finish_synth_request),
+        )
+        return response
     except HTTPException as exc:
         _log_event(
             "WARN",
@@ -419,7 +672,7 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             traceparent=request_ctx["traceparent"],
             attrs={"provider": payload.provider, "detail": str(exc)},
         )
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail=GENERIC_AUDIO_FAILURE_DETAIL) from exc
     except Exception as exc:
         _log_event(
             "ERROR",
@@ -431,30 +684,7 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
             traceparent=request_ctx["traceparent"],
             attrs={"provider": payload.provider, "detail": str(exc)},
         )
-        raise HTTPException(status_code=500, detail=f"{payload.provider} synthesis failed: {exc}") from exc
-
-    wav_bytes = _audio_to_wav_bytes(audio, sample_rate)
-    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
-    _log_event(
-        "INFO",
-        "TTS synth completed",
-        request_id=request_ctx["request_id"],
-        job_id=request_ctx["job_id"],
-        item_id=request_ctx["item_id"],
-        traceparent=request_ctx["traceparent"],
-        attrs={
-            "provider": payload.provider,
-            "voice": payload.voice,
-            "sample_rate": sample_rate,
-            "duration_ms": elapsed_ms,
-            "bytes": len(wav_bytes),
-        },
-    )
-    return Response(
-        content=wav_bytes,
-        media_type="audio/wav",
-        headers={
-            "x-provider": payload.provider,
-            "x-sample-rate": str(sample_rate),
-        },
-    )
+        raise HTTPException(status_code=500, detail=GENERIC_AUDIO_FAILURE_DETAIL) from exc
+    finally:
+        if response is None:
+            _finish_synth_request()

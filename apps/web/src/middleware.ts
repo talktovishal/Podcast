@@ -3,13 +3,14 @@ import { AUTH_COOKIE_NAMES } from "@articlepod/core/src/config/naming";
 
 // Routes accessible without a session cookie.
 const PUBLIC_PREFIXES: string[] = [
-  "/api/auth/",
+  "/api/auth",
   "/api/health",
-  "/api/media/",
-  "/api/digest-media/",
-  "/api/internal/",
-  "/rss/",
-  "/brand/",
+  "/api/media",
+  "/api/share-media",
+  "/api/digest-media",
+  "/api/internal",
+  "/rss",
+  "/brand",
   "/login",
   "/about",
   "/faq",
@@ -19,19 +20,39 @@ const PUBLIC_PREFIXES: string[] = [
   "/share",
 ];
 
+const PROTECTED_PREFIXES: string[] = ["/admin", "/app"];
+
 const PUBLIC_EXACT: Set<string> = new Set([
   "/",
   "/login",
+  "/api/share/cta",
+  "/api/items/html-snapshot",
+  "/api/items/pdf",
   "/apple-icon.png",
+  "/extension-smoke.html",
   "/manifest.webmanifest",
   "/robots.txt",
-  "/sitemap.xml"
+  "/sitemap.xml",
 ]);
+
+function matchesPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
 
 export function isPublicPathForAuth(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
   for (const prefix of PUBLIC_PREFIXES) {
-    if (pathname.startsWith(prefix)) return true;
+    if (matchesPathPrefix(pathname, prefix)) return true;
+  }
+  return false;
+}
+
+export function isProtectedPathForAuth(pathname: string): boolean {
+  if (pathname.startsWith("/api/")) {
+    return !isPublicPathForAuth(pathname);
+  }
+  for (const prefix of PROTECTED_PREFIXES) {
+    if (matchesPathPrefix(pathname, prefix)) return true;
   }
   return false;
 }
@@ -52,14 +73,22 @@ export function middleware(request: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
+  if (!isProtectedPathForAuth(pathname)) {
+    return NextResponse.next();
+  }
+
   if (!hasSessionCookie(request)) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
-        { ok: false, error_code: "UNAUTHORIZED", error_message: "Unauthorized" },
-        { status: 401 }
+        {
+          ok: false,
+          error_code: "UNAUTHORIZED",
+          error_message: "Unauthorized",
+        },
+        { status: 401 },
       );
     }
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -70,6 +99,6 @@ export function middleware(request: NextRequest): NextResponse {
 export const config = {
   matcher: [
     // Match all routes except Next.js internals and static files.
-    "/((?!_next/static|_next/image|favicon\\.ico|apple-icon\\.png|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|brand/|icons/|webstore/).*)"
-  ]
+    "/((?!_next/static|_next/image|favicon\\.ico|apple-icon\\.png|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|brand/|icons/|webstore/).*)",
+  ],
 };

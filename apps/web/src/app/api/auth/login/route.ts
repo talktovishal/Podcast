@@ -9,6 +9,7 @@ import {
   verifyPassword
 } from "@/lib/auth";
 import { recordAnalyticsEventBestEffort } from "@/lib/admin-analytics/events";
+import { resolvePostAuthRedirect } from "@/lib/auth-redirect";
 import { fromError } from "@/lib/http";
 import { createPrimaryUser, findPrimaryUserByEmail } from "@/lib/metadata-primary-auth";
 
@@ -22,7 +23,8 @@ const schema = z.object({
   mode: z.enum(["signup", "login"]),
   email: z.string().email(),
   password: z.string().min(8),
-  name: z.string().trim().max(120).optional()
+  name: z.string().trim().max(120).optional(),
+  next: z.string().trim().max(512).optional()
 });
 
 export async function POST(request: NextRequest) {
@@ -97,7 +99,11 @@ export async function POST(request: NextRequest) {
     await updateUserGeoSnapshotFromRequest(user.id, request);
     const sessionToken = await createSession(user.id, { authMethod: "LOCAL" });
 
-    const response = NextResponse.json({ ok: true, role: user.role });
+    const response = NextResponse.json({
+      ok: true,
+      role: user.role,
+      redirectTo: resolvePostAuthRedirect(body.next, user.role)
+    });
     await setSessionCookie(response, sessionToken);
 
     return response;

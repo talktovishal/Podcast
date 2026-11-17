@@ -104,7 +104,12 @@ async function backfill() {
   for (const item of items) {
     const profile = profileByUserId.get(item.userId);
     const sourceType =
-      item.sourceType === "URL" || item.sourceType === "PDF" || item.sourceType === "HTML_SNAPSHOT" ? item.sourceType : "URL";
+      item.sourceType === "URL" ||
+      item.sourceType === "PDF" ||
+      item.sourceType === "HTML_SNAPSHOT" ||
+      item.sourceType === "PODCAST_TRANSCRIPT"
+        ? item.sourceType
+        : "URL";
 
     await recordAnalyticsEvent({
       eventType: "ITEM_SUBMITTED",

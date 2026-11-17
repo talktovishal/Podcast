@@ -1,0 +1,430 @@
+import Image from "next/image";
+import type { ReactNode } from "react";
+import {
+  AntennaPodIcon,
+  ApplePodcastsIcon,
+  CastroIcon,
+  OvercastIcon,
+  PocketCastsIcon,
+  YouTubeMusicIcon,
+} from "@/components/podcast-app-icons";
+
+type StepProps = {
+  number: number;
+  children: ReactNode;
+};
+
+function Step({ number, children }: StepProps) {
+  return (
+    <li className="flex gap-3">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-xs font-bold">
+        {number}
+      </span>
+      <span className="text-sm text-[var(--muted)]">{children}</span>
+    </li>
+  );
+}
+
+type AppWalkthroughProps = {
+  icon: ReactNode;
+  name: string;
+  platform: string;
+  intro?: ReactNode;
+  steps: ReactNode[];
+  tip?: ReactNode;
+  extra?: ReactNode;
+};
+
+function AppWalkthrough({
+  icon,
+  name,
+  platform,
+  intro,
+  steps,
+  tip,
+  extra,
+}: AppWalkthroughProps) {
+  return (
+    <details className="group rounded-xl border bg-white">
+      <summary className="flex cursor-pointer list-none items-center gap-3 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-[var(--accent-soft)] text-xl">
+          {icon}
+        </span>
+        <div className="flex-1">
+          <p className="font-semibold">{name}</p>
+          <p className="text-xs text-[var(--muted)]">{platform}</p>
+        </div>
+        <span
+          className="ml-auto text-[var(--muted)] transition-transform group-open:rotate-180"
+          aria-hidden
+        >
+          ▾
+        </span>
+      </summary>
+
+      <div className="border-t px-4 pb-5 pt-4 sm:px-5">
+        {intro ? (
+          <p className="mb-4 text-sm text-[var(--muted)]">{intro}</p>
+        ) : null}
+        <ol className="space-y-3">
+          {steps.map((step, i) => (
+            <Step key={i} number={i + 1}>
+              {step}
+            </Step>
+          ))}
+        </ol>
+        {tip ? (
+          <div className="mt-4 rounded-lg border border-[#c9e4dc] bg-[#edf8f5] px-4 py-3 text-sm text-[#0f6a54]">
+            💡 {tip}
+          </div>
+        ) : null}
+        {extra ? <div className="mt-4">{extra}</div> : null}
+      </div>
+    </details>
+  );
+}
+
+// ─── Screen-mock helper ────────────────────────────────────────────────────────
+// Used inside step text to show a styled UI element name (menu item, button, tab).
+
+function Ui({ children }: { children: ReactNode }) {
+  return (
+    <strong className="rounded border border-neutral-300 bg-neutral-100 px-1 py-0.5 text-xs font-semibold not-italic text-neutral-700">
+      {children}
+    </strong>
+  );
+}
+
+// ─── Main export ───────────────────────────────────────────────────────────────
+
+export function PodcastAppWalkthroughs() {
+  return (
+    <div className="space-y-3">
+      {/* Apple Podcasts */}
+      <AppWalkthrough
+        icon={<ApplePodcastsIcon className="h-6 w-6" />}
+        name="Apple Podcasts"
+        platform="iPhone · iPad · Mac"
+        intro={
+          <>
+            If you used the Apple Podcasts shortcut above, your private feed URL
+            is already copied.
+          </>
+        }
+        steps={[
+          <>Open the Podcasts app.</>,
+          <>
+            Tap <Ui>Library</Ui>.
+          </>,
+          <>
+            Tap the More button <Ui>(...)</Ui> near the top of the Library
+            screen.
+          </>,
+          <>
+            Tap <Ui>Follow a Show by URL</Ui>.
+          </>,
+          <>Paste the RSS/XML feed URL.</>,
+          <>
+            Tap <Ui>Follow</Ui>.
+          </>,
+        ]}
+        tip="If you want to compare the flow screen-by-screen, use the Apple support page below."
+        extra={
+          <div className="space-y-3">
+            <a
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+              href="https://support.apple.com/guide/iphone/find-podcasts-iph19bb8e705/ios"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Read the official Apple Podcasts help page
+              <span aria-hidden>↗</span>
+            </a>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+                <Image
+                  alt="Animated walkthrough showing where to follow a podcast by URL in the Apple Podcasts iPhone app."
+                  className="h-auto w-full"
+                  height={480}
+                  priority={false}
+                  src="/resources/apple-podcasts-follow-by-url.gif"
+                  unoptimized
+                  width={221}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                Preview of the Apple Podcasts follow-by-URL flow on iPhone.
+              </p>
+            </div>
+          </div>
+        }
+      />
+
+      {/* YouTube Music */}
+      <AppWalkthrough
+        icon={<YouTubeMusicIcon className="h-6 w-6" />}
+        name="YouTube Music"
+        platform="iPhone · Android · Web"
+        intro={
+          <>
+            If you used the YouTube Music shortcut above, your private feed URL
+            is already copied.
+          </>
+        }
+        steps={[
+          <>Open the YouTube Music app.</>,
+          <>
+            Tap <Ui>Library</Ui>.
+          </>,
+          <>
+            Tap <Ui>Podcasts</Ui> at the top.
+          </>,
+          <>
+            Tap <Ui>Add podcast</Ui> in the bottom-right corner.
+          </>,
+          <>
+            Tap <Ui>Add a podcast by RSS feed</Ui>.
+          </>,
+          <>Read the disclaimer and accept it.</>,
+          <>Paste the full RSS/XML feed URL.</>,
+          <>
+            Tap <Ui>Add</Ui>.
+          </>,
+        ]}
+        tip={
+          <>
+            If you do not see the RSS option yet, make sure YouTube Music is up
+            to date and compare with the official help page below.
+          </>
+        }
+        extra={
+          <div className="space-y-3">
+            <a
+              className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+              href="https://support.google.com/youtubemusic/answer/13946190?hl=en"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Read the official YouTube Music help page
+              <span aria-hidden>↗</span>
+            </a>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+                <Image
+                  alt="Animated walkthrough showing where to add a podcast by RSS feed in the YouTube Music mobile app."
+                  className="h-auto w-full"
+                  height={480}
+                  priority={false}
+                  src="/resources/youtube-music-add-podcast.gif"
+                  unoptimized
+                  width={221}
+                />
+              </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                Preview of the YouTube Music add-by-RSS flow.
+              </p>
+            </div>
+          </div>
+        }
+      />
+
+      {/* Pocket Casts */}
+      <AppWalkthrough
+        icon={<PocketCastsIcon className="h-6 w-6" />}
+        name="Pocket Casts"
+        platform="iPhone · Android · Web"
+        intro={
+          <>
+            If you used the Pocket Casts shortcut above, your private feed URL
+            is already copied. Then use Pocket Casts search to add the show.
+          </>
+        }
+        steps={[
+          <>Open Pocket Casts.</>,
+          <>
+            Tap <Ui>Discover</Ui> at the bottom of the screen.
+          </>,
+          <>
+            Paste the podcast&apos;s RSS feed into the search tab and tap{" "}
+            <Ui>Enter</Ui>.
+          </>,
+          <>
+            If the show is not already in Pocket Casts yet, entering the RSS
+            feed there will submit it automatically.
+          </>,
+          <>
+            When the show appears, tap <Ui>Subscribe</Ui>.
+          </>,
+        ]}
+        tip="Pocket Casts syncs across all your devices — subscribe once, listen everywhere."
+        extra={
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-3">
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.2)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent)] transition hover:border-[rgba(31,122,90,0.34)] hover:bg-[rgba(223,243,236,0.82)]"
+                href="https://support.pocketcasts.com/knowledge-base/podcast-search/"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Read the official Pocket Casts help page
+                <span aria-hidden>↗</span>
+              </a>
+
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border border-[rgba(31,122,90,0.16)] bg-white px-3 py-2 text-sm font-semibold text-[var(--ink)] transition hover:border-[rgba(31,122,90,0.28)] hover:bg-slate-50"
+                href="https://www.youtube.com/watch?v=OQdFoeLrU0s"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Watch the Pocket Casts video
+                <span aria-hidden>↗</span>
+              </a>
+            </div>
+            <p className="text-xs leading-5 text-[var(--muted)]">
+              Pocket Casts says you can search by podcast name, author,
+              network, or RSS feed URL if you need another path.
+            </p>
+          </div>
+        }
+      />
+
+      {/* Overcast */}
+      <AppWalkthrough
+        icon={<OvercastIcon className="h-6 w-6" />}
+        name="Overcast"
+        platform="iPhone · iPad (iOS only)"
+        intro={
+          <>
+            If you used the Overcast shortcut above, your private feed URL is
+            already copied.
+          </>
+        }
+        steps={[
+          <>Open Overcast on your iPhone.</>,
+          <>
+            Open the add/search screen. On some versions this is a{" "}
+            <Ui>+</Ui> button; in newer redesigns some guides show a{" "}
+            magnifying glass/search button instead.
+          </>,
+          <>
+            Tap <Ui>Add URL</Ui> in the upper-right corner.
+          </>,
+          <>Paste the podcast&apos;s RSS/XML feed URL.</>,
+          <>
+            Tap <Ui>Add</Ui> or <Ui>Done</Ui>.
+          </>,
+        ]}
+        tip="Overcast is free with optional Premium. It's iOS/iPadOS only — Android users should try Pocket Casts or AntennaPod instead."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing where to add a podcast URL in the Overcast iPhone app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/overcast-add-url.gif"
+                unoptimized
+                width={221}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the Overcast add-by-URL flow on iPhone.
+            </p>
+          </div>
+        }
+      />
+
+      {/* Castro */}
+      <AppWalkthrough
+        icon={<CastroIcon className="h-6 w-6" />}
+        name="Castro"
+        platform="iPhone · iPad (iOS only)"
+        intro={
+          <>
+            If you used the Castro shortcut above, your private feed URL is
+            already copied.
+          </>
+        }
+        steps={[
+          <>Open Castro on your device.</>,
+          <>
+            Tap the search icon in the top-right corner.
+          </>,
+          <>
+            Paste your RSS feed URL in the field.
+          </>,
+          <>
+            Tap the show and click <Ui>Subscribe</Ui>.
+          </>,
+        ]}
+        tip="Castro queues episodes rather than auto-downloading everything. Great for high-volume feeds."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[221px] overflow-hidden rounded-[1.4rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing how to paste a podcast RSS URL and subscribe in the Castro app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/castro-subscribe-by-url.gif"
+                unoptimized
+                width={221}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the Castro subscribe-by-URL flow.
+            </p>
+          </div>
+        }
+      />
+
+      {/* AntennaPod */}
+      <AppWalkthrough
+        icon={<AntennaPodIcon className="h-6 w-6" />}
+        name="AntennaPod"
+        platform="Android"
+        intro={
+          <>
+            If you used the AntennaPod shortcut above, your private feed URL is
+            already copied.
+          </>
+        }
+        steps={[
+          <>Open AntennaPod on your Android device.</>,
+          <>
+            Open the side bar on the left and select <Ui>Add Podcast</Ui>.
+          </>,
+          <>
+            Select <Ui>Add by RSS address</Ui>.
+          </>,
+          <>Paste your RSS feed URL in the field.</>,
+          <>
+            Tap <Ui>Subscribe</Ui>.
+          </>,
+        ]}
+        tip="AntennaPod is free and open-source. It's Android only — iPhone users should use Apple Podcasts, Overcast, or Castro."
+        extra={
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <div className="mx-auto max-w-[270px] overflow-hidden rounded-[1.2rem] border border-slate-200 bg-white shadow-sm">
+              <Image
+                alt="Animated walkthrough showing how to add an RSS address in the AntennaPod Android app."
+                className="h-auto w-full"
+                height={480}
+                priority={false}
+                src="/resources/antennapod-add-rss-address.gif"
+                unoptimized
+                width={270}
+              />
+            </div>
+            <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+              Preview of the AntennaPod add-by-RSS flow on Android.
+            </p>
+          </div>
+        }
+      />
+    </div>
+  );
+}

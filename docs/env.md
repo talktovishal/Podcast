@@ -11,6 +11,10 @@ Profile examples (copy to `.env` and fill in passwords):
 - `.env.simple.example`
 - `.env.parity.example`
 
+Local dev note:
+- Repo tooling treats the repo-root `.env` and optional repo-root `.env.<profile>` files as the local source of truth.
+- Stale app-local files such as `apps/web/.env` should be removed instead of maintained in parallel.
+
 ## Required by profile
 
 ### `simple`
@@ -32,9 +36,9 @@ Recommended:
 - `PYTHON_TTS_URL`
 
 ### `azure`
-- `DATABASE_URL`
-  - use a local SQLite path such as `file:/var/lib/articlepod/db.sqlite` when `METADATA_PRIMARY_BACKEND=azure_table`
-  - use an Azure PostgreSQL URL only when Prisma/PostgreSQL remains the primary metadata backend or you are running rollback/canary flows
+- `DATABASE_URL` only when Prisma remains active
+  - omit it in normal production when `METADATA_PRIMARY_BACKEND=azure_table`
+  - use an Azure PostgreSQL URL only for legacy parity or explicit rollback/canary flows; the eastus blue/green target does not provision PostgreSQL
 - `APP_URL` (public HTTPS URL; production value is `https://articlepod.com`)
 - `STORAGE_BACKEND=azure_blob`
 - `AZURE_STORAGE_CONTAINER`
@@ -44,8 +48,8 @@ Recommended:
   - `AZURE_STORAGE_CONNECTION_STRING`
   - `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`
 - `PYTHON_TTS_URL`
-- `PYTHON_TTS_TIMEOUT_MS` (Azure deploy helper defaults to `300000` on the cost-optimized B2s VM profile)
-- `TTS_WORKERS` (set to `1` for the cost-optimized B2s baseline)
+- `PYTHON_TTS_TIMEOUT_MS` (Azure deploy helper defaults to `300000` for the primary VM and overflow sidecar Kokoro lanes)
+- `TTS_WORKERS` (set to `1` for the primary VM and for the overflow sidecar)
 - If `DIGEST_SUMMARY_PROVIDER=azure_openai`:
   - `AZURE_OPENAI_BASE_URL`
   - `AZURE_OPENAI_API_KEY`
@@ -54,7 +58,7 @@ Recommended:
 
 Azure deploy helper behavior:
 - `scripts/azure/render-env.sh` forwards `DIGEST_SCHEDULER_SECRET` and `MEDIA_SIGNING_KEY` when provided.
-- when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` now defaults `DATABASE_URL` to `file:/var/lib/articlepod/db.sqlite` if you do not provide one explicitly.
+- when `METADATA_PRIMARY_BACKEND=azure_table`, `scripts/azure/render-env.sh` allows `DATABASE_URL` to remain unset.
 - when Azure OpenAI vars are present and `DIGEST_SUMMARY_PROVIDER` is unset, `scripts/azure/render-env.sh` defaults the summary provider to `azure_openai`.
 - in Azure Table primary mode, low-cost diagnostics default to:
   - `ANALYTICS_STORAGE_MODE=off`
@@ -66,14 +70,52 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `CANONICAL_HOST` (defaults from `APP_URL` host when set)
 - `HOST_ALIASES` (comma-separated alias hosts, example: `www.articlepod.com`)
 - `LETSENCRYPT_EMAIL`
-- `DEPLOY_CONFIGURE_INGRESS` (`1` by default; set `0` to skip ingress/TLS automation)
+- `DEPLOY_CONFIGURE_INGRESS` (`1` in legacy mode; vault mode defaults to and requires `0`)
 - `APP_DOMAIN_ALIASES` (alias helper for CI; maps to `HOST_ALIASES` when unset)
 
 ## Shared auth/admin
+
+Key Vault migration status: VM unit templates now use the explicit
+`scripts/azure/runtime-exec.sh` router. Its default is the existing environment
+behavior above; `ARTICLEPOD_SECRET_SOURCE=keyvault` selects the version-pinned
+launcher using the protected file passed by each unit. That file supplies
+`ARTICLEPOD_KEYVAULT_MANIFEST` and public settings, not inherited overrides.
+The overflow router reapplies its fixed worker role after loading. Public-only
+readiness/Prisma commands do not retrieve service credentials.
+
+`render-env.sh` can render vault mode without persistent secret values and
+validates candidates before writing. The protected loader rejects plaintext
+secrets and unsupported configuration instead of sourcing shell code, and
+requires exactly `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0`. Routine VM/remote
+vault deployment uses public builds and pinned operations, requires
+`DEPLOY_DEMO_SEED_MODE=never`, and refuses local `.env` files, rendering/upload,
+and ingress changes. The remote helper requires explicit host pins and an
+already-bootstrapped VM; legacy mode cannot overwrite vault configuration.
+Protected configuration must be outside application/staging trees. Storage and
+log paths must be explicit and protected from promotion. Routine vault service
+installation retains maintenance/journald configuration rather than activating
+cleanup. Arbitrary systemd overrides and other consumers are not automatically
+migrated. No production service has been migrated. See
+[`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated) for the manifest,
+permission boundaries, and activation gates. Before storage-key rotation, preserve
+the live effective media-signing key; do not regenerate it from the new connection
+string. Secret references are configuration, not proof that old credentials have
+been revoked.
+
 - `DEMO_EMAIL`
+- `WEBSTORE_REVIEWER_EMAIL` (default `chrome-reviewer@articlepod.com`; seeded only when `WEBSTORE_REVIEWER_PASSWORD` is also set)
+- `WEBSTORE_REVIEWER_PASSWORD` (optional; when set, production deploy seeds a dedicated Chrome Web Store reviewer account with complimentary Pro access)
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP` (Azure rendering defaults to `0`; vault mode requires exactly `0` and never seeds accounts. The application otherwise permits startup admin bootstrap for any value other than exactly `0`, including omission.)
+- `ARTICLEPOD_SERVER_KEEPALIVE` (defaults to `1` in the Azure VM env render as a fallback instrumentation-level keepalive; the Azure web service starts through `scripts/azure/run-next-server.mjs` so systemd owns the HTTP server process directly)
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
+- `PRO_MONTHLY_DAILY_PODCAST_LIMIT` (default `12`; `Pro monthly` guardrail for new podcast episodes created in the last 24 hours)
+- `PRO_MONTHLY_DAILY_SUMMARY_LIMIT` (default `36`; `Pro monthly` guardrail for Summary Mode item summaries created in the last 24 hours)
+- `PRO_MONTHLY_WEEKLY_SUMMARY_LIMIT` (default `15`; `Pro monthly` guardrail for manual summaries created in the last 7 days)
+- `PRO_ANNUAL_DAILY_PODCAST_LIMIT` (default `15`; `Pro annual` guardrail for new podcast episodes created in the last 24 hours)
+- `PRO_ANNUAL_DAILY_SUMMARY_LIMIT` (default `45`; `Pro annual` guardrail for Summary Mode item summaries created in the last 24 hours)
+- `PRO_ANNUAL_WEEKLY_SUMMARY_LIMIT` (default `30`; `Pro annual` guardrail for manual summaries created in the last 7 days)
 - `EXTENSION_CONNECT_CODE_TTL_MINUTES` (default `1440`; one-time connect code lifetime)
 - Optional OAuth:
   - `GOOGLE_CLIENT_ID`
@@ -87,6 +129,12 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
   - `GEO_HEADER_REGION`
   - `GEO_HEADER_CITY`
 
+## Local wiki operator workflow
+- `KARPATHY_LLM_WIKI_PATH` (optional absolute path override for `pnpm wiki:prepare`; defaults to `/Users/vishalchowdhary/Downloads/llm-wiki.md`)
+- `pnpm wiki:prepare --users ...` accepts either internal user ids or user email addresses and resolves emails against the configured metadata store before reading source artifacts.
+- The local wiki prepare/publish scripts use the same artifact storage credentials as the web app runtime.
+- For Azure-backed wiki runs, provide real blob data-plane credentials through the normal storage env vars (`AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCOUNT_URL` + `AZURE_STORAGE_SAS_TOKEN`) before running the wiki commands locally.
+
 ## Feedback mirror (optional)
 - `GITHUB_FEEDBACK_MIRROR_ENABLED` (`1` to mirror feedback into private GitHub issues; default `0`)
 - `GITHUB_FEEDBACK_OWNER`
@@ -95,20 +143,41 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `GITHUB_FEEDBACK_LABELS` (comma-separated labels, default `feedback`)
 
 Behavior:
-- When disabled or unset, feedback remains DB-only.
+- When disabled or unset, feedback stays in the primary metadata store only.
 - Mirror failures do not block user submission and can be retried from admin inbox.
 
 ## Billing (optional)
-- `STRIPE_SECRET_KEY` (required to create Checkout and Customer Portal sessions)
-- `STRIPE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
-- `STRIPE_PRICE_PRO_MONTHLY` (Stripe recurring price id for the Pro plan)
-- `STRIPE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit portal configuration; default Stripe portal config is used when unset)
+- `BILLING_SANDBOX_ALLOWLIST_EMAILS` (comma-separated extra email allowlist for non-admin tester accounts that may switch to sandbox billing in Settings; this extends the checked-in internal tester defaults rather than replacing them)
+- `STRIPE_LIVE_SECRET_KEY` (required for default live Checkout and Customer Portal sessions)
+- `STRIPE_LIVE_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook`)
+- `STRIPE_LIVE_PRICE_PRO_MONTHLY` (live recurring monthly price id for the Pro plan)
+- `STRIPE_LIVE_PRICE_PRO_ANNUAL` (live recurring yearly price id for the Pro annual plan)
+- `STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit live portal configuration; default Stripe portal config is used when unset)
+- `STRIPE_SANDBOX_SECRET_KEY` (required for tester-only sandbox Checkout and Customer Portal sessions)
+- `STRIPE_SANDBOX_WEBHOOK_SECRET` (required to verify `POST /api/billing/webhook/sandbox`)
+- `STRIPE_SANDBOX_PRICE_PRO_MONTHLY` (sandbox recurring monthly price id for the Pro plan)
+- `STRIPE_SANDBOX_PRICE_PRO_ANNUAL` (sandbox recurring yearly price id for the Pro annual plan)
+- `STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID` (optional explicit sandbox portal configuration; default Stripe portal config is used when unset)
+- Compatibility aliases during rollout:
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_WEBHOOK_SECRET`
+  - `STRIPE_PRICE_PRO_MONTHLY`
+  - `STRIPE_PRICE_PRO_ANNUAL`
+  - `STRIPE_BILLING_PORTAL_CONFIGURATION_ID`
+  - These older names are treated as live-lane aliases when the new `STRIPE_LIVE_*` names are absent. Prefer the lane-specific names for new deploys.
 
 Behavior:
-- Billing routes stay unavailable until the Stripe secret key and Pro price id are set.
-- ArticlePod stores only Stripe customer/subscription metadata and effective access state; card details remain in Stripe-hosted flows.
+- Live billing stays the default for every user.
+- Only admins and emails listed in `BILLING_SANDBOX_ALLOWLIST_EMAILS` can switch to sandbox billing from `/app/settings`.
+- Sandbox billing stores separate customer/subscription/payment state and never changes live access, quotas, or summary limits.
+- Billing routes for a lane stay unavailable until that lane's Stripe secret key and at least one Pro price id are set.
+- ArticlePod stores only Stripe customer/subscription metadata, local entitlement state, latest invoice/payment state, and webhook audit metadata; card details remain in Stripe-hosted flows.
+- Use separate Stripe secret keys, price ids, portal configuration ids, and webhook secrets for each environment and for each lane.
+- Never mix live Stripe credentials into local, staging, or sandbox-only test flows.
+- If you need to pause new self-serve checkout without breaking existing billing management, unset the price ids for the affected lane and keep that lane's secret key + webhook secret configured so Portal and webhook sync continue to work for existing subscribers or testers.
 
 ## Worker controls
+- `PINNED_FETCH_IPV6_ENABLED` (`0` default for Azure, otherwise enabled unless overridden; disable IPv6 pinned-IP fetch attempts on single-stack hosts)
 - `WORKER_ROLE` (`primary` default; set `overflow` for a queue-pressure-triggered overflow worker process)
 - `WORKER_OVERFLOW_ENABLED` (`0` default; set `1` to let overflow workers process jobs when pressure policy is active)
 - `WORKER_OVERFLOW_POLICY_EVAL_MS` (default `15000`; queue-pressure evaluation interval)
@@ -120,10 +189,27 @@ Behavior:
 - `OVERFLOW_PYTHON_TTS_URL` (optional external python-tts endpoint used by overflow workers)
 - `OVERFLOW_PYTHON_TTS_TIMEOUT_MS` (default inherits `PYTHON_TTS_TIMEOUT_MS`)
 - `OVERFLOW_PYTHON_TTS_SECRET` (optional auth secret for overflow python-tts endpoint)
+- `ITEM_DISPATCH_BACKEND` (`auto` default; chooses `azure_queue` when Azure Blob credentials are present, otherwise `prisma`)
+- `ITEM_DISPATCH_QUEUE_NAME` (default `${BRAND_SLUG}-item-dispatch`; queue name used by Azure Queue Storage or the local Prisma dispatch adapter)
+- `ITEM_DISPATCH_CREATE_QUEUE` (`1` default; create the Azure queue automatically when missing)
+- `ITEM_DISPATCH_VISIBILITY_MS` (default follows `WORKER_STALE_PROCESSING_MS`; lease/visibility timeout for a reserved item job)
+- `ITEM_DISPATCH_HEARTBEAT_MS` (default `30000`; heartbeat interval that renews the dispatch reservation and durable lease while TTS runs)
+- `ITEM_DISPATCH_MAX_DELIVERIES` (default `8`; poison-message ceiling before an item job is failed and the dispatch message is removed)
+- `WORKER_INSTANCE_ID` (optional explicit worker identity; defaults to `<hostname>:<pid>` and is stored on durable job leases)
 - `WORKER_POLL_MS`
-- `WORKER_STALE_PROCESSING_MS` (default `180000`; stale `PROCESSING` jobs are auto-reclaimed after 3 minutes)
+- `WORKER_STALE_PROCESSING_MS` (default `900000`; stale `PROCESSING` jobs are considered stalled after 15 minutes without progress)
+- `WORKER_MAX_STALE_RETRIES` (default `1`; a stalled job gets one automatic reclaim before it is marked `PROCESSING_TIMEOUT`)
+- `WORKER_MAX_PROCESSING_MS` (default `2700000`; actively progressing work is stopped after 45 minutes)
 - `WORKER_RETRY_POLL_MS`
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
+- `AUDIO_RETENTION_DAYS` (default `60`; stamps item/digest/summary episode audio expiry from `publishedAt` for feed/media hiding + purge)
+- `WORKER_TTS_CHUNK_MAX_CHARS` (default `1800`; Azure production env rendering defaults this to `1200` for steadier Kokoro chunk latency)
+  - Integer of at least `2`, counted as UTF-16 code units (`String.length`).
+    Oversized sentences use whitespace boundaries, then a surrogate-pair-safe
+    hard split. Invalid values fail explicitly rather than disabling the bound.
+- `WORKER_TTS_MAX_CHUNKS` (default `24`; full-episode narration above this chunk count triggers the automatic summarized-transcript podcast fallback before TTS. If the summary provider is unavailable or still returns too much text, the worker uses a bounded deterministic abridged summary so the episode can fit; `SOURCE_TOO_LONG` remains a final invariant safety net.)
+- `WORKER_TTS_SEGMENT_MAX_ATTEMPTS` (default `3`; retryable python-tts/Kokoro segment failures are retried inside the current synthesis run before the whole job is failed)
+- `WORKER_TTS_SEGMENT_RETRY_BASE_MS` (default `2000`; base backoff for retryable per-segment TTS failures)
 - `WORKER_QUEUE_PRESSURE_SOURCE` (`prisma` default; set `mirror` to drive overflow policy from metadata mirror snapshots)
 
 ## Metadata primary + mirror controls
@@ -140,9 +226,29 @@ Behavior:
 
 Recommended low-cost Azure setting:
 - `METADATA_PRIMARY_BACKEND=azure_table`
-- `DATABASE_URL=file:/var/lib/articlepod/db.sqlite`
+- `ITEM_DISPATCH_BACKEND=azure_queue`
 - `WORKER_QUEUE_PRESSURE_SOURCE=prisma`
 - `METADATA_MIRROR_BACKEND=none` unless you are actively dual-writing for rollback certification
+
+Recommended eastus blue/green burst setting:
+- primary VM: `Standard_D2as_v5` in `eastus`
+- overflow compute: Azure Container Apps in `eastus` with private `worker` + `python-tts` sidecar replicas (`1Gi` default worker memory)
+- `WORKER_ROLE=primary` on the VM, `WORKER_ROLE=overflow` in ACA
+- `WORKER_OVERFLOW_ENABLED=0` on the VM, `WORKER_OVERFLOW_ENABLED=1` in ACA
+- `OVERFLOW_PYTHON_TTS_URL=http://127.0.0.1:8010`
+- `WORKER_OVERFLOW_ACTIVATE_QUEUE_DEPTH=3`
+- `WORKER_OVERFLOW_DEACTIVATE_QUEUE_DEPTH=1`
+- `WORKER_OVERFLOW_ACTIVATE_OLDEST_MS=120000`
+- `WORKER_OVERFLOW_DEACTIVATE_OLDEST_MS=60000`
+- `WORKER_OVERFLOW_MIN_ACTIVE_MS=1200000`
+- ACA overflow deploys force `LOG_ROOT=/tmp/articlepod/logs` so the non-root python-tts sidecar can write structured logs without failing synthesis requests.
+- ACA overflow deploys force `ARTICLEPOD_CONSOLE_LOGS=1` for the worker so job/queue decisions are available in Container Apps Log Analytics.
+- The python-tts image sets HuggingFace/Kokoro cache env (`HOME`, `XDG_CACHE_HOME`, `HF_HOME`, `TRANSFORMERS_CACHE`) under `/tmp` for the non-root container user.
+- ACA overflow defaults to worker `0.5 CPU / 1Gi` plus python-tts `1.75 CPU / 3.5Gi`, matching Azure's `2.25 CPU / 4.5Gi` Consumption pairing.
+- no PostgreSQL in the new eastus resource group
+
+Parity note:
+- When you point `AZURE_STORAGE_CONNECTION_STRING` at Azurite for parity tests, include both `BlobEndpoint=...` and `QueueEndpoint=...` so the item dispatch queue and blob artifacts share the same emulator account.
 
 ## Digest controls
 - `DIGEST_INTERNAL_SCHEDULER_ENABLED` (`1` default; set `0` to rely only on external tick calls)
@@ -160,7 +266,8 @@ Recommended low-cost Azure setting:
 
 ## Observability and logging (all profiles)
 - `LOG_ROOT` (default: `.runtime/logs` relative to repo root)
-- `LOG_RETENTION_DAYS` (default: `14`)
+- `LOG_RETENTION_DAYS` (default: `14`; Azure deploy helper now defaults VM envs to `7`)
+- `LOG_ERROR_RETENTION_DAYS` (default: `max(LOG_RETENTION_DAYS, 30)` in app code; Azure deploy helper defaults VM envs to `30`)
 - `LOG_MAX_BYTES` (default: `1048576` = 1 MB per log file)
 - `LOG_MAX_FILES` (default: `10`)
 - `ARTICLEPOD_CONSOLE_LOGS` (set `1` to mirror JSON logs to stdout)
@@ -178,9 +285,17 @@ Recommended low-cost Azure setting:
 
 Cost-optimized Azure guidance:
 - Keep structured logs on local disk (`LOG_ROOT`) and rotate them.
+- Activity logs (`DEBUG`/`INFO`/`WARN`) now write under `LOG_ROOT/events/<service>/events.log.jsonl`.
+- Error logs (`ERROR`/`FATAL`) now write under `LOG_ROOT/errors/<service>/errors.log.jsonl`.
 - Archive rotated logs to Blob if retention is needed after VM replacement.
 - Do not use Azure Table for verbose logs, request traces, or analytics firehose data.
-- Treat local SQLite in Azure Table primary mode as auxiliary state for low-signal/admin-only features, not as the primary durable store.
+- Do not treat VM-local SQLite as part of the normal Azure production contract.
+- Azure VM disk guard defaults:
+  - `VM_JOURNAL_MAX_USE` (default: `200M`) caps systemd journal growth.
+  - `VM_JOURNAL_KEEP_FREE` (default: `1G`) asks journald to preserve root-disk headroom.
+  - `VM_JOURNAL_RETENTION` (default: `7day`) bounds journal retention by time.
+  - `VM_CLEANUP_MIN_FREE_MB` (default: `3072`) triggers pressure cleanup of caches and staging artifacts.
+  - `scripts/azure/cleanup-vm-disk.sh` is installed behind `articlepod-maintenance.timer` and runs every 6 hours, pruning staging-only artifacts (`exports/`, `.worktrees/`, test reports, stale env uploads), vacuuming journald, and applying separate time-based cleanup to `events/` vs `errors/` log trees before escalating to cache cleanup when free space drops below the configured floor.
 
 ## Validation commands
 - `npm run check:env:simple`
@@ -191,3 +306,14 @@ Cost-optimized Azure guidance:
 - `./run.sh --profile simple`
 - `./run.sh --profile parity`
 - `./run.sh --profile azure`
+
+Quick web-only local testing:
+- `./run.sh --web`
+- fastest repeat loop: `./run.sh --web --fast`
+
+Fast repeat local testing after the initial bootstrap:
+- `./run.sh --fast`
+- `./run.sh --skip-bootstrap`
+- `./run.sh --clean --web --fast` to clear stale Next.js caches before restarting
+
+In the simple local profile, `run.sh` also checks the existing Next.js dev cache for compiled server pages that reference missing generated `vendor-chunks/*` files. When that stale-cache condition is detected, it removes `apps/web/.next` automatically before starting.

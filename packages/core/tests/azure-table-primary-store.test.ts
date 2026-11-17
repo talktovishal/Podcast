@@ -1,6 +1,248 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AzureTablePrimaryStore } from "../src/metadata/azureTablePrimaryStore";
+import { TableClient } from "@azure/data-tables";
+import { AppError, errorCodes } from "../src/errors/codes";
+import { billingEventVersion } from "../src/metadata/billingEventVersion";
+
+test("first-match reads consume one result and close the iterator without draining 1000 matches", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  let closed = false;
+  t.mock.method(TableClient.prototype, "listEntities", (options?: { queryOptions?: { filter?: string } }) => {
+    assert.equal(options?.queryOptions?.filter, "(PartitionKey eq 'feed') and (tokenHash eq 'hash') and (active eq true)");
+    return Object.assign((async function* () {
+      try {
+        for (let i = 0; i < 1000; i++) {
+          rowsRead++;
+          yield {
+            partitionKey: "feed", rowKey: `token-${i}`, id: `token-${i}`,
+            userId: "user", tokenHash: "hash", active: true, createdAt: "2020-01-01T00:00:00Z"
+          };
+          assert.fail("first match must not request another result");
+        }
+      } finally {
+        closed = true;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  assert.equal((await store.findFeedTokenByHash("hash", "item"))?.id, "token-0");
+  assert.equal(rowsRead, 1);
+  assert.equal(closed, true);
+});
+
+test("first-match reads distinguish empty results from iteration failures", async (t) => {
+  const store = createStore();
+  const failure = new Error("metadata read unavailable");
+  let fail = false;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      if (fail) {
+        throw failure;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal(await store.findFeedTokenByHash("hash", "item"), null);
+  fail = true;
+  await assert.rejects(store.findFeedTokenByHash("hash", "item"), (error) => error === failure);
+});
+
+test("ordering-sensitive token reads still drain candidates before choosing newest or oldest", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      for (const [id, createdAt] of [
+        ["middle", "2022-01-01T00:00:00Z"], ["newest", "2024-01-01T00:00:00Z"], ["oldest", "2020-01-01T00:00:00Z"]
+      ]) {
+        rowsRead++;
+        yield { partitionKey: "token", rowKey: id, id, userId: "user", tokenHash: "hash", active: true, createdAt };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal((await store.findActiveFeedTokenByUserId("user", "item"))?.id, "newest");
+  assert.equal((await store.findShareTokenByUserIdAndScope("user", "read_only"))?.id, "oldest");
+  assert.equal(rowsRead, 6);
+});
+
+for (const sandbox of [false, true]) {
+  test(`billing updates reject a changed snapshot before writing (sandbox=${sandbox})`, async (t) => {
+    const store = createStore();
+    const current = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v2",
+      billingLastStripeEventId: "newer", billingLastSubscriptionEventAt: "2026-01-02T00:00:00.000Z"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    const expected = {
+      billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+      billingLastInvoiceEventAt: null, billingUpdatedAt: null
+    };
+    await assert.rejects(
+      sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", billingStatus: "CANCELED" }, expected)
+        : store.updateUser("user", { billingStatus: "CANCELED" }, expected),
+      (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+    );
+    assert.equal(write.mock.callCount(), 0);
+  });
+
+  test(`billing snapshots and exact ETags protect overlapping writers (sandbox=${sandbox})`, { timeout: 10_000 }, async (t) => {
+    const store = createStore();
+    let current: Record<string, unknown> = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    let release = () => {};
+    let entered = () => {};
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const reached = new Promise<void>((resolve) => { entered = resolve; });
+    t.mock.method(TableClient.prototype, "updateEntity", async (
+      entity: Record<string, unknown>, _mode: string, options?: { etag?: string }
+    ) => {
+      if (entity.billingLastStripeEventId === "old") {
+        entered();
+        await blocked;
+      }
+      assert.notEqual(options?.etag, "*");
+      if (options?.etag !== current.etag) throw { statusCode: 412 };
+      current = { ...entity, etag: "v2" };
+    });
+    const record = sandbox ? await store.findSandboxBillingAccountByUserId("user") : await store.findUserById("user");
+    assert.ok(record);
+    const expected = billingEventVersion(record);
+    const apply = (id: string, date: string) => {
+      const patch = { billingLastStripeEventId: id, billingLastSubscriptionEventAt: new Date(date) };
+      return sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", ...patch }, expected)
+        : store.updateUser("user", patch, expected);
+    };
+    const old = apply("old", "2026-01-02T00:00:00.000Z");
+    const rejected = assert.rejects(old, (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+    try {
+      await reached;
+      await apply("new", "2026-01-03T00:00:00.000Z");
+    } finally {
+      release();
+    }
+    await rejected;
+    assert.equal(current.billingLastStripeEventId, "new");
+    assert.equal(current.billingLastSubscriptionEventAt, "2026-01-03T00:00:00.000Z");
+  });
+
+  for (const statusCode of [404, 412, 503]) {
+    test(`billing conditional write surfaces SDK failure ${statusCode} (sandbox=${sandbox})`, async (t) => {
+      const store = createStore();
+      t.mock.method(TableClient.prototype, "getEntity", async () => ({
+        partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+        createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+      }));
+      const failure = { statusCode };
+      t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+      const expected = {
+        billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+        billingLastInvoiceEventAt: null, billingUpdatedAt: null
+      };
+      await assert.rejects(
+        sandbox ? store.upsertSandboxBillingAccount({ userId: "user" }, expected) : store.updateUser("user", {}, expected),
+        (error) => statusCode === 503
+          ? error === failure
+          : error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+      );
+    });
+  }
+}
+
+test("sandbox first-event creation is conditional, never an overwriting upsert", async (t) => {
+  const store = createStore();
+  t.mock.method(TableClient.prototype, "getEntity", async () => { throw { statusCode: 404 }; });
+  t.mock.method(TableClient.prototype, "createEntity", async () => { throw { statusCode: 409 }; });
+  const upsert = t.mock.method(TableClient.prototype, "upsertEntity", async () => {});
+  await assert.rejects(store.upsertSandboxBillingAccount({ userId: "user" }, null),
+    (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+  assert.equal(upsert.mock.callCount(), 0);
+});
+
+for (const statusCode of [404, 412, 403, 429, 503]) {
+  test(`required item updates reject SDK write failures without rereading or retrying (${statusCode})`, async (t) => {
+    const store = createStore();
+    const current = { partitionKey: "item", rowKey: "item", status: "PROCESSING", etag: "version-1" };
+    const read = t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const failure = { statusCode };
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404 || statusCode === 412) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, statusCode === 404 ? errorCodes.ITEM_NOT_FOUND : errorCodes.ITEM_UPDATE_CONFLICT);
+        assert.equal(error.status, statusCode === 404 ? 404 : 409);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(read.mock.callCount(), 1);
+    assert.equal(write.mock.callCount(), 1);
+    assert.deepEqual(write.mock.calls[0].arguments.slice(1), ["Replace", { etag: "version-1" }]);
+    assert.equal(current.status, "PROCESSING");
+  });
+}
+
+for (const statusCode of [404, 503]) {
+  test(`required item updates reject failed initial reads (${statusCode})`, async (t) => {
+    const store = createStore();
+    const failure = { statusCode };
+    t.mock.method(TableClient.prototype, "getEntity", async () => { throw failure; });
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, errorCodes.ITEM_NOT_FOUND);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
+
+for (const etag of [undefined, "", "*"]) {
+  test(`required item updates reject an unverified version (${String(etag)})`, async (t) => {
+    const store = createStore();
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({
+      partitionKey: "item", rowKey: "item", status: "PROCESSING", etag
+    }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.code, errorCodes.STORAGE_FAILED);
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
+
+test("cache deletion uses the observed ETag and surfaces outages", async (t) => {
+  const store = createStore();
+  const calls: unknown[][] = [];
+  const mock = t.mock.method(TableClient.prototype, "deleteEntity", async (...args: unknown[]) => {
+    calls.push(args);
+  });
+  assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), true);
+  assert.deepEqual(calls, [["chunk", "cache-hash", { etag: "version-1" }]]);
+  for (const etag of [undefined, "*", ""]) {
+    await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", etag), /exact cache ETag/);
+  }
+  for (const statusCode of [404, 412]) {
+    mock.mock.mockImplementation(async () => { throw { statusCode }; });
+    assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), false);
+  }
+  const error = { statusCode: 503 };
+  mock.mock.mockImplementation(async () => { throw error; });
+  await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), (caught) => caught === error);
+});
 
 function createStore(): AzureTablePrimaryStore {
   return new AzureTablePrimaryStore({
@@ -9,6 +251,62 @@ function createStore(): AzureTablePrimaryStore {
     createTablesIfMissing: false
   });
 }
+
+for (const matchingTable of [0, 1, 2, -1]) {
+  test(`audio reference lookup checks all episode kinds and stops at first match (${matchingTable})`, async (t) => {
+    const store = createStore();
+    let calls = 0;
+    t.mock.method(TableClient.prototype, "listEntities", function (
+      options?: { queryOptions?: { filter?: string; select?: string[] } }
+    ) {
+      const table = calls++;
+      assert.match(options?.queryOptions?.filter ?? "", /audioPath eq 'items\/a''b\/episode.mp3'/);
+      assert.deepEqual(options?.queryOptions?.select, ["RowKey"]);
+      return Object.assign((async function* () {
+        if (table === matchingTable) {
+          yield { partitionKey: "episode", rowKey: "referenced" };
+          assert.fail("reference lookup must not drain further results");
+        }
+      })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+    });
+    assert.equal(await store.hasAudioReferences(["items/a'b/episode.mp3"]), matchingTable !== -1);
+    assert.equal(calls, matchingTable === -1 ? 3 : matchingTable + 1);
+  });
+}
+
+test("audio reference lookup fails closed on metadata outages", async (t) => {
+  const store = createStore();
+  const failure = new Error("table unavailable");
+  t.mock.method(TableClient.prototype, "listEntities", () => {
+    throw failure;
+  });
+  await assert.rejects(store.hasAudioReferences(["items/a/episode.mp3"]), (error) => error === failure);
+  await assert.rejects(store.hasAudioReferences([]), /at least one path/);
+});
+
+test("artifact expiry is filtered, bounded and deletes by the actual item/kind row key", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", function (options?: { queryOptions?: { filter?: string } }) {
+    assert.match(options?.queryOptions?.filter ?? "", /expiresAt le '2020-01-01T00:00:00.000Z'/);
+    return Object.assign((async function* () {
+      for (let i = 0; i < 3; i++) {
+        rowsRead++;
+        yield {
+          partitionKey: "artifact", rowKey: `item::EPISODE_AUDIO_${i}`, id: `artifact-${i}`,
+          itemId: "item", kind: `EPISODE_AUDIO_${i}`, storageKey: `items/item/${i}.mp3`,
+          byteLength: 3, contentType: "audio/mpeg", createdAt: "2018-01-01T00:00:00Z", expiresAt: "2019-01-01T00:00:00Z"
+        };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  const rows = await store.listExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"), 2);
+  assert.equal(rows.length, 2);
+  assert.equal(rowsRead, 2);
+  const deletion = t.mock.method(TableClient.prototype, "deleteEntity", async () => {});
+  await store.deleteItemArtifact(rows[0].itemId, rows[0].kind);
+  assert.deepEqual(deletion.mock.calls[0].arguments, ["artifact", "item::EPISODE_AUDIO_0"]);
+});
 
 test("listPendingDigestSchedulerTicks filters null processedAt client-side", async () => {
   const store = createStore();
@@ -88,4 +386,428 @@ test("revokeExtensionTokensForUser filters null revokedAt client-side", async ()
   assert.equal(seenFilter, "(PartitionKey eq 'extToken') and (userId eq 'user-1')");
   assert.equal(updatedCount, 1);
   assert.deepEqual(updatedRowKeys, ["active-token"]);
+});
+
+test("createItem stores tagsJson and returns tags", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const item = await store.createItem({
+    id: "item-1",
+    userId: "user-1",
+    sourceType: "URL",
+    status: "QUEUED",
+    priority: "HIGH",
+    tags: ["financial", "retirement"],
+    extractionEngine: "defuddle",
+    extractionSelectionMode: "scored",
+    extractionScoreMargin: 1.75,
+    extractionSummaryJson: '{"version":1}',
+    extractionSelectionRecordedAt: new Date("2026-04-08T18:00:00.000Z")
+  });
+
+  assert.equal(createdEntity?.priority, "HIGH");
+  assert.equal(createdEntity?.tagsJson, '["financial","retirement"]');
+  assert.equal(createdEntity?.extractionEngine, "defuddle");
+  assert.equal(createdEntity?.extractionSelectionMode, "scored");
+  assert.equal(createdEntity?.extractionScoreMargin, 1.75);
+  assert.equal(createdEntity?.extractionSummaryJson, '{"version":1}');
+  assert.equal(createdEntity?.extractionSelectionRecordedAt, "2026-04-08T18:00:00.000Z");
+  assert.deepEqual(item.tags, ["financial", "retirement"]);
+  assert.equal(item.extractionEngine, "defuddle");
+  assert.equal(item.extractionSelectionMode, "scored");
+  assert.equal(item.extractionScoreMargin, 1.75);
+  assert.equal(item.extractionSummaryJson, '{"version":1}');
+  assert.equal(item.extractionSelectionRecordedAt?.toISOString(), "2026-04-08T18:00:00.000Z");
+});
+
+test("findItemById defaults missing tagsJson to empty tags", async () => {
+  const store = createStore();
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async () => ({
+    partitionKey: "item",
+    rowKey: "item-2",
+    userId: "user-2",
+    sourceType: "URL",
+    status: "READY",
+    priority: "MEDIUM",
+    createdAt: "2026-03-25T09:00:00.000Z",
+    updatedAt: "2026-03-25T09:00:00.000Z"
+  });
+
+  const item = await store.findItemById("item-2");
+
+  assert.ok(item);
+  assert.equal(item?.priority, "MEDIUM");
+  assert.deepEqual(item?.tags, []);
+});
+
+test("updateItem writes serialized tagsJson when tags change", async (t) => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  t.mock.method(TableClient.prototype, "getEntity", async () => ({
+    partitionKey: "item",
+    rowKey: "item-3",
+    userId: "user-3",
+    sourceType: "PDF",
+    status: "QUEUED",
+    priority: "LOW",
+    tagsJson: '["personal"]',
+    extractionEngine: "readability",
+    extractionSelectionMode: "readability_only",
+    extractionScoreMargin: 0,
+    extractionSummaryJson: '{"version":1,"selectedEngine":"readability"}',
+    extractionSelectionRecordedAt: "2026-03-25T09:15:00.000Z",
+    createdAt: "2026-03-25T09:00:00.000Z",
+    updatedAt: "2026-03-25T09:00:00.000Z",
+    etag: "etag-1"
+  }));
+
+  t.mock.method(TableClient.prototype, "updateEntity", async (
+    entity: Record<string, unknown>, mode?: string, options?: { etag?: string }
+  ) => {
+    updatedEntity = entity;
+    assert.equal(mode, "Replace");
+    assert.deepEqual(options, { etag: "etag-1" });
+  });
+
+  const item = await store.updateItem("item-3", {
+    priority: "HIGH",
+    tags: ["financial", "retirement"],
+    extractionEngine: "defuddle",
+    extractionSelectionMode: "scored",
+    extractionScoreMargin: 2.25,
+    extractionSummaryJson: '{"version":1,"selectedEngine":"defuddle"}',
+    extractionSelectionRecordedAt: new Date("2026-03-25T09:45:00.000Z")
+  });
+
+  assert.equal(updatedEntity?.priority, "HIGH");
+  assert.equal(updatedEntity?.tagsJson, '["financial","retirement"]');
+  assert.equal(updatedEntity?.extractionEngine, "defuddle");
+  assert.equal(updatedEntity?.extractionSelectionMode, "scored");
+  assert.equal(updatedEntity?.extractionScoreMargin, 2.25);
+  assert.equal(updatedEntity?.extractionSummaryJson, '{"version":1,"selectedEngine":"defuddle"}');
+  assert.equal(updatedEntity?.extractionSelectionRecordedAt, "2026-03-25T09:45:00.000Z");
+  assert.deepEqual(item?.tags, ["financial", "retirement"]);
+  assert.equal(item?.extractionEngine, "defuddle");
+  assert.equal(item?.extractionSelectionMode, "scored");
+  assert.equal(item?.extractionScoreMargin, 2.25);
+  assert.equal(item?.extractionSummaryJson, '{"version":1,"selectedEngine":"defuddle"}');
+  assert.equal(item?.extractionSelectionRecordedAt?.toISOString(), "2026-03-25T09:45:00.000Z");
+});
+
+test("article summary task store creates and lists eligible work across users", async () => {
+  const store = createStore();
+  const createdEntities: Record<string, unknown>[] = [];
+  let seenFilters: string[] = [];
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntities.push(entity);
+  };
+
+  const created = await store.createArticleSummaryTask({
+    id: "task-created",
+    itemId: "item-created",
+    userId: "user-created",
+    scheduledFor: new Date("2026-04-30T09:00:00.000Z")
+  });
+
+  assert.equal(createdEntities[0]?.partitionKey, "articleSummaryTask");
+  assert.equal(createdEntities[0]?.rowKey, "task-created");
+  assert.equal(createdEntities[0]?.itemId, "item-created");
+  assert.equal(createdEntities[0]?.status, "QUEUED");
+  assert.equal(created.status, "QUEUED");
+  assert.equal(created.scheduledFor?.toISOString(), "2026-04-30T09:00:00.000Z");
+
+  (
+    store as unknown as {
+      listEntities: (key: string, filter?: string) => Promise<Array<Record<string, unknown>>>;
+    }
+  ).listEntities = async (_key, filter) => {
+    seenFilters.push(filter || "");
+    if (String(filter).includes("status eq 'QUEUED'")) {
+      return [
+        {
+          partitionKey: "articleSummaryTask",
+          rowKey: "task-queued-ready",
+          itemId: "item-1",
+          userId: "user-1",
+          status: "QUEUED",
+          attempt: 0,
+          scheduledFor: "2026-04-30T08:59:00.000Z",
+          createdAt: "2026-04-30T08:00:00.000Z",
+          updatedAt: "2026-04-30T08:00:00.000Z"
+        },
+        {
+          partitionKey: "articleSummaryTask",
+          rowKey: "task-queued-future",
+          itemId: "item-2",
+          userId: "user-2",
+          status: "QUEUED",
+          attempt: 0,
+          scheduledFor: "2026-04-30T10:00:00.000Z",
+          createdAt: "2026-04-30T08:05:00.000Z",
+          updatedAt: "2026-04-30T08:05:00.000Z"
+        }
+      ];
+    }
+    return [
+      {
+        partitionKey: "articleSummaryTask",
+        rowKey: "task-failed-ready",
+        itemId: "item-3",
+        userId: "user-3",
+        status: "FAILED",
+        attempt: 1,
+        nextRetryAt: "2026-04-30T08:30:00.000Z",
+        createdAt: "2026-04-30T07:30:00.000Z",
+        updatedAt: "2026-04-30T08:30:00.000Z"
+      }
+    ];
+  };
+
+  const eligible = await store.listNextEligibleArticleSummaryTasks(new Date("2026-04-30T09:00:00.000Z"), 3);
+
+  assert.deepEqual(
+    eligible.map((task) => task.id),
+    ["task-failed-ready", "task-queued-ready"]
+  );
+  assert.equal(seenFilters.length, 2);
+  assert.equal(seenFilters[0], "(PartitionKey eq 'articleSummaryTask') and (status eq 'QUEUED')");
+  assert.equal(
+    seenFilters[1],
+    "(PartitionKey eq 'articleSummaryTask') and (status eq 'FAILED') and (attempt lt 3) and (nextRetryAt le '2026-04-30T09:00:00.000Z')"
+  );
+});
+
+test("createSnippet stores rich snippet capture fields alongside selected text", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const snippet = await store.createSnippet({
+    id: "snippet-1",
+    userId: "user-1",
+    sourceUrl: "https://example.com/article",
+    sourceTitle: "Example",
+    selectedText: "Saved excerpt",
+    selectedHtml: "<p>Saved <strong>excerpt</strong></p>",
+    selectionMarkdown: "Saved **excerpt**",
+    contextMarkdown: "## Context\n\nSaved **excerpt** with more detail.",
+    captureMarkdown: "# Example\n\n## Selected passage\n\nSaved **excerpt**",
+    pageMetadata: {
+      siteName: "Example Site",
+      sectionHeadings: ["Main topic", "Details"]
+    },
+    comment: "Follow up later"
+  });
+
+  assert.equal(createdEntity?.selectedText, "Saved excerpt");
+  assert.equal(createdEntity?.selectedHtml, "<p>Saved <strong>excerpt</strong></p>");
+  assert.equal(createdEntity?.selectionMarkdown, "Saved **excerpt**");
+  assert.equal(createdEntity?.contextMarkdown, "## Context\n\nSaved **excerpt** with more detail.");
+  assert.equal(createdEntity?.captureMarkdown, "# Example\n\n## Selected passage\n\nSaved **excerpt**");
+  assert.deepEqual(JSON.parse(String(createdEntity?.pageMetadataJson)), {
+    sectionHeadings: ["Main topic", "Details"],
+    siteName: "Example Site"
+  });
+  assert.equal(createdEntity?.comment, "Follow up later");
+  assert.equal(snippet.sourceUrl, "https://example.com/article");
+  assert.equal(snippet.pageMetadata?.siteName, "Example Site");
+  assert.equal(snippet.comment, "Follow up later");
+});
+
+test("createFeedback stores admin inbox and mirror metadata", async () => {
+  const store = createStore();
+  let createdEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      createEntity: (key: string, entity: Record<string, unknown>) => Promise<void>;
+    }
+  ).createEntity = async (_key, entity) => {
+    createdEntity = entity;
+  };
+
+  const feedback = await store.createFeedback({
+    id: "feedback-1",
+    userId: "user-1",
+    message: "Playback controls are hard to find.",
+    feedbackType: "FEATURE",
+    featureArea: "PLAYBACK",
+    allowEmailContact: false,
+    status: "IN_REVIEW",
+    sourcePath: "/app/feedback",
+    mirrorStatus: "FAILED",
+    mirrorIssueNumber: 42,
+    mirrorIssueUrl: "https://github.com/example/repo/issues/42",
+    mirrorAttemptedAt: new Date("2026-04-10T10:00:00.000Z"),
+    mirrorErrorCode: "MIRROR_TIMEOUT",
+    mirrorErrorMessage: "Timed out"
+  });
+
+  assert.equal(createdEntity?.partitionKey, "feedback");
+  assert.equal(createdEntity?.rowKey, "feedback-1");
+  assert.equal(createdEntity?.message, "Playback controls are hard to find.");
+  assert.equal(createdEntity?.mirrorStatus, "FAILED");
+  assert.equal(createdEntity?.mirrorIssueNumber, 42);
+  assert.equal(createdEntity?.mirrorAttemptedAt, "2026-04-10T10:00:00.000Z");
+  assert.equal(feedback.feedbackType, "FEATURE");
+  assert.equal(feedback.featureArea, "PLAYBACK");
+  assert.equal(feedback.allowEmailContact, false);
+  assert.equal(feedback.mirrorIssueNumber, 42);
+  assert.equal(feedback.mirrorAttemptedAt?.toISOString(), "2026-04-10T10:00:00.000Z");
+});
+
+test("updateFeedback merges mirror fields and listFeedback sorts newest first", async () => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async (_key, _partitionKey, rowKey) => ({
+    partitionKey: "feedback",
+    rowKey,
+    userId: "user-1",
+    message: "Initial message",
+    feedbackType: "GENERAL",
+    featureArea: null,
+    allowEmailContact: true,
+    status: "NEW",
+    sourcePath: "/app/feedback",
+    mirrorStatus: "PENDING",
+    createdAt: "2026-04-10T09:00:00.000Z",
+    updatedAt: "2026-04-10T09:00:00.000Z",
+    etag: "etag-1"
+  });
+
+  (
+    store as unknown as {
+      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
+    }
+  ).updateEntity = async (_key, entity) => {
+    updatedEntity = entity;
+    return true;
+  };
+
+  const updated = await store.updateFeedback("feedback-2", {
+    status: "DONE",
+    mirrorStatus: "MIRRORED",
+    mirrorIssueUrl: "https://github.com/example/repo/issues/99"
+  });
+
+  assert.equal(updatedEntity?.status, "DONE");
+  assert.equal(updatedEntity?.mirrorStatus, "MIRRORED");
+  assert.equal(updatedEntity?.mirrorIssueUrl, "https://github.com/example/repo/issues/99");
+  assert.equal(updated?.status, "DONE");
+  assert.equal(updated?.mirrorStatus, "MIRRORED");
+
+  (
+    store as unknown as {
+      listEntities: (key: string, filter?: string) => Promise<Array<Record<string, unknown>>>;
+    }
+  ).listEntities = async () => [
+    {
+      partitionKey: "feedback",
+      rowKey: "feedback-old",
+      userId: "user-1",
+      message: "Older",
+      allowEmailContact: true,
+      status: "NEW",
+      mirrorStatus: "PENDING",
+      createdAt: "2026-04-09T09:00:00.000Z",
+      updatedAt: "2026-04-09T09:00:00.000Z"
+    },
+    {
+      partitionKey: "feedback",
+      rowKey: "feedback-new",
+      userId: "user-2",
+      message: "Newer",
+      allowEmailContact: true,
+      status: "NEW",
+      mirrorStatus: "PENDING",
+      createdAt: "2026-04-10T09:00:00.000Z",
+      updatedAt: "2026-04-10T09:00:00.000Z"
+    }
+  ];
+
+  const rows = await store.listFeedback(10);
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    ["feedback-new", "feedback-old"]
+  );
+});
+
+test("updateSnippet writes comment changes and preserves source fields", async () => {
+  const store = createStore();
+  let updatedEntity: Record<string, unknown> | undefined;
+
+  (
+    store as unknown as {
+      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
+    }
+  ).getEntity = async () => ({
+    partitionKey: "snippet",
+    rowKey: "snippet-2",
+    userId: "user-2",
+    sourceUrl: "https://example.com/original",
+    sourceTitle: "Original title",
+    selectedText: "Original excerpt",
+    selectedHtml: "<p>Original excerpt</p>",
+    selectionMarkdown: "Original excerpt",
+    contextMarkdown: "Original excerpt with more context",
+    captureMarkdown: "# Original title",
+    pageMetadataJson: '{"siteName":"Example Site","sectionHeadings":["News"]}',
+    comment: "First note",
+    createdAt: "2026-04-06T08:00:00.000Z",
+    updatedAt: "2026-04-06T08:00:00.000Z",
+    etag: "etag-1"
+  });
+
+  (
+    store as unknown as {
+      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
+    }
+  ).updateEntity = async (_key, entity) => {
+    updatedEntity = entity;
+    return true;
+  };
+
+  const snippet = await store.updateSnippet("snippet-2", {
+    comment: "Updated note"
+  });
+
+  assert.equal(updatedEntity?.sourceUrl, "https://example.com/original");
+  assert.equal(updatedEntity?.selectedText, "Original excerpt");
+  assert.equal(updatedEntity?.selectionMarkdown, "Original excerpt");
+  assert.equal(updatedEntity?.pageMetadataJson, '{"siteName":"Example Site","sectionHeadings":["News"]}');
+  assert.equal(updatedEntity?.comment, "Updated note");
+  assert.equal(snippet?.pageMetadata?.siteName, "Example Site");
+  assert.equal(snippet?.comment, "Updated note");
 });

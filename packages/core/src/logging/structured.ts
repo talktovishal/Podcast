@@ -10,12 +10,23 @@ type LoggerOptions = {
   env: string;
   logRoot: string;
   fileName?: string;
+  activityFileName?: string;
+  errorFileName?: string;
   maxBytes?: number;
   maxFiles?: number;
   retentionDays?: number;
+  errorRetentionDays?: number;
 };
 
 const rotationState = new Map<string, Promise<void>>();
+const errorLevels = new Set<LogLevel>(["ERROR", "FATAL"]);
+
+type LogSink = {
+  filePath: string;
+  maxBytes: number;
+  maxFiles: number;
+  retentionDays: number;
+};
 
 async function rotateIfNeeded(filePath: string, maxBytes: number, maxFiles: number, retentionDays: number): Promise<void> {
   let rotateRun = rotationState.get(filePath);
@@ -111,11 +122,24 @@ export type StructuredLogger = {
 };
 
 export function createStructuredLogger(options: LoggerOptions): StructuredLogger {
-  const fileName = options.fileName ?? "app.log.jsonl";
+  const activityFileName = options.activityFileName ?? options.fileName ?? "events.log.jsonl";
+  const activityRetentionDays = options.retentionDays ?? 14;
+  const errorFileName = options.errorFileName ?? "errors.log.jsonl";
   const maxBytes = options.maxBytes ?? 1 * 1024 * 1024;
   const maxFiles = options.maxFiles ?? 10;
-  const retentionDays = options.retentionDays ?? 14;
-  const filePath = join(options.logRoot, options.service, fileName);
+  const errorRetentionDays = options.errorRetentionDays ?? Math.max(activityRetentionDays, 30);
+  const activitySink: LogSink = {
+    filePath: join(options.logRoot, "events", options.service, activityFileName),
+    maxBytes,
+    maxFiles,
+    retentionDays: activityRetentionDays,
+  };
+  const errorSink: LogSink = {
+    filePath: join(options.logRoot, "errors", options.service, errorFileName),
+    maxBytes,
+    maxFiles,
+    retentionDays: errorRetentionDays,
+  };
 
   async function write(
     level: LogLevel,
@@ -134,10 +158,11 @@ export function createStructuredLogger(options: LoggerOptions): StructuredLogger
       level,
       options
     );
+    const sink = errorLevels.has(level) ? errorSink : activitySink;
 
-    await mkdir(dirname(filePath), { recursive: true });
-    await appendFile(filePath, `${JSON.stringify(event)}\n`, "utf8");
-    await rotateIfNeeded(filePath, maxBytes, maxFiles, retentionDays);
+    await mkdir(dirname(sink.filePath), { recursive: true });
+    await appendFile(sink.filePath, `${JSON.stringify(event)}\n`, "utf8");
+    await rotateIfNeeded(sink.filePath, sink.maxBytes, sink.maxFiles, sink.retentionDays);
     if (process.env.ARTICLEPOD_CONSOLE_LOGS === "1" || process.env.LISTENLATER_CONSOLE_LOGS === "1") {
       const printable = `${event.ts} ${event.level} ${event.service} ${event.msg}`;
       // eslint-disable-next-line no-console

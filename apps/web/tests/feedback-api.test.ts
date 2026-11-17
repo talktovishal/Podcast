@@ -187,7 +187,7 @@ test("admin feedback APIs are role-gated and support status updates", async () =
           status: "IN_REVIEW"
         })
       }),
-      { params: { id: feedback.id } }
+      { params: Promise.resolve({ id: feedback.id }) }
     );
     assert.equal(updateStatusResponse.status, 200);
 
@@ -370,7 +370,7 @@ test("mirror failures do not block submission and admin can retry mirror", async
           cookie: `articlepod_session=${adminSession}`
         }
       }),
-      { params: { id: submitPayload.feedback.id } }
+      { params: Promise.resolve({ id: submitPayload.feedback.id }) }
     );
     assert.equal(retryResponse.status, 200);
 

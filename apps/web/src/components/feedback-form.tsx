@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { FEEDBACK_FEATURE_AREAS, FEEDBACK_TYPES, feedbackFeatureAreaLabel, feedbackTypeLabel } from "@/lib/feedback";
 
 type CreateFeedbackResponse = {
@@ -62,71 +62,81 @@ export function FeedbackForm() {
     }
   }
 
+  function handleFeedbackSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSubmitting || !message.trim()) {
+      return;
+    }
+    void submitFeedback();
+  }
+
   return (
     <section className="card p-4 sm:p-5">
       <h2 className="text-lg font-semibold">Share feedback</h2>
       <p className="mt-1 text-sm text-[var(--muted)]">Tell us anything that is not working or could be better.</p>
 
-      <label className="mt-4 block">
-        <span className="mb-1 block text-sm font-medium">Your feedback *</span>
-        <textarea
-          className="min-h-36 w-full rounded-lg border px-3 py-2"
-          maxLength={5000}
-          placeholder="What should we improve?"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-        />
-        <p className="mt-1 text-xs text-[var(--muted)]">{message.length}/5000 characters</p>
-      </label>
+      <form onSubmit={handleFeedbackSubmit}>
+        <label className="mt-4 block">
+          <span className="mb-1 block text-sm font-medium">Your feedback *</span>
+          <textarea
+            className="min-h-36 w-full rounded-lg border px-3 py-2"
+            maxLength={5000}
+            placeholder="What should we improve?"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+          />
+          <p className="mt-1 text-xs text-[var(--muted)]">{message.length}/5000 characters</p>
+        </label>
 
-      <label className="mt-3 block">
-        <span className="mb-1 block text-sm font-medium">Type (optional)</span>
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          value={feedbackType}
-          onChange={(event) => setFeedbackType(event.target.value)}
-        >
-          <option value="">Unspecified</option>
-          {FEEDBACK_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {feedbackTypeLabel(value)}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-[var(--muted)]">Optional. Helps us sort feedback faster.</p>
-      </label>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-sm font-medium">Type (optional)</span>
+          <select
+            className="w-full rounded-lg border px-3 py-2"
+            value={feedbackType}
+            onChange={(event) => setFeedbackType(event.target.value)}
+          >
+            <option value="">Unspecified</option>
+            {FEEDBACK_TYPES.map((value) => (
+              <option key={value} value={value}>
+                {feedbackTypeLabel(value)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">Optional. Helps us sort feedback faster.</p>
+        </label>
 
-      <label className="mt-3 block">
-        <span className="mb-1 block text-sm font-medium">Feature area (optional)</span>
-        <select
-          className="w-full rounded-lg border px-3 py-2"
-          value={featureArea}
-          onChange={(event) => setFeatureArea(event.target.value)}
-        >
-          <option value="">Unspecified</option>
-          {FEEDBACK_FEATURE_AREAS.map((value) => (
-            <option key={value} value={value}>
-              {feedbackFeatureAreaLabel(value)}
-            </option>
-          ))}
-        </select>
-        <p className="mt-1 text-xs text-[var(--muted)]">Optional. Leave blank if it spans multiple areas.</p>
-      </label>
+        <label className="mt-3 block">
+          <span className="mb-1 block text-sm font-medium">Feature area (optional)</span>
+          <select
+            className="w-full rounded-lg border px-3 py-2"
+            value={featureArea}
+            onChange={(event) => setFeatureArea(event.target.value)}
+          >
+            <option value="">Unspecified</option>
+            {FEEDBACK_FEATURE_AREAS.map((value) => (
+              <option key={value} value={value}>
+                {feedbackFeatureAreaLabel(value)}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">Optional. Leave blank if it spans multiple areas.</p>
+        </label>
 
-      <label className="mt-4 inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={allowEmailContact} onChange={(event) => setAllowEmailContact(event.target.checked)} />
-        You may contact me by email about this feedback
-      </label>
+        <label className="mt-4 inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={allowEmailContact} onChange={(event) => setAllowEmailContact(event.target.checked)} />
+          You may contact me by email about this feedback
+        </label>
 
-      <div className="mt-4">
-        <button
-          className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-          disabled={isSubmitting || !message.trim()}
-          onClick={submitFeedback}
-        >
-          {isSubmitting ? "Submitting..." : "Submit feedback"}
-        </button>
-      </div>
+        <div className="mt-4">
+          <button
+            className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
+            disabled={isSubmitting || !message.trim()}
+            type="submit"
+          >
+            {isSubmitting ? "Submitting..." : "Submit feedback"}
+          </button>
+        </div>
+      </form>
 
       {statusMessage ? (
         <p aria-live="polite" className="mt-3 text-sm text-[var(--muted)]">

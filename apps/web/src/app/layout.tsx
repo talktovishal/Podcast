@@ -12,7 +12,7 @@ import {
 
 const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 const siteDescription =
-  "Turn saved articles and PDFs into a private podcast feed. Get instant episodes, daily and weekly briefings, and companion email summaries.";
+  "Turn saved articles and PDFs into a private podcast feed with instant episodes, Chrome capture, and weekly digest summary options.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     "personal podcast feed",
     "RSS feed",
     "text to speech",
-    "daily briefing",
+    "weekly digest",
     "knowledge management",
     "article to audio"
   ],
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     images: [{ url: BRAND_PODCAST_COVER_PATH, alt: `${BRAND_NAME} cover art` }]
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: BRAND_NAME,
     description: siteDescription,
     images: [BRAND_PODCAST_COVER_PATH]

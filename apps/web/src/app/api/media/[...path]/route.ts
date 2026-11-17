@@ -1,9 +1,11 @@
-import { hashIncomingToken, verifyMediaUrl, verifyStableMediaUrl } from "@articlepod/core";
+import { hashIncomingToken, verifyStableMediaUrl } from "@articlepod/core";
 import { NextRequest, NextResponse } from "next/server";
 import { recordAnalyticsEventBestEffort, resolveUserAnalyticsProfile } from "@/lib/admin-analytics/events";
+import { isAudioAvailable } from "@/lib/audio-retention";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
+import { contentTypeForPath, parseRangeHeader, validateLegacyMediaToken } from "@/lib/media-utils";
 import { findPrimaryActiveFeedTokenByUserId, findPrimaryUserByFeedTokenHash } from "@/lib/metadata-primary-auth";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
@@ -12,51 +14,87 @@ import { getArtifactStorage } from "@/lib/storage";
 
 const MEDIA_ROUTE = "/api/media/[...path]";
 
-function contentTypeForPath(path: string): string {
-  if (path.endsWith(".mp3")) {
-    return "audio/mpeg";
-  }
-  if (path.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  return "audio/mp4";
+type ScopedEpisodeAccess = {
+  id: string;
+  userId: string;
+  mediaKind: "item" | "summary";
+};
+
+function mediaKindForRequest(summaryEpisodeId: string | null): "item" | "summary" {
+  return summaryEpisodeId ? "summary" : "item";
 }
 
-function validateLegacyMediaToken(path: string, token: string | null): boolean {
-  if (!token) {
-    return false;
-  }
-  // In simple profile mediaSigningKey may be empty; accept any non-empty token as fallback
-  if (!env.mediaSigningKey) {
-    return token.length > 0;
-  }
-  const result = verifyMediaUrl(path, token, env.mediaSigningKey);
-  return result.valid;
+function scopedEpisodeLogMeta(episodeId: string | null, summaryEpisodeId: string | null): Record<string, string | null> {
+  return summaryEpisodeId
+    ? { summary_episode_id: summaryEpisodeId }
+    : { episode_id: episodeId };
 }
 
-async function resolveEpisodeAccess(path: string, episodeId: string | null): Promise<{ id: string; userId: string } | null> {
-  if (!episodeId) {
+async function resolveEpisodeAccess(
+  path: string,
+  episodeId: string | null,
+  summaryEpisodeId: string | null
+): Promise<ScopedEpisodeAccess | null> {
+  if ((episodeId && summaryEpisodeId) || (!episodeId && !summaryEpisodeId)) {
     return null;
   }
 
+  if (summaryEpisodeId) {
+    if (webUsesAzureTablePrimary() && webPrimaryStore) {
+      const summaryEpisode = await webPrimaryStore.findSummaryEpisodeById(summaryEpisodeId);
+      if (!summaryEpisode || summaryEpisode.audioPath !== path || !isAudioAvailable(summaryEpisode.expiresAt)) {
+        return null;
+      }
+      return {
+        id: summaryEpisode.id,
+        userId: summaryEpisode.userId,
+        mediaKind: "summary"
+      };
+    }
+
+    const summaryEpisode = await prisma.summaryEpisode.findFirst({
+      where: {
+        id: summaryEpisodeId
+      },
+      select: {
+        id: true,
+        userId: true,
+        audioPath: true,
+        expiresAt: true
+      }
+    });
+
+    if (!summaryEpisode || summaryEpisode.audioPath !== path || !isAudioAvailable(summaryEpisode.expiresAt)) {
+      return null;
+    }
+
+    return {
+      id: summaryEpisode.id,
+      userId: summaryEpisode.userId,
+      mediaKind: "summary"
+    };
+  }
+
   if (webUsesAzureTablePrimary() && webPrimaryStore) {
-    const episode = await webPrimaryStore.findEpisodeById(episodeId);
-    if (!episode || episode.audioPath !== path) {
+    const episode = await webPrimaryStore.findEpisodeById(episodeId as string);
+    if (!episode || episode.audioPath !== path || !isAudioAvailable(episode.expiresAt)) {
       return null;
     }
     return {
       id: episode.id,
-      userId: episode.userId
+      userId: episode.userId,
+      mediaKind: "item"
     };
   }
 
   const episode = await prisma.episode.findFirst({
     where: {
-      id: episodeId
+      id: episodeId as string
     },
     select: {
       id: true,
       audioPath: true,
+      expiresAt: true,
       item: {
         select: {
           userId: true
@@ -65,22 +103,28 @@ async function resolveEpisodeAccess(path: string, episodeId: string | null): Pro
     }
   });
 
-  if (!episode || episode.audioPath !== path) {
+  if (!episode || episode.audioPath !== path || !isAudioAvailable(episode.expiresAt)) {
     return null;
   }
 
   return {
     id: episode.id,
-    userId: episode.item.userId
+    userId: episode.item.userId,
+    mediaKind: "item"
   };
 }
 
-async function validateStableMediaToken(path: string, token: string | null, episodeId: string | null): Promise<boolean> {
-  if (!token || !episodeId) {
+async function validateStableMediaToken(
+  path: string,
+  token: string | null,
+  episodeId: string | null,
+  summaryEpisodeId: string | null
+): Promise<boolean> {
+  if (!token) {
     return false;
   }
 
-  const episode = await resolveEpisodeAccess(path, episodeId);
+  const episode = await resolveEpisodeAccess(path, episodeId, summaryEpisodeId);
   if (!episode) {
     return false;
   }
@@ -104,64 +148,57 @@ async function validateLegacyFeedTokenForPath(path: string, feedToken: string | 
 
   const tokenHash = hashIncomingToken(feedToken);
   const user = await findPrimaryUserByFeedTokenHash(tokenHash, "item");
-
   if (!user) {
     return false;
   }
 
-  const episode =
-    webUsesAzureTablePrimary() && webPrimaryStore
-      ? await webPrimaryStore.findEpisodeByAudioPathForUser(path, user.id)
-      : await prisma.episode.findFirst({
-          where: {
-            audioPath: path,
-            item: {
-              userId: user.id
-            }
-          },
-          select: {
-            id: true
-          }
-        });
+  if (webUsesAzureTablePrimary() && webPrimaryStore) {
+    const [episode, summaryEpisode] = await Promise.all([
+      webPrimaryStore.findEpisodeByAudioPathForUser(path, user.id),
+      webPrimaryStore.findSummaryEpisodeByAudioPathForUser(path, user.id)
+    ]);
+    return Boolean(
+      (episode && isAudioAvailable(episode.expiresAt)) ||
+        (summaryEpisode && isAudioAvailable(summaryEpisode.expiresAt))
+    );
+  }
 
-  return Boolean(episode);
+  const [episode, summaryEpisode] = await Promise.all([
+    prisma.episode.findFirst({
+      where: {
+        audioPath: path,
+        item: {
+          userId: user.id
+        }
+      },
+      select: {
+        id: true,
+        expiresAt: true
+      }
+    }),
+    prisma.summaryEpisode.findFirst({
+      where: {
+        audioPath: path,
+        userId: user.id
+      },
+      select: {
+        id: true,
+        expiresAt: true
+      }
+    })
+  ]);
+
+  return Boolean(
+    (episode && isAudioAvailable(episode.expiresAt)) ||
+      (summaryEpisode && isAudioAvailable(summaryEpisode.expiresAt))
+  );
 }
 
-function parseRangeHeader(range: string, size: number): { start: number; end: number } | null {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-  if (!match) {
-    return null;
-  }
-
-  const startPart = match[1];
-  const endPart = match[2];
-
-  if (!startPart && !endPart) {
-    return null;
-  }
-
-  if (!startPart) {
-    const suffixLength = Number(endPart);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-      return null;
-    }
-    const start = suffixLength >= size ? 0 : size - suffixLength;
-    return { start, end: size - 1 };
-  }
-
-  const start = Number(startPart);
-  const end = endPart ? Number(endPart) : size - 1;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end < start || start >= size) {
-    return null;
-  }
-
-  return { start, end: Math.min(end, size - 1) };
-}
-
-export async function HEAD(request: NextRequest, context: { params: { path: string[] } }) {
+export async function HEAD(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const rawKey = context.params.path.join("/");
+  const { path } = await context.params;
+  const rawKey = path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -179,8 +216,10 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
   const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
+  const maybeSummaryEpisodeId = request.nextUrl.searchParams.get("seid");
+  const mediaKind = mediaKindForRequest(maybeSummaryEpisodeId);
   const isAuthorized =
-    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId)) ||
+    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId, maybeSummaryEpisodeId)) ||
     validateLegacyMediaToken(rawKey, mediaToken) ||
     (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
   if (!isAuthorized) {
@@ -189,9 +228,11 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 401,
-        media_kind: "item",
+        media_kind: mediaKind,
         has_media_token: Boolean(mediaToken),
-        has_legacy_feed_token: Boolean(legacyFeedToken)
+        has_legacy_feed_token: Boolean(legacyFeedToken),
+        has_episode_id: Boolean(maybeEpisodeId),
+        has_summary_episode_id: Boolean(maybeSummaryEpisodeId)
       });
     }
     return new NextResponse(null, { status: 401 });
@@ -207,13 +248,14 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 200,
-        media_kind: "item",
+        media_kind: mediaKind,
         media_key: key,
         mime_type: head.contentType || contentTypeForPath(key),
         total_bytes: head.bytes,
         served_bytes: 0,
         response_mode: "HEAD",
-        duration_ms: Date.now() - startedAt
+        duration_ms: Date.now() - startedAt,
+        ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
       });
     }
 
@@ -226,6 +268,21 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
       }
     });
   } catch {
+    if (!maybeEpisodeId || maybeSummaryEpisodeId) {
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.warn("Podcast media object not found", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 404,
+          media_kind: mediaKind,
+          media_key: key,
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
+        });
+      }
+      return new NextResponse(null, { status: 404 });
+    }
+
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: maybeEpisodeId,
       userId: undefined,
@@ -241,12 +298,12 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
           status: 200,
           media_kind: "item",
           media_key: repair.resolvedEpisode.audioPath,
-          episode_id: maybeEpisodeId,
           mime_type: repair.resolvedEpisode.mimeType,
           total_bytes: repair.resolvedEpisode.audioBytes,
           served_bytes: 0,
           response_mode: "HEAD",
-          duration_ms: Date.now() - startedAt
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, null)
         });
       }
 
@@ -267,19 +324,20 @@ export async function HEAD(request: NextRequest, context: { params: { path: stri
         status: 404,
         media_kind: "item",
         media_key: key,
-        episode_id: maybeEpisodeId,
         repair_enqueued: repair.enqueued,
-        duration_ms: Date.now() - startedAt
+        duration_ms: Date.now() - startedAt,
+        ...scopedEpisodeLogMeta(maybeEpisodeId, null)
       });
     }
     return new NextResponse(null, { status: 404 });
   }
 }
 
-export async function GET(request: NextRequest, context: { params: { path: string[] } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const rawKey = context.params.path.join("/");
+  const { path } = await context.params;
+  const rawKey = path.join("/");
   if (rawKey.includes("..")) {
     if (env.podcastRequestLoggingEnabled) {
       await logger.warn("Podcast media request rejected", {
@@ -297,8 +355,10 @@ export async function GET(request: NextRequest, context: { params: { path: strin
   const mediaToken = request.nextUrl.searchParams.get("mt");
   const legacyFeedToken = request.nextUrl.searchParams.get("feed_token");
   const maybeEpisodeId = request.nextUrl.searchParams.get("eid");
+  const maybeSummaryEpisodeId = request.nextUrl.searchParams.get("seid");
+  const mediaKind = mediaKindForRequest(maybeSummaryEpisodeId);
   const isAuthorized =
-    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId)) ||
+    (await validateStableMediaToken(rawKey, mediaToken, maybeEpisodeId, maybeSummaryEpisodeId)) ||
     validateLegacyMediaToken(rawKey, mediaToken) ||
     (await validateLegacyFeedTokenForPath(rawKey, legacyFeedToken));
   if (!isAuthorized) {
@@ -307,10 +367,11 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 401,
-        media_kind: "item",
+        media_kind: mediaKind,
         has_media_token: Boolean(mediaToken),
         has_legacy_feed_token: Boolean(legacyFeedToken),
-        has_episode_id: Boolean(request.nextUrl.searchParams.get("eid"))
+        has_episode_id: Boolean(maybeEpisodeId),
+        has_summary_episode_id: Boolean(maybeSummaryEpisodeId)
       });
     }
     return new NextResponse("Unauthorized", { status: 401 });
@@ -329,7 +390,7 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       if (!isPlaybackLike) {
         return;
       }
-      const dedupeSource = maybeEpisodeId || key;
+      const dedupeSource = maybeEpisodeId || maybeSummaryEpisodeId || key;
       let sourceType: "URL" | "PDF" | "HTML_SNAPSHOT" | null = null;
       let itemId: string | null = null;
       let userId: string | null = null;
@@ -371,6 +432,17 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         if (candidate === "URL" || candidate === "PDF" || candidate === "HTML_SNAPSHOT") {
           sourceType = candidate;
         }
+      } else if (maybeSummaryEpisodeId) {
+        const summaryEpisode =
+          webUsesAzureTablePrimary() && webPrimaryStore
+            ? await webPrimaryStore.findSummaryEpisodeById(maybeSummaryEpisodeId)
+            : await prisma.summaryEpisode.findFirst({
+                where: { id: maybeSummaryEpisodeId },
+                select: {
+                  userId: true
+                }
+              });
+        userId = summaryEpisode?.userId ?? null;
       }
 
       if (!userId) {
@@ -390,7 +462,8 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         metadata: {
           range,
           media_key: key,
-          episode_id: maybeEpisodeId
+          episode_id: maybeEpisodeId,
+          summary_episode_id: maybeSummaryEpisodeId
         }
       });
     };
@@ -403,13 +476,13 @@ export async function GET(request: NextRequest, context: { params: { path: strin
           ...requestMeta,
           route: MEDIA_ROUTE,
           status: 200,
-          media_kind: "item",
+          media_kind: mediaKind,
           media_key: key,
-          episode_id: maybeEpisodeId,
           mime_type: mimeType,
           total_bytes: size,
           served_bytes: size,
-          duration_ms: Date.now() - startedAt
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
         });
       }
       return new NextResponse(new Uint8Array(full), {
@@ -429,11 +502,11 @@ export async function GET(request: NextRequest, context: { params: { path: strin
           ...requestMeta,
           route: MEDIA_ROUTE,
           status: 416,
-          media_kind: "item",
+          media_kind: mediaKind,
           media_key: key,
-          episode_id: maybeEpisodeId,
           total_bytes: size,
-          duration_ms: Date.now() - startedAt
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
         });
       }
       return new NextResponse("Invalid range", {
@@ -453,16 +526,16 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         ...requestMeta,
         route: MEDIA_ROUTE,
         status: 206,
-        media_kind: "item",
+        media_kind: mediaKind,
         media_key: key,
-        episode_id: maybeEpisodeId,
         mime_type: mimeType,
         total_bytes: size,
         served_bytes: chunkSize,
         range_start: start,
         range_end: end,
         content_range: `bytes ${start}-${end}/${size}`,
-        duration_ms: Date.now() - startedAt
+        duration_ms: Date.now() - startedAt,
+        ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
       });
     }
 
@@ -476,6 +549,21 @@ export async function GET(request: NextRequest, context: { params: { path: strin
       }
     });
   } catch {
+    if (!maybeEpisodeId || maybeSummaryEpisodeId) {
+      if (env.podcastRequestLoggingEnabled) {
+        await logger.warn("Podcast media object not found", {
+          ...requestMeta,
+          route: MEDIA_ROUTE,
+          status: 404,
+          media_kind: mediaKind,
+          media_key: key,
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, maybeSummaryEpisodeId)
+        });
+      }
+      return new NextResponse("Not found", { status: 404 });
+    }
+
     const repair = await enqueueEpisodeMediaRepair({
       episodeId: maybeEpisodeId,
       userId: undefined,
@@ -499,11 +587,11 @@ export async function GET(request: NextRequest, context: { params: { path: strin
             status: 200,
             media_kind: "item",
             media_key: resolvedKey,
-            episode_id: maybeEpisodeId,
             mime_type: mimeType,
             total_bytes: size,
             served_bytes: size,
-            duration_ms: Date.now() - startedAt
+            duration_ms: Date.now() - startedAt,
+            ...scopedEpisodeLogMeta(maybeEpisodeId, null)
           });
         }
         return new NextResponse(new Uint8Array(full), {
@@ -525,9 +613,9 @@ export async function GET(request: NextRequest, context: { params: { path: strin
             status: 416,
             media_kind: "item",
             media_key: resolvedKey,
-            episode_id: maybeEpisodeId,
             total_bytes: size,
-            duration_ms: Date.now() - startedAt
+            duration_ms: Date.now() - startedAt,
+            ...scopedEpisodeLogMeta(maybeEpisodeId, null)
           });
         }
         return new NextResponse("Invalid range", {
@@ -548,14 +636,14 @@ export async function GET(request: NextRequest, context: { params: { path: strin
           status: 206,
           media_kind: "item",
           media_key: resolvedKey,
-          episode_id: maybeEpisodeId,
           mime_type: mimeType,
           total_bytes: size,
           served_bytes: chunkSize,
           range_start: start,
           range_end: end,
           content_range: `bytes ${start}-${end}/${size}`,
-          duration_ms: Date.now() - startedAt
+          duration_ms: Date.now() - startedAt,
+          ...scopedEpisodeLogMeta(maybeEpisodeId, null)
         });
       }
 
@@ -577,9 +665,9 @@ export async function GET(request: NextRequest, context: { params: { path: strin
         status: 404,
         media_kind: "item",
         media_key: key,
-        episode_id: maybeEpisodeId,
         repair_enqueued: repair.enqueued,
-        duration_ms: Date.now() - startedAt
+        duration_ms: Date.now() - startedAt,
+        ...scopedEpisodeLogMeta(maybeEpisodeId, null)
       });
     }
     return new NextResponse("Not found", { status: 404 });

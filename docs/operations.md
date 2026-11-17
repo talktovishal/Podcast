@@ -6,7 +6,7 @@ Customer accounts, feed metadata, and generated audio must survive VM loss.
 Durability boundary:
 - durable: Azure Table operational metadata + Azure Blob artifacts
 - optional rollback durable path: PostgreSQL only when explicitly kept for canary/rollback
-- non-durable: VM local disk/process state (including auxiliary SQLite, local logs, and demo diagnostics unless archived elsewhere)
+- non-durable: VM local disk/process state (including local logs, caches, and demo diagnostics unless archived elsewhere)
 
 ## VM runtime recovery
 1. Recreate or repair VM compute.
@@ -67,6 +67,27 @@ This verifies:
 Notes:
 - in `METADATA_PRIMARY_BACKEND=azure_table` mode, local/demo diagnostic counts are informational only and are excluded from restore regression gating.
 
+## Production user -> local mirror
+For local end-to-end debugging with a real test account, you can mirror one production user's Azure Table/blob state into the local `simple` profile (SQLite + local files) without resetting the whole local environment.
+
+Required source env:
+- `MIRROR_SOURCE_AZURE_TABLE_CONNECTION_STRING`
+- `MIRROR_SOURCE_AZURE_STORAGE_CONNECTION_STRING`
+- optional: `MIRROR_SOURCE_AZURE_TABLE_PREFIX`
+- optional: `MIRROR_SOURCE_AZURE_STORAGE_CONTAINER`
+
+Command:
+```bash
+npx pnpm --filter @articlepod/web run user:mirror-from-azure -- --email talktovishal@gmail.com
+```
+
+Behavior:
+- finds the production user by email in Azure Table primary
+- copies user-scoped auth rows, items/snippets, digest + summary state, feedback, and billing webhook rows tied to that user
+- copies referenced blob artifacts/audio plus the current published wiki manifest/pages/build-state blobs when present
+- replaces only the matching local user and that user's local files; other local users stay untouched
+- prints counts plus the mirrored item/digest feed token values for quick local RSS verification
+
 ## Signed durability drill report (template)
 - Drill date:
 - Operators:
@@ -83,7 +104,8 @@ Notes:
 ## Latest evidence
 - 2026-02-15: First live Azure deployment completed in `rg-articlepod-prod` with public HTTPS health check passing at `https://articlepod-dvlolaz43j6be.centralus.cloudapp.azure.com/api/health`.
 - 2026-02-15: Podcast compatibility gate passed for live feed (`scripts/verify_podcast_contract.sh`) with feed/media `HEAD 200` and media range `206`.
-- 2026-03-17: Fresh-start low-cost Azure cutover completed on `https://articlepod.com` with `METADATA_PRIMARY_BACKEND=azure_table`, Blob artifact storage, local auxiliary SQLite, and VM size `Standard_B2s`.
+- 2026-03-17: Fresh-start low-cost Azure cutover completed on `https://articlepod.com` with `METADATA_PRIMARY_BACKEND=azure_table`, Blob artifact storage, and VM size `Standard_B2s`.
+- 2026-04-10: Azure runtime contract cleanup landed in repo so production Azure Table mode no longer requires a copied or bootstrapped SQLite file on the VM.
 - 2026-03-17: Managed PostgreSQL flexible server `articlepod-pg-dvlolaz43j6be` was stopped after the fresh-start cutover; exploratory PostgreSQL data was intentionally not migrated.
 - 2026-03-17: Live podcast compatibility gate passed again after PostgreSQL was stopped (`feed HEAD 200`, `media HEAD 200`, `Range 206`, artwork `HEAD 200`).
 - Durability snapshot + VM replacement restore drill is still pending signed execution.
@@ -92,6 +114,13 @@ Notes:
 Backfill markdown artifacts for existing ready items:
 ```bash
 npm run artifacts:backfill
+```
+
+Migrate canonical markdown blobs to the user-centric layout and update metadata pointers:
+```bash
+npm run artifacts:migrate-layout -- --dry-run
+npm run artifacts:migrate-layout -- --user-id <userId>
+npm run artifacts:migrate-layout -- --delete-legacy
 ```
 
 Purge expired raw artifacts and stale extension auth artifacts:
@@ -113,8 +142,8 @@ curl -X POST "$APP_URL/api/internal/digests/tick" \
 ```
 
 Digest outputs:
-- summary artifact key: `digests/<userId>/<cadence>/<periodKey>/summary.md`
-- stub email artifact key: `digests/<userId>/<cadence>/<periodKey>/email.md`
+- summary artifact key: `users/<userId>/markdown/digests/<cadence>/<periodKey>/summary.md`
+- stub email artifact key: `users/<userId>/markdown/digests/<cadence>/<periodKey>/email.md`
 - digest audio key: `digests/<userId>/<cadence>/<periodKey>/episode.<ext>`
 
 Digest compatibility checks:
@@ -124,29 +153,105 @@ Digest compatibility checks:
 
 ## Billing operations
 Required Stripe env for recurring billing:
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_PRICE_PRO_MONTHLY`
+- `BILLING_SANDBOX_ALLOWLIST_EMAILS`
+- `STRIPE_LIVE_SECRET_KEY`
+- `STRIPE_LIVE_WEBHOOK_SECRET`
+- `STRIPE_LIVE_PRICE_PRO_MONTHLY`
+- `STRIPE_LIVE_PRICE_PRO_ANNUAL`
+- `STRIPE_LIVE_BILLING_PORTAL_CONFIGURATION_ID` (optional)
+- `STRIPE_SANDBOX_SECRET_KEY`
+- `STRIPE_SANDBOX_WEBHOOK_SECRET`
+- `STRIPE_SANDBOX_PRICE_PRO_MONTHLY`
+- `STRIPE_SANDBOX_PRICE_PRO_ANNUAL`
+- `STRIPE_SANDBOX_BILLING_PORTAL_CONFIGURATION_ID` (optional)
 
-Local webhook forwarding example:
+Environment isolation rules:
+- keep separate live and sandbox Stripe secrets in production
+- keep separate Stripe test-mode secrets for local and staging
+- keep separate webhook signing secrets per environment and per lane
+- introduce live keys only after staging certification passes
+- if a portal configuration id is pinned, remember Stripe test and live modes use different ids
+- sandbox billing is only for admins and allowlisted tester emails; live remains the default experience for everyone else
+
+Local webhook forwarding examples:
 ```bash
 stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook
 ```
 
+```bash
+stripe listen --forward-to http://127.0.0.1:3000/api/billing/webhook/sandbox
+```
+
 Expected webhook behavior:
-- `checkout.session.completed` links the Stripe customer back to the local user.
-- `customer.subscription.created|updated|deleted` sync plan/status and recompute effective paid access.
+- `checkout.session.completed` links the Stripe customer and subscription back to the local user, but does not unlock access on redirect alone.
+- `customer.subscription.created|updated|deleted` sync plan, price, status, current period end, cancel-at-period-end, and local entitlement shape.
+- `invoice.paid` grants or extends access through the invoice period end.
+- `invoice.payment_failed` and `invoice.payment_action_required` mark the account as `GRACE_PERIOD` or `INCOMPLETE` depending on whether the failure happened during initial signup vs. renewal.
 - duplicate Stripe event ids are ignored after the first successful local apply.
+- older subscription and invoice events are ignored when a newer event watermark was already applied for that domain.
+
+Operational status mapping:
+- `ACTIVE` + `PAID`: good standing
+- `INCOMPLETE` + `FAILED` or `ACTION_REQUIRED`: initial payment did not complete; no access should be granted
+- `GRACE_PERIOD` + `FAILED` or `ACTION_REQUIRED`: renewal issue; user may still have temporary access while recovering payment
+- `CANCELED`: no future renewal; access should follow the stored end-of-period date or revoke per final webhook state
 
 Troubleshooting checks:
 ```bash
-curl -X GET "$APP_URL/api/billing/status" \
+curl -X GET "$APP_URL/api/billing/status?view=selected" \
   -H "cookie: articlepod_session=<session-cookie>"
 ```
 
 ```bash
-rg 'billing' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 100
+rg 'billing' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 100
 ```
+
+Recommended billing log patterns to watch:
+- successful checkout session creation
+- successful portal session creation
+- webhook handled with `status=PROCESSED`
+- webhook ignored with `status=IGNORED_DUPLICATE` or `status=IGNORED_STALE`
+- billing issue states from failed or action-required invoices
+
+Lifecycle QA checklist:
+1. Tester lane selection:
+   - sign in as an admin or allowlisted tester
+   - open `/app/settings`
+   - switch between `Live billing` and `Sandbox billing`
+   - confirm non-eligible users never see the billing-mode control
+2. Purchase success:
+   - buy `Pro monthly` and `Pro annual`
+   - confirm settings shows pending activation before webhook confirmation
+   - confirm the account becomes paid only after live webhook processing
+3. Initial payment failure:
+   - simulate a failed first invoice
+   - confirm status remains `INCOMPLETE` and settings offers a billing recovery path
+4. Renewal success:
+   - advance a Stripe Test Clock or trigger renewal
+   - confirm `invoice.paid` extends `currentPeriodEnd`
+5. Renewal failure:
+   - simulate failed renewal or required authentication
+   - confirm `GRACE_PERIOD` or action-required messaging appears
+6. Cancel at period end:
+   - cancel in the Customer Portal
+   - confirm `cancelAtPeriodEnd` and end-date messaging sync locally
+7. Sandbox isolation:
+   - switch an eligible tester to `Sandbox billing`
+   - complete checkout against sandbox Stripe
+   - confirm live access/quota UI remains unchanged while sandbox billing status updates in Settings
+8. Webhook resilience:
+   - replay the same event twice
+   - replay an older subscription or invoice event after a newer one
+   - confirm invalid signatures are rejected
+
+Safe-disable and rollback guidance:
+- to pause new live self-serve purchases, unset `STRIPE_LIVE_PRICE_PRO_MONTHLY`, `STRIPE_LIVE_PRICE_PRO_ANNUAL`, or both and redeploy; do not remove `STRIPE_LIVE_SECRET_KEY` or `STRIPE_LIVE_WEBHOOK_SECRET` if existing subscribers still need Portal or webhook sync
+- to pause sandbox testing without disturbing live billing, unset `STRIPE_SANDBOX_PRICE_PRO_MONTHLY`, `STRIPE_SANDBOX_PRICE_PRO_ANNUAL`, clear `BILLING_SANDBOX_ALLOWLIST_EMAILS`, or both and redeploy
+- do not disable either webhook endpoint while that lane still has active subscriptions, because Stripe remains the system of record for payment and cancelation state
+- the billing schema changes are additive; rollback should prefer application-level feature disablement over destructive schema rollback
+- existing quota checks still rely on `isPaid` as a compatibility cache, so emergency rollback does not require clearing the new billing columns
 
 ## Serverless metadata migration runbook
 Backfill queue/item/digest projections into Azure Table mirror:
@@ -174,7 +279,6 @@ Recommended rollout pattern:
 Full low-cost primary mode:
 ```bash
 METADATA_PRIMARY_BACKEND=azure_table \
-DATABASE_URL="file:/var/lib/articlepod/db.sqlite" \
 AZURE_TABLE_CONNECTION_STRING="<table-connection-string>" \
 ANALYTICS_STORAGE_MODE=off \
 JOB_EVENT_STORAGE_MODE=off \
@@ -187,9 +291,16 @@ Fresh-start production note:
 
 ## Observability runbook
 Dedicated local log root:
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl`
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/worker/app.log.jsonl`
-- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/python-tts/app.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web/errors.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/worker/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/worker/errors.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/python-tts/events.log.jsonl`
+- `/Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/python-tts/errors.log.jsonl`
+
+Retention intent:
+- activity logs (`DEBUG`/`INFO`/`WARN`) age under `LOG_RETENTION_DAYS`
+- `ERROR`/`FATAL` logs age under `LOG_ERROR_RETENTION_DAYS`
 
 Collect and bundle diagnostics:
 ```bash
@@ -205,12 +316,16 @@ Output:
 
 Podcast playback diagnostics (RSS + media request traces):
 ```bash
-rg '"msg":"Podcast (feed|media) request' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+rg '"msg":"Podcast (feed|media) request' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 200
 ```
 
 Filter recent range-related failures (`401`, `404`, `416`):
 ```bash
-rg '"msg":"Podcast media request (unauthorized|invalid range|object not found)"' /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/web/app.log.jsonl | tail -n 200
+rg '"msg":"Podcast media request (unauthorized|invalid range|object not found)"' \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/events/web \
+  /Users/vishalchowdhary/Documents/Podcast/.runtime/logs/errors/web | tail -n 200
 ```
 
 ## Admin analytics runbook

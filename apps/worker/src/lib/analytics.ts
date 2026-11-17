@@ -8,6 +8,7 @@ import {
 } from "@articlepod/core";
 import { Prisma } from "@prisma/client";
 import { workerEnv } from "./env.js";
+import { workerPrimaryStore, workerUsesAzureTablePrimary } from "./metadata-primary-store.js";
 import { prisma } from "./prisma.js";
 import { workerLogger } from "./logger.js";
 
@@ -32,6 +33,42 @@ async function resolveUserProfile(userId: string): Promise<{
   segmentAuth: AnalyticsSegmentAuth;
   userRole: AnalyticsUserRole;
 }> {
+  if (workerEnv.analyticsStorageMode === "off") {
+    return {
+      authMethod: "LOCAL",
+      segmentAuth: "LOCAL_ONLY",
+      userRole: "USER"
+    };
+  }
+
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    const [user, oauthIdentities] = await Promise.all([
+      workerPrimaryStore.findUserById(userId),
+      workerPrimaryStore.listOAuthIdentitiesByUser(userId)
+    ]);
+
+    if (!user) {
+      return {
+        authMethod: "LOCAL",
+        segmentAuth: "LOCAL_ONLY",
+        userRole: "USER"
+      };
+    }
+
+    const userRole: AnalyticsUserRole = user.role === "ADMIN" ? "ADMIN" : "USER";
+    const providers = new Set(oauthIdentities.map((identity) => identity.provider.toLowerCase()));
+    if (providers.size === 0) {
+      return { authMethod: "LOCAL", segmentAuth: "LOCAL_ONLY", userRole };
+    }
+    if (providers.size === 1 && providers.has("google")) {
+      return { authMethod: "GOOGLE", segmentAuth: "OAUTH_LINKED", userRole };
+    }
+    if (providers.size === 1 && providers.has("apple")) {
+      return { authMethod: "APPLE", segmentAuth: "OAUTH_LINKED", userRole };
+    }
+    return { authMethod: "OAUTH_LINKED", segmentAuth: "OAUTH_LINKED", userRole };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {

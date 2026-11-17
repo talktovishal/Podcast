@@ -1,4 +1,4 @@
-import { test, expect } from "./helpers";
+import { test, expect, loginAsDemo } from "./helpers";
 
 test.describe("Dashboard & Item Submission", () => {
   test("dashboard shows URL submission form", async ({ page }) => {
@@ -17,11 +17,11 @@ test.describe("Dashboard & Item Submission", () => {
 
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
 
-    await page.locator("label", { hasText: "Option 2: PDF" }).click();
+    await page.locator("label", { hasText: "Upload PDF" }).click();
     await expect(page.locator("input[type='file'][accept='application/pdf']")).toBeVisible();
     await expect(page.getByRole("button", { name: "Upload PDF" })).toBeVisible();
 
-    await page.locator("label", { hasText: "Option 1: URL" }).click();
+    await page.locator("label", { hasText: "Paste article URL" }).click();
     await expect(page.locator("input[placeholder*='example.com']")).toBeVisible();
   });
 
@@ -47,11 +47,32 @@ test.describe("Dashboard & Item Submission", () => {
 
     const testUrl = "https://example.com/e2e-test-article";
     await page.locator("input[placeholder*='example.com']").fill(testUrl);
+    const revealOptionalDetails = page.getByRole("button", { name: "Show" });
+    if (await revealOptionalDetails.isVisible()) {
+      await revealOptionalDetails.click();
+    }
     await page.locator("input[placeholder*='auto-title']").fill("E2E Test Article");
 
     await page.getByRole("button", { name: "Submit URL" }).click();
 
     await expect(page.getByText("E2E Test Article")).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("pressing Enter in the URL field submits the active source form", async ({ page }) => {
+    await page.context().clearCookies();
+    await loginAsDemo(page);
+
+    const urlInput = page.locator("input[placeholder*='example.com']");
+    const submitRequest = page.waitForResponse((response) => {
+      return response.request().method() === "POST" && response.url().includes("/api/items/url");
+    });
+
+    await urlInput.fill("https://example.com/e2e-enter-submit");
+    await urlInput.press("Enter");
+
+    const response = await submitRequest;
+    expect(response.ok()).toBe(true);
+    await expect(urlInput).toHaveValue("");
   });
 
   test("dashboard header shows feed URL actions", async ({ page }) => {
@@ -61,13 +82,114 @@ test.describe("Dashboard & Item Submission", () => {
     await expect(page.getByText(/rss/i).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test("navigation links are present (Settings, Feedback, Logout)", async ({ page }) => {
+  test("workspace header keeps active destinations visible while navigating", async ({ page }) => {
     await page.goto("/app");
     await page.waitForURL(/\/app/);
 
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Feedback" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Podcast Apps" }).click();
+    await page.waitForURL(/\/app\/podcast-apps/);
+    await expect(page.locator("h1", { hasText: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Chrome Extension" }).click();
+    await page.waitForURL(/\/app\/chrome-extension/);
+    await expect(page.locator("h1", { hasText: "Chrome Extension" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Summaries" }).click();
+    await page.waitForURL(/\/app\/summary/);
+    await expect(page.locator("h1", { hasText: "Summaries" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Feedback" }).click();
+    await page.waitForURL(/\/app\/feedback/);
+    await expect(page.locator("h1", { hasText: "Feedback" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feedback" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Settings" }).click();
+    await page.waitForURL(/\/app\/settings/);
+    await expect(page.locator("h1", { hasText: "Account settings" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+
+    await page.getByRole("link", { name: "Episodes" }).click();
+    await page.waitForURL(/\/app$/);
+    await expect(page.getByText("Create new episodes quickly")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+  });
+
+  test("mobile workspace header keeps the compact two-row navigation", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/app");
+    await page.waitForURL(/\/app/);
+
+    await expect(page.getByRole("link", { name: "Upgrade to Pro" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Feedback" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Log out" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Episodes" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Podcast Apps" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Summaries" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Chrome Extension" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Snippets" })).toHaveCount(0);
+
+    const topRow = await Promise.all([
+      page.getByRole("link", { name: "Upgrade to Pro" }).boundingBox(),
+      page.getByRole("link", { name: "Feedback" }).boundingBox(),
+      page.getByRole("link", { name: "Settings" }).boundingBox(),
+      page.getByRole("button", { name: "Log out" }).boundingBox(),
+    ]);
+    const secondRow = await Promise.all([
+      page.getByRole("link", { name: "Episodes" }).boundingBox(),
+      page.getByRole("link", { name: "Podcast Apps" }).boundingBox(),
+      page.getByRole("link", { name: "Summaries" }).boundingBox(),
+    ]);
+
+    const topRowTops = topRow.map((box) => box?.y ?? -1);
+    const secondRowTops = secondRow.map((box) => box?.y ?? -1);
+    expect(Math.max(...topRowTops) - Math.min(...topRowTops)).toBeLessThan(4);
+    expect(Math.max(...secondRowTops) - Math.min(...secondRowTops)).toBeLessThan(4);
+  });
+
+  test("workspace header stays visible after scrolling", async ({ page }) => {
+    await page.goto("/app");
+    await page.waitForURL(/\/app/);
+
+    const header = page.locator("header").first();
+    await expect(header).toBeVisible();
+
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight);
+    });
+
+    const rect = await header.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      return {
+        bottom: bounds.bottom,
+        top: bounds.top,
+      };
+    });
+
+    expect(rect.top).toBeLessThan(12);
+    expect(rect.bottom).toBeGreaterThan(36);
+  });
+
+  test("logout returns the user to the root auth landing page", async ({ page }) => {
+    await page.goto("/app");
+    await page.waitForURL(/\/app/);
+
+    await page.getByRole("button", { name: "Log out" }).click();
+    await page.waitForURL((url) => url.pathname === "/", { timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Log in to your private podcast feed" })
+    ).toBeVisible();
   });
 
   test("demo starter episode has playable audio and serves valid media", async ({ page, request }) => {
@@ -75,7 +197,7 @@ test.describe("Dashboard & Item Submission", () => {
     await page.waitForURL(/\/app/);
 
     // The seeded "Welcome to ArticlePod" item should have an audio element
-    const audio = page.locator("audio[preload='none']").first();
+    const audio = page.locator("audio[preload='metadata']").first();
     await expect(audio).toBeVisible({ timeout: 10_000 });
 
     // Verify the media src is a signed URL pointing to the media endpoint
@@ -105,7 +227,7 @@ test.describe("Dashboard & Item Submission", () => {
     expect(headRes.headers()["accept-ranges"]).toBe("bytes");
 
     // Verify the Download link is also present
-    const downloadLink = page.locator("a.text-sm.underline", { hasText: /download/i }).first();
+    const downloadLink = page.getByRole("link", { name: "Download" }).first();
     await expect(downloadLink).toBeVisible();
   });
 });

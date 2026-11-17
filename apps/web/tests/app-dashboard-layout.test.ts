@@ -2,47 +2,280 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
-test("app dashboard uses direct navigation links and logout icon", () => {
-  const source = readFileSync(new URL("../src/app/app/page.tsx", import.meta.url), "utf8");
+test("app dashboard keeps the workspace content below the shared header", () => {
+  const source = readFileSync(
+    new URL("../src/app/app/page.tsx", import.meta.url),
+    "utf8",
+  );
 
-  assert.equal(source.includes('current="workspace"'), true);
-  assert.equal(source.includes("AppShellNav"), true);
+  assert.equal(source.includes("AppShellNav"), false);
+  assert.equal(source.includes("WorkspaceBillingSummary"), false);
+  assert.match(source, /<DashboardClient\b[\s\S]*\bviewMode=\"workspace\"/);
+  assert.match(source, /\bisAdmin=\{user\.role\s*=\s*\==\s*\"ADMIN\"\}/);
+  assert.equal(source.includes("Your workspace"), false);
   assert.equal(source.includes("FeedUrlActions"), false);
   assert.equal(source.includes("Demo mode ready"), false);
-  assert.equal(source.includes('viewMode="workspace"'), true);
-  assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
   assert.equal(source.includes("DeleteAccountButton"), false);
+  assert.equal(source.includes("keep an eye on processing"), true);
+  assert.equal(source.includes("workspaceHeading={user.name || user.email}"), true);
+  assert.equal(source.includes("workspaceSubheading=\"Create new episodes quickly"), true);
+  assert.equal(source.includes('<h1 className="font-bold text-2xl">{user.name || user.email}</h1>'), false);
+  assert.equal(source.includes("py-5 sm:py-6"), true);
+  assert.equal(source.includes("container-shell space-y-4 sm:space-y-5"), true);
 });
 
-test("app shell nav keeps dedicated pages and icon logout", () => {
-  const source = readFileSync(new URL("../src/components/app-shell-nav.tsx", import.meta.url), "utf8");
+test("dashboard client surfaces the processing-mode slider in the workspace header", () => {
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("workspaceHeading"), true);
+  assert.equal(source.includes("New item mode"), true);
+  assert.equal(source.includes('role="group"'), true);
+  assert.equal(source.includes('aria-label="New item processing mode"'), true);
+  assert.equal(source.includes("Every new item is a podcast"), true);
+  assert.equal(source.includes("Summaries only"), true);
+  assert.equal(source.includes("Daily and weekly podcasts"), true);
+  assert.equal(source.includes("bg-[rgba(223,243,236,0.92)]"), true);
+  assert.equal(source.includes("translateX(calc(100% + 0.5rem))"), true);
+  assert.equal(source.includes("bg-[var(--accent)] shadow-sm transition-transform"), false);
+  assert.equal(source.includes("text-white/85"), false);
+  assert.equal(source.includes("New items become podcast episodes."), false);
+  assert.equal(source.includes("New items save summaries first."), false);
+});
+
+test("shared app layout owns the sticky workspace header", () => {
+  const layoutSource = readFileSync(
+    new URL("../src/app/app/layout.tsx", import.meta.url),
+    "utf8",
+  );
+  const headerSource = readFileSync(
+    new URL("../src/components/app-shell-header.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(layoutSource.includes("AppShellHeader"), true);
+  assert.equal(layoutSource.includes("getBillingSettingsState"), true);
+  assert.equal(layoutSource.includes("isBillingPlanCheckoutConfigured"), true);
+  assert.equal(headerSource.includes("fixed inset-x-0 top-0"), true);
+  assert.equal(headerSource.includes("lg:flex-row"), true);
+  assert.equal(headerSource.includes("min-w-0 flex-1"), true);
+  assert.equal(headerSource.includes("ArticlePod home"), true);
+  assert.equal(headerSource.includes("WorkspaceBillingSummary"), true);
+  assert.equal(headerSource.includes('variant="header"'), true);
+  assert.equal(headerSource.includes('variant="mobile-header"'), true);
+  assert.equal(headerSource.includes("AppShellNav"), true);
+  assert.equal(headerSource.includes("countDashboardItemsForUser"), true);
+  assert.equal(headerSource.includes("episodeCount={episodeCount}"), true);
+  assert.equal(headerSource.includes("countSnippetsForUser"), true);
+  assert.equal(headerSource.includes("snippetCount={snippetCount}"), true);
+  assert.equal(headerSource.includes("hasWikiForUser"), true);
+  assert.equal(headerSource.includes("showWikiSurface = false"), true);
+  assert.equal(headerSource.includes("showWiki={showWikiSurface || hasPublishedWiki}"), true);
+  assert.equal(headerSource.includes("lg:inline-flex"), true);
+  assert.equal(layoutSource.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(layoutSource.includes("showWikiSurface={hasAnnualPersonalWikiAccess("), true);
+  assert.equal(layoutSource.includes("pt-28 sm:pt-32 lg:pt-24"), true);
+});
+
+test("workspace billing summary stays compact inside the sticky header", () => {
+  const source = readFileSync(
+    new URL("../src/components/workspace-billing-summary.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("Pro user"), true);
+  assert.equal(source.includes("Upgrade to Pro"), true);
+  assert.equal(source.includes("Billing issue"), true);
+  assert.equal(source.includes("Activating Pro"), true);
+  assert.equal(
+    source.includes('variant?: "default" | "header" | "mobile-header"'),
+    true,
+  );
+  assert.equal(source.includes('variant === "mobile-header"'), true);
+  assert.equal(source.includes('href="/app/settings#billing"'), true);
+  assert.equal(source.includes("useSearchParams"), true);
+  assert.equal(source.includes("Billing ·"), false);
+  assert.equal(source.includes("Pro Annual is the best value"), false);
+  assert.equal(source.includes("appShellAccentItemClass"), true);
+});
+
+test("app shell nav keeps active destinations visible and groups utility icons", () => {
+  const source = readFileSync(
+    new URL("../src/components/app-shell-nav.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.equal(source.includes('href: "/app/podcast-apps"'), true);
   assert.equal(source.includes('href: "/app/chrome-extension"'), true);
+  assert.equal(source.includes('href: "/app/snippets"'), true);
   assert.equal(source.includes('href: "/app/settings"'), true);
   assert.equal(source.includes('label: "Episodes"'), true);
   assert.equal(source.includes('label: "Podcast Apps"'), true);
   assert.equal(source.includes('label: "Chrome Extension"'), true);
-  assert.equal(source.includes('label: "Summaries"'), true);
+  assert.equal(source.includes('label: "Snippets"'), true);
+  assert.equal(source.includes('label: "Wiki"'), true);
   assert.equal(source.includes('label: "Settings"'), true);
-  assert.equal(source.includes('title: "Summaries"'), true);
-  assert.equal(source.includes("NAV_ITEMS.filter((item) => item.key !== current)"), true);
-  assert.equal(source.includes("flex-wrap"), true);
-  assert.equal(source.includes("justify-start"), true);
-  assert.equal(source.includes("md:flex-nowrap"), true);
-  assert.equal(source.includes("md:justify-end"), true);
-  assert.equal(source.includes("bg-emerald-50"), true);
+  assert.equal(source.includes("usePathname"), true);
+  assert.equal(source.includes("aria-current"), true);
+  assert.equal(source.includes("showSnippets = false"), true);
+  assert.equal(source.includes("episodeCount = 0"), true);
+  assert.equal(source.includes("snippetCount = 0"), true);
+  assert.equal(source.includes("formatNavCount"), true);
+  assert.equal(source.includes('item.key === "workspace"'), true);
+  assert.equal(source.includes("showWiki = false"), true);
+  assert.equal(source.includes("mobileLeading"), true);
+  assert.equal(source.includes("mobilePrimaryItems"), true);
+  assert.equal(source.includes('item.key !== "chrome-extension"'), true);
+  assert.equal(source.includes('item.key !== "snippets"'), true);
+  assert.equal(source.includes('item.key !== "wiki" || showWiki'), true);
   assert.equal(source.includes('variant="icon"'), true);
+  assert.equal(source.includes("compact = false"), true);
+  assert.equal(source.includes('kind: "utility"'), true);
+  assert.equal(source.includes("overflow-x-auto"), true);
+  assert.equal(source.includes("lg:flex-row"), true);
+  assert.equal(source.includes("lg:flex-nowrap"), true);
+  assert.equal(source.includes("lg:justify-end"), true);
+  assert.equal(source.includes("appShellSelectedItemClass"), true);
+  assert.equal(source.includes('variant="responsive"'), true);
+  assert.equal(source.includes("md:sr-only"), true);
+  assert.equal(source.includes('compact ? "sr-only"'), true);
+  assert.equal(source.includes("M16.8617 4.48667L18.5492 2.79917"), true);
+  assert.equal(source.includes("M7 17.5L3.5 20V6"), false);
+  assert.equal(source.includes("item.key !== current"), false);
   assert.equal(source.includes("AccountOverflowMenu"), false);
 });
 
+test("summary route redirects away so the summary workspace is not surfaced", () => {
+  const source = readFileSync(
+    new URL("../src/app/app/summary/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("getUserWikiManifestForApp"), true);
+  assert.equal(source.includes("getBillingSettingsState"), true);
+  assert.equal(source.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(
+    source.includes(
+      'wikiManifest || hasAnnualPersonalWikiAccess(billingState.selectedBilling)',
+    ),
+    true,
+  );
+  assert.equal(source.includes("SummaryStudioClient"), false);
+  assert.equal(source.includes("listSelectableSummaryItems"), false);
+  assert.equal(source.includes("listSummaryRunsForUser"), false);
+  assert.equal(source.includes("getSummaryUsageSnapshot"), false);
+  assert.equal(source.includes("<h1"), false);
+});
+
+test("wiki route keeps an annual-plan placeholder available before the first publish", () => {
+  const source = readFileSync(
+    new URL("../src/app/app/wiki/[[...slug]]/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("getBillingSettingsState"), true);
+  assert.equal(source.includes("hasAnnualPersonalWikiAccess"), true);
+  assert.equal(source.includes("getUserWikiSourceAvailabilityForApp"), true);
+  assert.equal(source.includes('redirect("/app")'), true);
+  assert.equal(source.includes("No personal wiki has been published yet"), true);
+  assert.equal(source.includes("Add articles"), true);
+});
+
+test("wiki browser keeps the wiki layout compact on both the rail and article body", () => {
+  const source = readFileSync(
+    new URL("../src/components/wiki-browser-client.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("splitWikiMarkdownForDisplay"), true);
+  assert.equal(source.includes(">Sources<"), true);
+  assert.equal(source.includes("<details"), false);
+  assert.equal(source.includes("group-open:hidden"), false);
+  assert.equal(source.includes("splitSupportingNotesIntoEntries"), true);
+  assert.equal(source.includes("SOURCE_PREVIEW_LIMIT = 5"), true);
+  assert.equal(source.includes('EMPHASIZED_SECTION_HEADINGS = new Set(["executive summary", "working synthesis"])'), true);
+  assert.equal(source.includes("list-decimal"), true);
+  assert.equal(source.includes("Show all ${sourcePreviews.length} sources"), true);
+  assert.equal(source.includes("inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"), false);
+  assert.equal(source.includes("Search by page title, summary, or topic."), false);
+  assert.equal(source.includes("reader-friendly pages"), false);
+  assert.equal(source.includes("{browsePages.length} pages"), true);
+  assert.equal(source.includes("rounded-xl px-2.5 py-2 transition"), true);
+  assert.equal(source.includes("hover:bg-[rgba(247,251,250,0.9)]"), true);
+  assert.equal(source.includes("prefetch={false}"), true);
+  assert.equal(source.includes("WebkitLineClamp: 2"), true);
+  assert.equal(source.includes("border-t border-[rgba(31,122,90,0.12)] pt-3"), true);
+  assert.equal(source.includes("border-b border-[rgba(31,122,90,0.24)] pb-0.5 font-semibold text-[rgba(20,78,58,1)]"), true);
+});
+
 test("feed url actions use a tappable copy box with inline feedback", () => {
-  const source = readFileSync(new URL("../src/components/feed-url-actions.tsx", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/components/feed-url-actions.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.equal(source.includes("CopyableValueBox"), true);
-  assert.equal(source.includes("Tap or click the box to copy your private feed URL."), true);
+  assert.equal(
+    source.includes("Tap or click the box to copy your private feed URL."),
+    true,
+  );
   assert.equal(source.includes("Feed URL copied."), true);
-  assert.equal(source.includes("this legacy URL can no longer be shown here"), true);
+  assert.equal(
+    source.includes("this older URL can no longer be shown here"),
+    true,
+  );
+  assert.equal(source.includes("Feed actions"), false);
+  assert.equal(source.includes("Need a new private feed URL?"), true);
+  assert.equal(source.includes("<details"), true);
+  assert.equal(source.includes("Show"), true);
+  assert.equal(source.includes("Generate new private feed URL"), true);
+  assert.equal(
+    source.includes("Generating a new URL revokes the old one"),
+    true,
+  );
+  assert.equal(source.includes("the app walkthroughs below"), true);
+  assert.equal(source.includes('href="#app-walkthroughs"'), true);
+  assert.equal(source.includes("Featured apps"), true);
+  assert.equal(source.includes("Other podcast apps"), true);
+  assert.equal(source.includes("ApplePodcastsIcon"), true);
+  assert.equal(source.includes("YouTubeMusicIcon"), true);
+  assert.equal(source.includes("com.google.android.apps.youtube.music"), true);
+  assert.equal(source.includes("🎙 Apple Podcasts"), false);
+  assert.equal(source.includes("▶️ YouTube Music"), false);
+  assert.equal(
+    source.indexOf('label: "Apple Podcasts"') <
+      source.indexOf('label: "YouTube Music"'),
+    true,
+  );
+  assert.equal(
+    source.indexOf('label: "YouTube Music"') <
+      source.indexOf('label: "Pocket Casts"'),
+    true,
+  );
+  assert.equal(source.includes("autoFocusPrimaryAction = false"), true);
+  assert.equal(source.includes("autoFocus={autoFocusPrimaryAction}"), true);
+});
+
+test("accent copy boxes keep a visible highlighted treatment", () => {
+  const source = readFileSync(
+    new URL("../src/components/copyable-value-box.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes("bg-[rgba(223,243,236,0.82)]"), true);
+  assert.equal(source.includes("border-[rgba(31,122,90,0.34)]"), true);
+  assert.equal(source.includes("autoFocus = false"), true);
+  assert.equal(
+    source.includes("buttonRef.current?.focus({ preventScroll: true })"),
+    true,
+  );
+  assert.equal(
+    source.includes("focus:ring-4 focus:ring-[rgba(31,122,90,0.16)]"),
+    true,
+  );
+  assert.equal(source.includes("bg-white/92 text-[var(--accent)]"), true);
 });
 
 test("settings page exists and renders settings-only dashboard mode", () => {
@@ -50,41 +283,422 @@ test("settings page exists and renders settings-only dashboard mode", () => {
   assert.equal(existsSync(pagePath), true);
 
   const source = readFileSync(pagePath, "utf8");
-  assert.equal(source.includes('current="settings"'), true);
+  assert.equal(source.includes("AppShellNav"), false);
+  assert.equal(source.includes("WorkspaceBillingSummary"), false);
   assert.equal(source.includes('viewMode="settings"'), true);
   assert.equal(source.includes('isAdmin={user.role === "ADMIN"}'), true);
-  assert.equal(source.includes('settingsSections={["voice", "digest"]}'), true);
-  assert.equal(source.includes('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(
+    source.includes('settingsSections={["voice", "digest", "demographics"]}'),
+    true,
+  );
+  assert.equal(source.includes("getRecentDigestRuns"), false);
   assert.equal(source.includes('href="/app/podcast-apps"'), false);
   assert.equal(source.includes('href="/app/chrome-extension"'), false);
-  assert.equal(source.indexOf('settingsSections={["voice", "digest"]}') < source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>"), true);
-  assert.equal(source.indexOf("<h2 className=\"text-lg font-semibold\">Billing</h2>") < source.indexOf('settingsSections={["demographics", "digest-runs"]}'), true);
+  assert.equal(
+    source.indexOf("<BillingSettingsCard") <
+      source.indexOf('settingsSections={["voice", "digest", "demographics"]}'),
+    true,
+  );
   assert.equal(source.includes("DeleteAccountButton"), false);
 });
 
+test("billing settings card exposes a billing anchor for direct navigation", () => {
+  const source = readFileSync(
+    new URL("../src/components/billing-settings-card.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(source.includes('id="billing"'), true);
+  assert.equal(source.includes("scroll-mt-24"), true);
+});
+
 test("podcast apps and chrome extension pages exist as dedicated setup pages", () => {
-  const podcastPageSource = readFileSync(new URL("../src/app/app/podcast-apps/page.tsx", import.meta.url), "utf8");
-  const extensionPageSource = readFileSync(new URL("../src/app/app/chrome-extension/page.tsx", import.meta.url), "utf8");
-  const summaryPageSource = readFileSync(new URL("../src/app/app/summary/page.tsx", import.meta.url), "utf8");
+  const podcastPageSource = readFileSync(
+    new URL("../src/app/app/podcast-apps/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const extensionPageSource = readFileSync(
+    new URL("../src/app/app/chrome-extension/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const resourcesPageSource = readFileSync(
+    new URL("../src/app/(marketing)/resources/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const extensionCardSource = readFileSync(
+    new URL(
+      "../src/components/chrome-extension-setup-card.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const extensionGuideSource = readFileSync(
+    new URL(
+      "../src/components/chrome-extension-guide-panels.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const snippetsPageSource = readFileSync(
+    new URL("../src/app/app/snippets/page.tsx", import.meta.url),
+    "utf8",
+  );
 
   assert.equal(podcastPageSource.includes('viewMode="podcast-apps"'), true);
   assert.equal(podcastPageSource.includes("Podcast Apps"), true);
-  assert.equal(podcastPageSource.includes("Quick start"), true);
-  assert.equal(podcastPageSource.includes("Walkthroughs"), true);
-  assert.equal(podcastPageSource.indexOf('viewMode="podcast-apps"') < podcastPageSource.indexOf("Walkthroughs"), true);
-  assert.equal(podcastPageSource.indexOf("Walkthroughs") < podcastPageSource.indexOf("Quick start"), true);
-  assert.equal(extensionPageSource.includes('viewMode="chrome-extension"'), true);
+  assert.equal(podcastPageSource.includes("Quick start"), false);
+  assert.equal(podcastPageSource.includes("App walkthroughs"), true);
+  assert.equal(podcastPageSource.includes('id="app-walkthroughs"'), true);
+  assert.equal(
+    podcastPageSource.indexOf('viewMode="podcast-apps"') <
+      podcastPageSource.indexOf("App walkthroughs"),
+    true,
+  );
+  assert.equal(
+    podcastPageSource.includes("ensureUserDigestFeedTokenAccess"),
+    false,
+  );
+  assert.equal(podcastPageSource.includes("digestFeedUrl"), false);
   assert.equal(extensionPageSource.includes("Chrome Extension"), true);
-  assert.equal(extensionPageSource.includes("Quick start"), true);
-  assert.equal(extensionPageSource.includes("Walkthroughs"), true);
-  assert.equal(extensionPageSource.indexOf('viewMode="chrome-extension"') < extensionPageSource.indexOf("Walkthroughs"), true);
-  assert.equal(extensionPageSource.indexOf("Walkthroughs") < extensionPageSource.indexOf("Quick start"), true);
-  assert.equal(summaryPageSource.includes("Summaries"), true);
-  assert.equal(summaryPageSource.includes('<h1 className="font-bold text-2xl">Summary Studio</h1>'), false);
+  assert.equal(extensionPageSource.includes("ChromeExtensionSetupCard"), true);
+  assert.equal(
+    extensionPageSource.includes("ChromeExtensionGuidePanels"),
+    true,
+  );
+  assert.equal(extensionPageSource.includes("DashboardClient"), false);
+  assert.equal(snippetsPageSource.includes("Snippets"), true);
+  assert.equal(snippetsPageSource.includes("SnippetsWorkspaceClient"), true);
+  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(snippetsPageSource.includes("if (snippets.length === 0)"), true);
+  assert.equal(snippetsPageSource.includes('redirect("/app")'), true);
+  assert.equal(resourcesPageSource.includes("ChromeExtensionSetupCard"), false);
+  assert.equal(
+    resourcesPageSource.includes("ChromeExtensionGuidePanels"),
+    false,
+  );
+  assert.equal(resourcesPageSource.includes("getAuthUserFromCookies"), true);
+  assert.equal(resourcesPageSource.includes("Add to Chrome"), true);
+  assert.equal(resourcesPageSource.includes("/app/chrome-extension"), true);
+  assert.equal(resourcesPageSource.includes("/app/podcast-apps"), true);
+  assert.equal(
+    resourcesPageSource.includes(
+      "Keep listening in the player you already trust.",
+    ),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes("Log in to generate connect code"),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes("Connect code stays hidden until you log in"),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes(
+      "Public visitors can see the same setup steps",
+    ),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes("autoGeneratedRef.current = true;"),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes(
+      "Chrome Web Store opened and your connect code was copied.",
+    ),
+    true,
+  );
+  assert.equal(extensionCardSource.includes('"Generate new code"'), true);
+  assert.equal(extensionCardSource.includes('"Generate connect code"'), true);
+  assert.equal(extensionCardSource.includes("One-time connect code"), true);
+  assert.equal(
+    extensionCardSource.includes("bg-[rgba(223,243,236,0.82)]"),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes("Preparing your one-time connect code..."),
+    true,
+  );
+  assert.equal(extensionCardSource.includes("generateCodeButtonRef"), true);
+  assert.equal(extensionCardSource.includes("pendingConnectCodeRef"), true);
+  assert.equal(
+    extensionCardSource.includes(
+      "pendingConnectCodeRef.current?.focus({ preventScroll: true })",
+    ),
+    true,
+  );
+  assert.equal(
+    extensionCardSource.includes(
+      "generateCodeButtonRef.current?.focus({ preventScroll: true })",
+    ),
+    true,
+  );
+  assert.equal(extensionCardSource.includes("tabIndex={-1}"), true);
+  assert.equal(extensionCardSource.includes("autoFocus"), true);
+  assert.equal(
+    extensionCardSource.includes(
+      "Use it within 24 hours or generate a new one.",
+    ),
+    false,
+  );
+  assert.equal(
+    extensionCardSource.includes("After this 24-hour window"),
+    false,
+  );
+  assert.equal(extensionGuideSource.includes("within 24 hours"), false);
+  assert.equal(
+    extensionGuideSource.includes("ready-to-copy connect code"),
+    true,
+  );
+  const snippetsClientSource = readFileSync(
+    new URL("../src/components/snippets-workspace-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(snippetsClientSource.includes('router.replace("/app")'), true);
+  assert.equal(podcastPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(extensionPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(snippetsPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(podcastPageSource.includes("Private feed setup"), false);
+  assert.equal(extensionPageSource.includes("Capture setup"), false);
+  assert.equal(snippetsPageSource.includes("Selection workspace"), false);
+  assert.equal(snippetsClientSource.includes("Saved snippets"), false);
+  assert.equal(snippetsClientSource.includes("Add comment"), true);
+  assert.equal(snippetsClientSource.includes("Capture details"), true);
+  assert.equal(snippetsClientSource.includes("openCommentIds"), true);
+});
+
+test("feedback and settings pages keep their headings below the shared header", () => {
+  const feedbackPageSource = readFileSync(
+    new URL("../src/app/app/feedback/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const settingsPageSource = readFileSync(
+    new URL("../src/app/app/settings/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(feedbackPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(settingsPageSource.includes("WorkspaceBillingSummary"), false);
+  assert.equal(feedbackPageSource.includes("Product feedback"), false);
+  assert.equal(
+    feedbackPageSource.includes(
+      '<h1 className="font-bold text-2xl">Feedback</h1>',
+    ),
+    true,
+  );
+  assert.equal(
+    settingsPageSource.includes(
+      '<h1 className="font-bold text-2xl">Account settings</h1>',
+    ),
+    true,
+  );
+});
+
+test("youtube music walkthrough includes the updated help steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/youtube-music-add-podcast.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.google.com/youtubemusic/answer/13946190?hl=en",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/youtube-music-add-podcast.gif"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open the YouTube Music app."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Add a podcast by RSS feed</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Read the disclaimer and accept it."),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
+test("apple podcasts walkthrough includes the updated help steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/apple-podcasts-follow-by-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.apple.com/guide/iphone/find-podcasts-iph19bb8e705/ios",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/apple-podcasts-follow-by-url.gif"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open the Podcasts app."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Follow a Show by URL</Ui>."),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Paste the RSS/XML feed URL."), true);
+  assert.equal(existsSync(gifPath), true);
+});
+
+test("pocket casts walkthrough includes the support article flow and video link", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    walkthroughSource.includes(
+      "https://support.pocketcasts.com/knowledge-base/podcast-search/",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("https://www.youtube.com/watch?v=OQdFoeLrU0s"),
+    true,
+  );
+  assert.equal(walkthroughSource.includes("Open Pocket Casts."), true);
+  assert.equal(
+    walkthroughSource.includes(
+      "Tap <Ui>Discover</Ui> at the bottom of the screen.",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      "Paste the podcast&apos;s RSS feed into the search tab and tap",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      "When the show appears, tap <Ui>Subscribe</Ui>.",
+    ),
+    true,
+  );
+});
+
+test("overcast walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/overcast-add-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes("Open Overcast on your iPhone."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      "Tap <Ui>Add URL</Ui> in the upper-right corner.",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste the podcast&apos;s RSS/XML feed URL."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Tap <Ui>Add</Ui> or <Ui>Done</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/overcast-add-url.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
+test("antennapod walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/antennapod-add-rss-address.gif",
+    import.meta.url,
+  );
+
+  assert.equal(
+    walkthroughSource.includes("Open AntennaPod on your Android device."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes(
+      "Open the side bar on the left and select <Ui>Add Podcast</Ui>.",
+    ),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Select <Ui>Add by RSS address</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste your RSS feed URL in the field."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/antennapod-add-rss-address.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
+});
+
+test("castro walkthrough includes the updated steps and animation", () => {
+  const walkthroughSource = readFileSync(
+    new URL("../src/components/podcast-app-walkthroughs.tsx", import.meta.url),
+    "utf8",
+  );
+  const gifPath = new URL(
+    "../public/resources/castro-subscribe-by-url.gif",
+    import.meta.url,
+  );
+
+  assert.equal(walkthroughSource.includes("Open Castro on your device."), true);
+  assert.equal(
+    walkthroughSource.includes("Tap the search icon in the top-right corner."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Paste your RSS feed URL in the field."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("Tap the show and click <Ui>Subscribe</Ui>."),
+    true,
+  );
+  assert.equal(
+    walkthroughSource.includes("/resources/castro-subscribe-by-url.gif"),
+    true,
+  );
+  assert.equal(existsSync(gifPath), true);
 });
 
 test("feedback page exists and keeps message as the first field", () => {
-  const source = readFileSync(new URL("../src/components/feedback-form.tsx", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/components/feedback-form.tsx", import.meta.url),
+    "utf8",
+  );
   const messageIndex = source.indexOf("Your feedback *");
   const typeIndex = source.indexOf("Type (optional)");
   const areaIndex = source.indexOf("Feature area (optional)");
@@ -93,74 +707,514 @@ test("feedback page exists and keeps message as the first field", () => {
   assert.equal(areaIndex > -1, true);
   assert.equal(messageIndex < typeIndex, true);
   assert.equal(typeIndex < areaIndex, true);
-  assert.equal(source.includes("You may contact me by email about this feedback"), true);
+  assert.equal(
+    source.includes("You may contact me by email about this feedback"),
+    true,
+  );
 });
 
 test("dashboard client gates markdown controls to admins", () => {
-  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
   assert.equal(source.includes("isAdmin = false"), true);
-  assert.equal(source.includes("{isAdmin ? ("), true);
-  assert.equal(source.includes("{showItemsSection && isAdmin && markdownPreview ? ("), true);
+  assert.equal(source.includes("!readOnly && isAdmin ?"), true);
+  assert.equal(
+    source.includes("{showItemsSection && isAdmin && markdownPreview ? ("),
+    true,
+  );
 });
 
-test("dashboard client supports dedicated podcast and extension setup pages", () => {
-  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('viewMode?: "workspace" | "settings" | "podcast-apps" | "chrome-extension"'), true);
-  assert.equal(source.includes('type SettingsSection = "voice" | "digest" | "demographics" | "digest-runs";'), true);
-  assert.equal(source.includes('settingsSections?: ReadonlyArray<SettingsSection>;'), true);
-  assert.equal(source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'), true);
-  assert.equal(source.includes('const isChromeExtensionView = viewMode === "chrome-extension";'), true);
-  assert.equal(source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'), true);
-  assert.equal(source.includes('id={isChromeExtensionView ? "chrome-extension" : undefined}'), true);
-  assert.equal(source.includes("Podcast Apps"), true);
-  assert.equal(source.includes("manual summary podcast episodes"), true);
-  assert.equal(source.includes("https://chromewebstore.google.com/detail/articlepod-capture/epjncnckcohefbopcbpfppfgljkkcmgp"), true);
-  assert.equal(source.includes("Add to Chrome (Chrome Web Store)"), true);
-  assert.equal(source.includes("Open extension settings"), false);
-  assert.equal(source.includes("const showFeedSection = readOnly || isPodcastAppsView;"), true);
-  assert.equal(source.includes("const showExtensionSection = !readOnly && isChromeExtensionView;"), true);
-  assert.equal(source.includes('const showVoiceSettingsSection = showSettingsSection && requestedSettingsSections.has("voice");'), true);
-  assert.equal(source.includes('const showDigestSettingsSection = showSettingsSection && requestedSettingsSections.has("digest");'), true);
-  assert.equal(source.includes("is valid for 24 hours"), true);
-  assert.equal(source.includes("If you do not use it in time, generate a new one."), true);
-  assert.equal(source.includes("Once you connect the extension, it stays authorized until you revoke it."), true);
-  assert.equal(source.includes("the code stops working and you must generate a new one"), true);
-  assert.equal(source.includes("does not expire automatically"), true);
-  assert.equal(source.includes("Tap or click the box to copy the one-time connect code."), true);
-  assert.equal(source.includes("Extension connect code copied."), true);
-  assert.equal(source.includes("Copy code"), false);
+test("dashboard client exposes importance, tags, and recent-item filters", () => {
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes('importance: "LOW" | "MEDIUM" | "HIGH"'), true);
+  assert.equal(
+    source.includes(
+      'const [importanceInput, setImportanceInput] = useState<ItemImportance>("LOW");',
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes('const [tagsInput, setTagsInput] = useState("");'),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "const [showOptionalDetails, setShowOptionalDetails] = useState(false);",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'const OPTIONAL_DETAILS_STORAGE_KEY = "articlepod.dashboard.optional-details";',
+    ),
+    true,
+  );
+  assert.equal(source.includes("window.localStorage.getItem("), true);
+  assert.equal(source.includes("OPTIONAL_DETAILS_STORAGE_KEY"), true);
+  assert.equal(source.includes("window.localStorage.setItem("), true);
+  assert.equal(
+    source.includes('showOptionalDetails ? "expanded" : "collapsed"'),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "const urlInputRef = useRef<HTMLInputElement | null>(null);",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "const focusTarget =",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'sourceMode === "url" ? urlInputRef.current : pdfInputRef.current',
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes("focusTarget.focus({ preventScroll: true });"),
+    true,
+  );
+  assert.equal(
+    source.includes("autoFocusPrimaryAction={isPodcastAppsView}"),
+    true,
+  );
+  assert.equal(source.includes("Optional details"), true);
+  assert.equal(
+    source.includes("Title, importance, and tags are optional."),
+    true,
+  );
+  assert.equal(
+    source.includes('aria-controls="submission-optional-details"'),
+    true,
+  );
+  assert.equal(
+    source.includes('{showOptionalDetails ? "Hide" : "Show"}'),
+    true,
+  );
+  assert.equal(source.includes(">Optional<"), false);
+  assert.equal(source.includes("Importance:"), true);
+  assert.equal(source.includes("financial, personal, retirement"), true);
+  assert.equal(source.includes("Primary action"), false);
+  assert.equal(
+    source.includes(
+      "Paste a URL or upload a PDF to turn it into a private podcast episode.",
+    ),
+    false,
+  );
+  assert.equal(source.includes("mt-2.5 space-y-2.5"), true);
+  assert.equal(source.includes("p-2.5"), true);
+  assert.equal(
+    source.includes("rounded-2xl bg-[var(--accent-soft)]/35 p-3"),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "rounded-2xl border border-[rgba(31,122,90,0.18)] bg-[var(--accent-soft)]/45 p-3",
+    ),
+    false,
+  );
+  assert.equal(source.includes("bg-white/80 p-2.5"), true);
+  assert.equal(source.includes("focus-within:border-[var(--accent)]"), true);
+  assert.equal(
+    source.includes("focus-within:shadow-[0_0_0_4px_rgba(31,122,90,0.16)]"),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      "border-[rgba(31,122,90,0.34)] bg-[rgba(223,243,236,0.82)]",
+    ),
+    true,
+  );
+  assert.equal(source.includes("Article URL"), true);
+  assert.equal(source.includes("PDF file"), true);
+  assert.equal(
+    source.includes("border-[rgba(31,122,90,0.32)] bg-white/96"),
+    true,
+  );
+  assert.equal(
+    source.includes("focus:shadow-[0_0_0_3px_rgba(31,122,90,0.12)]"),
+    true,
+  );
+  assert.equal(source.includes("placeholder:text-slate-400"), true);
+  assert.equal(source.includes("ref={urlInputRef}"), true);
+  assert.equal(source.includes("Optional title"), false);
+  // Filters have been moved to the summaries page
+  assert.equal(source.includes("Filter by importance"), false);
+  assert.equal(source.includes("Filter by tag"), false);
+  assert.equal(
+    source.includes(
+      "No recent items match the current importance or tag filters.",
+    ),
+    false,
+  );
+});
+
+test("summary studio client exposes importance and tag filters", () => {
+  const source = readFileSync(
+    new URL("../src/components/summary-studio-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes("Filter by importance"), true);
+  assert.equal(source.includes("Filter by tag"), true);
+  assert.equal(source.includes("All importance levels"), true);
+  assert.equal(source.includes("All tags"), true);
+  assert.equal(source.includes("default 7-day selection"), false);
+  assert.equal(source.includes("HTML_SNAPSHOT"), false);
+  assert.equal(source.includes("Create podcast episode too"), false);
+  assert.equal(source.includes("Podcast Publish"), true);
+  assert.equal(source.includes("Also publish as podcast"), true);
+});
+
+test("dashboard client supports the dedicated podcast setup page and settings variants", () => {
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    source.includes('viewMode?: "workspace" | "settings" | "podcast-apps"'),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'type SettingsSection = "voice" | "digest" | "demographics";',
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes("settingsSections?: ReadonlyArray<SettingsSection>;"),
+    true,
+  );
+  assert.equal(
+    source.includes('const isPodcastAppsView = viewMode === "podcast-apps";'),
+    true,
+  );
+  assert.equal(
+    source.includes('id={isPodcastAppsView ? "podcast-apps" : undefined}'),
+    true,
+  );
+  assert.equal(source.includes("Set up your private feed"), true);
+  assert.equal(source.includes("Digest podcast feed"), false);
+  assert.equal(source.includes("manual summary podcast episodes"), false);
+  assert.equal(source.includes("/api/digest-feed-token/rotate"), false);
+  assert.equal(
+    source.includes("const showFeedSection = readOnly || isPodcastAppsView;"),
+    true,
+  );
+  assert.equal(source.includes("const showVoiceSettingsSection ="), true);
+  assert.equal(source.includes('requestedSettingsSections.has("voice")'), true);
+  assert.equal(source.includes("const showDigestSettingsSection ="), true);
+  assert.equal(
+    source.includes('requestedSettingsSections.has("digest")'),
+    true,
+  );
+  assert.equal(source.includes("CollapsibleSettingsCard"), true);
+  assert.equal(source.includes("<details"), true);
+  assert.equal(source.includes("Recent Digest Runs"), false);
 });
 
 test("extension popup treats installed tokens as non-expiring until revoked", () => {
-  const source = readFileSync(new URL("../../extension/popup.js", import.meta.url), "utf8");
-  assert.equal(source.includes("This token does not expire automatically."), true);
-  assert.equal(source.includes("Extension connected successfully. It will stay connected until you revoke or disconnect it."), true);
-  assert.equal(source.includes("Token expires:"), false);
-  assert.equal(source.includes("tokenExpired"), false);
+  const popupSource = readFileSync(
+    new URL("../../extension/popup.js", import.meta.url),
+    "utf8",
+  );
+  const pdfCaptureSource = readFileSync(
+    new URL("../../extension/pdf-capture.mjs", import.meta.url),
+    "utf8",
+  );
+  const popupMarkup = readFileSync(
+    new URL("../../extension/popup.html", import.meta.url),
+    "utf8",
+  );
+  const popupStyles = readFileSync(
+    new URL("../../extension/popup.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.equal(
+    popupSource.includes("This token does not expire automatically."),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      "Extension connected successfully. It will stay connected until you revoke or disconnect it.",
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes('from "./pdf-capture.mjs"'),
+    true,
+  );
+  assert.equal(
+    pdfCaptureSource.includes(
+      "Local PDF files need to be uploaded from articlepod.com/app after you sign in.",
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("PDF detected. Uploading to ArticlePod..."),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("uploadRemotePdfCapture({"),
+    true,
+  );
+  assert.equal(
+    popupSource.includes('captureTarget.mode === "remote-pdf"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("PDF upload failed."),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'captureOptionsToggle: document.getElementById("capture-options-toggle")',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      "captureOptionsToggleAction: document.getElementById(",
+    ) && popupSource.includes('"capture-options-toggle-action"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'captureOptionsFields: document.getElementById("capture-options-fields")',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'captureImportance: document.getElementById("capture-importance")',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'captureTags: document.getElementById("capture-tags")',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'captureOptionsExpanded: "articlepod_capture_options_expanded"',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      "captureOptionsExpanded = Boolean(state.captureOptionsExpanded);",
+    ),
+    true,
+  );
+  assert.equal(popupSource.includes("renderCaptureOptions();"), true);
+  assert.equal(
+    popupSource.includes("els.captureOptionsToggle.setAttribute(") &&
+      popupSource.includes('"aria-expanded"') &&
+      popupSource.includes('expanded ? "true" : "false"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes("els.captureOptionsFields.hidden = !expanded;"),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      'els.captureOptionsToggleAction.textContent = expanded ? "Hide" : "Show";',
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes(
+      "[STORAGE_KEYS.captureOptionsExpanded]: captureOptionsExpanded",
+    ),
+    true,
+  );
+  assert.equal(
+    popupSource.includes('importance: els.captureImportance?.value || "LOW"'),
+    true,
+  );
+  assert.equal(
+    popupSource.includes('tags: els.captureTags?.value || ""'),
+    true,
+  );
+  assert.equal(popupSource.includes("Queued in ArticlePod"), true);
+  assert.equal(popupSource.includes("articlepod-capture-confirmation"), false);
+  assert.equal(popupSource.includes('setStatus("");'), true);
+  assert.equal(popupSource.includes("queuedCaptureTargetKey"), true);
+  assert.equal(popupSource.includes("currentCaptureTargetKey"), true);
+  assert.equal(popupSource.includes("queuedForCurrentTarget"), true);
+  assert.equal(popupSource.includes("CAPTURE_TARGET_REFRESH_MS"), true);
+  assert.equal(popupMarkup.includes("Optional details"), false);
+  assert.equal(
+    popupMarkup.includes("Skip these if you just want the fastest capture."),
+    false,
+  );
+  assert.equal(popupMarkup.includes("Optional"), true);
+  assert.equal(popupMarkup.includes('id="capture-options-toggle"'), true);
+  assert.equal(
+    popupMarkup.includes('id="capture-options-toggle-action"'),
+    true,
+  );
+  assert.equal(
+    popupMarkup.includes(
+      'id="capture-options-fields" class="optional-fields" hidden',
+    ),
+    true,
+  );
+  assert.equal(popupMarkup.includes('aria-expanded="false"'), true);
+  assert.equal(popupMarkup.includes("Details"), true);
+  assert.equal(popupMarkup.includes("Show"), true);
+  assert.equal(popupMarkup.includes("articlepod.com"), true);
+  assert.equal(popupMarkup.includes("Open articlepod.com"), false);
+  assert.equal(popupMarkup.includes('href="https://articlepod.com/"'), true);
+  assert.equal(
+    popupStyles.includes('button.primary[data-capture-state="queued"]'),
+    true,
+  );
+  assert.equal(
+    popupStyles.includes(
+      'button.primary[data-capture-state="queued"]:disabled',
+    ),
+    true,
+  );
+  assert.equal(popupStyles.includes(".optional-toggle"), true);
+  assert.equal(popupStyles.includes(".optional-toggle-copy"), true);
+  assert.equal(popupStyles.includes(".optional-toggle-action"), true);
+  assert.equal(popupStyles.includes(".status:empty"), true);
+  assert.equal(popupStyles.includes(".status.success"), true);
+  assert.equal(popupStyles.includes(".footer-link-row"), true);
+  assert.equal(popupStyles.includes(".footer-link"), true);
+  assert.equal(popupStyles.includes("text-decoration: underline;"), true);
+  assert.equal(popupSource.includes("Token expires:"), false);
+  assert.equal(popupSource.includes("tokenExpired"), false);
 });
 
 test("dashboard client preloads audio metadata for preview and recent items", () => {
-  const source = readFileSync(new URL("../src/components/dashboard-client.tsx", import.meta.url), "utf8");
-  assert.equal(source.includes('preload="metadata" src={previewAudioUrl}'), true);
-  assert.equal(source.includes('preload="metadata" src={mediaUrl}'), true);
-  assert.equal(source.includes("manage feed rotation only when you are ready to"), true);
+  const source = readFileSync(
+    new URL("../src/components/dashboard-client.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(source.includes('preload="metadata"'), true);
+  assert.equal(source.includes("src={previewAudioUrl}"), true);
+  assert.equal(source.includes("src={mediaUrl}"), true);
+  assert.equal(
+    source.includes("app&apos;s next step is unclear"),
+    true,
+  );
+  assert.equal(source.includes("Need a new private feed URL?"), false);
+  assert.equal(source.includes("Replace private feed URL"), false);
+  assert.equal(source.includes("Feed actions"), false);
+  assert.equal(source.includes("feedUrlStatusMessage"), true);
+  assert.equal(source.includes("isFeedUrlBusy"), true);
+  assert.equal(source.includes("allowFeedReplacement={!readOnly}"), true);
+  assert.equal(source.includes("bg-[#fff8ea]"), false);
+  assert.equal(source.includes("border-[#f1d7a6]"), false);
+  assert.equal(source.includes("Create workspace demo link"), false);
+  assert.equal(source.includes("Rotate token"), false);
+  assert.equal(source.includes("download"), true);
+  assert.equal(source.includes("href={mediaUrl}"), true);
+  assert.equal(
+    source.includes('className="flex flex-wrap items-center gap-2"'),
+    true,
+  );
+  assert.equal(source.includes("Share episode"), true);
+  assert.equal(source.includes("Copy share link"), true);
+  assert.equal(source.includes("Revoke share link"), true);
+  assert.equal(source.includes("Share link copied."), true);
+  assert.equal(source.includes("Share link revoked."), true);
+  assert.equal(source.includes("Creating share link..."), true);
+  assert.equal(source.includes("Deleting..."), true);
+  assert.equal(source.includes('role="status"'), true);
+  assert.equal(source.includes("Item deleted."), true);
+  assert.equal(
+    source.includes("pointer-events-none fixed bottom-4 right-4 z-50"),
+    true,
+  );
 });
 
-test("login redirects admins directly to admin dashboard", () => {
-  const source = readFileSync(new URL("../src/app/login/page.tsx", import.meta.url), "utf8");
-  const providerSource = readFileSync(new URL("../src/lib/oauth-providers.ts", import.meta.url), "utf8");
-  assert.equal(source.includes('router.push(json.role === "ADMIN" ? "/admin" : "/app")'), true);
-  assert.equal(source.includes("Continue to your feed"), true);
-  assert.equal(source.includes("First time with Google, Facebook, or Apple?"), true);
-  assert.equal(source.includes("Use email instead"), true);
+test("auth landing redirects admins directly to admin dashboard", () => {
+  const source = readFileSync(
+    new URL("../src/components/auth-landing-page.tsx", import.meta.url),
+    "utf8",
+  );
+  const providerSource = readFileSync(
+    new URL("../src/lib/oauth-providers.ts", import.meta.url),
+    "utf8",
+  );
+  const pricingSource = readFileSync(
+    new URL("../src/app/(marketing)/pricing/page.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.equal(
+    source.includes(
+      'json.redirectTo || (json.role === "ADMIN" ? "/admin" : "/app")',
+    ),
+    true,
+  );
+  assert.equal(source.includes("Continue to your feed"), false);
+  assert.equal(
+    source.includes(
+      "First time? We&apos;ll create your account automatically.",
+    ),
+    true,
+  );
+  assert.equal(source.includes("Use email instead"), false);
+  assert.equal(source.includes("Already have an email account?"), false);
+  assert.equal(source.includes("Need a new account?"), false);
+  assert.equal(source.includes("<span>OR</span>"), true);
   assert.equal(source.includes("configuredProviders.map"), true);
   assert.equal(source.includes("const primaryAuthActionClass ="), true);
-  assert.equal(source.includes('className={primaryAuthActionClass} href={provider.startPath}'), true);
-  assert.equal(source.includes('className={primaryAuthActionClass} disabled={isLoading} onClick={submit}'), true);
+  assert.equal(
+    source.includes("href={buildOAuthStartHref(provider.startPath, nextPath)}"),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      '<form className="mt-4 space-y-3" onSubmit={handleEmailAuthSubmit}>',
+    ),
+    true,
+  );
+  assert.equal(source.includes("className={primaryAuthActionClass}"), true);
+  assert.equal(source.includes("disabled={isLoading}"), true);
+  assert.equal(source.includes('type="submit"'), true);
+  assert.equal(source.includes("next: nextPath"), true);
   assert.equal(source.includes("bg-[var(--accent)]"), true);
   assert.equal(source.includes("text-white"), true);
-  assert.equal(source.includes("No social sign-in providers are configured here yet. Use email below."), true);
-  assert.equal(source.includes('mode === "login" ? "Log in with email" : "Create account with email"'), true);
-  assert.equal(providerSource.indexOf('id: "google"') < providerSource.indexOf('id: "facebook"'), true);
-  assert.equal(providerSource.indexOf('id: "facebook"') < providerSource.indexOf('id: "apple"'), true);
+  assert.equal(
+    source.includes(
+      "No social sign-in providers are configured here yet. Use email below.",
+    ),
+    true,
+  );
+  assert.equal(
+    source.includes(
+      'mode === "login" ? "Log in with email" : "Create account with email"',
+    ),
+    true,
+  );
+  assert.equal(
+    pricingSource.includes('href={buildLoginHref({ next: "/pricing" })}'),
+    true,
+  );
+  assert.equal(
+    providerSource.indexOf('id: "google"') <
+      providerSource.indexOf('id: "facebook"'),
+    true,
+  );
+  assert.equal(
+    providerSource.indexOf('id: "facebook"') <
+      providerSource.indexOf('id: "apple"'),
+    true,
+  );
 });

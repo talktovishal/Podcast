@@ -8,6 +8,7 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
+import { filterUnexpiredAudioEpisodes } from "@/lib/audio-retention";
 
 const DIGEST_FEED_ROUTE = "/rss/digest/[token]";
 const FEED_HEADERS = {
@@ -38,10 +39,11 @@ async function resolveDigestFeedAccess(token: string) {
   };
 }
 
-export async function GET(request: NextRequest, context: { params: { token: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const token = normalizeFeedToken(context.params.token);
+  const { token: rawToken } = await context.params;
+  const token = normalizeFeedToken(rawToken);
   const resolvedAccess = await resolveDigestFeedAccess(token);
 
   if (!resolvedAccess) {
@@ -60,30 +62,28 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   }
   const { user, tokenHash, repaired } = resolvedAccess;
 
+  const now = new Date();
   const episodes =
     webUsesAzureTablePrimary() && webPrimaryStore
       ? [
-          ...(await webPrimaryStore.listDigestEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "digest" as const })),
-          ...(await webPrimaryStore.listSummaryEpisodesForUser(user.id)).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+          ...filterUnexpiredAudioEpisodes(await webPrimaryStore.listDigestEpisodesForUser(user.id), now).map((episode) => ({
+            ...episode,
+            feedKind: "digest" as const
+          }))
         ]
       : [
           ...(await prisma.digestEpisode.findMany({
             where: {
-              userId: user.id
+              userId: user.id,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
             },
             orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-          })).map((episode) => ({ ...episode, feedKind: "digest" as const })),
-          ...(await prisma.summaryEpisode.findMany({
-            where: {
-              userId: user.id
-            },
-            orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-          })).map((episode) => ({ ...episode, feedKind: "summary" as const }))
+          })).map((episode) => ({ ...episode, feedKind: "digest" as const }))
         ];
 
   const xml = buildRssXml({
     title: `${user.name || user.email} - ${BRAND_NAME} Digest`,
-    description: `Private ${BRAND_NAME} digest and summary feed`,
+    description: `Private ${BRAND_NAME} digest feed`,
     link: env.appUrl,
     feedUrl: `${env.appUrl}/rss/digest/${token}.xml`,
     language: "en-us",
@@ -96,9 +96,7 @@ export async function GET(request: NextRequest, context: { params: { token: stri
         title: episode.title,
         description: episode.description,
         pubDate: episode.publishedAt,
-        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&${
-          episode.feedKind === "summary" ? "seid" : "deid"
-        }=${episode.id}`,
+        enclosureUrl: `${env.appUrl}/api/digest-media/${mediaPath}?mt=${encodeURIComponent(mediaToken)}&deid=${episode.id}`,
         enclosureLength: episode.audioBytes,
         enclosureType: episode.mimeType === "audio/mpeg" ? "audio/mpeg" : "audio/mp4"
       };
@@ -125,10 +123,11 @@ export async function GET(request: NextRequest, context: { params: { token: stri
   });
 }
 
-export async function HEAD(request: NextRequest, context: { params: { token: string } }) {
+export async function HEAD(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const startedAt = Date.now();
   const requestMeta = podcastRequestLogMeta(request);
-  const token = normalizeFeedToken(context.params.token);
+  const { token: rawToken } = await context.params;
+  const token = normalizeFeedToken(rawToken);
   const tokenHash = hashIncomingToken(token);
   const exists = Boolean(await resolveDigestFeedAccess(token));
   if (env.podcastRequestLoggingEnabled) {

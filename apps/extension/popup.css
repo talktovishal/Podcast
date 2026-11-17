@@ -8,7 +8,9 @@ body {
   min-width: 340px;
   background: #ffffff;
   color: #0f172a;
-  transition: background 160ms ease, color 160ms ease;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
 }
 
 body.state-connected {
@@ -74,6 +76,19 @@ button.primary {
   border-color: #2563eb;
 }
 
+button.primary[data-capture-state="queued"] {
+  background: #15803d;
+  border-color: #15803d;
+  box-shadow:
+    0 0 0 1px rgba(21, 128, 61, 0.1),
+    0 8px 20px rgba(21, 128, 61, 0.18);
+}
+
+button.primary[data-capture-state="queued"]:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 button.secondary {
   background: #fff;
   border-color: #c2cfe3;
@@ -120,12 +135,49 @@ body.state-connected .state-pill {
   min-height: 18px;
 }
 
+.status:empty {
+  display: none;
+}
+
 .status.error {
   color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  min-height: auto;
+  padding: 8px 10px;
 }
 
 .status.success {
-  color: #1556cc;
+  color: #166534;
+  background: #ecfdf3;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  font-weight: 600;
+  min-height: auto;
+  padding: 8px 10px;
+}
+
+.footer-link-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.footer-link {
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footer-link:hover,
+.footer-link:focus-visible {
+  color: #1e40af;
+}
+
+body.state-connected .footer-link {
+  color: #1d4ed8;
 }
 
 [hidden] {
@@ -139,6 +191,69 @@ body.state-connected .state-pill {
 body.state-connected .capture-options {
   display: grid;
   gap: 6px;
+}
+
+.optional-card {
+  border: 1px solid #b5ccff;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.optional-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: stretch;
+  gap: 10px;
+}
+
+.optional-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+}
+
+.optional-toggle:focus-visible {
+  outline: 2px solid #2f68e6;
+  outline-offset: 4px;
+}
+
+.optional-toggle-copy {
+  margin-right: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.optional-toggle-action {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.optional-badge {
+  border: 1px solid #9bb8f8;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2856a6;
+  background: #edf4ff;
+}
+
+.optional-fields {
+  display: grid;
+  gap: 10px;
 }
 
 select {

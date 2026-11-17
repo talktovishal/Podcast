@@ -45,17 +45,16 @@ function parseEnvFile(filePath) {
 
 function getEffectiveEnv(profile) {
   const rootEnvPath = path.resolve(".env");
-  const webEnvPath = path.resolve("apps/web/.env");
   const profileEnvPath = path.resolve(`.env.${profile}`);
   const profileExamplePath = path.resolve(`.env.${profile}.example`);
-  const webProfileEnvPath = path.resolve(`apps/web/.env.${profile}`);
 
+  // Keep env validation aligned with run.sh + scripts/dev.mjs: local repo
+  // commands use the repo-root env files, so stale app-local env files
+  // should not override or mask the active configuration.
   const merged = {
-    ...parseEnvFile(rootEnvPath),
-    ...parseEnvFile(webEnvPath),
     ...parseEnvFile(profileExamplePath),
+    ...parseEnvFile(rootEnvPath),
     ...parseEnvFile(profileEnvPath),
-    ...parseEnvFile(webProfileEnvPath),
     ...process.env
   };
 
@@ -123,6 +122,8 @@ function profileRequirements(profile) {
         "STORAGE_BACKEND",
         "AZURE_STORAGE_CONNECTION_STRING",
         "AZURE_STORAGE_CONTAINER",
+        "DIGEST_SCHEDULER_SECRET",
+        "MEDIA_SIGNING_KEY",
         "PYTHON_TTS_URL"
       ],
       optional: [...commonOptional, "RUNTIME_PROFILE", "WORKER_POLL_MS", "WORKER_STALE_PROCESSING_MS"]
@@ -130,9 +131,10 @@ function profileRequirements(profile) {
   }
 
   return {
-    required: ["DATABASE_URL", "APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER"],
+    required: ["APP_URL", "STORAGE_BACKEND", "AZURE_STORAGE_CONTAINER", "MEDIA_SIGNING_KEY"],
     optional: [
       ...commonOptional,
+      "DATABASE_URL",
       "AZURE_STORAGE_CONNECTION_STRING",
       "AZURE_STORAGE_ACCOUNT_URL",
       "AZURE_STORAGE_SAS_TOKEN",
@@ -202,6 +204,10 @@ function run() {
   }
 
   const usesAzureTable = env.METADATA_PRIMARY_BACKEND === "azure_table" || env.METADATA_MIRROR_BACKEND === "azure_table";
+  if (!usesAzureTable && (!env.DATABASE_URL || String(env.DATABASE_URL).trim() === "")) {
+    console.error("[check-env] Non-Azure-Table metadata modes require DATABASE_URL.");
+    process.exit(1);
+  }
   if (usesAzureTable) {
     const hasTableConnString = Boolean(env.AZURE_TABLE_CONNECTION_STRING);
     const hasTableAccountPair = Boolean(env.AZURE_TABLE_ACCOUNT_URL && env.AZURE_TABLE_SAS_TOKEN);

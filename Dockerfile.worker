@@ -14,4 +14,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ffmpeg 
 RUN corepack enable
 COPY --from=deps /app ./
 COPY . .
-CMD ["pnpm", "--filter", "@articlepod/worker", "run", "dev"]
+CMD ["pnpm", "--filter", "@articlepod/worker", "run", "start"]

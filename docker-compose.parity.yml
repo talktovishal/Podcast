@@ -21,13 +21,14 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite:3.33.0
     container_name: articlepod-azurite
     restart: unless-stopped
-    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --skipApiVersionCheck"
+    command: "azurite --blobHost 0.0.0.0 --blobPort 10000 --queueHost 0.0.0.0 --queuePort 10001 --skipApiVersionCheck"
     ports:
       - "10000:10000"
+      - "10001:10001"
     volumes:
       - azurite_parity_data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:10000/devstoreaccount1?comp=list >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:10000').then(()=>process.exit(0)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -56,7 +57,7 @@ services:
       postgres:
         condition: service_healthy
       azurite:
-        condition: service_started
+        condition: service_healthy
       python-tts:
         condition: service_healthy
     environment:
@@ -66,21 +67,29 @@ services:
       STORAGE_BACKEND: azure_blob
       AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
-      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+      ITEM_DISPATCH_BACKEND: azure_queue
+      DIGEST_SCHEDULER_SECRET: ${DIGEST_SCHEDULER_SECRET}
+      MEDIA_SIGNING_KEY: ${MEDIA_SIGNING_KEY}
+      PRO_ANNUAL_DAILY_PODCAST_LIMIT: ${PRO_ANNUAL_DAILY_PODCAST_LIMIT:-60}
       PYTHON_TTS_URL: http://python-tts:8010
       PYTHON_TTS_TIMEOUT_MS: "120000"
       DEMO_EMAIL: ${DEMO_EMAIL:-demo@articlepod.local}
       DEMO_PASSWORD: ${DEMO_PASSWORD}
+      WEBSTORE_REVIEWER_EMAIL: ${WEBSTORE_REVIEWER_EMAIL:-chrome-reviewer@articlepod.com}
+      WEBSTORE_REVIEWER_PASSWORD: ${WEBSTORE_REVIEWER_PASSWORD}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@articlepod.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
     command: >
       sh -lc "npx pnpm --filter @articlepod/web run db:bootstrap &&
       npx pnpm --filter @articlepod/web run seed:demo &&
-      npx pnpm --filter @articlepod/web run start"
+      cd apps/web &&
+      ARTICLEPOD_WEB_HOST=0.0.0.0 node ../../scripts/azure/run-next-server.mjs"
     ports:
       - "3000:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      start_period: 120s
       interval: 15s
       timeout: 5s
       retries: 20
@@ -95,7 +104,7 @@ services:
       postgres:
         condition: service_healthy
       azurite:
-        condition: service_started
+        condition: service_healthy
       python-tts:
         condition: service_healthy
       web:
@@ -106,11 +115,15 @@ services:
       STORAGE_BACKEND: azure_blob
       AZURE_STORAGE_CONTAINER: articlepod
       AZURE_STORAGE_CREATE_CONTAINER: "1"
-      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+      ITEM_DISPATCH_BACKEND: azure_queue
+      DIGEST_SCHEDULER_SECRET: ${DIGEST_SCHEDULER_SECRET}
+      PRO_ANNUAL_DAILY_PODCAST_LIMIT: ${PRO_ANNUAL_DAILY_PODCAST_LIMIT:-60}
       PYTHON_TTS_URL: http://python-tts:8010
       PYTHON_TTS_TIMEOUT_MS: "120000"
       WORKER_POLL_MS: "2000"
       WORKER_STALE_PROCESSING_MS: "900000"
+      ITEM_DISPATCH_HEARTBEAT_MS: "30000"
       WORKER_RETRY_POLL_MS: "5000"
       DEMO_EMAIL: ${DEMO_EMAIL:-demo@articlepod.local}
     command: >

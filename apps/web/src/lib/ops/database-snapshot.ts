@@ -15,10 +15,28 @@ export const databaseSnapshotModelConfigs = [
     delegate: "user",
     orderByField: "id",
     dateFields: [
+      "billingLastStripeEventCreatedAt",
+      "billingLastSubscriptionEventAt",
+      "billingLastInvoiceEventAt",
       "billingCurrentPeriodEnd",
       "billingUpdatedAt",
       "firstSeenAt",
       "lastSeenAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  {
+    modelName: "SandboxBillingAccount",
+    exportKey: "sandboxBillingAccounts",
+    delegate: "sandboxBillingAccount",
+    orderByField: "userId",
+    dateFields: [
+      "billingLastStripeEventCreatedAt",
+      "billingLastSubscriptionEventAt",
+      "billingLastInvoiceEventAt",
+      "billingCurrentPeriodEnd",
+      "billingUpdatedAt",
       "createdAt",
       "updatedAt"
     ]
@@ -73,6 +91,20 @@ export const databaseSnapshotModelConfigs = [
     dateFields: ["sourceCapturedAt", "createdAt", "updatedAt"]
   },
   {
+    modelName: "ArticleSummaryTask",
+    exportKey: "articleSummaryTasks",
+    delegate: "articleSummaryTask",
+    orderByField: "id",
+    dateFields: ["scheduledFor", "nextRetryAt", "lockedAt", "createdAt", "updatedAt"]
+  },
+  {
+    modelName: "Snippet",
+    exportKey: "snippets",
+    delegate: "snippet",
+    orderByField: "id",
+    dateFields: ["createdAt", "updatedAt"]
+  },
+  {
     modelName: "ItemArtifact",
     exportKey: "itemArtifacts",
     delegate: "itemArtifact",
@@ -84,14 +116,29 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "episodes",
     delegate: "episode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "Job",
     exportKey: "jobs",
     delegate: "job",
     orderByField: "id",
-    dateFields: ["lockedAt", "nextRetryAt", "createdAt", "updatedAt"]
+    dateFields: [
+      "lockedAt",
+      "leaseExpiresAt",
+      "lastHeartbeatAt",
+      "scheduledFor",
+      "nextRetryAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  {
+    modelName: "DispatchQueueMessage",
+    exportKey: "dispatchQueueMessages",
+    delegate: "dispatchQueueMessage",
+    orderByField: "id",
+    dateFields: ["visibleAt", "reservedAt", "createdAt", "updatedAt"]
   },
   {
     modelName: "JobEvent",
@@ -164,7 +211,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "digestEpisodes",
     delegate: "digestEpisode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "SummaryRun",
@@ -185,7 +232,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "summaryEpisodes",
     delegate: "summaryEpisode",
     orderByField: "id",
-    dateFields: ["publishedAt", "createdAt"]
+    dateFields: ["publishedAt", "expiresAt", "createdAt"]
   },
   {
     modelName: "DigestSchedulerTick",
@@ -213,7 +260,7 @@ export const databaseSnapshotModelConfigs = [
     exportKey: "billingWebhookEvents",
     delegate: "billingWebhookEvent",
     orderByField: "id",
-    dateFields: ["processedAt", "createdAt"]
+    dateFields: ["eventCreatedAt", "processedAt", "createdAt"]
   },
   {
     modelName: "RateLimitBucket",

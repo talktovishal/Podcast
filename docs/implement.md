@@ -4,15 +4,37 @@
 1. Install dependencies:
 - `npx pnpm install`
 2. Bootstrap DB + seed demo in simple profile:
+- `./run.sh --web`
+- or use the full local stack:
 - `./run.sh --profile simple`
 
 ## Runtime profiles
+- Quick web-only local mode:
+  - `./run.sh --web`
+  - fastest repeat loop: `./run.sh --web --fast`
 - Simple local mode:
   - `./run.sh --profile simple`
+  - fastest repeat loop: `./run.sh --fast`
 - Local parity mode (Docker Compose):
   - `./run.sh --profile parity`
 - Azure profile env validation only:
   - `./run.sh --profile azure`
+
+## Launcher shortcuts
+- Single launcher:
+  - `./run.sh`
+- Web only:
+  - `./run.sh --web`
+- Skip recurring bootstrap work (Prisma/db/demo seed and env validation):
+  - `./run.sh --fast`
+- Skip bootstrap but keep env validation:
+  - `./run.sh --skip-bootstrap`
+- Reset local dev caches before starting:
+  - `./run.sh --clean --web --fast`
+
+`run.sh` automatically removes `apps/web/.next` when the simple-profile dev cache references missing generated Next.js vendor chunks. Use `--clean` when you want a full manual cache reset, including `.turbo` and TypeScript build info.
+
+`run-web.sh` remains available as a thin compatibility wrapper for `./run.sh --web`.
 
 ## Spec status workflow
 Whenever runtime code changes land:
@@ -165,7 +187,7 @@ If parity/azure runtime paths changed, also run:
 3. C05/C06
 - dual-write queue projections from web enqueue and worker state transitions.
 - add backfill and consistency-check commands for mirror canary rollout.
-- add primary-store cutover env (`METADATA_PRIMARY_BACKEND=azure_table`) and Azure deploy defaults for auxiliary SQLite + low-cost diagnostics.
+- add primary-store cutover env (`METADATA_PRIMARY_BACKEND=azure_table`) and Azure deploy defaults that allow production Azure Table mode without a local SQLite dependency.
 - keep queue pressure source toggle (`prisma` vs `mirror`) and diff logging.
 
 4. C07
@@ -207,7 +229,7 @@ If parity/azure runtime paths changed, also run:
   - `sudo /opt/articlepod/scripts/azure/deploy-vm-runtime.sh`
   - auto-bootstraps missing python-tts language assets (`en_core_web_sm`, UniDic, NLTK)
   - ensures runtime directories (`/var/lib/articlepod/{storage,media,uploads}`) and precomputes Kokoro voice previews
-  - in Azure Table primary mode, `render-env.sh` defaults `DATABASE_URL=file:/var/lib/articlepod/db.sqlite` and low-cost diagnostics off
+  - in Azure Table primary mode, `render-env.sh` can leave `DATABASE_URL` unset and defaults low-cost diagnostics off
   - when Azure OpenAI vars are present, `render-env.sh` can default `DIGEST_SUMMARY_PROVIDER=azure_openai`
 - Configure ingress + TLS on VM:
   - `sudo CANONICAL_HOST=articlepod.com HOST_ALIASES=www.articlepod.com /opt/articlepod/scripts/azure/configure-nginx.sh`

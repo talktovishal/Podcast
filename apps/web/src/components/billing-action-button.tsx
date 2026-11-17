@@ -4,7 +4,7 @@ import { useState } from "react";
 
 type Props = {
   action: "checkout" | "portal";
-  planCode?: "PRO_MONTHLY";
+  planCode?: "PRO_MONTHLY" | "PRO_ANNUAL";
   className?: string;
   label: string;
   disabled?: boolean;

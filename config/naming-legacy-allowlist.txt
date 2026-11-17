@@ -1,4 +1,5 @@
 # Paths where legacy listenlater references are intentionally retained for compatibility/history.
+apps/extension/connection-state.mjs
 apps/extension/popup.js
 apps/web/src/lib/auth.ts
 config/naming-legacy-allowlist.txt
@@ -12,7 +13,10 @@ packages/core/src/config/naming.ts
 infra/systemd/articlepod-python-tts.service
 infra/systemd/articlepod-web.service
 infra/systemd/articlepod-worker.service
+scripts/azure/deploy-changes.sh
 scripts/azure/migrate-runtime-naming.sh
 scripts/azure/runtime-naming.sh
+# Regression fixture verifies that installing current units preserves legacy services.
+scripts/azure/tests/test_vm_deployment_routing.py
 scripts/naming/check.mjs
 scripts/naming/sync.mjs

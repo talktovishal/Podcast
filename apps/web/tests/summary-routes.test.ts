@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { buildUserItemMarkdownStorageKey, buildUserSummaryRunStorageKey } from "@articlepod/core";
 import { NextRequest } from "next/server";
 import { GET as summaryItemsGet } from "../src/app/api/summary/items/route";
 import { GET as summaryMarkdownGet } from "../src/app/api/summary/runs/[id]/markdown/route";
@@ -76,7 +77,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     });
 
     for (const item of [recentItem, oldItem]) {
-      const stored = await storage.putObject(`items/${item.id}/artifacts/source.md`, Buffer.from(`# ${item.title}\n\nBody`, "utf8"), {
+      const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from(`# ${item.title}\n\nBody`, "utf8"), {
         contentType: "text/markdown; charset=utf-8"
       });
       await prisma.itemArtifact.create({
@@ -153,7 +154,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     assert.equal(runsPayload.ok, true);
     assert.equal(runsPayload.runs.some((run) => run.id === createPayload.run.id), true);
 
-    const storedSummary = await storage.putObject(`summaries/${user.id}/${createPayload.run.id}/summary.md`, Buffer.from("# Manual studio run", "utf8"), {
+    const storedSummary = await storage.putObject(buildUserSummaryRunStorageKey(user.id, createPayload.run.id), Buffer.from("# Manual studio run", "utf8"), {
       contentType: "text/markdown; charset=utf-8"
     });
     await prisma.summaryRun.update({
@@ -172,7 +173,7 @@ test("summary routes list ready items, enforce max selection, and load markdown"
           cookie: `articlepod_session=${session}`
         }
       }),
-      { params: { id: createPayload.run.id } }
+      { params: Promise.resolve({ id: createPayload.run.id }) }
     );
     assert.equal(markdownResponse.status, 200);
     const markdownPayload = (await markdownResponse.json()) as { ok: boolean; markdown: string };
@@ -180,6 +181,241 @@ test("summary routes list ready items, enforce max selection, and load markdown"
     assert.equal(markdownPayload.markdown.includes("Manual studio run"), true);
 
     await ensureUserDigestFeedToken(user.id);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("summary runs endpoint scrubs technical failure details into user-friendly copy", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-errors`;
+
+  const user = await prisma.user.create({
+    data: {
+      email: `summary-errors-${uniq}@articlepod.local`,
+      role: "USER",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const session = await createSession(user.id);
+
+    await prisma.summaryRun.create({
+      data: {
+        userId: user.id,
+        requestedTitle: "Failed summary run",
+        windowStart: new Date("2026-03-20T00:00:00.000Z"),
+        windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+        status: "FAILED",
+        targetLengthMinutes: 15,
+        selectedItemCount: 2,
+        podcastEnabled: true,
+        podcastStatus: "FAILED",
+        errorCode: "EXTRACTION_FAILED",
+        errorMessage: "Azure OpenAI returned 400.",
+        podcastError: "Azure OpenAI returned 400."
+      }
+    });
+
+    const runsResponse = await summaryRunsGet(
+      new NextRequest("http://localhost/api/summary/runs?limit=10", {
+        headers: {
+          cookie: `articlepod_session=${session}`
+        }
+      })
+    );
+    assert.equal(runsResponse.status, 200);
+
+    const runsPayload = (await runsResponse.json()) as {
+      ok: boolean;
+      runs: Array<{ errorMessage: string | null; podcastError: string | null }>;
+    };
+    assert.equal(runsPayload.ok, true);
+    assert.equal(runsPayload.runs[0]?.errorMessage, "We couldn't finish this summary right now. Please try again.");
+    assert.equal(
+      runsPayload.runs[0]?.podcastError,
+      "The summary is ready, but we couldn't publish the audio version. Please try again."
+    );
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("paid monthly users are capped at fifteen manual summaries per 7 days", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-limit`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `summary-limit-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_MONTHLY",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: "Summary source",
+        sourceType: "URL",
+        sourceUrl: "https://example.com/summary-limit",
+        status: "READY",
+        createdAt: new Date()
+      }
+    });
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from("# Summary source\n\nBody", "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+
+    for (let index = 0; index < 15; index += 1) {
+      await prisma.summaryRun.create({
+        data: {
+          userId: user.id,
+          requestedTitle: `Existing summary ${index + 1}`,
+          windowStart: new Date("2026-03-20T00:00:00.000Z"),
+          windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+          status: "SUCCEEDED",
+          targetLengthMinutes: 15,
+          selectedItemCount: 1,
+          podcastEnabled: false
+        }
+      });
+    }
+
+    const blocked = await summaryRunsPost(
+      new NextRequest("http://localhost/api/summary/runs", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`
+        },
+        body: JSON.stringify({
+          itemIds: [item.id],
+          requestedTitle: "Blocked summary",
+          targetLengthMinutes: 15,
+          podcastEnabled: false
+        })
+      })
+    );
+
+    assert.equal(blocked.status, 402);
+    const payload = (await blocked.json()) as {
+      ok: boolean;
+      error_code: string;
+      error_message: string;
+    };
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
+    assert.equal(payload.error_message.includes("15 manual summaries per 7 days"), true);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("paid annual users are capped at thirty manual summaries per 7 days", async () => {
+  ensureDbBootstrap();
+  const uniq = `${Date.now().toString(36)}-summary-limit-annual`;
+  const storage = getArtifactStorage();
+
+  const user = await prisma.user.create({
+    data: {
+      email: `summary-limit-annual-${uniq}@articlepod.local`,
+      role: "USER",
+      isPaid: true,
+      billingPlanCode: "PRO_ANNUAL",
+      billingStatus: "ACTIVE",
+      billingEntitlementStatus: "ACTIVE",
+      billingLastPaymentStatus: "PAID",
+      ttsProvider: "kokoro",
+      ttsVoice: "af_heart"
+    }
+  });
+
+  try {
+    const session = await createSession(user.id);
+    const item = await prisma.item.create({
+      data: {
+        userId: user.id,
+        title: "Annual summary source",
+        sourceType: "URL",
+        sourceUrl: "https://example.com/summary-limit-annual",
+        status: "READY",
+        createdAt: new Date()
+      }
+    });
+    const stored = await storage.putObject(buildUserItemMarkdownStorageKey(user.id, item.id), Buffer.from("# Summary source\n\nBody", "utf8"), {
+      contentType: "text/markdown; charset=utf-8"
+    });
+    await prisma.itemArtifact.create({
+      data: {
+        itemId: item.id,
+        kind: "MARKDOWN",
+        storageKey: stored.key,
+        contentType: "text/markdown; charset=utf-8",
+        byteLength: stored.bytes
+      }
+    });
+
+    for (let index = 0; index < 30; index += 1) {
+      await prisma.summaryRun.create({
+        data: {
+          userId: user.id,
+          requestedTitle: `Existing annual summary ${index + 1}`,
+          windowStart: new Date("2026-03-20T00:00:00.000Z"),
+          windowEnd: new Date("2026-03-21T00:00:00.000Z"),
+          status: "SUCCEEDED",
+          targetLengthMinutes: 15,
+          selectedItemCount: 1,
+          podcastEnabled: false
+        }
+      });
+    }
+
+    const blocked = await summaryRunsPost(
+      new NextRequest("http://localhost/api/summary/runs", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: `articlepod_session=${session}`
+        },
+        body: JSON.stringify({
+          itemIds: [item.id],
+          requestedTitle: "Blocked annual summary",
+          targetLengthMinutes: 15,
+          podcastEnabled: false
+        })
+      })
+    );
+
+    assert.equal(blocked.status, 402);
+    const payload = (await blocked.json()) as {
+      ok: boolean;
+      error_code: string;
+      error_message: string;
+    };
+    assert.equal(payload.ok, false);
+    assert.equal(payload.error_code, "USAGE_LIMIT_EXCEEDED");
+    assert.equal(payload.error_message.includes("30 manual summaries per 7 days"), true);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
   }
