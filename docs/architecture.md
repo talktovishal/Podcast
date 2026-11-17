@@ -2,7 +2,13 @@
 
 ## Overview
 
-### Hard chunk-size bound (implemented; validation pending; not deployed)
+### Approved design-only follow-ups
+
+[Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+defines bounded checks, model/progress signals and staged consumer migration.
+It does not implement new endpoints or change liveness, gates or restart policy.
+
+### Hard chunk-size bound (implemented and validated; not deployed)
 
 Chunk size continues to mean UTF-16 code units, preserving ordinary grouping and
 hashes. Limits must be integers >=2; that minimum makes an indivisible surrogate
@@ -15,6 +21,10 @@ unchanged; concatenating all chunks does not reconstruct the raw source's
 paragraph separators. Each resulting chunk is within the bound and retains its
 content hash. Newly split input can increase chunk count and activate existing
 long-source policy; already published audio is not rewritten. No migration.
+Five focused cases pass locally using Node's built-in TypeScript support; the
+dependency-backed core/web/worker checks passed
+[CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+on candidate `11173bf`.
 
 ### Main-feed candidate eligibility (implemented and validated; not deployed)
 

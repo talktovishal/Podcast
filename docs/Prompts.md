@@ -859,6 +859,9 @@ No item may be marked Done without passing the verification commands listed in i
 
 ### Worker Process Health (S12)
 
+- Design-only follow-up: [separate readiness contract](architecture-followup-proposals.md#1-readiness-without-restart-loops).
+  Existing health responses and operational consumers remain unchanged until
+  implementation and timeout/action policies receive separate approval.
 - The worker process MUST expose a `GET /health` HTTP endpoint on a configurable port (default 3001).
 - The endpoint MUST return last-poll timestamp and count of stuck jobs.
 

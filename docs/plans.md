@@ -9,11 +9,18 @@
 
 ## Spec Consistency Notes (Current)
 
-- Chunk size enforcement (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
+- Readiness design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [contract and rollout proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+  documents bounded checks, known consumers and long-job/real-stall distinction.
+  Runtime endpoints, liveness, release gates and restarts are unchanged.
+
+- Chunk size enforcement (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
   oversized sentences at whitespace or surrogate-pair-safe hard boundaries.
   Enforce integer limits >=2 UTF-16 code units and retain split-sentence content.
   No migration or regeneration of published audio.
+  Five focused cases and [CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+  passed on candidate `11173bf`.
 
 - Feed eligibility (implementation and scoped validation done; target_finish: 2026-11-17;
   completed_on: 2026-11-17;
