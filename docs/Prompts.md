@@ -6,6 +6,14 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Billing webhook saves condition on the billing snapshot used to decide
+  freshness, in SQL and Azure and in live/sandbox lanes. A conflict retries the
+  complete handler from current state up to three attempts; exhausted conflicts
+  return an explicit retryable failure, never a processed audit record.
+  Subscription and invoice watermarks remain separate. Equal-timestamp distinct
+  events retain successful-application order, matching sequential behavior;
+  timestamps do not establish true provider ordering within a second.
+
 - Primary workers use equal round-robin across item jobs, Summary Studio,
   article-summary tasks and digest runs. Empty/failed categories do not retain
   priority; due digest scheduling runs at poll boundaries even under item load.

@@ -2,13 +2,39 @@
 
 ## Overview
 
-### Per-model initialization guards (implemented; validation pending; not deployed)
+### Conditional billing event application (implemented; validation pending; not deployed)
+
+Live and sandbox webhook handlers carry the observed last-event ID, per-domain
+watermarks and billing-update timestamp into their save. SQL includes those
+fields in its atomic update predicate. Azure compares the observed snapshot,
+then writes with the exact current ETag. Initial sandbox creation uses
+create-if-absent, not an unconditional upsert. Checkout event saves are also
+guarded so their state-derived patches are recalculated after a conflict.
+
+A rejected save raises `BILLING_UPDATE_CONFLICT`; the handler rereads and
+recalculates the full operation, up to three attempts. A now-older subscription
+or invoice event is ignored using its domain watermark. Failure never creates a
+processed event record. Other storage failures propagate. Equal timestamps keep
+the pre-existing sequential rule: distinct events apply in successful-write
+order. This is not a claim of provider chronology or cross-domain precedence.
+Event audit persistence remains separate from account mutation; this change does
+not make those records transactional or fence non-webhook reconciliation writes.
+
+No persisted fields, keys, schema or dependencies change; the version condition
+is transient and uses existing fields. No migration/backfill is required.
+Use consistent updated web handlers when eventually activating; old handlers can
+still write without this guard. Rollback restores the race, without data rewrites.
+
+### Per-model initialization guards (implemented and validated; not deployed)
 
 Kokoro and Melo model caches use provider/language-specific initialization locks.
 The cache is populated only after construction succeeds; a failure propagates and
 releases the guard so a waiting request can retry. Different model keys initialize
 independently. The lock ends before inference and does not change capacity or
 readiness policy. No persisted data, schema, dependencies or migration are involved.
+Five new concurrent initialization/retry cases and the existing model-free service
+suite passed in [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489)
+on candidate `72ecd2d`. This is not a real-model capacity test.
 
 ### Equal round-robin work selection (implemented and validated; not deployed)
 

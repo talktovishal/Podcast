@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { AppError, errorCodes } from "@articlepod/core";
 import { resolve } from "node:path";
 import test from "node:test";
 import type Stripe from "stripe";
@@ -37,6 +39,144 @@ function ensureDbBootstrap(): void {
 
   dbReady = true;
 }
+
+function billingRaceEvent(
+  userId: string, customerId: string, created: number, active: boolean, domain: "subscription" | "invoice"
+): Stripe.Event {
+  const metadata = { articlepod_user_id: userId, articlepod_plan_code: "PRO_MONTHLY" };
+  const subscriptionId = `sub_${userId}`;
+  const object = domain === "subscription"
+    ? {
+      id: subscriptionId, object: "subscription", customer: customerId,
+      status: active ? "active" : "canceled", cancel_at_period_end: !active, metadata,
+      items: { data: [{ current_period_end: 1_900_000_000, price: { id: "price_test" } }] }
+    }
+    : {
+      id: `in_${randomUUID()}`, object: "invoice", customer: customerId, billing_reason: "subscription_cycle",
+      parent: { subscription_details: { subscription: subscriptionId, metadata } },
+      lines: { data: [] }, period_end: 1_900_000_000
+    };
+  return {
+    id: `evt_${randomUUID()}`, object: "event", created, api_version: null, livemode: false,
+    pending_webhooks: 0, request: null,
+    type: domain === "subscription" ? "customer.subscription.updated" : active ? "invoice.paid" : "invoice.payment_failed",
+    data: { object }
+  } as Stripe.Event;
+}
+
+for (const lane of ["LIVE", "SANDBOX"] as const) {
+  for (const domain of ["subscription", "invoice"] as const) {
+    for (const heldEvent of ["old", "new"] as const) {
+      test(`overlapping ${lane} ${domain} events converge with ${heldEvent} writing last`, { timeout: 15_000 }, async (t) => {
+        ensureDbBootstrap();
+        const customerId = `cus_${randomUUID()}`;
+        const user = await prisma.user.create({
+          data: { email: `${randomUUID()}@articlepod.local`, billingCustomerId: lane === "LIVE" ? customerId : null }
+        });
+        if (lane === "SANDBOX") {
+          await prisma.sandboxBillingAccount.create({ data: { userId: user.id, billingCustomerId: customerId } });
+        }
+        const old = billingRaceEvent(user.id, customerId, 1_800_000_001, false, domain);
+        const newer = billingRaceEvent(user.id, customerId, 1_800_000_002, true, domain);
+        const held = heldEvent === "old" ? old : newer;
+        const other = heldEvent === "old" ? newer : old;
+        let release = () => {};
+        let entered = () => {};
+        const blocked = new Promise<void>((resolve) => { release = resolve; });
+        const reached = new Promise<void>((resolve) => { entered = resolve; });
+        let paused = false;
+        const pause = async (eventId: unknown) => {
+          if (eventId === held.id && !paused) {
+            paused = true;
+            entered();
+            await blocked;
+          }
+        };
+        if (lane === "LIVE") {
+          const update = prisma.user.update.bind(prisma.user);
+          t.mock.method(prisma.user, "update", async (args: Parameters<typeof update>[0]) => {
+            await pause(args.data.billingLastStripeEventId);
+            return update(args);
+          });
+        } else {
+          const update = prisma.sandboxBillingAccount.update.bind(prisma.sandboxBillingAccount);
+          t.mock.method(prisma.sandboxBillingAccount, "update", async (args: Parameters<typeof update>[0]) => {
+            await pause(args.data.billingLastStripeEventId);
+            return update(args);
+          });
+        }
+        const pending = applyStripeWebhookEvent(held, lane);
+        try {
+          await reached;
+          await applyStripeWebhookEvent(other, lane);
+          release();
+          const result = await pending;
+          assert.equal(result.status, heldEvent === "old" ? "IGNORED_STALE" : "PROCESSED");
+          const saved = lane === "LIVE"
+            ? await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+            : await prisma.sandboxBillingAccount.findUniqueOrThrow({ where: { userId: user.id } });
+          assert.equal(saved.billingLastStripeEventId, newer.id);
+          assert.equal(saved.billingStatus, "ACTIVE");
+          assert.equal(saved.billingEntitlementStatus, "ACTIVE");
+          const watermark = domain === "subscription" ? saved.billingLastSubscriptionEventAt : saved.billingLastInvoiceEventAt;
+          assert.equal(watermark?.getTime(), newer.created * 1000);
+          assert.equal((await applyStripeWebhookEvent(newer, lane)).status, "IGNORED_DUPLICATE");
+          if (lane === "SANDBOX") {
+            assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).billingStatus, "NONE");
+          }
+        } finally {
+          release();
+          await Promise.allSettled([pending]);
+          t.mock.restoreAll();
+          await prisma.billingWebhookEvent.deleteMany({ where: { userId: user.id } });
+          await prisma.user.delete({ where: { id: user.id } });
+        }
+      });
+    }
+  }
+  test(`equal-timestamp ${lane} events preserve successful application order`, async () => {
+    ensureDbBootstrap();
+    const customerId = `cus_${randomUUID()}`;
+    const user = await prisma.user.create({
+      data: { email: `${randomUUID()}@articlepod.local`, billingCustomerId: lane === "LIVE" ? customerId : null }
+    });
+    try {
+      const first = billingRaceEvent(user.id, customerId, 1_800_000_000, true, "subscription");
+      const second = billingRaceEvent(user.id, customerId, first.created, false, "subscription");
+      assert.equal((await applyStripeWebhookEvent(first, lane)).status, "PROCESSED");
+      assert.equal((await applyStripeWebhookEvent(second, lane)).status, "PROCESSED");
+      const saved = lane === "LIVE"
+        ? await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+        : await prisma.sandboxBillingAccount.findUniqueOrThrow({ where: { userId: user.id } });
+      assert.equal(saved.billingStatus, "CANCELED");
+      assert.equal(saved.billingLastStripeEventId, second.id);
+    } finally {
+      await prisma.billingWebhookEvent.deleteMany({ where: { userId: user.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+    }
+  });
+}
+
+test("persistent billing conflicts exhaust three fresh attempts without recording success", async (t) => {
+  ensureDbBootstrap();
+  const customerId = `cus_${randomUUID()}`;
+  const user = await prisma.user.create({
+    data: { email: `${randomUUID()}@articlepod.local`, billingCustomerId: customerId }
+  });
+  const event = billingRaceEvent(user.id, customerId, 1_800_000_000, true, "subscription");
+  const update = t.mock.method(prisma.user, "update", async () => {
+    throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "controlled conflict", 409);
+  });
+  try {
+    await assert.rejects(applyStripeWebhookEvent(event),
+      (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+    assert.equal(update.mock.callCount(), 3);
+    assert.equal(await prisma.billingWebhookEvent.count({ where: { providerEventId: event.id } }), 0);
+  } finally {
+    t.mock.restoreAll();
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
 
 test("buildBillingSnapshot prefers complimentary access when present", () => {
   const snapshot = buildBillingSnapshot({

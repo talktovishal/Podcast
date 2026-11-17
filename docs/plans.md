@@ -9,11 +9,22 @@
 
 ## Spec Consistency Notes (Current)
 
-- Model initialization (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): provider/language guards prevent duplicate
+- Billing event concurrency (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
+  on the observed billing snapshot. Retry known write conflicts from a fresh read
+  at most three times; ignore newly stale domain events and propagate exhausted
+  conflicts without a processed audit entry. Equal timestamps keep sequential
+  successful-write order, not an invented ordering of Stripe event IDs.
+  No new persisted fields/keys or migration; audit/account atomicity and
+  cross-domain/non-webhook reconciliation ordering remain separate concerns.
+
+- Model initialization (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): provider/language guards prevent duplicate
   cold construction, publish only successfully constructed models and allow
   retry after failure. Warm inference remains unchanged. No persisted-contract
-  change, migration or backfill is required.
+  change, migration or backfill is required. Candidate `72ecd2d` passed
+  [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489),
+  including five added concurrency/retry cases in model-free service tests.
 
 - Equal round-robin worker scheduling (implementation and validation done;
   target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):

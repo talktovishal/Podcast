@@ -3,6 +3,107 @@ import test from "node:test";
 import { AzureTablePrimaryStore } from "../src/metadata/azureTablePrimaryStore";
 import { TableClient } from "@azure/data-tables";
 import { AppError, errorCodes } from "../src/errors/codes";
+import { billingEventVersion } from "../src/metadata/billingEventVersion";
+
+for (const sandbox of [false, true]) {
+  test(`billing updates reject a changed snapshot before writing (sandbox=${sandbox})`, async (t) => {
+    const store = createStore();
+    const current = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v2",
+      billingLastStripeEventId: "newer", billingLastSubscriptionEventAt: "2026-01-02T00:00:00.000Z"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    const expected = {
+      billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+      billingLastInvoiceEventAt: null, billingUpdatedAt: null
+    };
+    await assert.rejects(
+      sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", billingStatus: "CANCELED" }, expected)
+        : store.updateUser("user", { billingStatus: "CANCELED" }, expected),
+      (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+    );
+    assert.equal(write.mock.callCount(), 0);
+  });
+
+  test(`billing snapshots and exact ETags protect overlapping writers (sandbox=${sandbox})`, { timeout: 10_000 }, async (t) => {
+    const store = createStore();
+    let current: Record<string, unknown> = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    let release = () => {};
+    let entered = () => {};
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const reached = new Promise<void>((resolve) => { entered = resolve; });
+    t.mock.method(TableClient.prototype, "updateEntity", async (
+      entity: Record<string, unknown>, _mode: string, options?: { etag?: string }
+    ) => {
+      if (entity.billingLastStripeEventId === "old") {
+        entered();
+        await blocked;
+      }
+      assert.notEqual(options?.etag, "*");
+      if (options?.etag !== current.etag) throw { statusCode: 412 };
+      current = { ...entity, etag: "v2" };
+    });
+    const record = sandbox ? await store.findSandboxBillingAccountByUserId("user") : await store.findUserById("user");
+    assert.ok(record);
+    const expected = billingEventVersion(record);
+    const apply = (id: string, date: string) => {
+      const patch = { billingLastStripeEventId: id, billingLastSubscriptionEventAt: new Date(date) };
+      return sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", ...patch }, expected)
+        : store.updateUser("user", patch, expected);
+    };
+    const old = apply("old", "2026-01-02T00:00:00.000Z");
+    const rejected = assert.rejects(old, (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+    try {
+      await reached;
+      await apply("new", "2026-01-03T00:00:00.000Z");
+    } finally {
+      release();
+    }
+    await rejected;
+    assert.equal(current.billingLastStripeEventId, "new");
+    assert.equal(current.billingLastSubscriptionEventAt, "2026-01-03T00:00:00.000Z");
+  });
+
+  for (const statusCode of [404, 412, 503]) {
+    test(`billing conditional write surfaces SDK failure ${statusCode} (sandbox=${sandbox})`, async (t) => {
+      const store = createStore();
+      t.mock.method(TableClient.prototype, "getEntity", async () => ({
+        partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+        createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+      }));
+      const failure = { statusCode };
+      t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+      const expected = {
+        billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+        billingLastInvoiceEventAt: null, billingUpdatedAt: null
+      };
+      await assert.rejects(
+        sandbox ? store.upsertSandboxBillingAccount({ userId: "user" }, expected) : store.updateUser("user", {}, expected),
+        (error) => statusCode === 503
+          ? error === failure
+          : error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+      );
+    });
+  }
+}
+
+test("sandbox first-event creation is conditional, never an overwriting upsert", async (t) => {
+  const store = createStore();
+  t.mock.method(TableClient.prototype, "getEntity", async () => { throw { statusCode: 404 }; });
+  t.mock.method(TableClient.prototype, "createEntity", async () => { throw { statusCode: 409 }; });
+  const upsert = t.mock.method(TableClient.prototype, "upsertEntity", async () => {});
+  await assert.rejects(store.upsertSandboxBillingAccount({ userId: "user" }, null),
+    (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+  assert.equal(upsert.mock.callCount(), 0);
+});
 
 for (const statusCode of [404, 412, 403, 429, 503]) {
   test(`required item updates reject SDK write failures without rereading or retrying (${statusCode})`, async (t) => {

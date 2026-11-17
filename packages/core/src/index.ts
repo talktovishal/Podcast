@@ -35,6 +35,7 @@ export * from "./digest/summaryUserFacing";
 export * from "./digest/email";
 export * from "./digest/schedule";
 export * from "./metadata/types";
+export * from "./metadata/billingEventVersion";
 export * from "./metadata/noopMirror";
 export * from "./metadata/azureTableMirror";
 export * from "./metadata/azureTablePrimaryStore";
