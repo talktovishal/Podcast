@@ -219,3 +219,136 @@ Update route/UI tests to expect asynchronous extraction and provisional titles.
 Rollback disables new-protocol acceptance first and leaves a compatible worker/
 reconciler draining existing operations. Do not roll back to binaries unable to
 read outstanding intents; retain additive data and the old prepared-task reader.
+
+## 3. Fenced, recoverable episode publication
+
+### Current boundary and invariant
+
+[Item publication](../apps/worker/src/jobs/processItemJob.ts) renews the claim,
+then Azure separately upserts an episode, marks the item READY and conditionally
+completes the job. The SQL branch groups those metadata changes in one
+transaction. [Azure store](../packages/core/src/metadata/azureTablePrimaryStore.ts)
+uses different tables for jobs, items and episodes; an Azure Table transaction
+cannot make those current writes atomic. A successful lease check before another
+table write is not a fence: ownership can change between the two operations.
+The explicit item-mutation fix detects failures but does not close this window.
+
+Required invariant: one authoritative committed publication per item generation;
+only the current owner can choose it. Audio objects precede that commit; episode,
+item and job projections converge afterward. Neither partial projections nor an
+old worker may change the result subscribers see.
+
+### Proposed authority and storage mechanics
+
+Introduce an item-keyed publication aggregate, with protocol version, monotonic
+generation/owner epoch, current job/claim, lease diagnostics, deletion tombstone,
+stable episode identity and committed publication reference. A publication
+record holds an immutable snapshot: owner/item/episode IDs, public GUID, title,
+description, audio object reference/hash/size/type, publication/expiry dates and
+input/rendition identity. Never put source text or credentials in this journal.
+
+- **SQL:** claim/takeover and publication commit condition on the aggregate
+  generation and current claim within transactions. Commit the publication,
+  episode, item READY and job success together; require one matching owner and
+  existing nondeleted item. Use row-lock/conditional-update mechanics appropriate
+  to PostgreSQL/SQLite; test both, not just an in-process lock.
+- **Azure:** keep ownership and the committed pointer in the **same aggregate
+  entity**. Claim/takeover advances its epoch with an exact ETag. The linearizing
+  commit is an exact-ETag update of that same entity with matching epoch/claim.
+  An old owner's ETag cannot succeed after takeover. Job rows become projections
+  for this protocol; do not retain an independent authoritative job lease that
+  could disagree with the aggregate. Immutable publication snapshots can be
+  separate records written before that pointer commit.
+- Lease expiry permits takeover; the epoch/ETag transition is the authoritative
+  revocation boundary. Workers stop on locally observed expiry/renewal failure.
+  Do not claim that a client-side clock check provides server-enforced exact
+  wall-clock expiration for Azure Table writes.
+- Readers of new-protocol records must validate the aggregate's committed
+  generation/tombstone, including feed eligibility and media resolution.
+  Per-row generation checks alone do not fence a cross-table projection race.
+  Missing/outdated projections are repaired; missing authority or an outage is
+  not interpreted as permission to publish legacy state.
+
+Use the existing public episode ID/GUID/token and media route; a private
+publication/attempt ID is not a new subscriber identity. Persist chosen timestamps
+once and reuse on retry. Candidate audio is item-owned and immutable (unique
+attempt keys with create-if-absent semantics); verify stored size/type/hash before
+commit. Old owners can at most leave unreferenced candidates, never overwrite a
+committed object's bytes. This extends, not replaces, reference-aware audio
+ownership/deletion.
+
+```mermaid
+flowchart LR
+  C[CAS claim epoch N] --> O[Write immutable owned audio]
+  O --> P[Write prepared publication snapshot]
+  P --> K[CAS aggregate commit: epoch N]
+  K --> E[Project episode]
+  K --> I[Project item READY]
+  K --> J[Project job success]
+  J --> A[Ack dispatch hint]
+  R[Reconciler reads committed authority] --> E
+  R --> I
+  R --> J
+```
+
+### Crash and stale-owner matrix
+
+Each row covers a stop immediately before the write (previous durable state)
+and immediately after it (the new fact exists but its acknowledgement may not).
+
+| Write/boundary | Recovery from before / after |
+|---|---|
+| Claim epoch | Retry claim / rediscover current owner; never infer claim success from a lost response |
+| Candidate audio upload | Retry owned upload / verify and reuse that immutable candidate or leave it for bounded orphan cleanup |
+| Owned-artifact metadata | Audio remains unpublished / retain ownership record; repair missing metadata only after object verification |
+| Prepared snapshot | Resume from owned audio / same operation can adopt the verified snapshot; no feed visibility yet |
+| Aggregate commit | Still uncommitted; current owner may retry / query pointer: matching identity means already committed, conflicting epoch means lost ownership |
+| Episode projection | Reconcile from committed snapshot / replay is idempotent and preserves existing episode ID and GUID |
+| Item READY projection | Feed reads committed authority, not a half-published item / update only publication fields with row ETag and generation; never recreate a deleted item |
+| Job success projection | Resume acknowledgement, not synthesis / duplicate delivery observes committed operation, not a new publication |
+| Dispatch delete | Duplicate hint resolves to the same committed result / no additional work required |
+| Success event/audit | Repair/deduplicate by publication ID; never undo a committed episode because logging failed / avoid duplicate success events |
+| Unreferenced-object cleanup | Retry with ownership/reference checks / never remove a committed, retained or legacy-shared object |
+
+If owner A pauses before commit, B takes epoch N+1, and A resumes, A's aggregate
+CAS fails. A must not write successful projections or delete B's objects. If A
+commits before B's takeover CAS, B observes the committed result and finishes
+projection/acknowledgement instead of synthesizing again. If a stale projector
+resumes after a newer commit, monotonic per-row generation conditions reject
+known regressions and authoritative reader checks reject any remaining lagging
+projection. Deletion/cancellation must advance the same authority/tombstone;
+checking an unrelated item flag beforehand is not sufficient.
+
+### Reconciliation and operational limits
+
+Scan a durable, versioned pending-publication index in bounded pages (proposed
+100 rows) with continuation, retry backoff and fairness across partitions.
+Missing secondary indexes are repaired from the authoritative aggregate scan;
+do not restart at page one on every tick. A reconciler only projects committed
+snapshots; it cannot invent a commit or treat unreadable storage as absent.
+Uncommitted candidates require a grace period longer than maximum attempt/
+recovery lifetime and fresh reference checks before collection. Alert on age of
+unprojected commits, stale-owner rejection, retry exhaustion and orphan backlog.
+No live failure injection or deletion is authorized by this proposal.
+
+### Upgrade, proof and rollback
+
+Add tables/entities/optional generation fields without rewriting existing keys.
+Inventory legacy duplicate/partial episodes first; choose canonical identities
+from verified existing records and quarantine ambiguity, never mint a replacement
+GUID to hide it. Backfill authority for proven legacy published items with their
+current IDs, paths and timestamps; preserve null-version legacy reads until
+verification. New-protocol reads, claimers, delete/retry flows and reconcilers
+must all be deployed before gated writers are enabled. Mixed old writers are
+unsafe: a per-cohort writer fence/drain is a required rollout prerequisite.
+
+Tests must pause every matrix write in both backends and prove convergence,
+including two owners, two projectors, delete/retry races, lost responses, missing
+audio and storage outages. Verify feed GUID/enclosure/token stability, retention,
+HEAD/range behavior and no duplicate episode after replay. Measure additional
+authority reads before rollout; no performance claim is made by this design.
+
+Rollback disables new claims/writers first and drains committed projections with
+a compatible reconciler. Keep the new authority-aware readers until all active
+new-protocol records are safely handled. Do not roll back to blind legacy writers,
+erase journals, reset jobs or delete objects as a shortcut.

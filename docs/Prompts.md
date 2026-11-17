@@ -748,6 +748,9 @@ Document tradeoffs in `plans.md`.
 
 ### 4.2 Job engine (deterministic + idempotent)
 
+- Design only: [fenced publication proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  specifies a recoverable commit authority across item, episode, job and audio
+  state. No new schema, claim protocol or feed/media behavior is activated here.
 - Item statuses:
   - `queued`, `processing`, `ready`, `failed`
 - Worker must be idempotent:

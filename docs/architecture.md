@@ -11,6 +11,10 @@ It does not implement new endpoints or change liveness, gates or restart policy.
 proposes discoverable preparation intent and worker extraction, with crash
 recovery and no second quota charge. It reconciles, rather than silently changes,
 the existing prepared-markdown task contract. No runtime/schema change yet.
+[Fenced publication](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+defines one commit authority, stale-owner rejection, a write-by-write crash
+matrix, convergent projections and compatible rollout/rollback. This remains a
+design, not an implemented cross-table transaction.
 
 ### Hard chunk-size bound (implemented and validated; not deployed)
 

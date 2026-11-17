@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Publication recovery design (design deliverable done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [fenced commit proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  includes SQL/Azure mechanics, stale-owner interleavings, every publication
+  write boundary, reconciliation, stable identities and staged rollback.
+  Runtime/schema/ownership protocols remain unchanged.
+
 - Summary acceptance design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [proposal and crash matrix](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
   reconcile durable preparation, existing summary tasks, quota identity,
