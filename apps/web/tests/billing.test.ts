@@ -93,17 +93,20 @@ for (const lane of ["LIVE", "SANDBOX"] as const) {
           }
         };
         if (lane === "LIVE") {
-          const update = prisma.user.update.bind(prisma.user);
-          t.mock.method(prisma.user, "update", async (args: Parameters<typeof update>[0]) => {
+          const update = prisma.user.update;
+          // Prisma delegates are proxies without method property descriptors.
+          assert.ok(Reflect.set(prisma.user, "update", async (args: Parameters<typeof update>[0]) => {
             await pause(args.data.billingLastStripeEventId);
             return update(args);
-          });
+          }));
+          t.after(() => { Reflect.set(prisma.user, "update", update); });
         } else {
-          const update = prisma.sandboxBillingAccount.update.bind(prisma.sandboxBillingAccount);
-          t.mock.method(prisma.sandboxBillingAccount, "update", async (args: Parameters<typeof update>[0]) => {
+          const update = prisma.sandboxBillingAccount.update;
+          assert.ok(Reflect.set(prisma.sandboxBillingAccount, "update", async (args: Parameters<typeof update>[0]) => {
             await pause(args.data.billingLastStripeEventId);
             return update(args);
-          });
+          }));
+          t.after(() => { Reflect.set(prisma.sandboxBillingAccount, "update", update); });
         }
         const pending = applyStripeWebhookEvent(held, lane);
         try {
@@ -127,7 +130,6 @@ for (const lane of ["LIVE", "SANDBOX"] as const) {
         } finally {
           release();
           await Promise.allSettled([pending]);
-          t.mock.restoreAll();
           await prisma.billingWebhookEvent.deleteMany({ where: { userId: user.id } });
           await prisma.user.delete({ where: { id: user.id } });
         }
@@ -164,16 +166,18 @@ test("persistent billing conflicts exhaust three fresh attempts without recordin
     data: { email: `${randomUUID()}@articlepod.local`, billingCustomerId: customerId }
   });
   const event = billingRaceEvent(user.id, customerId, 1_800_000_000, true, "subscription");
-  const update = t.mock.method(prisma.user, "update", async () => {
+  const originalUpdate = prisma.user.update;
+  const update = t.mock.fn(async () => {
     throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "controlled conflict", 409);
   });
+  assert.ok(Reflect.set(prisma.user, "update", update));
   try {
     await assert.rejects(applyStripeWebhookEvent(event),
       (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
     assert.equal(update.mock.callCount(), 3);
     assert.equal(await prisma.billingWebhookEvent.count({ where: { providerEventId: event.id } }), 0);
   } finally {
-    t.mock.restoreAll();
+    Reflect.set(prisma.user, "update", originalUpdate);
     await prisma.user.delete({ where: { id: user.id } });
   }
 });
