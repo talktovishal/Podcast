@@ -84,17 +84,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
   const { user, tokenHash, repaired } = resolvedAccess;
 
   const now = new Date();
+  const primaryStore = webPrimaryStore;
   const episodes: MainFeedEpisode[] =
-    webUsesAzureTablePrimary() && webPrimaryStore
+    webUsesAzureTablePrimary() && primaryStore
       ? await (async () => {
           const [episodeRows, summaryEpisodes] = await Promise.all([
-            webPrimaryStore.listEpisodesForUser(user.id),
-            webPrimaryStore.listSummaryEpisodesForUser(user.id)
+            primaryStore.listEpisodesForUser(user.id),
+            primaryStore.listSummaryEpisodesForUser(user.id)
           ]);
           const eligibleEpisodes = await filterReadyItemEpisodes(
             episodeRows.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
             user.id,
-            (id) => webPrimaryStore.findItemById(id)
+            (id) => primaryStore.findItemById(id)
           );
           return [
             ...eligibleEpisodes
