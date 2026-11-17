@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=scripts/azure/runtime-naming.sh
 source "$ROOT_DIR/scripts/azure/runtime-naming.sh"
+source "$ROOT_DIR/scripts/azure/deployment-ssh.sh"
 SYNC_EXCLUDES_FILE="$ROOT_DIR/scripts/azure/sync-excludes.txt"
 
 TARGET_HOST="${TARGET_HOST:-}"
@@ -29,28 +30,25 @@ fi
 
 REMOTE="${TARGET_USER}@${TARGET_HOST}"
 
-SSH_ARGS=(-p "$TARGET_PORT")
-if [[ -n "$TARGET_SSH_KEY" ]]; then
-  SSH_ARGS+=(-i "$TARGET_SSH_KEY")
-fi
-SSH_ARGS+=(
-  -o BatchMode=yes
-  -o ConnectTimeout="$PUSH_TO_VM_SSH_CONNECT_TIMEOUT"
-  -o ServerAliveInterval="$PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL"
-  -o ServerAliveCountMax="$PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX"
-)
+configure_deployment_ssh "$PUSH_TO_VM_SSH_CONNECT_TIMEOUT" \
+  "$PUSH_TO_VM_SSH_SERVER_ALIVE_INTERVAL" "$PUSH_TO_VM_SSH_SERVER_ALIVE_COUNT_MAX"
 
-ssh "${SSH_ARGS[@]}" "$REMOTE" "mkdir -p '$TARGET_PATH'"
+TARGET_PATH_Q="$(printf '%q' "$TARGET_PATH")"
+ssh "${SSH_ARGS[@]}" "$REMOTE" "mkdir -p -- $TARGET_PATH_Q"
+COPY_REMOTE="$REMOTE"
+if [[ "$TARGET_HOST" == *:* ]]; then
+  COPY_REMOTE="${TARGET_USER}@[${TARGET_HOST}]"
+fi
 
 # rsync's --contimeout only applies to daemon transport, not the SSH transport used here.
 # Keep the legacy env name as an alias for SSH connect timeout so CI/local callers remain compatible.
 echo "[push-to-vm] syncing with ssh connect timeout=${PUSH_TO_VM_SSH_CONNECT_TIMEOUT}s and rsync io timeout=${PUSH_TO_VM_RSYNC_TIMEOUT}s"
 
 rsync -az --delete \
-  -e "ssh ${SSH_ARGS[*]}" \
+  -e "$(deployment_rsync_shell)" \
   --timeout="$PUSH_TO_VM_RSYNC_TIMEOUT" \
   --stats \
   --exclude-from="$SYNC_EXCLUDES_FILE" \
-  ./ "${REMOTE}:${TARGET_PATH}/"
+  ./ "${COPY_REMOTE}:${TARGET_PATH}/"
 
 echo "[push-to-vm] synced to ${REMOTE}:${TARGET_PATH}"

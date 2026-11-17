@@ -5,6 +5,26 @@ function normalizedJoin(...segments: string[]): string {
   return normalizeStorageKey(join(...segments));
 }
 
+export function buildItemAudioStorageKey(itemId: string, publicationId: string, mimeType = "audio/mpeg"): string {
+  if (!/^[a-f0-9]{64}$/.test(publicationId) || !/^[a-zA-Z0-9_-]+$/.test(itemId)) {
+    throw new Error("Invalid item audio identity.");
+  }
+  if (mimeType !== "audio/mpeg" && mimeType !== "audio/mp4") {
+    throw new Error("Unsupported cached audio type.");
+  }
+  return normalizedJoin("items", itemId, "audio", `${publicationId}.${mimeType === "audio/mpeg" ? "mp3" : "m4a"}`);
+}
+
+export function deriveAlternateAudioPath(path: string): string | null {
+  if (path.endsWith(".mp3")) {
+    return `${path.slice(0, -4)}.m4a`;
+  }
+  if (path.endsWith(".m4a")) {
+    return `${path.slice(0, -4)}.mp3`;
+  }
+  return null;
+}
+
 export function buildLegacyItemMarkdownStorageKey(itemId: string): string {
   return normalizedJoin("items", itemId, "artifacts", "source.md");
 }

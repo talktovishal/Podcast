@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.repository == 'talktovishal/Podcast' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
@@ -49,36 +50,8 @@ jobs:
       - name: Setup SSH credentials
         env:
           AZURE_SSH_KEY: ${{ secrets.AZURE_SSH_KEY }}
-          AZURE_VM_HOST: ${{ secrets.AZURE_VM_HOST }}
-        run: |
-          set -euo pipefail
-          if [ -z "$AZURE_SSH_KEY" ]; then
-            echo "::error::AZURE_SSH_KEY secret is not configured"
-            echo "Please configure the following secrets in your repository:"
-            echo "  - AZURE_SSH_KEY: SSH private key for VM access"
-            echo "  - AZURE_VM_HOST: VM IP address or FQDN"
-            exit 1
-          fi
-
-          mkdir -p ~/.ssh
-
-          # Write SSH private key
-          printf "%s\n" "$AZURE_SSH_KEY" > ~/.ssh/articlepod_azure
-          chmod 600 ~/.ssh/articlepod_azure
-
-          if ! grep -q "BEGIN OPENSSH PRIVATE KEY" ~/.ssh/articlepod_azure; then
-            echo "::error::AZURE_SSH_KEY does not look like an OpenSSH private key"
-            exit 1
-          fi
-
-          # Create SSH config with permissive host key checking (acceptable in CI environment)
-          {
-            echo "Host *"
-            echo "    StrictHostKeyChecking no"
-            echo "    UserKnownHostsFile=/dev/null"
-            echo "    LogLevel QUIET"
-          } > ~/.ssh/config
-          chmod 600 ~/.ssh/config
+          AZURE_SSH_KNOWN_HOSTS: ${{ secrets.AZURE_SSH_KNOWN_HOSTS }}
+        run: bash scripts/azure/setup-deployment-ssh.sh
 
       - name: Probe SSH connectivity
         env:
@@ -87,12 +60,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          ssh \
-            -i "$HOME/.ssh/articlepod_azure" \
-            -o BatchMode=yes \
-            -o ConnectTimeout=15 \
-            -o ServerAliveInterval=15 \
-            -o ServerAliveCountMax=4 \
+          TARGET_PORT=22
+          TARGET_SSH_KEY="$RUNNER_TEMP/articlepod-ssh/identity"
+          TARGET_KNOWN_HOSTS_FILE="$RUNNER_TEMP/articlepod-ssh/known_hosts"
+          source scripts/azure/deployment-ssh.sh
+          configure_deployment_ssh 15 15 4
+          ssh "${SSH_ARGS[@]}" \
             "$TARGET_USER@$TARGET_HOST" \
             'echo "[deploy-workflow] ssh ok on $(hostname)"'
 
@@ -145,7 +118,7 @@ jobs:
           set -euo pipefail
 
           echo "::group::Deploying to $TARGET_HOST"
-          TARGET_SSH_KEY="$HOME/.ssh/articlepod_azure"
+          TARGET_SSH_KEY="$RUNNER_TEMP/articlepod-ssh/identity"
 
           if [ ! -f "$TARGET_SSH_KEY" ]; then
             echo "::error::SSH key not found at $TARGET_SSH_KEY"
@@ -174,6 +147,7 @@ jobs:
             --host "$TARGET_HOST"
             --user "$TARGET_USER"
             --ssh-key "$TARGET_SSH_KEY"
+            --ssh-known-hosts "$RUNNER_TEMP/articlepod-ssh/known_hosts"
             --render-env
             --configure-ingress
             --canonical-host "$CANONICAL_HOST"
@@ -277,6 +251,10 @@ jobs:
               echo "smoke_rss=pass" >> "$GITHUB_OUTPUT"
             fi
           fi
+
+      - name: Remove temporary SSH credentials
+        if: always()
+        run: bash scripts/azure/setup-deployment-ssh.sh cleanup
 
       - name: Deployment summary
         if: success()

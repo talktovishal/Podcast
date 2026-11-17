@@ -83,7 +83,8 @@ services:
     command: >
       sh -lc "npx pnpm --filter @articlepod/web run db:bootstrap &&
       npx pnpm --filter @articlepod/web run seed:demo &&
-      npx pnpm --filter @articlepod/web run start"
+      cd apps/web &&
+      ARTICLEPOD_WEB_HOST=0.0.0.0 node ../../scripts/azure/run-next-server.mjs"
     ports:
       - "3000:3000"
     healthcheck:

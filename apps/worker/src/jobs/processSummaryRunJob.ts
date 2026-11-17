@@ -20,7 +20,7 @@ import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata
 import { prisma } from "../lib/prisma.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, normalizeStorageKey } from "../lib/storage.js";
-import { synthesizeEpisodeAudio } from "./processItemJob.js";
+import { synthesizeEpisodeAudio } from "../lib/audio-synthesis.js";
 
 const MAX_ERROR_MESSAGE_LENGTH = 500;
 

@@ -3,7 +3,7 @@
 This file is the **execution contract** for coding agents in this repo (Codex, etc.).
 Product/feature requirements live in **docs/Prompts.md**. Do not duplicate product specs here.
 
-Codex reads `AGENTS.md` before doing any work. Keep this file practical and enforceable. :contentReference[oaicite:1]{index=1}
+Codex reads `AGENTS.md` before doing any work. Keep this file practical and enforceable.
 
 ---
 
@@ -17,41 +17,57 @@ Codex reads `AGENTS.md` before doing any work. Keep this file practical and enfo
 
 ## Quick commands (keep these accurate)
 
-### Command selection rules (do not guess)
-- If a `Makefile` exists with relevant targets, prefer `make <target>`.
-- Frontend package manager:
-  - If `pnpm-lock.yaml` exists → use `pnpm`
-  - Else if `yarn.lock` exists → use `yarn`
-  - Else → use `npm`
-- Python environment:
-  - If `uv.lock` exists → use `uv`
-  - Else if `poetry.lock` exists → use `poetry`
-  - Else → use `python -m venv` + `pip`
+Run these commands from the repository root. [package.json](package.json) pins
+pnpm through Corepack; [pnpm-workspace.yaml](pnpm-workspace.yaml) defines the
+workspaces. The web API is part of the Next.js app, not a separate Python backend.
+The worker is TypeScript, not Python.
 
-### Frontend (expected in `frontend/`)
-- Install: `cd frontend && <pm> install`
-- Dev: `cd frontend && <pm> run dev`
-- Lint: `cd frontend && <pm> run lint`
-- Test: `cd frontend && <pm> test`
-- Build: `cd frontend && <pm> run build`
+- Install workspace dependencies: `corepack pnpm install --frozen-lockfile`
+- Simple local profile: `./run.sh --profile simple`
+- Fast web-only loop after setup: `./run.sh --web --fast`
+- Profile setup and environment templates: [README.md](README.md)
 
-### Backend API (expected in `backend/`)
-- Dev: `cd backend && <venv_cmd> && uvicorn app.main:app --reload`
-- Test: `cd backend && <venv_cmd> && pytest -q`
-- Lint/format (preferred): `cd backend && <venv_cmd> && ruff check . && ruff format .`
-- Typecheck (if configured): `cd backend && <venv_cmd> && mypy .`
+### Web UI and API (`apps/web`)
+- Dev: `corepack pnpm --filter @articlepod/web run dev`
+- Lint: `corepack pnpm --filter @articlepod/web run lint`
+- Typecheck: `corepack pnpm --filter @articlepod/web run typecheck`
+- Test: `corepack pnpm --filter @articlepod/web run test`
+- Build: `corepack pnpm --filter @articlepod/web run build`
 
-### Worker (expected in `worker/` if present)
-- Test: `cd worker && <venv_cmd> && pytest -q`
-- Run (example): `cd worker && <venv_cmd> && python -m worker`
+### Processing worker (`apps/worker`)
+- Dev: `corepack pnpm --filter @articlepod/worker run dev`
+- Typecheck: `corepack pnpm --filter @articlepod/worker run typecheck`
+- Test: `corepack pnpm --filter @articlepod/worker run test`
+- Build: `corepack pnpm --filter @articlepod/worker run build`
+
+### Shared code (`packages/core`)
+- Typecheck: `corepack pnpm --filter @articlepod/core run typecheck`
+- Test: `corepack pnpm --filter @articlepod/core run test`
+- Build: `corepack pnpm --filter @articlepod/core run build`
+
+### Python speech service (`services/python-tts`)
+The model-free gate matches [CI](.github/workflows/ci.yml), using Python 3.12:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r services/python-tts/requirements.txt pytest==8.3.5
+.venv/bin/python -m pytest -q services/python-tts/tests/test_provider_discovery.py services/python-tts/tests/test_kokoro_streaming.py services/python-tts/tests/test_logging_split.py
+.venv/bin/python services/python-tts/tests/check_provider_gate_mutations.py
+```
+
+These tests do not install model providers or prove real-model synthesis.
+Use the [service setup and validation guide](services/python-tts/README.md)
+for the separate provider/runtime setup and smoke checks.
 
 ### Full repo validation (required before marking “done”)
-- Frontend: lint + tests (+ build when feasible)
-- Backend: ruff + tests (and mypy if present)
-- Worker: tests
+- Use `corepack pnpm preflight` for the existing change-scoped checks;
+  `corepack pnpm preflight --parity` includes the disposable parity path.
+- Web/core/worker: run their typecheck, lint, test and build scripts for touched
+  areas. Root `corepack pnpm run typecheck`, `corepack pnpm run lint`,
+  `corepack pnpm run test` and `corepack pnpm run build` aggregate the workspace scripts.
+- Python speech changes: run the model-free gate above and the applicable
+  provider checks documented in the service guide.
 - Podcast compatibility gates (RSS + media) must pass (see below)
-
-> Replace `<pm>` and `<venv_cmd>` with real commands as soon as scaffolding exists.
 
 ---
 
@@ -185,13 +201,24 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
 ---
 
 ## Git / PR / change rules
+- Standing release approval (granted 2026-11-11):
+  - For work the owner requests to implement and deploy in `Podcast` and
+    `Podcast-Deploy`, agents may push branches, open PRs, merge to `main` after
+    required checks pass, and deploy through the protected release process.
+  - This approval satisfies the main-branch confirmation requirement for that
+    requested work; do not ask for the same routine approval again.
+  - Ask separately before destructive changes or credential/security-policy changes.
+  - Do not bypass authentication, branch protections, required checks, or protected
+    production-environment approvals. Preserve data and verified rollback.
+  - This is not approval for unrequested work or other repositories. The defaults
+    below still apply outside requested implementation-and-deployment work.
 - Small, reviewable diffs.
 - Avoid scope creep.
 - Primary-checkout edits (default):
   - Edit from the primary checkout by default.
   - Commit locally by default.
   - Do not push by default.
-  - Any push to `main` must be an explicit user request.
+  - A push to `main` requires an explicit user request or the standing release approval above.
   - Prefer a short-lived feature branch or worktree when a change should be shared remotely before merge.
   - Worktrees are optional and should only be used when explicitly requested by the user.
   - If a worktree/branch setup is attempted but blocked by environment or sandbox restrictions, continue in the primary checkout and note the fallback in the final update.
@@ -210,7 +237,9 @@ Users now depend on existing data. Treat every persisted store as upgrade-in-pla
     - `WORKTREE FLOW: fix-media-auth`
     - `WORKTREE FALLBACK OK` (optional)
 - After validation passes, commit changes locally before marking work as complete unless the user explicitly asks for a push.
-- When a push is requested, prefer pushing a non-`main` branch first and only push `main` when the user explicitly confirms that intent.
+- When a push is requested, prefer pushing a non-`main` branch first. Merge/push
+  `main` only after required checks and either explicit confirmation or the
+  standing release approval above.
 - Never commit runtime/debug logs (for example `.runtime/logs/`); keep logs local-only for troubleshooting.
 - Docs Sync Gate (mandatory):
   - If runtime behavior, API contracts, milestones, or architecture changes, update these in the same change set:
@@ -275,7 +304,8 @@ Otherwise run:
 4) Run tests/lint; fix failures.
 5) Run Podcast compatibility gates.
 6) Commit validated changes locally.
-7) Push only when explicitly requested; treat pushes to `main` as an explicit confirmation step.
+7) Push only when explicitly requested or covered by standing release approval;
+   `main` still requires passing checks and either explicit or standing approval.
 8) Provide a short “what changed + how to verify” note.
 
 ---

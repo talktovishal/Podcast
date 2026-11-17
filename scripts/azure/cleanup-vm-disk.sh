@@ -116,6 +116,10 @@ legacy_runtime_in_use() {
 }
 
 clean_legacy_runtime_dirs() {
+  if [[ ! -f "$ENV_FILE" ]] || ! python3 "$ROOT_DIR/scripts/azure/assert-legacy-deploy.py" "$ENV_FILE" >/dev/null 2>&1; then
+    echo "[cleanup-vm-disk] keeping legacy runtime trees because legacy configuration was not established"
+    return
+  fi
   if legacy_runtime_in_use; then
     echo "[cleanup-vm-disk] keeping legacy runtime paths because they still appear in active configuration"
     return

@@ -1,6 +1,8 @@
 import { TableClient, type TableEntity, type TableEntityResult } from "@azure/data-tables";
+import { AppError, errorCodes } from "../errors/codes";
 import { parseStoredItemTags, serializeItemTags, type SnippetPageMetadata } from "../types/domain";
 import { parseSnippetPageMetadata, serializeSnippetPageMetadata } from "../snippets/richCapture";
+import { matchesBillingEventVersion, type BillingEventVersion } from "./billingEventVersion";
 
 type AzureTablePrimaryStoreOptions = {
   tablePrefix: string;
@@ -8,6 +10,7 @@ type AzureTablePrimaryStoreOptions = {
   accountUrl?: string;
   sasToken?: string;
   createTablesIfMissing?: boolean;
+  deferInitialization?: boolean;
 };
 
 type TableKey =
@@ -731,10 +734,20 @@ function isPreconditionError(error: unknown): boolean {
 export class AzureTablePrimaryStore {
   readonly backend = "azure_table" as const;
 
-  private readonly clients: Record<TableKey, TableClient>;
-  private readonly ensureTablesPromise: Promise<void>;
+  private clients: Record<TableKey, TableClient> | undefined;
+  private ensureTablesPromise: Promise<void> | undefined;
 
-  constructor(input: AzureTablePrimaryStoreOptions) {
+  constructor(private readonly input: AzureTablePrimaryStoreOptions) {
+    if (!input.deferInitialization) {
+      void this.initialize();
+    }
+  }
+
+  private initialize(): Promise<void> {
+    if (this.ensureTablesPromise) {
+      return this.ensureTablesPromise;
+    }
+    const input = this.input;
     const createClient = buildClientFactory(input);
     this.clients = {
       users: createClient(buildTableName(input.tablePrefix, "users")),
@@ -766,10 +779,11 @@ export class AzureTablePrimaryStore {
     };
 
     const shouldCreate = input.createTablesIfMissing ?? true;
-    this.ensureTablesPromise = shouldCreate ? this.ensureTables() : Promise.resolve();
+    this.ensureTablesPromise = shouldCreate ? this.ensureTables(this.clients) : Promise.resolve();
+    return this.ensureTablesPromise;
   }
 
-  private async ensureTables(): Promise<void> {
+  private async ensureTables(clients: Record<TableKey, TableClient>): Promise<void> {
     const createIfMissing = async (client: TableClient) => {
       await client.createTable().catch((error: unknown) => {
         const code =
@@ -780,14 +794,17 @@ export class AzureTablePrimaryStore {
       });
     };
 
-    await Promise.all(Object.values(this.clients).map((client) => createIfMissing(client)));
+    await Promise.all(Object.values(clients).map((client) => createIfMissing(client)));
   }
 
   private async ready(): Promise<void> {
-    await this.ensureTablesPromise;
+    await this.initialize();
   }
 
   private client(key: TableKey): TableClient {
+    if (!this.clients) {
+      throw new Error("Azure Table primary store is not initialized.");
+    }
     return this.clients[key];
   }
 
@@ -822,8 +839,13 @@ export class AzureTablePrimaryStore {
   }
 
   private async firstEntity<T extends Record<string, unknown>>(key: TableKey, filter?: string): Promise<TableEntityResult<T> | null> {
-    const entities = await this.listEntities<T>(key, filter);
-    return entities[0] ?? null;
+    await this.ready();
+    for await (const entity of this.client(key).listEntities<T>({
+      queryOptions: filter ? { filter } : undefined
+    })) {
+      return entity;
+    }
+    return null;
   }
 
   private async createEntity<T extends Record<string, unknown>>(
@@ -1585,9 +1607,18 @@ export class AzureTablePrimaryStore {
       lastSeenCountryCode: string | null;
       lastSeenRegionCode: string | null;
       lastSeenCity: string | null;
-    }>
+    }>,
+    expectedBillingVersion?: BillingEventVersion
   ): Promise<AzureTablePrimaryUser | null> {
     const current = await this.getEntity<Record<string, unknown>>("users", "user", userId);
+    if (expectedBillingVersion !== undefined) {
+      if (!current || !matchesBillingEventVersion(this.toUser(current), expectedBillingVersion)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
+      if (!current.etag || current.etag === "*") {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
     if (!current) {
       return null;
     }
@@ -1649,6 +1680,9 @@ export class AzureTablePrimaryStore {
 
     const success = await this.updateEntity("users", next, current.etag);
     if (!success) {
+      if (expectedBillingVersion !== undefined) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
       return this.findUserById(userId);
     }
     return this.toUser(next as TableEntityResult<Record<string, unknown>>);
@@ -1674,9 +1708,21 @@ export class AzureTablePrimaryStore {
       billingLastInvoiceEventAt?: Date | null;
       billingUpdatedAt?: Date | null;
       createdAt?: Date;
-    }
+    },
+    expectedBillingVersion?: BillingEventVersion | null
   ): Promise<AzureTablePrimarySandboxBillingAccount> {
     const current = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", input.userId);
+    if (expectedBillingVersion !== undefined) {
+      const matches = expectedBillingVersion === null
+        ? current === null
+        : current !== null && matchesBillingEventVersion(this.toSandboxBillingAccount(current), expectedBillingVersion);
+      if (!matches) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+      if (current && (!current.etag || current.etag === "*")) {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
     const createdAt = current ? parseRequiredDate(current.createdAt, "createdAt") : input.createdAt ?? new Date();
     const updatedAt = new Date();
     const entity: TableEntity<Record<string, unknown>> = {
@@ -1717,7 +1763,22 @@ export class AzureTablePrimaryStore {
       updatedAt: updatedAt.toISOString()
     };
 
-    await this.upsertEntity("sandboxBillingAccounts", entity);
+    if (expectedBillingVersion === undefined) {
+      await this.upsertEntity("sandboxBillingAccounts", entity);
+    } else if (current) {
+      if (!await this.updateEntity("sandboxBillingAccounts", entity, current.etag)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+    } else {
+      try {
+        await this.createEntity("sandboxBillingAccounts", entity);
+      } catch (error) {
+        if (isConflictError(error)) {
+          throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+        }
+        throw error;
+      }
+    }
     return this.toSandboxBillingAccount(entity as TableEntityResult<Record<string, unknown>>);
   }
 
@@ -2459,10 +2520,13 @@ export class AzureTablePrimaryStore {
       extractionSelectionRecordedAt: Date | null;
       updatedAt: Date;
     }>
-  ): Promise<AzureTablePrimaryItem | null> {
+  ): Promise<AzureTablePrimaryItem> {
     const current = await this.getEntity<Record<string, unknown>>("items", "item", itemId);
     if (!current) {
-      return null;
+      throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+    }
+    if (!current.etag || current.etag === "*") {
+      throw new AppError(errorCodes.STORAGE_FAILED, "The item version could not be verified. Please retry.", 503);
     }
     const updatedAt = input.updatedAt ?? new Date();
     const entity: TableEntity<Record<string, unknown>> = {
@@ -2505,9 +2569,17 @@ export class AzureTablePrimaryStore {
           : isoOrNull(input.extractionSelectionRecordedAt),
       updatedAt: updatedAt.toISOString()
     };
-    const success = await this.updateEntity("items", entity, current.etag);
-    if (!success) {
-      return this.findItemById(itemId);
+    try {
+      // The boolean helper discards the distinction between conflict and absence.
+      await this.client("items").updateEntity(entity, "Replace", { etag: current.etag });
+    } catch (error) {
+      if (isPreconditionError(error)) {
+        throw new AppError(errorCodes.ITEM_UPDATE_CONFLICT, "The item changed while it was being saved. Please retry.", 409);
+      }
+      if (isNotFoundError(error)) {
+        throw new AppError(errorCodes.ITEM_NOT_FOUND, "This item no longer exists.", 404);
+      }
+      throw error;
     }
     return this.toItem(entity as TableEntityResult<Record<string, unknown>>);
   }
@@ -3040,9 +3112,43 @@ export class AzureTablePrimaryStore {
     );
   }
 
-  async findChunkCacheByHash(hash: string): Promise<AzureTablePrimaryChunkCache | null> {
+  async listExpiredItemArtifacts(now: Date, limit = 1000): Promise<AzureTablePrimaryItemArtifact[]> {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error("Artifact expiry limit must be a positive integer.");
+    }
+    await this.ready();
+    const filter = `(PartitionKey eq 'artifact') and (expiresAt gt '') and (expiresAt le '${now.toISOString()}')`;
+    const results: AzureTablePrimaryItemArtifact[] = [];
+    for await (const row of this.client("itemArtifacts").listEntities({ queryOptions: { filter } })) {
+      results.push(this.toItemArtifact(row));
+      if (results.length === limit) break;
+    }
+    return results;
+  }
+
+  async deleteItemArtifact(itemId: string, kind: string): Promise<void> {
+    await this.deleteEntity("itemArtifacts", "artifact", `${itemId}::${kind}`);
+  }
+
+  async findChunkCacheByHash(hash: string): Promise<EntityWithEtag<AzureTablePrimaryChunkCache> | null> {
     const entity = await this.getEntity<Record<string, unknown>>("chunkCache", "chunk", hash);
-    return entity ? this.toChunkCache(entity) : null;
+    return entity ? { ...this.toChunkCache(entity), etag: entity.etag } : null;
+  }
+
+  async deleteChunkCacheIfUnchanged(hash: string, etag: string | undefined): Promise<boolean> {
+    if (!etag || etag === "*") {
+      throw new Error("An exact cache ETag is required for conditional deletion.");
+    }
+    await this.ready();
+    try {
+      await this.client("chunkCache").deleteEntity("chunk", hash, { etag });
+      return true;
+    } catch (error) {
+      if (isPreconditionError(error) || isNotFoundError(error)) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async createChunkCache(input: {
@@ -3186,6 +3292,25 @@ export class AzureTablePrimaryStore {
   async listAllEpisodes(): Promise<AzureTablePrimaryEpisode[]> {
     const rows = await this.listEntities<Record<string, unknown>>("episodes", filterEquals("PartitionKey", "episode"));
     return sortByDateDesc(rows.map((row) => this.toEpisode(row)), (entry) => entry.publishedAt);
+  }
+
+  async hasAudioReferences(paths: readonly string[]): Promise<boolean> {
+    if (paths.length === 0) {
+      throw new Error("Audio reference lookup requires at least one path.");
+    }
+    await this.ready();
+    const filter = paths.map((path) => `(${filterEquals("audioPath", path)})`).join(" or ");
+    const tables: TableKey[] = ["episodes", "digestEpisodes", "summaryEpisodes"];
+    for (const table of tables) {
+      for await (const row of this.client(table).listEntities({
+        queryOptions: { filter, select: ["RowKey"] }
+      })) {
+        if (row) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   async countEpisodes(): Promise<number> {

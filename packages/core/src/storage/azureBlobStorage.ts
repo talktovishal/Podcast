@@ -1,5 +1,6 @@
 import { BlobServiceClient } from "@azure/storage-blob";
 import type { ObjectRange, ObjectStorage, PutObjectOptions, StoredObjectHead } from "./types";
+import { isObjectNotFound } from "./objectExists";
 
 function normalizeKey(key: string): string {
   return key.replace(/^\/+/, "").replace(/\\/g, "/");
@@ -96,6 +97,12 @@ export class AzureBlobObjectStorage implements ObjectStorage {
   async deleteObject(key: string): Promise<void> {
     const normalizedKey = normalizeKey(key);
     const container = await this.getContainerClient();
-    await container.deleteBlob(normalizedKey).catch(() => undefined);
+    try {
+      await container.deleteBlob(normalizedKey);
+    } catch (error) {
+      if (!isObjectNotFound(error)) {
+        throw error;
+      }
+    }
   }
 }

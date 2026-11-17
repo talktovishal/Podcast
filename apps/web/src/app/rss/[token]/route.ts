@@ -11,6 +11,8 @@ import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primar
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
+import { deriveAlternateAudioPath, inspectFeedMedia } from "@/lib/rss-media";
+import { filterReadyItemEpisodes } from "@/lib/rss-item-eligibility";
 
 const FEED_ROUTE = "/rss/[token]";
 const FEED_HEADERS = {
@@ -82,18 +84,21 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
   const { user, tokenHash, repaired } = resolvedAccess;
 
   const now = new Date();
+  const primaryStore = webPrimaryStore;
   const episodes: MainFeedEpisode[] =
-    webUsesAzureTablePrimary() && webPrimaryStore
+    webUsesAzureTablePrimary() && primaryStore
       ? await (async () => {
-          const [episodeRows, itemRows, summaryEpisodes] = await Promise.all([
-            webPrimaryStore.listEpisodesForUser(user.id),
-            webPrimaryStore.listItemsByUser(user.id, 500),
-            webPrimaryStore.listSummaryEpisodesForUser(user.id)
+          const [episodeRows, summaryEpisodes] = await Promise.all([
+            primaryStore.listEpisodesForUser(user.id),
+            primaryStore.listSummaryEpisodesForUser(user.id)
           ]);
-          const readyItemIds = new Set(itemRows.filter((item) => item.status === "READY").map((item) => item.id));
+          const eligibleEpisodes = await filterReadyItemEpisodes(
+            episodeRows.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
+            user.id,
+            (id) => primaryStore.findItemById(id)
+          );
           return [
-            ...episodeRows
-              .filter((episode) => readyItemIds.has(episode.itemId) && isAudioAvailable(episode.expiresAt, now))
+            ...eligibleEpisodes
               .map((episode) => ({
                 id: episode.id,
                 itemId: episode.itemId,
@@ -180,8 +185,26 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
   let missingEpisodeCount = 0;
   let repairEnqueuedCount = 0;
 
+  let mediaHeads: Awaited<ReturnType<typeof inspectFeedMedia>>;
+  try {
+    mediaHeads = await inspectFeedMedia(episodes, storage);
+  } catch (error) {
+    await logger.error("Podcast feed storage checks failed; no media repair attempted", {
+      route: FEED_ROUTE,
+      user_id: user.id,
+      status: 503,
+      error_code: "STORAGE_UNAVAILABLE",
+      error_type: error instanceof Error ? error.name : "UnknownError",
+      storage_backend: storage.backend
+    });
+    return new NextResponse("Feed temporarily unavailable. Please retry.", {
+      status: 503,
+      headers: { "cache-control": "private, no-store", "retry-after": "60" }
+    });
+  }
+
   for (const episode of episodes) {
-    const exists = await storage.headObject(episode.audioPath).then(() => true).catch(() => false);
+    const exists = mediaHeads.get(episode.audioPath);
     if (exists) {
       availableEpisodes.push(episode);
       continue;
@@ -209,8 +232,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       episodeId: episode.id,
       userId: user.id,
       expectedAudioPath: episode.audioPath,
+      alternateHead: mediaHeads.get(deriveAlternateAudioPath(episode.audioPath) ?? "") ?? null,
       reason: "Audio file was missing and has been queued for regeneration."
-    }).catch(() => ({ enqueued: false as const, resolvedEpisode: undefined }));
+    }).catch(async (error: unknown) => {
+      await logger.error("Podcast feed media repair failed", {
+        route: FEED_ROUTE,
+        episode_id: episode.id,
+        error_type: error instanceof Error ? error.name : "UnknownError"
+      });
+      throw error;
+    });
 
     if (repair.resolvedEpisode) {
       availableEpisodes.push({

@@ -27,6 +27,7 @@ import {
   type UserDemographicSurveyView,
 } from "@/lib/demographics";
 import { mergeItemsPreservingEpisodeTokens } from "@/lib/dashboard-items";
+import { createDashboardRefresh } from "@/lib/dashboard-refresh";
 import {
   normalizeItemErrorMessage,
   recommendsChromeExtensionCapture,
@@ -347,6 +348,8 @@ export function DashboardClient({
   initialItems,
 }: Props) {
   const [items, setItems] = useState(initialItems);
+  const [itemRefresh] = useState(createDashboardRefresh);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [submissionQuota, setSubmissionQuota] = useState(
     initialSubmissionQuota,
   );
@@ -634,26 +637,41 @@ export function DashboardClient({
   );
 
   const refreshItems = useCallback(async () => {
-    const response = await fetch(
-      `/api/seed-demo?refresh=items&t=${Date.now()}`,
-      {
-        cache: "no-store",
+    await itemRefresh.run(
+      async (signal) => {
+        const response = await fetch(
+          `/api/seed-demo?refresh=items&t=${Date.now()}`,
+          { cache: "no-store", signal },
+        );
+        if (!response.ok) {
+          throw new Error(`Item refresh failed (${response.status}).`);
+        }
+        const payload: {
+          items: DashboardItem[];
+          extractionDiagnostics?: DemoExtractionDiagnostic[];
+        } = await response.json();
+        if (!Array.isArray(payload.items)) {
+          throw new Error("Item refresh returned an invalid response.");
+        }
+        return payload;
       },
+      (payload, isCurrent) => {
+        setItems((previous) =>
+          isCurrent() ? mergeItemsPreservingEpisodeTokens(previous, payload.items) : previous,
+        );
+        const diagnostics = payload.extractionDiagnostics;
+        if (isDemoAccount && Array.isArray(diagnostics)) {
+          setDemoDiagnostics((previous) => isCurrent() ? diagnostics : previous);
+        }
+        setRefreshError(null);
+      },
+      () => setRefreshError("Could not refresh items. Retrying automatically; reload or sign in again if this continues."),
     );
-    if (!response.ok) {
-      return;
-    }
-    const payload = (await response.json()) as {
-      items: DashboardItem[];
-      extractionDiagnostics?: DemoExtractionDiagnostic[];
-    };
-    setItems((previous) =>
-      mergeItemsPreservingEpisodeTokens(previous, payload.items),
-    );
-    if (isDemoAccount && Array.isArray(payload.extractionDiagnostics)) {
-      setDemoDiagnostics(payload.extractionDiagnostics);
-    }
-  }, [isDemoAccount]);
+  }, [isDemoAccount, itemRefresh]);
+
+  useEffect(() => {
+    return () => itemRefresh.invalidate();
+  }, [itemRefresh, readOnly, showItemsSection]);
 
   useEffect(() => {
     if (readOnly || !showItemsSection) {
@@ -794,6 +812,7 @@ export function DashboardClient({
             : "URL received. Processing has started and status will update automatically."),
       );
       setSubmissionQuota(json.submission_quota ?? null);
+      itemRefresh.invalidate();
       setUrlInput("");
       setTitleInput("");
       setImportanceInput("LOW");
@@ -840,6 +859,7 @@ export function DashboardClient({
             : "PDF uploaded. Processing has started and status will update automatically."),
       );
       setSubmissionQuota(json.submission_quota ?? null);
+      itemRefresh.invalidate();
       setPdfFile(null);
       setTitleInput("");
       setImportanceInput("LOW");
@@ -920,6 +940,7 @@ export function DashboardClient({
         return;
       }
 
+      itemRefresh.invalidate();
       setItems((previous) =>
         previous.map((current) =>
           current.id === item.id
@@ -970,6 +991,7 @@ export function DashboardClient({
         return;
       }
 
+      itemRefresh.invalidate();
       setItems((previous) =>
         previous.map((current) =>
           current.id === itemId ? { ...current, share: null } : current,
@@ -986,7 +1008,12 @@ export function DashboardClient({
   }
 
   async function retryItem(id: string) {
-    await fetch(`/api/items/${id}/retry`, { method: "POST" });
+    const response = await fetch(`/api/items/${id}/retry`, { method: "POST" });
+    if (!response.ok) {
+      setStatusMessage("Could not retry this item. Please try again.");
+      return;
+    }
+    itemRefresh.invalidate();
     await refreshItems();
   }
 
@@ -1059,6 +1086,7 @@ export function DashboardClient({
         return;
       }
       setSubmissionQuota(json.submission_quota ?? submissionQuota);
+      itemRefresh.invalidate();
       setStatusMessage(
         json.already_ready
           ? "TTS is already ready for this item."
@@ -1090,6 +1118,7 @@ export function DashboardClient({
         return;
       }
 
+      itemRefresh.invalidate();
       setItems((previous) =>
         previous.filter((current) => current.id !== item.id),
       );
@@ -2047,6 +2076,9 @@ export function DashboardClient({
 
       {statusMessage ? (
         <p className="text-sm text-[var(--muted)]">{statusMessage}</p>
+      ) : null}
+      {showItemsSection && refreshError ? (
+        <p role="status" className="text-sm text-rose-600">{refreshError}</p>
       ) : null}
       {showItemsSection && inProgressCount > 0 ? (
         <p className="rounded-lg border border-[#fce8b2] bg-[#fff6d9] px-3 py-2 text-sm text-[#6f5200]">

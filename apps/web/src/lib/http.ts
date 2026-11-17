@@ -1,4 +1,4 @@
-import { AppError, withLogContext } from "@articlepod/core";
+import { AppError, errorCodes, withLogContext } from "@articlepod/core";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { ZodError } from "zod";
@@ -42,7 +42,10 @@ export async function fromError(error: unknown, context?: { requestId?: string; 
         status: error.status
       })
     );
-    return fail(error.userMessage, error.status, error.code, supportId, error.status >= 500);
+    return fail(
+      error.userMessage, error.status, error.code, supportId,
+      error.status >= 500 || error.code === errorCodes.ITEM_UPDATE_CONFLICT
+    );
   }
 
   if (error instanceof ZodError) {

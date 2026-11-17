@@ -1,6 +1,248 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { AzureTablePrimaryStore } from "../src/metadata/azureTablePrimaryStore";
+import { TableClient } from "@azure/data-tables";
+import { AppError, errorCodes } from "../src/errors/codes";
+import { billingEventVersion } from "../src/metadata/billingEventVersion";
+
+test("first-match reads consume one result and close the iterator without draining 1000 matches", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  let closed = false;
+  t.mock.method(TableClient.prototype, "listEntities", (options?: { queryOptions?: { filter?: string } }) => {
+    assert.equal(options?.queryOptions?.filter, "(PartitionKey eq 'feed') and (tokenHash eq 'hash') and (active eq true)");
+    return Object.assign((async function* () {
+      try {
+        for (let i = 0; i < 1000; i++) {
+          rowsRead++;
+          yield {
+            partitionKey: "feed", rowKey: `token-${i}`, id: `token-${i}`,
+            userId: "user", tokenHash: "hash", active: true, createdAt: "2020-01-01T00:00:00Z"
+          };
+          assert.fail("first match must not request another result");
+        }
+      } finally {
+        closed = true;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  assert.equal((await store.findFeedTokenByHash("hash", "item"))?.id, "token-0");
+  assert.equal(rowsRead, 1);
+  assert.equal(closed, true);
+});
+
+test("first-match reads distinguish empty results from iteration failures", async (t) => {
+  const store = createStore();
+  const failure = new Error("metadata read unavailable");
+  let fail = false;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      if (fail) {
+        throw failure;
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal(await store.findFeedTokenByHash("hash", "item"), null);
+  fail = true;
+  await assert.rejects(store.findFeedTokenByHash("hash", "item"), (error) => error === failure);
+});
+
+test("ordering-sensitive token reads still drain candidates before choosing newest or oldest", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", () =>
+    Object.assign((async function* () {
+      for (const [id, createdAt] of [
+        ["middle", "2022-01-01T00:00:00Z"], ["newest", "2024-01-01T00:00:00Z"], ["oldest", "2020-01-01T00:00:00Z"]
+      ]) {
+        rowsRead++;
+        yield { partitionKey: "token", rowKey: id, id, userId: "user", tokenHash: "hash", active: true, createdAt };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } })
+  );
+  assert.equal((await store.findActiveFeedTokenByUserId("user", "item"))?.id, "newest");
+  assert.equal((await store.findShareTokenByUserIdAndScope("user", "read_only"))?.id, "oldest");
+  assert.equal(rowsRead, 6);
+});
+
+for (const sandbox of [false, true]) {
+  test(`billing updates reject a changed snapshot before writing (sandbox=${sandbox})`, async (t) => {
+    const store = createStore();
+    const current = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v2",
+      billingLastStripeEventId: "newer", billingLastSubscriptionEventAt: "2026-01-02T00:00:00.000Z"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    const expected = {
+      billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+      billingLastInvoiceEventAt: null, billingUpdatedAt: null
+    };
+    await assert.rejects(
+      sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", billingStatus: "CANCELED" }, expected)
+        : store.updateUser("user", { billingStatus: "CANCELED" }, expected),
+      (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+    );
+    assert.equal(write.mock.callCount(), 0);
+  });
+
+  test(`billing snapshots and exact ETags protect overlapping writers (sandbox=${sandbox})`, { timeout: 10_000 }, async (t) => {
+    const store = createStore();
+    let current: Record<string, unknown> = {
+      partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+      createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+    };
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    let release = () => {};
+    let entered = () => {};
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const reached = new Promise<void>((resolve) => { entered = resolve; });
+    t.mock.method(TableClient.prototype, "updateEntity", async (
+      entity: Record<string, unknown>, _mode: string, options?: { etag?: string }
+    ) => {
+      if (entity.billingLastStripeEventId === "old") {
+        entered();
+        await blocked;
+      }
+      assert.notEqual(options?.etag, "*");
+      if (options?.etag !== current.etag) throw { statusCode: 412 };
+      current = { ...entity, etag: "v2" };
+    });
+    const record = sandbox ? await store.findSandboxBillingAccountByUserId("user") : await store.findUserById("user");
+    assert.ok(record);
+    const expected = billingEventVersion(record);
+    const apply = (id: string, date: string) => {
+      const patch = { billingLastStripeEventId: id, billingLastSubscriptionEventAt: new Date(date) };
+      return sandbox
+        ? store.upsertSandboxBillingAccount({ userId: "user", ...patch }, expected)
+        : store.updateUser("user", patch, expected);
+    };
+    const old = apply("old", "2026-01-02T00:00:00.000Z");
+    const rejected = assert.rejects(old, (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+    try {
+      await reached;
+      await apply("new", "2026-01-03T00:00:00.000Z");
+    } finally {
+      release();
+    }
+    await rejected;
+    assert.equal(current.billingLastStripeEventId, "new");
+    assert.equal(current.billingLastSubscriptionEventAt, "2026-01-03T00:00:00.000Z");
+  });
+
+  for (const statusCode of [404, 412, 503]) {
+    test(`billing conditional write surfaces SDK failure ${statusCode} (sandbox=${sandbox})`, async (t) => {
+      const store = createStore();
+      t.mock.method(TableClient.prototype, "getEntity", async () => ({
+        partitionKey: sandbox ? "sandboxBilling" : "user", rowKey: "user", email: "billing@example.test", role: "USER",
+        createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", etag: "v1"
+      }));
+      const failure = { statusCode };
+      t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+      const expected = {
+        billingLastStripeEventId: null, billingLastSubscriptionEventAt: null,
+        billingLastInvoiceEventAt: null, billingUpdatedAt: null
+      };
+      await assert.rejects(
+        sandbox ? store.upsertSandboxBillingAccount({ userId: "user" }, expected) : store.updateUser("user", {}, expected),
+        (error) => statusCode === 503
+          ? error === failure
+          : error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT
+      );
+    });
+  }
+}
+
+test("sandbox first-event creation is conditional, never an overwriting upsert", async (t) => {
+  const store = createStore();
+  t.mock.method(TableClient.prototype, "getEntity", async () => { throw { statusCode: 404 }; });
+  t.mock.method(TableClient.prototype, "createEntity", async () => { throw { statusCode: 409 }; });
+  const upsert = t.mock.method(TableClient.prototype, "upsertEntity", async () => {});
+  await assert.rejects(store.upsertSandboxBillingAccount({ userId: "user" }, null),
+    (error) => error instanceof AppError && error.code === errorCodes.BILLING_UPDATE_CONFLICT);
+  assert.equal(upsert.mock.callCount(), 0);
+});
+
+for (const statusCode of [404, 412, 403, 429, 503]) {
+  test(`required item updates reject SDK write failures without rereading or retrying (${statusCode})`, async (t) => {
+    const store = createStore();
+    const current = { partitionKey: "item", rowKey: "item", status: "PROCESSING", etag: "version-1" };
+    const read = t.mock.method(TableClient.prototype, "getEntity", async () => ({ ...current }));
+    const failure = { statusCode };
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => { throw failure; });
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404 || statusCode === 412) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, statusCode === 404 ? errorCodes.ITEM_NOT_FOUND : errorCodes.ITEM_UPDATE_CONFLICT);
+        assert.equal(error.status, statusCode === 404 ? 404 : 409);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(read.mock.callCount(), 1);
+    assert.equal(write.mock.callCount(), 1);
+    assert.deepEqual(write.mock.calls[0].arguments.slice(1), ["Replace", { etag: "version-1" }]);
+    assert.equal(current.status, "PROCESSING");
+  });
+}
+
+for (const statusCode of [404, 503]) {
+  test(`required item updates reject failed initial reads (${statusCode})`, async (t) => {
+    const store = createStore();
+    const failure = { statusCode };
+    t.mock.method(TableClient.prototype, "getEntity", async () => { throw failure; });
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      if (statusCode === 404) {
+        assert.ok(error instanceof AppError);
+        assert.equal(error.code, errorCodes.ITEM_NOT_FOUND);
+      } else {
+        assert.equal(error, failure);
+      }
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
+
+for (const etag of [undefined, "", "*"]) {
+  test(`required item updates reject an unverified version (${String(etag)})`, async (t) => {
+    const store = createStore();
+    t.mock.method(TableClient.prototype, "getEntity", async () => ({
+      partitionKey: "item", rowKey: "item", status: "PROCESSING", etag
+    }));
+    const write = t.mock.method(TableClient.prototype, "updateEntity", async () => {});
+    await assert.rejects(store.updateItem("item", { status: "READY" }), (error) => {
+      assert.ok(error instanceof AppError);
+      assert.equal(error.code, errorCodes.STORAGE_FAILED);
+      return true;
+    });
+    assert.equal(write.mock.callCount(), 0);
+  });
+}
+
+test("cache deletion uses the observed ETag and surfaces outages", async (t) => {
+  const store = createStore();
+  const calls: unknown[][] = [];
+  const mock = t.mock.method(TableClient.prototype, "deleteEntity", async (...args: unknown[]) => {
+    calls.push(args);
+  });
+  assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), true);
+  assert.deepEqual(calls, [["chunk", "cache-hash", { etag: "version-1" }]]);
+  for (const etag of [undefined, "*", ""]) {
+    await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", etag), /exact cache ETag/);
+  }
+  for (const statusCode of [404, 412]) {
+    mock.mock.mockImplementation(async () => { throw { statusCode }; });
+    assert.equal(await store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), false);
+  }
+  const error = { statusCode: 503 };
+  mock.mock.mockImplementation(async () => { throw error; });
+  await assert.rejects(store.deleteChunkCacheIfUnchanged("cache-hash", "version-1"), (caught) => caught === error);
+});
 
 function createStore(): AzureTablePrimaryStore {
   return new AzureTablePrimaryStore({
@@ -9,6 +251,62 @@ function createStore(): AzureTablePrimaryStore {
     createTablesIfMissing: false
   });
 }
+
+for (const matchingTable of [0, 1, 2, -1]) {
+  test(`audio reference lookup checks all episode kinds and stops at first match (${matchingTable})`, async (t) => {
+    const store = createStore();
+    let calls = 0;
+    t.mock.method(TableClient.prototype, "listEntities", function (
+      options?: { queryOptions?: { filter?: string; select?: string[] } }
+    ) {
+      const table = calls++;
+      assert.match(options?.queryOptions?.filter ?? "", /audioPath eq 'items\/a''b\/episode.mp3'/);
+      assert.deepEqual(options?.queryOptions?.select, ["RowKey"]);
+      return Object.assign((async function* () {
+        if (table === matchingTable) {
+          yield { partitionKey: "episode", rowKey: "referenced" };
+          assert.fail("reference lookup must not drain further results");
+        }
+      })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+    });
+    assert.equal(await store.hasAudioReferences(["items/a'b/episode.mp3"]), matchingTable !== -1);
+    assert.equal(calls, matchingTable === -1 ? 3 : matchingTable + 1);
+  });
+}
+
+test("audio reference lookup fails closed on metadata outages", async (t) => {
+  const store = createStore();
+  const failure = new Error("table unavailable");
+  t.mock.method(TableClient.prototype, "listEntities", () => {
+    throw failure;
+  });
+  await assert.rejects(store.hasAudioReferences(["items/a/episode.mp3"]), (error) => error === failure);
+  await assert.rejects(store.hasAudioReferences([]), /at least one path/);
+});
+
+test("artifact expiry is filtered, bounded and deletes by the actual item/kind row key", async (t) => {
+  const store = createStore();
+  let rowsRead = 0;
+  t.mock.method(TableClient.prototype, "listEntities", function (options?: { queryOptions?: { filter?: string } }) {
+    assert.match(options?.queryOptions?.filter ?? "", /expiresAt le '2020-01-01T00:00:00.000Z'/);
+    return Object.assign((async function* () {
+      for (let i = 0; i < 3; i++) {
+        rowsRead++;
+        yield {
+          partitionKey: "artifact", rowKey: `item::EPISODE_AUDIO_${i}`, id: `artifact-${i}`,
+          itemId: "item", kind: `EPISODE_AUDIO_${i}`, storageKey: `items/item/${i}.mp3`,
+          byteLength: 3, contentType: "audio/mpeg", createdAt: "2018-01-01T00:00:00Z", expiresAt: "2019-01-01T00:00:00Z"
+        };
+      }
+    })(), { byPage: async function* () { assert.fail("unexpected page iteration"); } });
+  });
+  const rows = await store.listExpiredItemArtifacts(new Date("2020-01-01T00:00:00Z"), 2);
+  assert.equal(rows.length, 2);
+  assert.equal(rowsRead, 2);
+  const deletion = t.mock.method(TableClient.prototype, "deleteEntity", async () => {});
+  await store.deleteItemArtifact(rows[0].itemId, rows[0].kind);
+  assert.deepEqual(deletion.mock.calls[0].arguments, ["artifact", "item::EPISODE_AUDIO_0"]);
+});
 
 test("listPendingDigestSchedulerTicks filters null processedAt client-side", async () => {
   const store = createStore();
@@ -156,15 +454,11 @@ test("findItemById defaults missing tagsJson to empty tags", async () => {
   assert.deepEqual(item?.tags, []);
 });
 
-test("updateItem writes serialized tagsJson when tags change", async () => {
+test("updateItem writes serialized tagsJson when tags change", async (t) => {
   const store = createStore();
   let updatedEntity: Record<string, unknown> | undefined;
 
-  (
-    store as unknown as {
-      getEntity: (key: string, partitionKey: string, rowKey: string) => Promise<Record<string, unknown> | null>;
-    }
-  ).getEntity = async () => ({
+  t.mock.method(TableClient.prototype, "getEntity", async () => ({
     partitionKey: "item",
     rowKey: "item-3",
     userId: "user-3",
@@ -180,16 +474,15 @@ test("updateItem writes serialized tagsJson when tags change", async () => {
     createdAt: "2026-03-25T09:00:00.000Z",
     updatedAt: "2026-03-25T09:00:00.000Z",
     etag: "etag-1"
-  });
+  }));
 
-  (
-    store as unknown as {
-      updateEntity: (key: string, entity: Record<string, unknown>, etag?: string) => Promise<boolean>;
-    }
-  ).updateEntity = async (_key, entity) => {
+  t.mock.method(TableClient.prototype, "updateEntity", async (
+    entity: Record<string, unknown>, mode?: string, options?: { etag?: string }
+  ) => {
     updatedEntity = entity;
-    return true;
-  };
+    assert.equal(mode, "Replace");
+    assert.deepEqual(options, { etag: "etag-1" });
+  });
 
   const item = await store.updateItem("item-3", {
     priority: "HIGH",

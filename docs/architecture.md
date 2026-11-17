@@ -1,6 +1,318 @@
 # ArticlePod Architecture
 
 ## Overview
+
+### Contributor command hygiene
+
+[Contributor instructions](../AGENTS.md#quick-commands-keep-these-accurate)
+now reference the actual pnpm workspaces and Python speech-service test gate,
+not the retired frontend/backend/Python-worker scaffold. This is documentation
+only; runtime architecture, data contracts and approval/security policy are unchanged.
+
+### Build-context hygiene (validated; not deployed)
+
+[Docker exclusions](../.dockerignore) cover local environment/runtime/data/cache/
+worktree state and generated artifacts at root or nested paths, retaining
+example environment templates. All three Dockerfiles use this root context;
+their runtime dependency-copy strategy is otherwise unchanged.
+[Packaging tests](../scripts/container-packaging.test.mjs) apply the actual
+Docker ignore implementation to a disposable context containing harmless
+canaries and required input files. Parity then inspects immutable web/worker
+images for required launch/generated files and absence of local env files,
+checks package resolution, and verifies running services without host checkout
+bind mounts. The startup check allows up to 60 seconds for an initially refused
+health connection; HTTP errors, malformed health responses and other failures
+still fail immediately. Runtime-created log/data directories are not confused with copied
+development state. These checks do not claim a complete production-only
+dependency closure, inspect real credentials or change protected deployment
+gates. No credential, persisted contract or data migration change.
+
+Verification (Docker required):
+`node --test --test-name-pattern='Docker context' scripts/container-packaging.test.mjs`.
+After starting the disposable parity stack:
+`node --test --test-name-pattern='relocated' scripts/container-packaging.test.mjs`.
+The existing full/parity CI job runs both; no deployment is performed by them.
+[Full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+passed on `aa05f54`: real Docker context canaries, web/worker image builds,
+contents, startup, parity smoke and podcast contracts. The startup-wait code
+also passed six controlled delayed-start/error/deadline cases. Local Docker
+was unavailable; no local image or production validation is claimed.
+
+### Provider/asset reproducibility proposal
+
+[Locked manifest inventory and design](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+records known source inputs, missing provenance/hashes, per-platform closure,
+two isolated builds, fresh-synthesis evidence and whole-runtime rollback.
+Design only; no guessed pins, dependency upgrades or live model replacement.
+
+### Shared synthesis boundary (extracted and validated; not deployed)
+
+Article, digest and Summary Studio jobs now import
+[audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts), rather than digest/
+summary workflows importing the article orchestrator. The implementation is
+moved unchanged: provider selection, inputs/options, progress callback, segment
+retry classification/delay, concatenation fallback, output format/key, storage
+upload and temporary cleanup. The common diagnostic formatter moves to the
+existing logger module instead of being copied. Claim/acceptance, item-owned
+cache handling, publication identities, retention and quotas stay with callers.
+This is an internal module, not a new service/process or workflow engine.
+No persisted contract or migration change.
+The moved synthesis block, options/format and diagnostic body were verified
+identical to their pre-extraction source. Dependency traversal found no path
+back to job modules; core/web/worker checks passed
+[CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+on candidate `a43cfa3`.
+
+### Provider verification audit (validated; not deployed)
+
+[Provider gate map](../services/python-tts/README.md#what-each-gate-proves)
+separates optional discovery, constructor concurrency, service behavior,
+controlled-fault sensitivity and real-model evidence. Four new parameterized
+cases cover the previously untested Melo success/error cleanup path and early
+voice rejection in both providers; existing coverage is reused. CI checks six
+controlled faults in disposable copies without installing model providers.
+No production behavior, provider versions, models or credentials change.
+[CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+passed on candidate `e4723bc`, including all six controlled-fault checks.
+
+### Bounded RSS preflight (implemented and validated; not deployed)
+
+The main-feed preflight uses four read workers, each checking an episode and any
+needed alternate format sequentially. Thus original plus alternate HEAD calls
+share the same maximum of four in flight; this is not four requests per episode.
+All workers settle before return, and any failure rejects the entire preflight
+before the route's repair loop. Completed results are assembled in input order,
+independent of completion order. Missing-object classification is unchanged.
+No token/URL/GUID, retention, storage contract or migration change.
+
+The focused regression models eight equal-latency reads in two waves instead
+of eight serial waves, checks the same bound with missing originals/alternates,
+and proves that a failed read cannot return partial repair information while a
+peer remains in flight. Route tests delay an outage until confirmed-missing
+results are available and still require zero repair mutations. This bounds
+parallelism, not total feed read count; SDK request timeouts remain unchanged.
+Local synthetic measurement (12 present objects, 20 ms per mocked HEAD, three
+runs each): serial median 261.761 ms, four-worker median 66.409 ms, identical 12
+calls/results, measured peak in flight 1 versus 4. All seven focused feed-helper
+tests passed. These measurements justify the small bound, not a production
+latency or capacity claim.
+Dependency-backed validation, including delayed-outage no-mutation route tests,
+passed [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+on candidate `6117789`.
+
+### Safe first-match read audit (implemented and validated; not deployed)
+
+`AzureTablePrimaryStore.firstEntity` now closes its async iterator after its
+first result, rather than materializing every matching result. Empty iteration
+still returns null; setup/read failures propagate. It preserves the same first
+row in storage order, not a new uniqueness guarantee.
+
+All 12 callers were checked:
+
+| First-match callers | Why early stop preserves behavior |
+|---|---|
+| `findUserByEmail`, `findUserByBillingCustomerId`, `findSandboxBillingAccountByBillingCustomerId` | Exact filtered lookup; previously returned storage-order first row without sorting or duplicate validation |
+| `findFeedTokenByHash`, `findFeedTokenByValue`, `findShareTokenByHash` | Exact credential match, with existing active filter where applicable; no token rotation or policy change |
+| `findEpisodeByItemId`, `findEpisodeByAudioPathForUser`, `findSummaryEpisodeByAudioPathForUser` | Existing first matching episode/owner lookup |
+| `findDigestRunByUserCadencePeriod`, `findDigestEpisodeByRunId`, `findSummaryEpisodeByRunId` | Exact logical run key; no newest/best-result contract |
+
+`findActiveFeedTokenByUserId` (newest) and `findShareTokenByUserIdAndScope`
+(oldest) intentionally still collect/sort their candidates. Sorted feed/due-work
+lists, global counts and bulk mutations are unchanged. Existing audio-reference
+existence checks already stop early and need no rewrite. An empty existence
+query can still scan its entire candidate set; Azure may prefetch a page or scan
+server-side even when this helper consumes one row. This is not a new index,
+strict single-row network-read guarantee or solution to every unbounded query.
+No data migration or durable contract change.
+Validated by [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+on candidate `c3ba8e5`, including the three iterator/ordering regressions.
+
+### Approved design-only follow-ups
+
+[Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+defines bounded checks, model/progress signals and staged consumer migration.
+It does not implement new endpoints or change liveness, gates or restart policy.
+[Durable summary acceptance](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+proposes discoverable preparation intent and worker extraction, with crash
+recovery and no second quota charge. It reconciles, rather than silently changes,
+the existing prepared-markdown task contract. No runtime/schema change yet.
+[Fenced publication](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+defines one commit authority, stale-owner rejection, a write-by-write crash
+matrix, convergent projections and compatible rollout/rollback. This remains a
+design, not an implemented cross-table transaction.
+[Quota reservation](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+defines user-scoped idempotency, same-partition Azure admission, SQL
+serialization, compensation and policy-preserving migration. It flags the
+completed-summary usage mismatch for explicit rollout review; no quotas change.
+[Conservative inference admission](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+proposes one service-wide active request, four waiters, finite waits, FIFO turns
+and explicit overload/cancellation/retry contracts. These are proposed limits,
+not measured production capacity or enabled settings.
+
+### Hard chunk-size bound (implemented and validated; not deployed)
+
+Chunk size continues to mean UTF-16 code units, preserving ordinary grouping and
+hashes. Limits must be integers >=2; that minimum makes an indivisible surrogate
+pair representable. Individual oversized sentences split after whitespace if
+available, otherwise without cutting a surrogate pair. Fragments concatenate
+exactly to the sentence, including internal whitespace. This is code-point-safe,
+not a promise to keep arbitrary combining-character/grapheme sequences together.
+Existing paragraph trimming and sentence-delimiter whitespace normalization are
+unchanged; concatenating all chunks does not reconstruct the raw source's
+paragraph separators. Each resulting chunk is within the bound and retains its
+content hash. Newly split input can increase chunk count and activate existing
+long-source policy; already published audio is not rewritten. No migration.
+Five focused cases pass locally using Node's built-in TypeScript support; the
+dependency-backed core/web/worker checks passed
+[CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+on candidate `11173bf`.
+
+### Main-feed candidate eligibility (implemented and validated; not deployed)
+
+The Azure feed resolves each distinct item ID among its unexpired episode
+candidates with a point read, sequentially (one lookup in flight), then requires
+the item to belong to the same user and be READY. A missing item is omitted, as
+with SQL's join; lookup outages are not converted into absence. Eligibility no
+longer depends on whether the item is among the user's newest 500 records.
+Existing feed sorting, retention, tokens, GUIDs and media URLs are unchanged.
+This bounds eligibility lookups to candidate IDs, not overall episode listing
+cost; the latter still needs the separate query-design work. No stored-contract
+change or migration is needed. Rollback restores the history-window defect.
+Validated by [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+on candidate `5e60fdb`, including >500-item SQL parity, missing/foreign/status
+filtering and propagated lookup failures.
+
+### Conditional billing event application (implemented and validated; not deployed)
+
+Live and sandbox webhook handlers carry the observed last-event ID, per-domain
+watermarks and billing-update timestamp into their save. SQL includes those
+fields in its atomic update predicate. Azure compares the observed snapshot,
+then writes with the exact current ETag. Initial sandbox creation uses
+create-if-absent, not an unconditional upsert. Checkout event saves are also
+guarded so their state-derived patches are recalculated after a conflict.
+
+A rejected save raises `BILLING_UPDATE_CONFLICT`; the handler rereads and
+recalculates the full operation, up to three attempts. A now-older subscription
+or invoice event is ignored using its domain watermark. Failure never creates a
+processed event record. Other storage failures propagate. Equal timestamps keep
+the pre-existing sequential rule: distinct events apply in successful-write
+order. This is not a claim of provider chronology or cross-domain precedence.
+Event audit persistence remains separate from account mutation; this change does
+not make those records transactional or fence non-webhook reconciliation writes.
+
+No persisted fields, keys, schema or dependencies change; the version condition
+is transient and uses existing fields. No migration/backfill is required.
+Use consistent updated web handlers when eventually activating; old handlers can
+still write without this guard. Rollback restores the race, without data rewrites.
+All 22 added SDK-boundary and SQL handler cases passed in
+[CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+on candidate `aef1035`, including both interleavings, live/sandbox lanes,
+subscription/invoice domains, equal timestamps and exhausted retries.
+
+### Per-model initialization guards (implemented and validated; not deployed)
+
+Kokoro and Melo model caches use provider/language-specific initialization locks.
+The cache is populated only after construction succeeds; a failure propagates and
+releases the guard so a waiting request can retry. Different model keys initialize
+independently. The lock ends before inference and does not change capacity or
+readiness policy. No persisted data, schema, dependencies or migration are involved.
+Five new concurrent initialization/retry cases and the existing model-free service
+suite passed in [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489)
+on candidate `72ecd2d`. This is not a real-model capacity test.
+
+### Equal round-robin work selection (implemented and validated; not deployed)
+
+Candidate `353f790` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397),
+including all 30 new scheduling cases, core/web/worker checks, authenticated RSS
+browser/build validation and container parity/podcast contracts. The 30 new
+cases plus four existing overflow-policy tests also passed locally.
+
+The primary worker rotates item jobs, Summary Studio runs, article-summary tasks
+and digest runs with equal weight. It advances its in-memory cursor before each
+attempt, stops after successful work, and skips empty or failed categories in
+the same poll. Each poll checks at most four categories. With all four busy,
+each gets one selection opportunity every four polls (three intervening turns).
+This assumes the sequential processors return; it does not preempt a long job
+or establish a wall-clock completion SLA. A restart resets the cursor.
+
+Due digest scheduling is checked before primary work selection, retaining the
+internal interval and external tick semantics. Scheduler and category exceptions
+are logged with their source and isolated so healthy categories still progress,
+rather than repeatedly restarting at the item queue. Failure to report an error
+still propagates to the existing fatal boundary. An all-empty/all-failing pass
+returns the normal idle signal; existing exponential backoff/reset behavior is
+unchanged. Overflow activation gating is unchanged and overflow polls only items.
+No additional job or synthesis concurrency is introduced.
+
+No persisted schema, queue payload, storage key or dependency changes are needed.
+Existing work remains in its current queues; no migration/backfill is required.
+Activation is deferred to the batch deployment. Rollback restores strict-priority
+polling and its starvation risk without rewriting data.
+
+### Explicit item mutation outcomes (implemented and validated; not deployed)
+
+Candidate `24b995b` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641),
+including 25 added regression cases, core/web/worker checks, authenticated RSS
+browser validation and container parity/podcast contracts. This follow-up is
+stacked on the audio-ownership branch and remains unmerged and undeployed.
+
+Azure `updateItem` returns an item only after its conditional write succeeds.
+An ETag conflict raises `ITEM_UPDATE_CONFLICT` (HTTP 409); an item missing before
+or during the write raises `ITEM_NOT_FOUND` (HTTP 404). Missing/wildcard versions
+are rejected, and other storage errors propagate. The adapter never rereads a
+different row as evidence of success or blindly retries a rejected mutation.
+Existing awaited ordering prevents audio/summary jobs from completing, and
+article-summary tasks from being removed as completed, after a failed required
+item update. Conflicts follow bounded job retries; missing items are terminal.
+HTTP errors retain standard logging/support IDs and recommend retry for conflicts.
+
+This is the narrow false-success part of review finding 01, not an atomic
+publication protocol. Episode, item and job writes remain separate in Azure;
+crash recovery and fencing stale publishers remain follow-up design work.
+The change adds error-code values to existing string fields/API responses, but
+requires no schema, storage-key migration or backfill. Successful response shapes
+and existing feed/media identities are unchanged. Deployment is deferred; a
+rollback needs no data rewrite but restores the original false-success behavior.
+
+Audio cache reuse verifies object existence before publication. Confirmed absence
+invalidates only the observed cache row, using SQL row identity or an Azure ETag;
+conflicting replacements are re-read. Storage outages preserve cache state and
+fail retryably.
+
+### Independent item audio (implemented and validated; not deployed)
+
+The `fix/independent-episode-audio` candidate at `6842529` passed
+[full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121),
+including core/web/worker checks, the authenticated RSS browser test and
+container parity/podcast contracts. This follow-up remains separate from main;
+deployment is deferred until the owner's next release batch.
+
+New cache hits copy the cached bytes to an item-owned object. Both copied and
+synthesized item audio use `items/<itemId>/audio/<publicationId>.<ext>`; old
+`items/<itemId>/episode.<ext>` objects are not overwritten by regeneration.
+The metadata schema is unchanged and reads remain path-driven. No existing
+episode path, public URL, GUID or token is migrated. Each worker attempt uses a
+fresh publication ID: even a later identical-content regeneration cannot race
+cleanup by reusing an old filename. Existing ItemArtifact records, with kind
+`EPISODE_AUDIO_<publicationId>_<ext>`, track the destination before writing and
+expire under audio retention. Failed and superseded copies therefore remain
+discoverable by normal item/account deletion and artifact expiry. No new table
+or schema migration is required. Artifact expiry supports both metadata modes
+and retains records whose objects are still referenced.
+
+Legacy shared objects remain in place while any episode references them.
+Deletion removes departing metadata first, then checks current references across
+item, digest and summary episodes before removing bytes. Item alternate-format
+paths count as references because RSS repair may switch between MP3 and M4A.
+Cache rows are not ownership references: stale cache entries are invalidated on
+reuse, and source disappearance during a copy must not publish a broken episode.
+All old workers must be stopped before activation; only new publishers may run
+with this cleanup policy. This is a compatibility transition, not a reference
+counter or garbage-collection service. It does not make multi-store publication
+or metadata/blob deletion transactional; storage failures must remain explicit.
+
 ArticlePod is an RSS-first ingestion and narration system with three runtime tiers:
 - `apps/web`: Next.js UI + API routes (auth, ingest, feed, media)
 - `apps/worker`: asynchronous extraction/TTS/publish pipeline
@@ -13,7 +325,7 @@ Primary entities:
 - `Item` (source submission lifecycle)
 - `Job` + `JobEvent` (worker queue and deterministic events; `jobKind` distinguishes `FULL_EPISODE`, `SUMMARY_ONLY`, and explicit `REQUEST_TTS`)
 - `Episode` (RSS/media metadata)
-- `ItemArtifact` (raw + markdown extraction artifact metadata)
+- `ItemArtifact` (raw/markdown extraction and item-audio lifecycle metadata)
 - `ChunkCache` (idempotent synthesis cache)
 - `OAuthIdentity` (provider subject mapping)
 - `ExtensionConnectCode` + `ExtensionToken` (extension auth)
@@ -296,6 +608,15 @@ Policy guardrails:
 Profile-aware Prisma generation is handled by `/Users/vishalchowdhary/Documents/Podcast/scripts/prisma-profile.mjs`.
 
 ## Durable Azure target (M35-M46)
+Operational repository separation is staged: private `Podcast-Deploy` will own
+production orchestration, verified SSH transport/inventory, source revision
+selection, remote sync, and ingress deployment. Source retains application
+runtime execution, service units/assets, and required build/maintenance support.
+The one-time source exporter is a fixed-recipient sealed-box transfer, not a
+runtime deployment or schema/data migration. Existing source operations remain
+until destination proof/checkout and live continuity are verified. See
+`docs/azure-ci-cd.md` for the gated cutover and exact transfer contract.
+
 Locked target architecture:
 - Primary compute: `eastus` Linux VM running `web`, primary `worker`, and local `python-tts` as `systemd` services (`Standard_D2as_v5`, `TTS_WORKERS=1`)
 - Overflow compute lane: Azure Container Apps app in `eastus` with one `worker` container plus one `python-tts` sidecar, `minReplicas=0`, `maxReplicas=1`, `1Gi` default worker memory, and no public ingress

@@ -64,6 +64,8 @@ const LICENSE_PATTERNS = [
   /^scripts\/license-check\.mjs$/
 ];
 const PARITY_PATTERNS = [
+  /^\.dockerignore$/,
+  /^scripts\/container-packaging\.test\.mjs$/,
   /^docker-compose\.parity\.yml$/,
   /^Dockerfile\.web$/,
   /^Dockerfile\.worker$/,
@@ -127,6 +129,7 @@ export function computeScope(changedFiles) {
     run_core: runSimple && coreChanged,
     run_web: runSimple && webChanged,
     run_worker: runSimple && workerChanged,
+    run_python_tts: runSimple && (broadChange || files.some((filePath) => /^services\/python-tts\//.test(filePath))),
     run_testing: runSimple && testingChanged,
     run_observability: runSimple && observabilityChanged,
     run_export: runSimple && webRuntimeChanged,
@@ -215,6 +218,9 @@ function determineRefs(options) {
 }
 
 function resolveChangedFiles(options) {
+  if (process.env.GITHUB_EVENT_NAME === "workflow_dispatch" && !options.base && !options.head) {
+    return uniqueSorted(runGit(["ls-files"]).split("\n"));
+  }
   const { base, head } = determineRefs(options);
   const changedFiles = [];
 

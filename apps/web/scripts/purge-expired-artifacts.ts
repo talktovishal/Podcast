@@ -1,31 +1,12 @@
 import { prisma } from "../src/lib/prisma";
-import { getArtifactStorage } from "../src/lib/storage";
+import { purgeExpiredItemArtifacts } from "../src/lib/audio-ownership";
 import { purgeExpiredAudioEpisodes } from "../src/lib/audio-retention-purge";
 
 async function main() {
   const now = new Date();
-  const storage = getArtifactStorage();
 
-  const expiredArtifacts = await prisma.itemArtifact.findMany({
-    where: {
-      expiresAt: {
-        lt: now
-      }
-    },
-    take: 1000
-  });
-
-  for (const artifact of expiredArtifacts) {
-    await storage.deleteObject(artifact.storageKey).catch(() => undefined);
-  }
-
-  await prisma.itemArtifact.deleteMany({
-    where: {
-      id: {
-        in: expiredArtifacts.map((artifact) => artifact.id)
-      }
-    }
-  });
+  const audioPurge = await purgeExpiredAudioEpisodes(now);
+  const expiredArtifactCount = await purgeExpiredItemArtifacts(now);
 
   const connectCodePurge = await prisma.extensionConnectCode.deleteMany({
     where: {
@@ -37,10 +18,9 @@ async function main() {
       OR: [{ revokedAt: { not: null } }, { expiresAt: { lt: now } }]
     }
   });
-  const audioPurge = await purgeExpiredAudioEpisodes(now);
 
   console.log(
-    `[artifacts:purge] removed ${expiredArtifacts.length} expired artifacts, ${audioPurge.itemEpisodesPurged} item episodes, ${audioPurge.digestEpisodesPurged} digest episodes, ${audioPurge.summaryEpisodesPurged} summary episodes, ${connectCodePurge.count} connect codes, ${extensionTokenPurge.count} extension tokens`
+    `[artifacts:purge] removed ${expiredArtifactCount} expired artifacts, ${audioPurge.itemEpisodesPurged} item episodes, ${audioPurge.digestEpisodesPurged} digest episodes, ${audioPurge.summaryEpisodesPurged} summary episodes, ${connectCodePurge.count} connect codes, ${extensionTokenPurge.count} extension tokens`
   );
 }
 

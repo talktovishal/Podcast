@@ -32,6 +32,24 @@ Latest verified production state:
 
 ## Prerequisites (local)
 
+Key Vault migration is not active. Default deployment remains the guarded legacy
+environment path. Explicit vault mode and **Deploy to Azure (Key Vault)** support
+routine deployment only after initial migration: protected VM configuration and
+unit routing must already exist, host pins must be independently verified, and
+configured service references must resolve before sync. Builds/readiness use
+public settings; application and operational processes use pinned service maps.
+Vault mode requires disabled startup bootstrap and `DEPLOY_DEMO_SEED_MODE=never`,
+refuses local `.env` files, and cannot render/upload configuration, reconfigure
+ingress, or bootstrap a new VM. Promotion preserves excluded runtime data.
+Maintenance/journald changes and legacy-tree cleanup are separate operations.
+The new workflow uses separately named deployment SSH credentials; retire the
+old key and secret copies only after the replacement works.
+
+The version-preserving initial bootstrap, account/provider rotation, and live
+consumer cutover remain pending. Do not use routine application deployment as a
+bootstrap shortcut or bypass the legacy guard against overwriting vault mode. See
+[`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated).
+
 From repo root:
 
 ```bash

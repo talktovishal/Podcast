@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from _thread import LockType
 import hmac
-import importlib.util
 import io
 import json
 import logging
@@ -21,6 +21,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
+
+from .provider_discovery import optional_module_available
 
 app = FastAPI(title="ArticlePod Python TTS")
 
@@ -367,6 +369,8 @@ MELO_ENGLISH_VOICES = [
 
 _kokoro_pipelines: Dict[str, Any] = {}
 _melo_models: Dict[str, Any] = {}
+_MODEL_INIT_LOCKS: Dict[tuple[str, str], LockType] = {}
+_MODEL_INIT_LOCKS_GUARD = threading.Lock()
 NLTK_RESOURCE_PATHS = {
     "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng",
     "cmudict": "corpora/cmudict",
@@ -374,10 +378,10 @@ NLTK_RESOURCE_PATHS = {
 
 
 def _kokoro_health() -> ProviderHealth:
-    if importlib.util.find_spec("kokoro") is None:
+    if not optional_module_available("kokoro"):
         return ProviderHealth(available=False, reason="kokoro package is not installed.")
 
-    if importlib.util.find_spec("en_core_web_sm") is None:
+    if not optional_module_available("en_core_web_sm"):
         return ProviderHealth(
             available=False,
             reason="spaCy model 'en_core_web_sm' is missing. Run scripts/bootstrap-python-tts.sh.",
@@ -387,7 +391,7 @@ def _kokoro_health() -> ProviderHealth:
 
 
 def _melo_health() -> ProviderHealth:
-    if importlib.util.find_spec("melo.api") is None:
+    if not optional_module_available("melo.api"):
         return ProviderHealth(available=False, reason="melo package is not installed.")
 
     try:
@@ -418,19 +422,27 @@ def _melo_health() -> ProviderHealth:
     return ProviderHealth(available=True)
 
 
-def _provider_health() -> Dict[str, ProviderHealth]:
-    return {
-        "kokoro": _kokoro_health(),
-        "melo": _melo_health(),
-    }
+def _provider_health(provider: str | None = None) -> Dict[str, ProviderHealth]:
+    checks = {"kokoro": _kokoro_health, "melo": _melo_health}
+    selected = [provider] if provider is not None else checks
+    return {name: checks[name]() for name in selected}
+
+
+def _model_init_lock(provider: str, language: str) -> LockType:
+    key = (provider, language)
+    with _MODEL_INIT_LOCKS_GUARD:
+        if key not in _MODEL_INIT_LOCKS:
+            _MODEL_INIT_LOCKS[key] = threading.Lock()
+        return _MODEL_INIT_LOCKS[key]
 
 
 def _get_kokoro_pipeline(language_code: str) -> Any:
-    if language_code not in _kokoro_pipelines:
-        from kokoro import KPipeline
+    with _model_init_lock("kokoro", language_code):
+        if language_code not in _kokoro_pipelines:
+            from kokoro import KPipeline
 
-        _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
-    return _kokoro_pipelines[language_code]
+            _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
+        return _kokoro_pipelines[language_code]
 
 
 def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> bytes:
@@ -468,11 +480,12 @@ def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> byte
 
 def _get_melo_model() -> Any:
     key = "EN"
-    if key not in _melo_models:
-        from melo.api import TTS
+    with _model_init_lock("melo", key):
+        if key not in _melo_models:
+            from melo.api import TTS
 
-        _melo_models[key] = TTS(language="EN", device="auto")
-    return _melo_models[key]
+            _melo_models[key] = TTS(language="EN", device="auto")
+        return _melo_models[key]
 
 
 def _synthesize_melo(text: str, voice: str, speed: float) -> tuple[np.ndarray, int]:
@@ -562,7 +575,7 @@ def synthesize(payload: SynthesizePayload, request: Request, _auth: None = Depen
         attrs={"provider": payload.provider, "voice": payload.voice, "text_chars": len(payload.text)},
     )
     try:
-        health_info = _provider_health()
+        health_info = _provider_health(payload.provider)
         provider_health = health_info[payload.provider]
         if not provider_health.available:
             _log_event(

@@ -16,5 +16,7 @@ infra/systemd/articlepod-worker.service
 scripts/azure/deploy-changes.sh
 scripts/azure/migrate-runtime-naming.sh
 scripts/azure/runtime-naming.sh
+# Regression fixture verifies that installing current units preserves legacy services.
+scripts/azure/tests/test_vm_deployment_routing.py
 scripts/naming/check.mjs
 scripts/naming/sync.mjs

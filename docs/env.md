@@ -70,16 +70,44 @@ Deploy-time ingress/TLS variables (used by `scripts/azure/deploy-changes.sh`):
 - `CANONICAL_HOST` (defaults from `APP_URL` host when set)
 - `HOST_ALIASES` (comma-separated alias hosts, example: `www.articlepod.com`)
 - `LETSENCRYPT_EMAIL`
-- `DEPLOY_CONFIGURE_INGRESS` (`1` by default; set `0` to skip ingress/TLS automation)
+- `DEPLOY_CONFIGURE_INGRESS` (`1` in legacy mode; vault mode defaults to and requires `0`)
 - `APP_DOMAIN_ALIASES` (alias helper for CI; maps to `HOST_ALIASES` when unset)
 
 ## Shared auth/admin
+
+Key Vault migration status: VM unit templates now use the explicit
+`scripts/azure/runtime-exec.sh` router. Its default is the existing environment
+behavior above; `ARTICLEPOD_SECRET_SOURCE=keyvault` selects the version-pinned
+launcher using the protected file passed by each unit. That file supplies
+`ARTICLEPOD_KEYVAULT_MANIFEST` and public settings, not inherited overrides.
+The overflow router reapplies its fixed worker role after loading. Public-only
+readiness/Prisma commands do not retrieve service credentials.
+
+`render-env.sh` can render vault mode without persistent secret values and
+validates candidates before writing. The protected loader rejects plaintext
+secrets and unsupported configuration instead of sourcing shell code, and
+requires exactly `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0`. Routine VM/remote
+vault deployment uses public builds and pinned operations, requires
+`DEPLOY_DEMO_SEED_MODE=never`, and refuses local `.env` files, rendering/upload,
+and ingress changes. The remote helper requires explicit host pins and an
+already-bootstrapped VM; legacy mode cannot overwrite vault configuration.
+Protected configuration must be outside application/staging trees. Storage and
+log paths must be explicit and protected from promotion. Routine vault service
+installation retains maintenance/journald configuration rather than activating
+cleanup. Arbitrary systemd overrides and other consumers are not automatically
+migrated. No production service has been migrated. See
+[`azure-ci-cd.md`](azure-ci-cd.md#key-vault-foundation-not-activated) for the manifest,
+permission boundaries, and activation gates. Before storage-key rotation, preserve
+the live effective media-signing key; do not regenerate it from the new connection
+string. Secret references are configuration, not proof that old credentials have
+been revoked.
+
 - `DEMO_EMAIL`
 - `WEBSTORE_REVIEWER_EMAIL` (default `chrome-reviewer@articlepod.com`; seeded only when `WEBSTORE_REVIEWER_PASSWORD` is also set)
 - `WEBSTORE_REVIEWER_PASSWORD` (optional; when set, production deploy seeds a dedicated Chrome Web Store reviewer account with complimentary Pro access)
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
-- `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP` (defaults to `0` in the Azure VM env render because deploy seeding runs admin bootstrap before service start; set `1` to run admin bootstrap from the Next.js instrumentation hook)
+- `ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP` (Azure rendering defaults to `0`; vault mode requires exactly `0` and never seeds accounts. The application otherwise permits startup admin bootstrap for any value other than exactly `0`, including omission.)
 - `ARTICLEPOD_SERVER_KEEPALIVE` (defaults to `1` in the Azure VM env render as a fallback instrumentation-level keepalive; the Azure web service starts through `scripts/azure/run-next-server.mjs` so systemd owns the HTTP server process directly)
 - `FREE_TRIAL_SUBMISSION_LIMIT` (default `2`; non-paid ingest quota before paid/admin override required)
 - `PRO_MONTHLY_DAILY_PODCAST_LIMIT` (default `12`; `Pro monthly` guardrail for new podcast episodes created in the last 24 hours)
@@ -176,6 +204,9 @@ Behavior:
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `AUDIO_RETENTION_DAYS` (default `60`; stamps item/digest/summary episode audio expiry from `publishedAt` for feed/media hiding + purge)
 - `WORKER_TTS_CHUNK_MAX_CHARS` (default `1800`; Azure production env rendering defaults this to `1200` for steadier Kokoro chunk latency)
+  - Integer of at least `2`, counted as UTF-16 code units (`String.length`).
+    Oversized sentences use whitespace boundaries, then a surrogate-pair-safe
+    hard split. Invalid values fail explicitly rather than disabling the bound.
 - `WORKER_TTS_MAX_CHUNKS` (default `24`; full-episode narration above this chunk count triggers the automatic summarized-transcript podcast fallback before TTS. If the summary provider is unavailable or still returns too much text, the worker uses a bounded deterministic abridged summary so the episode can fit; `SOURCE_TOO_LONG` remains a final invariant safety net.)
 - `WORKER_TTS_SEGMENT_MAX_ATTEMPTS` (default `3`; retryable python-tts/Kokoro segment failures are retried inside the current synthesis run before the whole job is failed)
 - `WORKER_TTS_SEGMENT_RETRY_BASE_MS` (default `2000`; base backoff for retryable per-segment TTS failures)

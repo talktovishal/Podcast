@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import test from "node:test";
 import { AppError, errorCodes, type SynthesizeInput, type TtsProvider } from "@articlepod/core";
-import { synthesizeEpisodeAudio } from "../src/jobs/processItemJob.js";
+import { synthesizeEpisodeAudio } from "../src/lib/audio-synthesis.js";
 import { getArtifactStorage } from "../src/lib/storage.js";
 
 function makeFakeProvider(synthesize: (input: SynthesizeInput) => Promise<void>): TtsProvider {

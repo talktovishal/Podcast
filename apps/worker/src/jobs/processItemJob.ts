@@ -1,9 +1,6 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { randomBytes, randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setTimeout as sleep } from "node:timers/promises";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
@@ -12,6 +9,7 @@ import {
   type ReservedDispatchQueueMessage,
   buildUserItemMarkdownStorageKey,
   buildUserItemSummaryStorageKey,
+  buildItemAudioStorageKey,
   buildEpisodeDescription,
   canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
@@ -34,11 +32,10 @@ import {
   withLogContext,
   sha256,
   type DigestSummaryResponse,
-  type ItemJobKind,
-  type TtsProvider,
-  type TtsProviderId
+  type ItemJobKind
 } from "@articlepod/core";
 import { workerEnv } from "../lib/env.js";
+import { copyCachedAudio, findUsableAudioCache } from "../lib/audio-cache.js";
 import { createWorkerItemDispatchQueue } from "../lib/item-dispatch-queue.js";
 import { workerPrimaryStore, workerUsesAzureTablePrimary } from "../lib/metadata-primary-store.js";
 import {
@@ -50,10 +47,10 @@ import {
   shouldSummarizeLongSource
 } from "../lib/narrationLimits.js";
 import { prisma } from "../lib/prisma.js";
-import { makeTtsProvider } from "../lib/providers.js";
+import { synthesizeEpisodeAudio } from "../lib/audio-synthesis.js";
 import { makeSummaryProvider } from "../lib/summary.js";
 import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
-import { workerLogger } from "../lib/logger.js";
+import { workerLogger, formatDiagnostic } from "../lib/logger.js";
 import { recordWorkerAnalyticsEventBestEffort } from "../lib/analytics.js";
 import { syncItemProjectionById, syncJobAndItemProjectionByJobId } from "../lib/metadata-projection.js";
 
@@ -128,15 +125,8 @@ type CompletedItemSummaryPatch = {
   summaryCompletedAt: Date;
 };
 
-type SynthesizeEpisodeAudioOptions = {
-  provider?: TtsProvider;
-  maxSegmentAttempts?: number;
-  segmentRetryBaseMs?: number;
-};
-
 const DEMO_TRACE_LIMIT = 10;
 const MAX_ERROR_MESSAGE_LENGTH = 500;
-const PUBLISHED_AUDIO_FORMAT = "mp3" as const;
 const DISPATCH_RECONCILE_INTERVAL_MS = 60_000;
 const dispatchQueue = createWorkerItemDispatchQueue();
 let lastDispatchReconcileAt = 0;
@@ -172,10 +162,55 @@ function buildTtsCacheKey(
   return sha256([userId, selection.providerId, selection.voice, ...chunks.map((chunk) => chunk.hash)].join("|"));
 }
 
-async function findChunkCacheByHash(cacheKey: string) {
-  return workerUsesAzureTablePrimary() && workerPrimaryStore
-    ? workerPrimaryStore.findChunkCacheByHash(cacheKey)
-    : prisma.chunkCache.findUnique({ where: { hash: cacheKey } });
+async function recordOwnedAudio(
+  itemId: string, publicationId: string, mimeType: string, byteLength: number, expiresAt: Date
+): Promise<void> {
+  const kind = `EPISODE_AUDIO_${publicationId}_${mimeType === "audio/mpeg" ? "mp3" : "m4a"}`;
+  const data = { storageKey: buildItemAudioStorageKey(itemId, publicationId, mimeType), contentType: mimeType, byteLength, expiresAt };
+  if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+    await workerPrimaryStore.upsertItemArtifact({ id: generateStoreId(), itemId, kind, ...data });
+  } else {
+    await prisma.itemArtifact.upsert({
+      where: { itemId_kind: { itemId, kind } },
+      create: { itemId, kind, ...data },
+      update: data
+    });
+  }
+}
+
+async function findChunkCacheByHash(cacheKey: string, itemId: string, publicationId: string) {
+  const prepare = <T extends { filePath: string; audioBytes: number; mimeType: string }>(entry: T) =>
+    copyCachedAudio(entry, itemId, publicationId, getArtifactStorage(), () =>
+      recordOwnedAudio(itemId, publicationId, entry.mimeType, entry.audioBytes,
+        episodeAudioExpiryDate(new Date(), workerEnv.audioRetentionDays)));
+  try {
+    if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
+      const store = workerPrimaryStore;
+      return await findUsableAudioCache({
+        find: () => store.findChunkCacheByHash(cacheKey),
+        discardIfUnchanged: (entry) => store.deleteChunkCacheIfUnchanged(entry.hash, entry.etag),
+        storage: getArtifactStorage(),
+        prepare
+      });
+    }
+    return await findUsableAudioCache({
+      find: () => prisma.chunkCache.findUnique({ where: { hash: cacheKey } }),
+      discardIfUnchanged: async (entry) => {
+        const deleted = await prisma.chunkCache.deleteMany({
+          where: {
+            id: entry.id, hash: entry.hash, filePath: entry.filePath,
+            createdAt: entry.createdAt, audioBytes: entry.audioBytes, mimeType: entry.mimeType
+          }
+        });
+        return deleted.count === 1;
+      },
+      storage: getArtifactStorage(),
+      prepare
+    });
+  } catch (error) {
+    await workerLogger.warn("Audio cache validation failed", { error: formatDiagnostic(error) });
+    throw new AppError(errorCodes.STORAGE_FAILED, "Audio storage is temporarily unavailable. Please retry.", 503);
+  }
 }
 
 function logNow() {
@@ -387,187 +422,6 @@ async function appendJobEvent(input: {
       return;
     }
     throw error;
-  }
-}
-
-export async function synthesizeEpisodeAudio(
-  itemId: string,
-  chunks: { text: string }[],
-  selection: { providerId: TtsProviderId; voice: string },
-  onProgress?: (current: number, total: number) => Promise<void> | void,
-  outputKey?: string,
-  outputFormat: "mp3" | "m4a" = PUBLISHED_AUDIO_FORMAT,
-  options?: SynthesizeEpisodeAudioOptions
-): Promise<{ relativePath: string; bytes: number; mimeType: string }> {
-  const provider = options?.provider ?? makeTtsProvider({ providerId: selection.providerId });
-  const extension = outputFormat === "mp3" ? "mp3" : "m4a";
-  const mimeType = outputFormat === "mp3" ? "audio/mpeg" : "audio/mp4";
-  const relativePath = normalizeStorageKey(outputKey || join("items", itemId, `episode.${extension}`));
-  const tempDir = await mkdtemp(join(tmpdir(), "articlepod-worker-"));
-  const tempOutputPath = join(tempDir, `episode.${extension}`);
-  const maxSegmentAttempts = Math.max(1, options?.maxSegmentAttempts ?? workerEnv.ttsSegmentMaxAttempts);
-  const segmentRetryBaseMs = Math.max(0, options?.segmentRetryBaseMs ?? workerEnv.ttsSegmentRetryBaseMs);
-
-  const synthesizeSegment = async (input: {
-    text: string;
-    outPath: string;
-    segmentIndex: number;
-    totalSegments: number;
-  }) => {
-    for (let attempt = 1; attempt <= maxSegmentAttempts; attempt += 1) {
-      try {
-        await provider.synthesizeToFile({
-          text: input.text,
-          voice: selection.voice,
-          format: outputFormat,
-          outPath: input.outPath
-        });
-        return;
-      } catch (error) {
-        const canRetry = attempt < maxSegmentAttempts && isRetryableTtsSegmentError(error);
-        if (!canRetry) {
-          throw error;
-        }
-        const delayMs = ttsSegmentRetryDelayMs(attempt, segmentRetryBaseMs);
-        await workerLogger.warn("TTS segment synthesis failed; retrying", {
-          itemId,
-          providerId: selection.providerId,
-          voice: selection.voice,
-          segmentIndex: input.segmentIndex,
-          totalSegments: input.totalSegments,
-          attempt,
-          maxAttempts: maxSegmentAttempts,
-          delayMs,
-          error: formatDiagnostic(error)
-        });
-        if (delayMs > 0) {
-          await sleep(delayMs);
-        }
-      }
-    }
-  };
-
-  try {
-    if (chunks.length === 1) {
-      await synthesizeSegment({
-        text: chunks[0]?.text ?? "",
-        outPath: tempOutputPath,
-        segmentIndex: 0,
-        totalSegments: 1
-      });
-      if (onProgress) {
-        await onProgress(1, 1);
-      }
-    } else {
-      const segmentPaths: string[] = [];
-      for (let index = 0; index < chunks.length; index += 1) {
-        const segmentPath = join(tempDir, `segment-${index}.${extension}`);
-        const segmentText = chunks[index]?.text ?? "";
-        await synthesizeSegment({
-          text: segmentText,
-          outPath: segmentPath,
-          segmentIndex: index,
-          totalSegments: chunks.length
-        });
-        if (onProgress) {
-          await onProgress(index + 1, chunks.length);
-        }
-        segmentPaths.push(segmentPath);
-      }
-      await concatenateAudioSegments(segmentPaths, tempOutputPath, outputFormat);
-    }
-
-    const bytes = await readFile(tempOutputPath);
-    const stored = await getArtifactStorage().putObject(relativePath, bytes, {
-      contentType: mimeType
-    });
-
-    return {
-      relativePath,
-      bytes: stored.bytes,
-      mimeType: stored.contentType || mimeType
-    };
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-export function isRetryableTtsSegmentError(error: unknown): boolean {
-  if (!(error instanceof AppError)) {
-    return true;
-  }
-  if (error.code !== errorCodes.TTS_FAILED) {
-    return false;
-  }
-
-  const message = error.userMessage.toLowerCase();
-  if (message.includes("timed out") || message.includes("finalizing the episode")) {
-    return false;
-  }
-  return error.status >= 500;
-}
-
-function ttsSegmentRetryDelayMs(attempt: number, baseDelayMs: number): number {
-  if (baseDelayMs <= 0) {
-    return 0;
-  }
-  const exponential = Math.min(30_000, baseDelayMs * 2 ** Math.max(0, attempt - 1));
-  const jitter = Math.floor(Math.random() * Math.min(baseDelayMs, 1_000));
-  return exponential + jitter;
-}
-
-function runBinary(cmd: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: "ignore" });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`${cmd} exited with code ${code}`));
-      }
-    });
-  });
-}
-
-async function concatenateAudioSegments(
-  segmentPaths: string[],
-  outPath: string,
-  format: "mp3" | "m4a"
-): Promise<void> {
-  if (segmentPaths.length === 0) {
-    throw new AppError(errorCodes.TTS_FAILED, "Audio generation produced no segments.", 500);
-  }
-  if (segmentPaths.length === 1) {
-    const single = await readFile(segmentPaths[0]);
-    await writeFile(outPath, single);
-    return;
-  }
-
-  const concatManifestPath = join(tmpdir(), `articlepod-concat-${randomBytes(6).toString("hex")}.txt`);
-  const escapePath = (value: string) => value.replace(/'/g, "'\\''");
-  const manifest = segmentPaths.map((path) => `file '${escapePath(path)}'`).join("\n");
-  await writeFile(concatManifestPath, `${manifest}\n`, "utf8");
-
-  try {
-    try {
-      await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-c", "copy", outPath]);
-      return;
-    } catch {
-      if (format === "m4a") {
-        await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-c:a", "aac", outPath]);
-      } else {
-        await runBinary("ffmpeg", ["-y", "-f", "concat", "-safe", "0", "-i", concatManifestPath, "-codec:a", "libmp3lame", outPath]);
-      }
-    }
-  } catch {
-    throw new AppError(
-      errorCodes.TTS_FAILED,
-      "Audio processing failed while finalizing the episode. Please retry.",
-      500
-    );
-  } finally {
-    await rm(concatManifestPath, { force: true });
   }
 }
 
@@ -900,6 +754,7 @@ export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage
   }
 
   switch (error.code) {
+    case errorCodes.ITEM_UPDATE_CONFLICT:
     case errorCodes.EXTRACTION_FAILED:
     case errorCodes.TTS_FAILED:
     case errorCodes.STORAGE_FAILED:
@@ -908,13 +763,6 @@ export function shouldRecommendRetry(error: Pick<AppError, "code" | "userMessage
     default:
       return false;
   }
-}
-
-function formatDiagnostic(error: unknown): string {
-  if (error instanceof Error) {
-    return `${error.name}: ${error.message}`;
-  }
-  return String(error);
 }
 
 function isPrismaErrorCode(error: unknown, code: string): boolean {
@@ -2177,7 +2025,9 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     });
 
     let cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
-    let cacheHit = await findChunkCacheByHash(cacheKey);
+    const audioPublicationId = randomBytes(32).toString("hex");
+    let cacheHit = await findChunkCacheByHash(cacheKey, item.id, audioPublicationId);
+    assertLeaseHealthy();
 
     let audio: { relativePath: string; bytes: number; mimeType: string };
     if (!cacheHit && shouldSummarizeLongSource(chunks.length, workerEnv.ttsMaxChunks)) {
@@ -2350,7 +2200,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
       episodeNarrationText = selectedNarrationText;
       chunks = selectedChunks;
       cacheKey = buildTtsCacheKey(item.userId, ttsSelection, chunks);
-      cacheHit = await findChunkCacheByHash(cacheKey);
+      cacheHit = await findChunkCacheByHash(cacheKey, item.id, audioPublicationId);
+      assertLeaseHealthy();
       appendExtractionLog(extractionLogs, "tts", "Summarized podcast narration prepared", {
         originalChunkCount,
         summarizedChunkCount: chunks.length,
@@ -2404,6 +2255,8 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         chunkCount: chunks.length
       });
       let lastProgressWriteAt = 0;
+      await recordOwnedAudio(item.id, audioPublicationId, "audio/mpeg", 0,
+        episodeAudioExpiryDate(new Date(), workerEnv.audioRetentionDays));
       audio = await synthesizeEpisodeAudio(item.id, chunks, ttsSelection, async (current, total) => {
         assertLeaseHealthy();
         if (Date.now() - lockedAtMs >= workerEnv.maxProcessingMs) {
@@ -2418,7 +2271,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
         const progressMessage =
           total <= 1 ? "Processing audio..." : `Processing audio chunk ${current}/${total}...`;
         await updateClaimProgressMessage(claimResult, progressMessage);
-      });
+      }, buildItemAudioStorageKey(item.id, audioPublicationId));
       assertLeaseHealthy();
       if (workerUsesAzureTablePrimary() && workerPrimaryStore) {
         await workerPrimaryStore.createChunkCache({
@@ -2440,6 +2293,11 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
             audioBytes: audio.bytes,
             mimeType: audio.mimeType
           }
+        }).catch(async (error: unknown) => {
+          if (!isPrismaErrorCode(error, "P2002") || !(await prisma.chunkCache.findUnique({ where: { hash: cacheKey } }))) {
+            throw error;
+          }
+          await workerLogger.info("Audio cache already populated by another job", { cacheKey });
         });
       }
       appendExtractionLog(extractionLogs, "tts", "Narration synthesis complete", {
@@ -2453,6 +2311,7 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
     const description = buildEpisodeDescription(episodeNarrationText);
     const publishedAt = now();
     const expiresAt = episodeAudioExpiryDate(publishedAt, workerEnv.audioRetentionDays);
+    await recordOwnedAudio(item.id, audioPublicationId, audio.mimeType, audio.bytes, expiresAt);
 
     stage = "persist";
     assertLeaseHealthy();

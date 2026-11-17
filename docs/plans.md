@@ -9,6 +9,301 @@
 
 ## Spec Consistency Notes (Current)
 
+- Contributor documentation hygiene (done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
+  replace nonexistent scaffold directories and placeholders with the actual
+  workspace scripts and Python model-free CI commands. Referenced files,
+  manifest scripts and CI commands checked; approval/security/migration policy
+  unchanged. No workstation-specific Markdown links were found in the checked
+  root contributor files and docs, so no speculative link rewrite was made.
+
+- Packaging context hygiene (implementation and full validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
+  synthetic-canary validation, required image contents and checkout-independent
+  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-validated-not-deployed).
+  No dependency pruning, credential changes or protected deployment-gate changes.
+  Initial full CI passed context canaries, image builds and content checks but
+  exposed a test-startup race: the worker health port was not open yet. The
+  corrected check waits for connection refusal only, bounded at 60 seconds;
+  six controlled startup/error/deadline cases and
+  [full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+  passed on runtime candidate `aa05f54`, including parity smoke and podcast
+  contracts. Docker is unavailable locally; actual image checks ran in CI.
+
+- Provider manifest design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  separates verified source declarations from unknown live assets, defines
+  platform-specific hashes/provenance and two-build/rollback validation.
+  No upgrades, guessed pins or live-runtime changes.
+
+- Shared synthesis extraction (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
+  [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts). Move behavior
+  unchanged, including retries, format, storage keys and cleanup; retain
+  coordination/publication/ownership policies with their existing jobs.
+  Exact moved-body comparison and
+  [CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+  passed on candidate `a43cfa3`.
+
+- Provider gate audit (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
+  four missing behavioral cases and six controlled-fault checks. No heavyweight
+  model install, provider/runtime change, live-cloud or production claim.
+  [CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+  passed on candidate `e4723bc`, including the controlled-fault gate.
+
+- RSS preflight concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
+  results, strict absence classification and no repair after any outage.
+  Synthetic-wave and delayed-outage regressions cover the bound and mutation gate.
+  Seven focused helper cases pass locally; 12 synthetic 20 ms HEAD checks measured
+  261.761 ms serial versus 66.409 ms bounded median (three runs, peak four).
+  [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+  passed on candidate `6117789`, including delayed-outage route assertions.
+
+- Safe query bounds (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
+  stopped their iterators after the first match, and retained full reads for
+  ordering-sensitive/global operations. Three SDK-boundary regressions cover
+  one-of-1000 consumption/close, empty/error outcomes and newest/oldest selection.
+  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-and-validated-not-deployed)
+  and passed [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+  on candidate `c3ba8e5`.
+
+- Model admission design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  specifies one active inference, finite waiting, FIFO turns, overload, real
+  cancellation semantics, caller retry integration and resource/UX trade-offs.
+  No production load test or runtime/resource changes.
+
+- Quota reservation design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [admission and compensation proposal](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  covers concurrent last slots, stable request identity, free/paid capacity,
+  failure recovery and upgrade/rollback. Documents the completed-summary usage
+  mismatch; runtime quota policy and balances are unchanged.
+
+- Publication recovery design (design deliverable done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [fenced commit proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  includes SQL/Azure mechanics, stale-owner interleavings, every publication
+  write boundary, reconciliation, stable identities and staged rollback.
+  Runtime/schema/ownership protocols remain unchanged.
+
+- Summary acceptance design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [proposal and crash matrix](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+  reconcile durable preparation, existing summary tasks, quota identity,
+  asynchronous failures, migration and rollback. No runtime/schema change.
+
+- Readiness design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [contract and rollout proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+  documents bounded checks, known consumers and long-job/real-stall distinction.
+  Runtime endpoints, liveness, release gates and restarts are unchanged.
+
+- Chunk size enforcement (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
+  oversized sentences at whitespace or surrogate-pair-safe hard boundaries.
+  Enforce integer limits >=2 UTF-16 code units and retain split-sentence content.
+  No migration or regeneration of published audio.
+  Five focused cases and [CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+  passed on candidate `11173bf`.
+
+- Feed eligibility (implementation and scoped validation done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17;
+  not merged/deployed): resolve actual unexpired episode candidates' article
+  records without the newest-500 window, deduplicating IDs and keeping one point
+  read in flight. Preserve same-user/READY requirements, retention, ordering,
+  GUIDs, feed tokens and audio URLs. No stored-contract change or migration.
+  [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+  passed on candidate `5e60fdb`.
+
+- Billing event concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
+  on the observed billing snapshot. Retry known write conflicts from a fresh read
+  at most three times; ignore newly stale domain events and propagate exhausted
+  conflicts without a processed audit entry. Equal timestamps keep sequential
+  successful-write order, not an invented ordering of Stripe event IDs.
+  No new persisted fields/keys or migration; audit/account atomicity and
+  cross-domain/non-webhook reconciliation ordering remain separate concerns.
+  All 22 added cases executed and passed
+  [CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+  on candidate `aef1035`.
+
+- Model initialization (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): provider/language guards prevent duplicate
+  cold construction, publish only successfully constructed models and allow
+  retry after failure. Warm inference remains unchanged. No persisted-contract
+  change, migration or backfill is required. Candidate `72ecd2d` passed
+  [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489),
+  including five added concurrency/retry cases in model-free service tests.
+
+- Equal round-robin worker scheduling (implementation and validation done;
+  target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  the owner selected equal,
+  not weighted, rotation across item jobs, Summary Studio, article-summary tasks
+  and digests. Empty/failed categories advance the cursor; due scheduling is
+  checked independently of item-queue idleness. Scheduling/category failures are
+  logged and isolated, with existing idle backoff after no successful work.
+  Overflow remains item-only behind its existing activation gate. No new
+  concurrency, service, dependency, persisted contract or migration is introduced.
+  Fairness is bounded in selection turns, not elapsed time; long jobs and process
+  downtime remain separate limits. The branch stacks on the two earlier batch
+  fixes. Rollback restores the starvation-prone priority policy; no data reset.
+  Candidate `353f790` passed
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43188561397):
+  core/web/worker checks, authenticated RSS browser/build, Python tests and
+  container parity/podcast contracts. All 30 new scheduling tests executed in CI;
+  those plus four existing overflow-policy tests passed locally with Node's
+  TypeScript runtime. Each of the 15 nonempty queue combinations was exercised
+  for 100 successful turns, with equal shares and at most four polls between
+  opportunities for an active class. No production load experiment was run.
+
+- Explicit item mutations (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  Azure item updates return a saved item only
+  after a conditional write succeeds. Conflicts and missing items raise explicit
+  AppErrors; no stale reread or blind mutation retry can appear successful.
+  Existing await boundaries gate audio/summary job success and article-summary
+  task completion. Conflicts use bounded retries; missing-item failures do not.
+  This adds ITEM_UPDATE_CONFLICT / ITEM_NOT_FOUND values to existing error-code
+  strings and HTTP responses, without changing schemas, keys or successful
+  response shapes. No backfill/reset is needed. Old code can read the records,
+  but rollback restores the defect; activate consistent web/worker versions in
+  the later protected batch. This does not solve multi-record atomicity,
+  stale-publisher fencing, or quota/enqueue transactionality. The branch is
+  stacked on the independently validated audio-ownership fix, not merged to main.
+  Candidate `24b995b` passed
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43158058641):
+  core/web/worker typechecks and tests, web lint, authenticated RSS browser/build,
+  Python tests and container parity/podcast contracts. All 25 added regressions
+  executed and passed. They use SDK-boundary and worker-adapter fault injection,
+  not production mutations. Local syntax checks passed; local dependency-backed
+  execution was blocked by the pinned pnpm download (ENOTCONN).
+
+- Audio ownership follow-up (implementation and validation done; target_finish:
+  2026-11-12; completed_on: 2026-11-12; not merged/deployed):
+  cache hits copy bytes into item-owned audio rather than publish another
+  item's path. New item publications use `items/<itemId>/audio/<publicationId>.<ext>`
+  so regenerating an original owner cannot overwrite a legacy shared filename.
+  The publication ID is fresh per worker attempt, so cleanup cannot race a
+  later publisher reusing an old filename. Existing ItemArtifact rows with
+  kind `EPISODE_AUDIO_<publicationId>_<ext>` track destinations before writes,
+  including failed copies and superseded versions; expiry uses audio retention.
+  Schemas and Episode/ChunkCache fields are unchanged. Existing paths,
+  GUIDs, signatures and URLs remain untouched; no bulk backfill/reset is needed.
+  Cleanup must remove departing metadata before checking all remaining episode
+  references, including item MP3/M4A alternate-repair paths, and retain referenced
+  objects. Deploy web and workers together with old workers quiesced: mixed old
+  publishers can still introduce aliases after a cleanup check. Old code can read
+  the new paths, but a full rollback restores the original ownership risk.
+  Never mix an old sharing worker with new cleanup or delete new objects as a
+  rollback shortcut. Candidate `6842529` passed core/web/worker typechecks and
+  tests, web lint, authenticated RSS browser validation, Python tests and
+  container parity/podcast contracts in
+  [full CI](https://github.com/talktovishal/Podcast/actions/runs/43133103121).
+  Azure SDK copy/range behavior was tested against a synthetic loopback Blob
+  endpoint, not live production storage. Deployment and live ownership checks
+  are deliberately deferred to the later batch; main remains at `8590e43`.
+
+- Focused dashboard hardening (2026-11-11): single-flight refresh, mutation
+  generation invalidation and unmount cancellation prevent stale snapshots.
+  Active/idle intervals, hidden/read-only behavior and stable-token merging
+  remain unchanged. No persisted contract changes; production validation pending.
+
+- Focused cache hardening (2026-11-11): byte existence precedes reuse; only
+  authoritative absence permits conditional stale-row deletion. Concurrent
+  replacements are re-read; outages fail retryably without new synthesis.
+  No schema/key-layout migration or blanket cache purge. Shared audio ownership
+  and production validation remain separate work.
+
+- Focused RSS hardening (2026-11-11): complete media preflight precedes any repair;
+  unknown/transient storage failures return retryable, non-cacheable HTTP 503.
+  Healthy feed URLs/signatures and confirmed-missing alternate-path repair remain
+  unchanged. No persisted schema changes; deployment validation remains separate.
+
+- Focused hardening (2026-11-11): optional-provider discovery and requested-provider
+  synthesis checks are isolated, with model-free service tests selected by CI.
+  Manual CI validates the complete tracked candidate, including the Python service.
+  Its RSS E2E job builds the web app and uses an isolated seeded database/local server.
+  Browser CI and the parity web container use the existing production web launcher
+  rather than `next start`; parity still bootstraps/seeds only its disposable database.
+  Its digest-pinned browser image must remain aligned with the locked Playwright version.
+  Server output and exit traces precede optional runner diagnostics on browser failure.
+  Production validation is tracked separately; no schema/data migration is needed.
+
+- Private operational repository separation is staged, not cut over. The
+  manual source-main production export fixes destination identity/key, checks
+  the expected reviewed source SHA, seals exactly 37 existing credentials plus
+  a fresh read-only source checkout key and two HMAC proof fields, and exports
+  only bounded ciphertext/public-key artifacts. Isolated crypto dependencies
+  and synthetic CI tests do not consume production credentials. No source
+  operational entrypoint or secret is retired in this slice. The coordinator
+  must verify private proof/checkout, unchanged source secret snapshots, and
+  live-version/data/private-link continuity before cutover. Runtime support
+  remains in source; exact operational moves require the agreed ownership list
+  in `docs/azure-ci-cd.md`. This adds a GitHub secret-store transfer contract,
+  not an application schema migration, and does not complete credential
+  invalidation or clear retained-content publication blockers.
+- Credential migration remains incomplete: the narrowly scoped vault module and
+  version-pinned managed-identity launcher are staged, not activated. VM unit
+  templates now have opt-in routing with unchanged legacy defaults, and the env
+  renderer can emit public-only configuration. Legacy deploy guards prevent
+  overwriting a vault-managed environment. Initial bootstrap and any active
+  Container Apps consumer still need implementation before activation.
+  Account/provider rotation and live verification require trusted VM access and
+  separately established administrative permissions. This
+  is not a completed security milestone or evidence that old credentials are
+  invalid. SSH diagnostics can compare advertised keys with saved pins without
+  accepting keys or changing the blocked inventory outcome. The inactive
+  foundation changes no application data/schema contracts.
+- Secret-free web builds are implemented for Azure Table and Prisma-backed Azure
+  profiles, including enabled Table mirroring. Next's build phase defers Azure
+  clients and runtime-only signing validation without changing selected backends;
+  runtime validation remains in force. The isolated verifier checks real builds
+  and compiled runtime secret gates. Bulk deployment/operations cutover and live
+  credential rotation remain incomplete.
+- Protected public-configuration execution is implemented as an inactive
+  prerequisite: strict literal parsing, bounded protected-file reads, filtered
+  inherited settings, public-only execution without vault access, and pinned
+  operational secret resolution. Vault-mode rendering validates candidates in
+  memory before writing. File-based service routing uses explicit overflow role
+  handling rather than inherited application overrides. The legacy deployment
+  guard remains in place. Live activation and credential invalidation are still pending;
+  this is not completion of the migration.
+- VM-side deployment now has explicit vault-aware command routing: public
+  dependency/build/setup steps, pinned operational commands, service-reference
+  preflight, local `.env` refusal, no account seeding, and nonrecursive data
+  ownership handling. Maintenance preserves retired runtime trees unless legacy
+  configuration is established. Legacy-mode execution remains supported.
+  Live rollout, initial bootstrap, other consumers, and live verification are
+  still incomplete.
+- Production deployment now requires original-repository `main` and verified
+  host pins across SSH, SCP, and rsync, with no automatic key acceptance or
+  alternative trust-source fallback. Explicit pinning is also available to local
+  helpers; omitting it retains legacy local SSH settings. This does not establish
+  the live VM's identity or finish live vault rollout.
+- Routine remote vault deployment is implemented for already-bootstrapped VMs:
+  explicit host pins, configuration/unit/reference preflight, file-authoritative
+  public settings, no rendering/upload, no ingress changes, no seeding, and
+  path-checked promotion preserving excluded data. Startup bootstrap must be
+  exactly `0`; service readiness uses public-only execution. Vault installation
+  leaves maintenance, journald, and compatibility files alone. Existing overflow
+  is preserved by default; explicit disable stops it. The dedicated manual
+  workflow has only transport secrets with new deployment-key names. Retiring
+  old keys/secret copies remains a live cutover gate, including historical
+  workflow reruns. This adds no persisted schema/data contract and does not
+  establish credential invalidation or complete the publication milestone.
+- A standalone, inactive Azure Table password/browser-session rotation operation
+  now has explicit user/account/table bindings, bounded stdin, scoped replacement
+  values, all-target preflight, bcrypt cost 12, ETag-conditioned updates/deletes,
+  final verification, and forward resumption after partial failure. Applying it
+  requires a separately verified quiesced-writer maintenance barrier. It does
+  not create tables/accounts, alter schema, or touch billing or podcast tokens.
+  Live execution, other credential types, provider rotation, and full migration
+  remain blocked on authenticated inventory and cutover.
+- The README now states inspection-only rights without granting an additional
+  open-source license. Notices for identified abogen/postcast-derived modules
+  and Next.js scaffold material are retained with upstream references. This
+  documentation-only prerequisite changes no runtime/data contract and does
+  not clear historical content, credentials, or final publication.
 - `docs/Prompts.md` includes a **"Verification Prompts"** section and status-tagged sections.
 - OAuth hardening (`M23`) and extension/security track (`M24`-`M34`) are completed and synced with tests/docs.
 - Durable Azure/parity rollout (`M35`-`M46`) is implemented in repo assets and runbooks, including staged VM sync/promote deployment and nginx/TLS automation helpers.
@@ -111,9 +406,10 @@
   - the persistent footer keeps the same `Start your knowledge feed` and `See pricing` actions on every public marketing page while staying visible during content scroll.
   - the public marketing shell now keeps one shared public-page structure while leaving room for later usability refinements.
   - secondary marketing pages no longer render a duplicate pill-style hero label beneath the shared nav.
-  - `/about` now opens with a founder-led hero anchored by `Listen to your reading list and finally catch up on what matters`, plus founder intro copy and portrait treatment.
-  - `/about` now flows from that hero into the founder story sections while keeping the `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles below.
-  - `/about` now expands that founder-story block with Smita Busar's founder intro, a branded portrait placeholder, a highlighted mission line inside `Why I care?`, and a longer privacy-centered founder perspective while leaving the proof tiles in place below it.
+  - `/about` keeps the headline `Listen to your reading list and finally catch up on what matters` and leads with Vishal Chowdhary, `Co-founder`, alongside his portrait and a Blaise Pascal quotation about concise writing.
+  - Vishal's first-person story covers motivation, simple Chrome capture, travel listening, and a Karpathy-inspired personal wiki without explicit leadership or feature-build credit statements. Smita Busar's separate `Co-founder` story retains her portrait, motivation, early-user feedback, and open-tab results without attributing the build or wiki work to her.
+  - Compact portraits allow desktop story text to wrap alongside and beneath the images instead of reserving empty full-height columns; names, portraits, and stories remain stacked on mobile.
+  - Both stories use the site's calm, practical tone without em dashes, followed by the shared mission line and the unchanged `Live today`, `Why private RSS feed`, and `Who ArticlePod is for` proof tiles.
 - Public marketing FAQ structure refresh (`M111`) is implemented:
   - `/faq` now adds a compact `Quick answers` band that deep-links into grouped FAQ sections.
   - the marketing FAQ now organizes the existing questions under `Getting started`, `Inputs & capture`, `Privacy & feed`, `Podcast apps`, and `Account & access`.
@@ -188,7 +484,7 @@
 - URL extraction error semantics now normalize invalid pinned-address failures to explicit connection guidance (instead of generic fetch-failed wording) for clearer user retry behavior and operator triage.
 - The extraction bot user-agent now points to the canonical `https://articlepod.com` domain.
 - Only confirmed server-blocked URL failures now surface Chrome extension capture guidance and suppress retry affordances; broader extraction failures still use the standard retry messaging.
-- Production URL extraction diagnostics now include a manual GitHub Actions VM probe workflow (`Probe URL Extraction (VM)`) that executes DNS/HEAD/core extraction checks from the VM network path without exposing public debug endpoints.
+- Production URL extraction diagnostics include a manual VM probe for public article URLs. It now requires original-repository `main`, explicit host pins, guarded legacy configuration, shared deployment concurrency, and temporary credential/probe cleanup. It remains legacy-only pending a separate vault-mode diagnostic integration. Historical logs/artifacts and private-link exposure still require publication review.
 - Geo + demographics profile track (`M83`) is implemented:
   - successful auth now records coarse first-seen/last-seen geo snapshots (`country`, `region`, `city` when available) from trusted proxy headers.
   - optional demographic survey APIs and settings UX support save/skip/edit/delete lifecycle.
@@ -3610,7 +3906,9 @@ Milestone metadata contract:
   - The public header and footer remain visible while the user scrolls because only the middle content pane scrolls.
   - The signed-out auth landing page no longer renders its own page-local header.
   - `/login`, `/app`, `/admin`, and `/share` do not inherit the marketing footer layout.
-  - `/about` can extend its founder-story section with portrait and founder narrative content without removing the original mission/live/product proof cards lower on the page.
+  - `/about` presents Vishal Chowdhary first as co-founder, with his portrait and motivation-led story, followed by Smita Busar's co-founder portrait, motivation, early-user feedback, and personal results. Explicit leadership and feature-build credit statements are omitted.
+  - Founder portraits stay compact, with desktop text wrapping beneath them and a stacked mobile layout rather than full-height empty image columns.
+  - Both founder stories retain the site's calm, practical language without em dashes and preserve the original mission/live/product proof content lower on the page.
 - Verification commands:
   - `npx pnpm --filter @articlepod/web run lint`
   - `npx pnpm --filter @articlepod/web run test`

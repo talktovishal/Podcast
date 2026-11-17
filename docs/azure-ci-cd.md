@@ -4,7 +4,128 @@ This document explains how to run Azure deployments from GitHub Actions without 
 
 ## Overview
 
-The repository includes a GitHub Actions workflow (`.github/workflows/deploy-azure.yml`) that automates deployment to an already-provisioned Azure VM.
+The legacy workflow (`.github/workflows/deploy-azure.yml`) deploys to an
+already-provisioned environment-mode VM. The separate
+`deploy-azure-keyvault.yml` workflow supports routine deployment only after
+the controlled Key Vault bootstrap and consumer migration are complete.
+
+## Private deployment repository migration (staged, not cut over)
+
+Production orchestration and GitHub-held credentials are moving to the private
+`talktovishal/Podcast-Deploy` repository. The source repository stays private.
+The one-time `.github/workflows/migrate-deployment-secrets.yml` prepares an
+encrypted transfer only. It does not deploy, contact the VM, sign in to Azure,
+rotate runtime credentials, retire source secrets, or change the live app version.
+Existing source deployment entrypoints remain available until the coordinator
+confirms the private replacement is verified.
+
+### Fixed transfer and provenance
+
+- The export is a manual source-`main` production-environment job, restricted to
+  source repository ID `1152527211`. Its required `expected_source_sha` must
+  exactly match the dispatched full commit SHA and workflow SHA before secret
+  consumption. This is the reviewed exporter revision, not a request to deploy
+  that revision. It shares `deploy-azure-main` concurrency without cancellation.
+- `scripts/secret-migration/sealed_export.py` contains the fixed allowlist of
+  36 production-environment secrets and repository secret `APP_SMOKE_FEED_TOKEN`.
+  The workflow injects those 37 values individually only in the encryption step,
+  after isolated dependency installation and synthetic tests. No full secret
+  context, broad GitHub token, or arbitrary recipient is accepted.
+- Every value is sealed using PyNaCl/libsodium sealed boxes to the fixed
+  `Podcast-Deploy` repository ID `1431956894`, environment `production`, public
+  key ID `3380204578043523366`. The public key is fixed in the reviewed helper.
+  If the destination key changes, stop and review a new exporter before retrying.
+- A fresh Ed25519 source-checkout key is generated on the ephemeral runner.
+  Its private key becomes encrypted `ARTICLEPOD_SOURCE_READ_KEY`; only its public
+  key is exported. Key generation inherits no credentials, uses a `0700`
+  directory and `0600` private file, and cleans its known temporary files in
+  `finally` plus an always-run cleanup step. Abrupt runner loss relies on
+  ephemeral runner teardown, never reuse of that identity.
+- A separate random 32-byte key becomes encrypted `MIGRATION_PROOF_KEY` as base64.
+  Encrypted `MIGRATION_PROOF_EXPECTED` contains the exact migration bindings and
+  38 HMAC-SHA256 hex digests: the 37 existing values plus the source-read private
+  key, excluding both proof fields. The digest input is
+  `UTF8("ArticlePod GitHub secret migration v1") || NUL || UTF8(name) || NUL || UTF8(value)`.
+  Values, whitespace, line endings, and UTF-8 bytes are not normalized.
+- The manifest contains integer `schema_version` (`1`), UUID v4 `manifest_id`,
+  `source_repository`, integer `source_repository_id`, full `source_sha`,
+  decimal-string `source_run_id`, positive integer `source_run_attempt`,
+  `destination_repository`, integer `destination_repository_id`,
+  `destination_environment`, `destination_environment_public_key_id`, and
+  `encrypted_values` (exactly 40 name-to-base64-ciphertext entries).
+  Proof JSON repeats all these bindings except `source_repository_id`,
+  `destination_environment_public_key_id`, and `encrypted_values`; it adds
+  `digests`. Neither the proof key nor proof digests appear unencrypted.
+- The only artifact is `articlepod-sealed-secret-transfer`, containing exactly
+  `sealed-secrets.json` and `articlepod-source-read.pub`. Retention is one day,
+  overwrite is disabled, the manifest is bounded to 4 MiB, the public key to
+  1024 bytes, and each plaintext to GitHub's 49152-byte secret limit. Missing or
+  empty allowlisted values fail the entire export without an artifact.
+
+Sealed boxes provide confidentiality, not source authentication. The coordinator
+must retrieve the artifact from an authenticated, successful run of this exact
+workflow at the approved SHA and verify run ID/attempt, source/destination
+identities, environment key ID, field types, exact names, and byte bounds before
+any destination write. Do not import a user-supplied lookalike artifact or trust
+only its self-declared metadata. Compare source secret-name/`updatedAt` snapshots
+before and after export and again before retirement; any change requires review.
+The coordinator grants the exported public key read-only source deploy-key access.
+The destination's `verify-migrated-secrets.yml` must verify all proof bindings and
+HMACs with constant-time comparison and prove source checkout using that key.
+
+### Forward migration, ownership, and rollback
+
+This is an additive GitHub secret-store migration, not an application schema,
+database, queue, or blob-layout migration. First copy encrypted values to the
+private production environment, verify proof/checkout, and verify the replacement
+operations against the actual live revision without deploying source `main`.
+No database resets, account reseeding, token regeneration, signing-key changes,
+service restarts, or data backfills are part of this export.
+
+The approved ownership boundary is: private ops owns production orchestration,
+SSH setup/pins/inventory, source revision verification, remote sync, and ingress
+deployment. Source retains `runtime-exec.sh`, `keyvault-exec.py`,
+`run-next-server.mjs`, `runtime-naming.sh`, `install-systemd.sh`, service
+units/assets, and application build/maintenance support needed by the installed
+runtime. An exact move/retain list must be agreed before deleting shared helpers.
+Do not duplicate operational implementations between repositories.
+
+After verified replacement and coordinator approval, retire the source
+`deploy-azure.yml`, `deploy-azure-keyvault.yml`, `probe-url-extraction.yml`, and the
+production inventory portion of `publication-preflight.yml`. Retain secret-free
+code CI and its offline checks. Remove source secret copies only at that explicit
+cutover, accounting for historical workflow reruns; then remove the temporary
+export workflow, encrypted transfer artifact, and destination proof secrets at
+the agreed checkpoint. Keep the source checkout private key in private ops.
+Until that approval, none of these retirements is active.
+
+On partial import or failed verification, stop without altering the source
+credentials or live runtime. Retry only the same authenticated artifact while
+its bindings and destination encryption key remain valid, or review a fresh
+export. Do not overwrite the live app to test rollback. Moving secret copies does
+not invalidate historical admin/demo passwords or clear retained portrait GPS
+metadata; both remain separate publication blockers.
+
+### Offline validation and dependency isolation
+
+Use a dedicated virtual environment, not the application Python/Node dependency
+graph. `requirements.txt` pins wheel hashes for PyNaCl `1.6.2` (Apache-2.0,
+bundled libsodium ISC), cffi `2.0.0` (MIT), and pycparser `2.23` (BSD-3-Clause).
+These permissive dependencies implement GitHub-compatible sealed boxes; no
+application dependency or lockfile changes are required. Supported lock targets
+are CPython 3.12/3.14 on x86_64 Linux and CPython 3.14 on Windows.
+The workflow selects Ubuntu 24.04's Python 3.12 explicitly. For local synthetic
+tests on Windows, put Git for Windows' `usr\bin` first in `PATH` to use its
+OpenSSH tooling. The real exporter refuses Windows and non-GitHub-hosted contexts.
+
+Install with the isolated virtual environment's interpreter:
+`python -I -m pip --isolated install --require-hashes --only-binary=:all: --no-deps -r scripts/secret-migration/requirements.txt`.
+Run `python -I -m unittest discover -s scripts/secret-migration/tests -v`.
+Tests use only synthetic values and ephemeral test keys, cover exact encryption
+and proof schemas, byte preservation, bounds, context rejection, redacted
+failures, key cleanup, and workflow credential placement. CI runs these tests
+without production access. Live podcast gates remain a coordinator cutover gate,
+not authorization for this exporter to consume private feed links.
 
 ## Prerequisites
 
@@ -51,9 +172,15 @@ Configure the following secrets in your GitHub **environment** (recommended) or 
    - Description: Comma-separated alias domains redirected to canonical host.
    - Recommended value: `www.articlepod.com`
 
+6. **`AZURE_SSH_KNOWN_HOSTS`**
+   - Independently verified OpenSSH known-hosts entries for the exact `AZURE_VM_HOST`.
+   - Verify the VM and its host keys through the owning Azure account or another
+     trusted console. Do not accept a network scan as proof of identity.
+   - Missing, changed, or unmatched pins block deployment. Do not bypass this gate.
+
 #### Optional Secret:
 
-6. **`AZURE_VM_USER`** (optional)
+7. **`AZURE_VM_USER`** (optional)
    - Description: SSH username
    - Default: `azureuser`
    - Only set if you're using a different username
@@ -74,6 +201,20 @@ You can trigger deployment manually from GitHub:
 
 CI now uses a quick pull-request workflow for everyday changes and a separate nightly full validation workflow for expensive checks. Deployment remains a separate explicit step.
 
+The production job runs only for `main` in `talktovishal/Podcast`. Its SSH probe,
+deployment commands, SCP uploads, and rsync transport share strict host checking
+against the saved pins. They ignore local SSH configuration, global host files,
+DNS host-key trust, and agent identities/forwarding. Host keys cannot be updated
+automatically. Temporary runner credentials are removed in an always-run step.
+
+For local deployment, pass `--ssh-known-hosts /absolute/path/to/known_hosts`,
+or set `TARGET_KNOWN_HOSTS_FILE` for either deployment helper. Literal paths with
+spaces and apostrophes are supported; OpenSSH expansion/control characters are
+not. An explicitly empty path fails rather than falling back. Omitting this
+setting preserves legacy local SSH configuration behavior, not a verified trust
+guarantee. Explicit Key Vault mode always requires saved pins, including local
+invocations. It cannot bootstrap or activate an unmigrated VM.
+
 Recommended daily flow:
 
 1. Create a short-lived branch
@@ -84,6 +225,23 @@ Recommended daily flow:
 6. Merge only after `validate-quick` is green
 7. Use `full-ci` or manual dispatch when you want parity before merge
 8. Let `Nightly Full CI` catch deep build/export/observability/parity regressions on `main`
+
+### VM extraction diagnostics
+
+**Probe URL Extraction (VM)** is a separate, manual legacy-only diagnostic.
+It requires original-repository `main`, independently saved host pins, and the
+legacy configuration guard before transferring or executing probe code. It
+shares production deployment concurrency, uses job-owned temporary SSH files,
+and removes its unique temporary remote script on exit. `fail_on_error=false`
+can tolerate an extraction failure, not failed SSH or missing structured output.
+It is not a vault diagnostic or an alternative access path around migration
+gates. After vault cutover, keep it blocked until separately integrated.
+
+Only supply public article URLs. Inputs, response headers, extraction metadata,
+logs, and artifacts are retained and may be visible after repository
+publication. Do not submit private feeds, credential-bearing URLs, or private
+customer material. Historical runs/artifacts need a separate exposure review;
+hardening the current workflow does not sanitize old records.
 
 ## Deployment Process
 
@@ -137,6 +295,400 @@ After each deployment, check the workflow summary for:
 - Branch name
 
 ## Troubleshooting
+
+### Read-only publication preflight
+
+Run **Publication Preflight (Read Only)** manually from `main` before a secrets
+migration. It uses the existing production SSH key and requires pinned host keys
+in `AZURE_SSH_KNOWN_HOSTS`; it never disables host verification.
+
+The check reads the running web service's environment in memory, tests managed
+identity availability, and checks whether that identity can read ARM permissions.
+It reports only fixed boolean status fields and HTTP status codes. It does not
+print environment values, identity tokens, subscription details, or SSH output.
+It does not deploy, restart, provision resources, rotate passwords, or modify
+application data.
+
+A successful inventory is not evidence that the identity can create a vault or
+assign roles. Those permissions must be established separately before migration.
+Missing access blocks the check; do not broaden the runtime identity's privileges
+just to make this check pass.
+
+On host-verification failure, the check distinguishes a changed host key from an
+unmatched target pin where SSH supplies that diagnosis. It also uses local
+`ssh-keygen` checks to report only whether the stored pin contains valid keys,
+matches the configured target, or looks like a bare public key instead of a
+known_hosts entry. If keys are valid but the target has no matching entry, a
+bounded `ssh-keyscan` compares advertised public keys in memory with the already
+saved pins and reports only boolean results. Revoked and certificate-authority
+entries are not usable direct-host pins. This comparison does not authenticate
+the endpoint or repair the configuration. No scanned key is accepted, written
+to a pin file, or substituted into an SSH connection. Hosts, fingerprints, key
+material, and raw SSH output are never printed.
+
+The workflow first runs offline launcher/preflight tests and Bicep compilation
+in a job with no production environment or secret inputs. Select
+`validation_only` to run that job without attempting SSH. A successful
+validation-only run does not establish VM access or credential invalidation;
+the production inventory job is explicitly skipped.
+A separate secret-free build job checks Azure Table and Prisma-backed Azure
+profiles, including enabled Azure Table mirroring. Inventory requires both
+validation jobs to succeed.
+
+### Key Vault foundation (not activated)
+
+`infra/secrets.bicep`, `scripts/azure/keyvault-exec.py`, and the opt-in
+`scripts/azure/runtime-exec.sh` router are staged migration components. Updated VM
+unit templates retain the application entrypoints behind that router. With no
+`ARTICLEPOD_SECRET_SOURCE` setting, or with `environment`, they retain legacy
+environment handling. Local development is unchanged. No production cutover or
+credential rotation has occurred.
+
+The Bicep module creates only a vault and a vault-scoped **Key Vault Secrets User**
+assignment for the verified VM system-assigned identity. It enables RBAC, soft
+delete, purge protection, and a default-deny firewall with explicitly supplied
+IPv4 allow rules. It does not create or update a VM, database, storage account,
+identity, network, or application. Independently confirm the existing VM's actual
+egress and authorized administration network before supplying the allow rules.
+If the deployment requires private endpoints or service-endpoint subnet rules,
+resolve that topology first rather than opening the firewall to all addresses.
+
+Vault provisioning requires separately authorized management and role-assignment
+access. Secret seeding/rotation requires a separate administrator's scoped data
+plane write access and an allowed network path. This template deliberately does
+not grant secret-write or subscription-management rights to the runtime identity.
+Review an authenticated Azure what-if before applying it; reject unexpected
+resource changes. Do not apply `infra/main.bicep` to add this vault.
+
+The router selects the launcher only for `ARTICLEPOD_SECRET_SOURCE=keyvault`;
+empty/unknown settings fail rather than select a fallback. Its manifest contains
+only version references. This schema illustration is intentionally incomplete
+and must not be used as the production service inventory:
+
+```json
+{
+  "vault_url": "https://your-vault-name.vault.azure.net",
+  "services": {
+    "web": {
+      "MEDIA_SIGNING_KEY": "media-signing-key/00000000000000000000000000000000"
+    },
+    "python-tts": {
+      "PYTHON_TTS_SECRET": "python-tts-secret/00000000000000000000000000000000"
+    }
+  }
+}
+```
+
+Replace each illustrative version with a real, enabled 32-character version ID.
+Supported service names are `web`, `worker`, `python-tts`, `worker-overflow`, and
+`ops`. Every configured reference is mandatory for that service; there is no
+`latest`, optional-secret, or environment-value fallback. The live inventory must
+determine the complete map for each service and operational command. The runtime
+uses `PYTHON_TTS_SECRET`; the older planned `TTS_SIDECAR_SECRET` name is not its
+current configuration name.
+
+On the VM, install a root-owned, non-group/world-writable manifest in a protected
+directory such as `/etc/articlepod/keyvault-secrets.json`. Invoke
+`python3 scripts/azure/keyvault-exec.py --manifest <absolute-manifest-path>
+--service <service-name> -- <existing-service-command>` from the existing working
+directory only after the rollout gates below pass. Command arguments must never
+contain secret values.
+
+VM units explicitly pass their protected environment-file path to the router.
+In vault mode, the file supplies public settings and the manifest reference;
+inherited application settings or manifest overrides cannot replace them.
+The overflow router explicitly applies `WORKER_ROLE=overflow` and
+`WORKER_OVERFLOW_ENABLED=1` after loading, preserving that service's role even
+when the shared file configures the primary worker. Other systemd overrides are
+not implicitly imported. Prisma readiness and the worker's TTS health probe use
+public-only `ExecStartPre` commands. Application processes receive their pinned
+service maps. Vault shells do not load profiles; legacy login-shell execution
+remains supported.
+
+`render-env.sh` accepts the same opt-in setting to generate public configuration:
+it clears every registered application secret before rendering, writes no
+credential or derived signing-key values, and includes the manifest path.
+Secret-bearing keys already in the legacy template remain present but empty.
+The default legacy output retains explicit secrets and existing derivation
+behavior. When a vault-mode Azure OpenAI endpoint is supplied, select
+`DIGEST_SUMMARY_PROVIDER` explicitly rather than relying on API-key presence.
+Manifest paths must be absolute and contain only letters, digits, `_`, `.`, `/`,
+or `-`.
+
+**Protected public configuration:** The launcher accepts `--env-file` with an
+absolute path to reviewed vault-mode output from the renderer. It parses literal,
+unquoted `KEY=value` lines, never shell code or interpolation. The file must
+declare the Azure runtime profile, selected metadata backend, required public
+endpoints/container, vault source, an absolute VM manifest path, and exactly
+`ARTICLEPOD_BOOTSTRAP_ADMIN_ON_STARTUP=0`. Omission, `false`, or any other value
+is rejected because the current application permits startup account bootstrap
+unless this flag is exactly `0`. Empty
+registered secret slots are removed; nonempty secrets, duplicate or unknown names,
+control-character injection, quoted/escaped values, and endpoint userinfo,
+queries, or fragments are rejected. Additional live settings must be reviewed
+and explicitly supported, not silently discarded during migration.
+
+Before writing vault-mode output, the renderer checks its complete candidate in
+memory with `--check-public-env-stdin`. Invalid candidates leave existing output
+unchanged and are not echoed or written to temporary files. This validation-only
+mode reads at most 64 KiB plus one overflow-detection byte and makes no identity
+or vault requests. It does not bypass the protected-file checks for execution.
+Legacy rendering is unchanged.
+
+Both public configuration and manifests require bounded regular files,
+root ownership, and no group/world write permission on Linux. Final symlinks
+are refused; nonblocking opens reject FIFOs without waiting for a writer. Keep
+their parent directories protected and grant the service account only the read
+access it needs. "Public" means non-credential configuration, not approval to
+publish actual production settings or operational metadata.
+
+These standalone execution forms are prerequisites, not a deployment cutover:
+
+```text
+python3 scripts/azure/keyvault-exec.py --env-file /etc/articlepod/articlepod.env --public-only -- <build-command>
+python3 scripts/azure/keyvault-exec.py --env-file /etc/articlepod/articlepod.env --service ops -- <operational-command>
+```
+
+The public-only form does not read the manifest or contact IMDS/Key Vault. The
+operations form uses the manifest selected by the protected file and resolves
+all pinned secrets for the selected map before executing. An explicit
+`--manifest` cannot be combined with `--env-file`. Both forms inherit only
+allowlisted host settings such as `PATH` and `HOME`; the file supplies application
+settings. Inherited application/deployment credentials and interpreter controls
+such as `NODE_OPTIONS`, `PYTHONPATH`, and `NEXT_PHASE` do not reach the child.
+Command arguments are passed literally, without a shell added by the launcher.
+
+The loader is not a sandbox: the chosen command can still read files or perform
+its own authentication. A build must also exclude secret-bearing `.env` files
+and credential-loading shell profiles. File-based execution does not import
+arbitrary systemd overrides. The VM and remote integrations below use explicit
+public-only and service scopes. Other consumers and operational entrypoints
+still require inventory and migration before activation.
+
+**Secret-free builds:** During Next.js's own `phase-production-build`, web
+configuration does not require runtime signing secrets, and Azure Table primary
+and mirror stores defer client/table initialization until an actual operation.
+Their selected backends and mirror-enabled state are unchanged. An accidental
+build-time data operation still fails without credentials; it does not fall
+back to Prisma or disable mirroring. Build instrumentation does not bootstrap
+accounts or start keepalive timers.
+
+Outside that framework build phase, the existing signing-secret validation
+and eager Azure credential checks remain in force. Normal core/worker store
+construction is unchanged unless deferral is explicitly requested. No schema,
+table names, entity keys, account hashes, feed tokens, or media URLs change.
+
+With declared dependencies installed, use a checkout without local `.env` files:
+
+```text
+python scripts/azure/verify-secret-free-build.py --metadata-backend azure_table
+python scripts/azure/verify-secret-free-build.py --metadata-backend prisma
+```
+
+This verifier allowlists inherited host variables, generates the correct Prisma
+client, performs a real production build without service credentials, and loads
+a compiled route in fresh processes to verify that missing runtime signing
+secrets still fail. It invalidates only the generated Prisma cache marker so
+later normal commands cannot reuse a client for the wrong profile. It uses
+isolated loopback/public test settings: its `.next` output is verification
+material, not a production release artifact. It does not fetch vault secrets,
+connect to a database, or replace the still-pending deployment cutover.
+
+**VM-side deployment integration:** `deploy-vm-runtime.sh` accepts explicit
+`ARTICLEPOD_SECRET_SOURCE=keyvault` with `DEPLOY_DEMO_SEED_MODE=never` for an
+already-configured VM. The supplied public environment file must pass the
+protected loader. Before mutating deployment steps, it resolves all references
+for `ops`, `web`, `worker`, and `python-tts`, plus `worker-overflow` when enabled.
+This verifies configured references, not the completeness of the live consumer
+inventory or end-to-end provider functionality.
+Node, Corepack, and Python must already be available on the runtime user's
+non-login `PATH`; the preflight checks this without loading shell profiles.
+
+Dependency installation, Prisma generation, web/worker builds, Python setup,
+and Python asset probes run with public settings only. Database bootstrap and
+TTS preview precompute use the pinned `ops` map. Commands use argument arrays,
+not `eval`, and vault-mode command shells do not load login profiles. Any
+credential-resolution failure aborts without a plaintext fallback. Preview
+failure is also fatal in this mode rather than a successful deployment warning.
+
+Key Vault deployments refuse local `.env` files in both runtime and staging
+trees, including `.env.azure`, before running commands; they do not delete
+those files to proceed.
+Retire them through the controlled migration after reviewing their contents.
+The public file is not replaced with a legacy fallback. Azure/Prisma operations
+require a vault-supplied PostgreSQL URL; the parent shell does not read a database
+secret to create SQLite files. Runtime paths reject relative/root-directory
+targets, and existing data-file ownership is not recursively rewritten.
+`check-vault-deployment.py` requires separate canonical application/staging
+trees, protected configuration outside them, and explicit storage/log paths.
+It rejects data overlapping staging or containing application/configuration
+trees. Data within the application is allowed only under excluded `.runtime`.
+These read-only checks resolve symlinks but are not a filesystem sandbox or
+protection against concurrent privileged filesystem changes.
+
+Demo/account seeding is always disabled in this mode, even for a forced full
+dependency rebuild. Use the separately controlled account-rotation operation,
+not seeding. VM maintenance retains retired runtime trees when current legacy
+configuration cannot be established, including vault-mode or absent configuration.
+Legacy environment-mode command behavior remains supported.
+
+**Routine remote vault deployment:** After initial migration, select
+`ARTICLEPOD_SECRET_SOURCE=keyvault` when invoking `deploy-changes.sh`. It requires
+explicit saved host pins, the existing protected VM configuration, matching
+runtime unit templates and installed unit routing, non-login runtime tools,
+and successful resolution of all selected service references before sync.
+The canonical health URL comes from the VM file; a conflicting supplied URL
+fails. Environment rendering/upload, ingress reconfiguration, and account
+seeding are refused. Insufficient disk space fails without deleting caches,
+logs, or retired trees.
+
+Promotion uses rsync ownership changes only for included transferred files;
+excluded `.runtime` data and protected configuration remain untouched. Vault
+unit installation updates runtime services and file-configured TTS memory
+settings, but leaves maintenance units/timers, journald configuration, and
+legacy compatibility files alone. It does not start a maintenance timer as an
+incidental cleanup path. An enabled or active VM overflow worker is preserved
+when no policy is supplied. Explicit enable starts it; explicit disable stops
+it. Unknown existing state requires an explicit operator decision.
+
+The manual **Deploy to Azure (Key Vault)** workflow shares the legacy workflow's
+production environment, original-repository/main guard, and concurrency group.
+It has no application-secret expressions, render step, seed step, ingress
+change, or health-check bypass. It uses `ARTICLEPOD_DEPLOY_SSH_KEY` and
+`ARTICLEPOD_DEPLOY_KNOWN_HOSTS`, plus `AZURE_VM_HOST` and optional `AZURE_VM_USER`.
+Create those new transport credentials during controlled cutover. After proving
+the new path, revoke the retired SSH identity and remove obsolete legacy secret
+copies, including repository/environment duplicates. Retiring the old credential
+names is necessary to prevent historical legacy workflow reruns from obtaining
+the new deployment key. A branch-only environment restriction does not by itself
+prevent rerunning an old main-branch workflow.
+
+Both workflows use job-owned temporary SSH files with private permissions and
+always-run cleanup. A public health check is not proof of login, processing,
+private RSS/media continuity, or provider revocation.
+
+**Do not activate vault mode yet.** The initial version-preserving secret-delivery
+bootstrap, live consumer migration, and credential rotation remain incomplete.
+Routine deployment requires that work; it does not perform it. Legacy paths
+retain `assert-legacy-deploy.py` before sync/upload so they cannot overwrite
+vault-managed configuration with old GitHub secret values. Do not bypass this
+guard. VM unit support does not cover Azure Container Apps overflow; confirm the
+live topology and migrate that separate consumer before cutover.
+
+The launcher obtains a system-assigned managed-identity token directly from
+Azure IMDS, fetches exact secret versions over HTTPS, and replaces itself with
+the original service command only after all lookups succeed. Proxy environment
+settings and HTTP redirects are disabled for both identity and vault requests.
+Retries are bounded; denied, absent, disabled, expired, and not-yet-valid secrets
+block startup with fixed diagnostic codes. Response bodies and tokens are never
+logged. Known inherited application secrets are removed before the selected
+service's values are injected. The existing `--manifest` form keeps its prior
+non-secret inheritance; `--env-file` uses the narrower host-settings allowlist.
+Duplicate manifest keys, unexpected environment names, writable/unowned manifests,
+and mismatched returned secret versions are rejected.
+
+Secret values remain in process memory/environment, not launcher-created files.
+Core dumps are disabled before retrieval on Linux. A shared VM identity does not
+isolate services from one another: any process able to use that identity can
+request its permitted secrets. Service maps reduce accidental propagation; they
+are not independent Azure authorization boundaries.
+
+Activation remains blocked until trusted SSH and Azure/provider administrative
+access establish the live runtime version, identity, credentials, and consumers.
+Preserve the effective `MEDIA_SIGNING_KEY` unchanged before rotating any storage
+connection string from which it may have been derived. Then migrate all consumers,
+including maintenance and deploy-time commands, remove persistent plaintext
+secret paths, verify continuity, and revoke retired credentials at their providers.
+Do not use this launcher to run the broad demo seeder as a password-rotation
+shortcut. It does not update password hashes, revoke sessions, alter podcast
+URLs, or mutate application data.
+
+### Targeted account rotation contract
+
+`apps/web/scripts/rotate-provisioned-accounts.ts` is an inactive administrative
+operation, separate from application deployment
+and demo seeding. Its supported store is the verified Azure Table primary, with
+explicit account/table-prefix and user ID/email/role bindings. It must read all
+targets before any write, use bcrypt cost 12, condition password updates and
+session deletions on ETags, and report partial failure without restoring old
+passwords. Missing tables, unsupported backends, OAuth-only accounts, or target
+mismatches must fail rather than create or repair data.
+
+Persisted impact is limited to selected users' `passwordHash`/`updatedAt` fields
+and deletion of those users' browser-session rows. Merge updates preserve unknown
+user fields. No schema migration, table creation, account creation, billing
+change, or feed/digest/share/extension-token mutation is authorized by this tool.
+Existing and new application code remain compatible with the same bcrypt and
+session schema. Extension credentials and any confirmed-exposed private links
+require their own narrowly scoped review; browser-session deletion is not a
+claim that every authentication mechanism has been revoked.
+
+Apply requires a verified maintenance window with all relevant credential/session
+writers quiesced, including in-flight login requests, startup bootstrap, seeders,
+and other active deployments/consumers. An operator flag is an attestation, not
+a distributed lock. Without that barrier, an already validated old-password
+request can mint a session after deletion. ETags and final empty-session checks
+detect some races but cannot replace the barrier. Keep writers stopped on any
+partial failure, inspect redacted status, and finish forward; never restore a
+retired hash. Resume and continuity checks are part of the live rollout, which
+has not occurred.
+
+The CLI accepts `check`, or `apply --writers-quiesced`, and a bounded JSON
+request on stdin. It accepts no password arguments and writes no credential
+files. Replacement values must come from a pinned `ops` map via the protected
+launcher, using `ADMIN_PASSWORD`, `DEMO_PASSWORD`, or `WEBSTORE_REVIEWER_PASSWORD`.
+Use independently generated, unique, cryptographically random values of 32 to
+72 UTF-8 bytes. Each target must include its reviewed historical password
+candidates; successful comparison proves rejection of those candidates, not
+completeness of an unreviewed inventory. No identifiers, hashes, session tokens,
+replacement passwords, or provider response details appear in CLI output.
+
+Schematic input only, not a production request:
+
+```json
+{
+  "storageAccount": "verifiedaccount",
+  "tablePrefix": "articlepod",
+  "targets": [{
+    "userId": "verified-user-id",
+    "email": "verified-user@example.invalid",
+    "role": "ADMIN",
+    "replacementSecret": "ADMIN_PASSWORD",
+    "retiredPasswords": ["supply reviewed candidates privately through stdin"]
+  }]
+}
+```
+
+Run the reviewed standalone operation with compatible declared dependencies
+under `keyvault-exec.py --env-file ... --service ops -- ...`, not by deploying
+unrelated application code. The protected file must explicitly select the same
+canonical table prefix, Azure Table primary, and disabled startup bootstrap.
+The connection string must resolve to the approved public-cloud storage account.
+Missing tables, noncanonical prefixes, SAS-only configuration, other clouds, and
+non-cost-12 hashes are deliberately unsupported until separately reviewed.
+
+`check` performs reads and bcrypt comparisons without writes. `apply` validates
+all targets first, merges only the password hash/timestamp, and conditionally
+deletes the selected browser sessions. Both SDK updates and deletes use exact
+ETags with SDK retries disabled. A repeated operation can recognize the already
+replaced password and finish session cleanup forward. A failure explicitly
+reports whether mutations may have occurred. Keep the maintenance barrier in
+place until final verification and the wider live continuity gates pass.
+
+Offline checks, with no Azure login or production secrets:
+
+```text
+python -m unittest discover -s scripts/azure/tests -p test_keyvault_exec.py
+python -m unittest discover -s scripts/azure/tests -p test_public_environment.py
+python -m unittest discover -s scripts/azure/tests -p test_runtime_secret_routing.py
+python -m unittest discover -s scripts/azure/tests -p test_vm_deployment_routing.py
+python -m unittest discover -s scripts/azure/tests -p test_remote_vault_deployment.py
+corepack pnpm --filter @articlepod/web exec tsx --test tests/account-rotation.test.ts
+bicep build infra/secrets.bicep --stdout
+```
+
+These checks are not proof of live access, credential revocation, or production
+readiness. Publishing the repository remains gated on those separate results.
 
 ### Common Issues
 

@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { Item } from "@prisma/client";
+import { headObjectIfExists, type StoredObjectHead } from "@articlepod/core";
 import { enqueueItemDispatchMessage, webUsesPrismaDispatchQueue } from "./item-dispatch-queue";
 import { logger } from "./logger";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 import { getArtifactStorage } from "./storage";
+import { deriveAlternateAudioPath } from "./rss-media";
 
 type ResolvedEpisodeMedia = {
   audioPath: string;
@@ -32,16 +34,6 @@ function inferMimeType(path: string, fallback?: string | null): string {
   return "application/octet-stream";
 }
 
-function deriveAlternateAudioPath(path: string): string | null {
-  if (path.endsWith(".mp3")) {
-    return `${path.slice(0, -4)}.m4a`;
-  }
-  if (path.endsWith(".m4a")) {
-    return `${path.slice(0, -4)}.mp3`;
-  }
-  return null;
-}
-
 function canRegenerateMedia(item: Pick<Item, "sourceType" | "sourceUrl" | "sourceFilePath" | "sourceHtml">): boolean {
   if (item.sourceType === "URL") {
     return Boolean(item.sourceUrl);
@@ -60,6 +52,7 @@ export async function enqueueEpisodeMediaRepair(input: {
   userId?: string | null;
   expectedAudioPath?: string | null;
   reason?: string;
+  alternateHead?: StoredObjectHead | null;
 }): Promise<EnqueueEpisodeMediaRepairResult> {
   const episodeId = input.episodeId || "";
   if (!episodeId) {
@@ -124,9 +117,9 @@ export async function enqueueEpisodeMediaRepair(input: {
 
   const alternatePath = deriveAlternateAudioPath(episode.audioPath);
   if (alternatePath) {
-    const alternateHead = await getArtifactStorage()
-      .headObject(alternatePath)
-      .catch(() => null);
+    const alternateHead = input.alternateHead !== undefined
+      ? input.alternateHead
+      : await headObjectIfExists(getArtifactStorage(), alternatePath);
     if (alternateHead && alternateHead.bytes > 0) {
       const resolvedEpisode: ResolvedEpisodeMedia = {
         audioPath: alternatePath,

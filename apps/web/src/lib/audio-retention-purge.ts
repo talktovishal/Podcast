@@ -1,21 +1,12 @@
-import { rm } from "node:fs/promises";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
-import { getArtifactStorage, isLikelyLegacyAbsolutePath } from "./storage";
+import { deleteUnreferencedAudioObject } from "./audio-ownership";
 
 export type AudioRetentionPurgeSummary = {
   itemEpisodesPurged: number;
   digestEpisodesPurged: number;
   summaryEpisodesPurged: number;
 };
-
-async function deleteAudioObject(path: string): Promise<void> {
-  if (isLikelyLegacyAbsolutePath(path)) {
-    await rm(path, { force: true }).catch(() => undefined);
-    return;
-  }
-  await getArtifactStorage().deleteObject(path).catch(() => undefined);
-}
 
 export async function purgeExpiredAudioEpisodes(now = new Date()): Promise<AudioRetentionPurgeSummary> {
   let itemEpisodesPurged = 0;
@@ -30,20 +21,20 @@ export async function purgeExpiredAudioEpisodes(now = new Date()): Promise<Audio
     ]);
 
     for (const episode of episodes.filter((row) => row.expiresAt && row.expiresAt.getTime() <= now.getTime())) {
-      await deleteAudioObject(episode.audioPath);
       await webPrimaryStore.deleteEpisode(episode.id);
+      await deleteUnreferencedAudioObject(episode.audioPath);
       itemEpisodesPurged += 1;
     }
 
     for (const episode of digestEpisodes.filter((row) => row.expiresAt && row.expiresAt.getTime() <= now.getTime())) {
-      await deleteAudioObject(episode.audioPath);
       await webPrimaryStore.deleteDigestEpisode(episode.id);
+      await deleteUnreferencedAudioObject(episode.audioPath);
       digestEpisodesPurged += 1;
     }
 
     for (const episode of summaryEpisodes.filter((row) => row.expiresAt && row.expiresAt.getTime() <= now.getTime())) {
-      await deleteAudioObject(episode.audioPath);
       await webPrimaryStore.deleteSummaryEpisode(episode.id);
+      await deleteUnreferencedAudioObject(episode.audioPath);
       summaryEpisodesPurged += 1;
     }
 
@@ -90,16 +81,6 @@ export async function purgeExpiredAudioEpisodes(now = new Date()): Promise<Audio
     })
   ]);
 
-  for (const episode of episodes) {
-    await deleteAudioObject(episode.audioPath);
-  }
-  for (const episode of digestEpisodes) {
-    await deleteAudioObject(episode.audioPath);
-  }
-  for (const episode of summaryEpisodes) {
-    await deleteAudioObject(episode.audioPath);
-  }
-
   itemEpisodesPurged = (
     await prisma.episode.deleteMany({
       where: {
@@ -129,6 +110,10 @@ export async function purgeExpiredAudioEpisodes(now = new Date()): Promise<Audio
       }
     })
   ).count;
+
+  for (const path of new Set([...episodes, ...digestEpisodes, ...summaryEpisodes].map((episode) => episode.audioPath))) {
+    await deleteUnreferencedAudioObject(path);
+  }
 
   return {
     itemEpisodesPurged,
