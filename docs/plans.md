@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Quota reservation design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [admission and compensation proposal](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  covers concurrent last slots, stable request identity, free/paid capacity,
+  failure recovery and upgrade/rollback. Documents the completed-summary usage
+  mismatch; runtime quota policy and balances are unchanged.
+
 - Publication recovery design (design deliverable done; target_finish:
   2026-11-17; completed_on: 2026-11-17): [fenced commit proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
   includes SQL/Azure mechanics, stale-owner interleavings, every publication

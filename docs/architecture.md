@@ -15,6 +15,10 @@ the existing prepared-markdown task contract. No runtime/schema change yet.
 defines one commit authority, stale-owner rejection, a write-by-write crash
 matrix, convergent projections and compatible rollout/rollback. This remains a
 design, not an implemented cross-table transaction.
+[Quota reservation](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+defines user-scoped idempotency, same-partition Azure admission, SQL
+serialization, compensation and policy-preserving migration. It flags the
+completed-summary usage mismatch for explicit rollout review; no quotas change.
 
 ### Hard chunk-size bound (implemented and validated; not deployed)
 

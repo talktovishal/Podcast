@@ -504,6 +504,11 @@ A) Account + private feed
   - `/rss/<feed_token>.xml`
 - User can rotate the feed token (invalidates previous URL)
 - Free users have a submission trial quota (default 2). Additional submissions require paid status or admin-granted extra tries.
+- Design only: [recoverable quota admission](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  preserves free/paid policy while proposing idempotent reservation and
+  compensation. Completed summary tasks currently disappear from task-based
+  usage counting; reconcile that behavior with the daily-allowance contract
+  explicitly before activating any new ledger. No balances or limits change now.
 - Pro upgrades use Stripe-hosted Checkout; ongoing billing changes/cancelation use Stripe Customer Portal.
 
 B) Ingest content

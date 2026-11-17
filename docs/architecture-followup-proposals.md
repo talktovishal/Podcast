@@ -352,3 +352,127 @@ Rollback disables new claims/writers first and drains committed projections with
 a compatible reconciler. Keep the new authority-aware readers until all active
 new-protocol records are safely handled. Do not roll back to blind legacy writers,
 erase journals, reset jobs or delete objects as a shortcut.
+
+## 4. Idempotent quota reservation and acceptance
+
+### Preserve the policy; repair its durability
+
+[Submission quota](../apps/web/src/lib/submission-quota.ts) currently increments
+free usage before Azure item/job creation. Paid admission reads jobs/tasks before
+new work exists, so concurrent requests can both see capacity. SQL groups item/
+job/free usage in a transaction and conditionally increments free usage; that is
+stronger, but a transaction alone is not proof of serialized paid read-then-admit
+checks.
+
+Preserve configured free trial plus admin-granted tries, separate paid podcast
+and summary windows, and the existing plan-specific limits. `FULL_EPISODE` and
+`REQUEST_TTS` share podcast capacity; `SUMMARY_ONLY` uses summary capacity.
+Podcast overflow is deferred up to twice the configured daily podcast limit;
+summary overflow is rejected rather than deferred. Keep the existing rolling
+24-hour/scheduled-start semantics and error/accepted-message contract. This
+proposal does not change prices, issue monetary refunds, or merge manual Summary
+Studio/digest quotas into submission capacity.
+
+**Mismatch requiring explicit rollout review:** paid summary accounting reads
+`ArticleSummaryTask`, but successful tasks are deleted. Completed work can
+therefore disappear from the apparent 24-hour usage count. The product spec
+describes a daily summary allowance, not a simultaneous-pending-task limit.
+Propose retaining accepted usage in the ledger for the whole window, but treat
+that observable tightening as a product-compatibility decision before activation;
+do not silently "backfill" deleted task history or claim historical usage is known.
+
+### Operation and capacity model
+
+One user-scoped submission key and immutable request hash identify one operation
+across retries, item creation, preparation, task/job creation and dispatch.
+Persist the capacity kind, observed policy/entitlement version, queue mode,
+scheduled slot, stable item/job/task IDs and safe failure reason with it.
+Same key/body returns the original outcome; mismatched body conflicts.
+
+```text
+validated request -> RESERVED -> ACCEPTED -> processing / succeeded / failed
+                         |
+                         +----> COMPENSATED (only if acceptance never committed)
+```
+
+RESERVED consumes capacity so another request cannot take it. ACCEPTED makes the
+same reservation final; it does not increment a second time. Retries of accepted
+work never call admission. A new Request TTS operation is distinct from retrying
+the original summary. Acceptance failures compensate exactly once; a later
+processing failure or deletion does not silently refund free tries or rewrite
+the agreed rolling-window policy.
+
+### SQL and Azure protocol
+
+| Backend | Admission linearization and atomic scope |
+|---|---|
+| SQL | Unique `(userId, submissionId)` operation; serialize on an account admission row/conditional revision, then re-read capacity and reserve within the same transaction as item/intent and initial job when applicable. PostgreSQL row locking or tested serializable transactions with bounded conflict retry; SQLite busy/conflict retry must rerun the whole decision. External billing/network/storage calls stay outside the transaction. |
+| Azure | New ledger table, partition per account. Exact-ETag update of its admission revision plus conditional creation of operation and capacity-slot rows in one same-partition transactional batch. Each capacity mutation/compensation advances that revision. Read revision, enumerate relevant slots, then batch with that revision: concurrent changes invalidate the decision and force a fresh bounded retry. Existing user/item/job tables remain projections, not members of this transaction. |
+
+Use time-keyed slot rows for paid rolling windows/future starts and a durable
+free-used/held counter, rather than a forever-growing array in one Azure entity.
+Current-window and future-slot scans need exact row-key ranges and continuation;
+never take an arbitrary newest-N slice before computing capacity. Cap the
+future backlog according to policy, archive elapsed capacity rows separately
+from compact operation deduplication tombstones, and test entity/batch size
+limits. A busy account retries at most three admission conflicts before an
+explicit retryable error; do not spin or return a successful guessed snapshot.
+
+Bind policy changes and extra-credit updates to an admission revision too.
+Billing remains authoritative for entitlement; do not overwrite billing fields
+from a quota projection. Before activation, define how the observed billing
+version is synchronized into the account admission epoch and how overlapping
+plan changes are serialized. Reading a user row, then writing another table,
+does not provide an atomic current-entitlement check. Existing accepted slots
+are grandfathered; new admissions use the newly committed policy epoch.
+
+The Azure operation is created before cross-table projections. A reconciler
+ensures the stable item and job or summary-preparation intent, validates their
+ownership/content, then conditionally transitions RESERVED to ACCEPTED. Dispatch
+hints may follow and be repaired. The web response promises acceptance only
+after durable acceptance/item state; ambiguous timeouts expose the operation ID
+for status/retry, never assume a failed HTTP response means no reservation.
+
+### Crash, contention and compensation proof obligations
+
+| Case | Required outcome |
+|---|---|
+| Two different requests, one free/paid immediate slot | One reserves it; the other recomputes and rejects or gets a valid podcast deferred slot |
+| Two requests, last deferred slot | One reserves it; the other receives the existing quota-full error |
+| Duplicate simultaneous key/body | Exactly one operation/reservation; both resolve the same IDs and slot |
+| Crash before admission batch/transaction | No reservation; retry is a new attempt at the same operation |
+| Crash after reserve, before item | Durable RESERVED operation drives item creation; no second usage increment |
+| Crash after item/job, before acceptance acknowledgement | Compare deterministic IDs/content, finish acceptance once; do not recreate work |
+| Dispatch/index write fails | Accepted work remains discoverable from journal; repair the hint |
+| Permanent failure before acceptance | Fence the operation against later acceptance, remove only its pending projections, release its capacity in the same ledger transaction as COMPENSATED |
+| Compensation response lost or racing acceptance | Read operation state; the conditional state/revision transition lets only one outcome win; never blindly decrement a user counter |
+| Accepted work fails, is retried or is deleted | Retain accepted usage according to policy; retry does not admit again; tombstone prevents resurrection |
+| Billing/admin policy change overlaps | Recompute against the admission policy epoch; never silently mix old allowance with new usage |
+
+An elapsed timeout alone is not proof that a reservation is unused. Compensation
+must acquire a newer operation epoch, prove no acceptance commit and fence any
+in-flight projector/worker. Readers and workers ignore nonaccepted/tombstoned
+projections. Uncertain cross-table state remains explicitly pending for
+reconciliation/alerting instead of releasing potentially valid capacity.
+
+### Migration and rollback
+
+Add ledger tables/entities and optional operation references first. Deploy
+readers/reconciliation before gated writers, and synchronize every admission/
+admin-credit entry point for the chosen cohort; mixed old/new admissions can
+bypass the ledger. Seed free usage from verified existing counters, not a recount
+of retained items. Inventory paid history including completed/deferred work and
+unknown gaps; report differences without changing balances or inventing usage.
+Shadow-compare decisions before enforcing them. Quiesce a cohort's admissions
+briefly for the baseline/revision cutover, preserving in-flight requests.
+
+Test all matrix cases with SQL and Azure transaction semantics, independent
+processes, window boundaries, summary completion, plan changes and manual retry.
+Assert held plus accepted capacity and visible accepted work reconcile exactly;
+preserve the separate policy behavior for free, paid podcast and paid summary.
+No tests against live accounts and no destructive migration are proposed.
+
+Rollback stops new ledger admissions and drains or compensates RESERVED records
+under the compatible protocol. Preserve ACCEPTED records and deduplication keys.
+Do not resume legacy writers until a verified compatibility projection exists;
+never reset counters or drop ledger data to make a rollback appear successful.
