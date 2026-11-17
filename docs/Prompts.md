@@ -776,6 +776,10 @@ Document tradeoffs in `plans.md`.
 
 ### 4.3 TTS provider interface
 
+- Article, digest and Summary Studio audio use the internal worker
+  [audio-synthesis module](../apps/worker/src/lib/audio-synthesis.ts) directly.
+  Synthesis, segment retries, concatenation and upload are shared; each job
+  retains its existing claim, cache ownership, publication and quota policies.
 - Dependency-light CI maps provider checks to their actual claims and exercises
   selected-provider isolation, Melo audio/error/cleanup and invalid-voice
   rejection. Controlled faults must make the new regressions fail. These checks

@@ -9,10 +9,18 @@
 
 ## Spec Consistency Notes (Current)
 
-- Provider gate audit (tests added; validation pending; target_finish:
-  2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
+- Shared synthesis extraction (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
+  [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts). Move behavior
+  unchanged, including retries, format, storage keys and cleanup; retain
+  coordination/publication/ownership policies with their existing jobs.
+
+- Provider gate audit (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
   four missing behavioral cases and six controlled-fault checks. No heavyweight
   model install, provider/runtime change, live-cloud or production claim.
+  [CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+  passed on candidate `e4723bc`, including the controlled-fault gate.
 
 - RSS preflight concurrency (implementation and scoped validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered

@@ -2,7 +2,20 @@
 
 ## Overview
 
-### Provider verification audit (tests added; validation pending; not deployed)
+### Shared synthesis boundary (extracted; validation pending; not deployed)
+
+Article, digest and Summary Studio jobs now import
+[audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts), rather than digest/
+summary workflows importing the article orchestrator. The implementation is
+moved unchanged: provider selection, inputs/options, progress callback, segment
+retry classification/delay, concatenation fallback, output format/key, storage
+upload and temporary cleanup. The common diagnostic formatter moves to the
+existing logger module instead of being copied. Claim/acceptance, item-owned
+cache handling, publication identities, retention and quotas stay with callers.
+This is an internal module, not a new service/process or workflow engine.
+No persisted contract or migration change.
+
+### Provider verification audit (validated; not deployed)
 
 [Provider gate map](../services/python-tts/README.md#what-each-gate-proves)
 separates optional discovery, constructor concurrency, service behavior,
@@ -11,6 +24,8 @@ cases cover the previously untested Melo success/error cleanup path and early
 voice rejection in both providers; existing coverage is reused. CI checks six
 controlled faults in disposable copies without installing model providers.
 No production behavior, provider versions, models or credentials change.
+[CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+passed on candidate `e4723bc`, including all six controlled-fault checks.
 
 ### Bounded RSS preflight (implemented and validated; not deployed)
 
