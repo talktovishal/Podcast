@@ -9,14 +9,23 @@
 
 ## Spec Consistency Notes (Current)
 
-- Billing event concurrency (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
+- Feed eligibility (implemented; validation pending; target_finish: 2026-11-17;
+  not merged/deployed): resolve actual unexpired episode candidates' article
+  records without the newest-500 window, deduplicating IDs and keeping one point
+  read in flight. Preserve same-user/READY requirements, retention, ordering,
+  GUIDs, feed tokens and audio URLs. No stored-contract change or migration.
+
+- Billing event concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
   on the observed billing snapshot. Retry known write conflicts from a fresh read
   at most three times; ignore newly stale domain events and propagate exhausted
   conflicts without a processed audit entry. Equal timestamps keep sequential
   successful-write order, not an invented ordering of Stripe event IDs.
   No new persisted fields/keys or migration; audit/account atomicity and
   cross-domain/non-webhook reconciliation ordering remain separate concerns.
+  All 22 added cases executed and passed
+  [CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+  on candidate `aef1035`.
 
 - Model initialization (implementation and scoped validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): provider/language guards prevent duplicate

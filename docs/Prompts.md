@@ -6,6 +6,12 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
 
 ### Implemented (as of 2026-04-29)
 
+- Azure main-feed eligibility resolves the actual unexpired episode candidates'
+  owning articles, not the newest 500 articles. Missing, non-READY and
+  differently owned articles are excluded; metadata outages propagate rather
+  than being treated as absence. Existing retention, ordering, GUIDs and URLs
+  remain unchanged.
+
 - Billing webhook saves condition on the billing snapshot used to decide
   freshness, in SQL and Azure and in live/sandbox lanes. A conflict retries the
   complete handler from current state up to three attempts; exhausted conflicts

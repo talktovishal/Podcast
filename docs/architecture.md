@@ -2,7 +2,19 @@
 
 ## Overview
 
-### Conditional billing event application (implemented; validation pending; not deployed)
+### Main-feed candidate eligibility (implemented; validation pending; not deployed)
+
+The Azure feed resolves each distinct item ID among its unexpired episode
+candidates with a point read, sequentially (one lookup in flight), then requires
+the item to belong to the same user and be READY. A missing item is omitted, as
+with SQL's join; lookup outages are not converted into absence. Eligibility no
+longer depends on whether the item is among the user's newest 500 records.
+Existing feed sorting, retention, tokens, GUIDs and media URLs are unchanged.
+This bounds eligibility lookups to candidate IDs, not overall episode listing
+cost; the latter still needs the separate query-design work. No stored-contract
+change or migration is needed. Rollback restores the history-window defect.
+
+### Conditional billing event application (implemented and validated; not deployed)
 
 Live and sandbox webhook handlers carry the observed last-event ID, per-domain
 watermarks and billing-update timestamp into their save. SQL includes those
@@ -24,6 +36,10 @@ No persisted fields, keys, schema or dependencies change; the version condition
 is transient and uses existing fields. No migration/backfill is required.
 Use consistent updated web handlers when eventually activating; old handlers can
 still write without this guard. Rollback restores the race, without data rewrites.
+All 22 added SDK-boundary and SQL handler cases passed in
+[CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+on candidate `aef1035`, including both interleavings, live/sandbox lanes,
+subscription/invoice domains, equal timestamps and exhausted retries.
 
 ### Per-model initialization guards (implemented and validated; not deployed)
 
