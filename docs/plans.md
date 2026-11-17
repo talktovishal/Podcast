@@ -25,16 +25,18 @@
   unchanged. No workstation-specific Markdown links were found in the checked
   root contributor files and docs, so no speculative link rewrite was made.
 
-- Legacy extraction fixture refresh (implementation in progress; target_finish:
-  2026-11-17): retain PR #9's synthetic layout cases in the current core test
+- Legacy extraction fixture refresh (implementation and scoped validation done;
+  target_finish: 2026-11-17; completed_on: 2026-11-17): retain PR #9's synthetic layout cases in the current core test
   runner, with typed short-input failures, URL/snapshot equivalence and automatic
   fetch-mock cleanup. Remove the redundant fixture-only script labeled E2E;
   actual comparisons remain in the existing testing workspaces. The first core
   CI exposed a genuine inline-ad leak in the Yahoo-shaped fixture. Exact
   `.caas-da` containers are now removed before both candidate parsers; focused
   engine-isolation cases preserve article containers, prose mentioning ads, and
-  original raw HTML. No dependency or persisted-data change. Core CI required
-  before merge.
+  original raw HTML. No dependency or persisted-data change. All ten new cases
+  and the existing scoped checks passed in
+  [CI 44164245806](https://github.com/talktovishal/Podcast/actions/runs/44164245806)
+  on runtime candidate `c1a473e`. Final integration/release validation is separate.
 
 - Packaging context hygiene (implementation and full validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
