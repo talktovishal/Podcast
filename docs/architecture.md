@@ -2,7 +2,21 @@
 
 ## Overview
 
-### Main-feed candidate eligibility (implemented; validation pending; not deployed)
+### Hard chunk-size bound (implemented; validation pending; not deployed)
+
+Chunk size continues to mean UTF-16 code units, preserving ordinary grouping and
+hashes. Limits must be integers >=2; that minimum makes an indivisible surrogate
+pair representable. Individual oversized sentences split after whitespace if
+available, otherwise without cutting a surrogate pair. Fragments concatenate
+exactly to the sentence, including internal whitespace. This is code-point-safe,
+not a promise to keep arbitrary combining-character/grapheme sequences together.
+Existing paragraph trimming and sentence-delimiter whitespace normalization are
+unchanged; concatenating all chunks does not reconstruct the raw source's
+paragraph separators. Each resulting chunk is within the bound and retains its
+content hash. Newly split input can increase chunk count and activate existing
+long-source policy; already published audio is not rewritten. No migration.
+
+### Main-feed candidate eligibility (implemented and validated; not deployed)
 
 The Azure feed resolves each distinct item ID among its unexpired episode
 candidates with a point read, sequentially (one lookup in flight), then requires
@@ -13,6 +27,9 @@ Existing feed sorting, retention, tokens, GUIDs and media URLs are unchanged.
 This bounds eligibility lookups to candidate IDs, not overall episode listing
 cost; the latter still needs the separate query-design work. No stored-contract
 change or migration is needed. Rollback restores the history-window defect.
+Validated by [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+on candidate `5e60fdb`, including >500-item SQL parity, missing/foreign/status
+filtering and propagated lookup failures.
 
 ### Conditional billing event application (implemented and validated; not deployed)
 

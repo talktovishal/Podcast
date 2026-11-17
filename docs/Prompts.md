@@ -765,6 +765,13 @@ In `packages/core` define:
 Chunking:
 
 - chunk text by paragraphs/sentences to avoid max limits
+- Enforce `maxChars` as a positive integer of at least 2 UTF-16 code units
+  (`String.length`). Overlong individual sentences split at whitespace where
+  possible, otherwise at a code-point-safe boundary; never split a surrogate
+  pair. Preserve every character inside the split sentence, including whitespace.
+  Existing paragraph/sentence normalization and ordinary chunk hashes stay the
+  same. Invalid limits fail with `INVALID_INPUT`; already published audio is not
+  rewritten.
 - persist chunk hashes for caching
 
 ### 4.4 Media serving requirements (dev mode)

@@ -9,11 +9,20 @@
 
 ## Spec Consistency Notes (Current)
 
-- Feed eligibility (implemented; validation pending; target_finish: 2026-11-17;
+- Chunk size enforcement (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
+  oversized sentences at whitespace or surrogate-pair-safe hard boundaries.
+  Enforce integer limits >=2 UTF-16 code units and retain split-sentence content.
+  No migration or regeneration of published audio.
+
+- Feed eligibility (implementation and scoped validation done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17;
   not merged/deployed): resolve actual unexpired episode candidates' article
   records without the newest-500 window, deduplicating IDs and keeping one point
   read in flight. Preserve same-user/READY requirements, retention, ordering,
   GUIDs, feed tokens and audio URLs. No stored-contract change or migration.
+  [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+  passed on candidate `5e60fdb`.
 
 - Billing event concurrency (implementation and scoped validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves

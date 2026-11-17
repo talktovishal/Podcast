@@ -204,6 +204,9 @@ Behavior:
 - `WORKER_RAW_ARTIFACT_RETENTION_DAYS` (default `90`; expires `RAW_HTML`/`RAW_PDF` artifacts while keeping markdown artifacts)
 - `AUDIO_RETENTION_DAYS` (default `60`; stamps item/digest/summary episode audio expiry from `publishedAt` for feed/media hiding + purge)
 - `WORKER_TTS_CHUNK_MAX_CHARS` (default `1800`; Azure production env rendering defaults this to `1200` for steadier Kokoro chunk latency)
+  - Integer of at least `2`, counted as UTF-16 code units (`String.length`).
+    Oversized sentences use whitespace boundaries, then a surrogate-pair-safe
+    hard split. Invalid values fail explicitly rather than disabling the bound.
 - `WORKER_TTS_MAX_CHUNKS` (default `24`; full-episode narration above this chunk count triggers the automatic summarized-transcript podcast fallback before TTS. If the summary provider is unavailable or still returns too much text, the worker uses a bounded deterministic abridged summary so the episode can fit; `SOURCE_TOO_LONG` remains a final invariant safety net.)
 - `WORKER_TTS_SEGMENT_MAX_ATTEMPTS` (default `3`; retryable python-tts/Kokoro segment failures are retried inside the current synthesis run before the whole job is failed)
 - `WORKER_TTS_SEGMENT_RETRY_BASE_MS` (default `2000`; base backoff for retryable per-segment TTS failures)
