@@ -9,12 +9,19 @@
 
 ## Spec Consistency Notes (Current)
 
-- RSS preflight concurrency (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
+- Provider gate audit (tests added; validation pending; target_finish:
+  2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
+  four missing behavioral cases and six controlled-fault checks. No heavyweight
+  model install, provider/runtime change, live-cloud or production claim.
+
+- RSS preflight concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
   results, strict absence classification and no repair after any outage.
   Synthetic-wave and delayed-outage regressions cover the bound and mutation gate.
   Seven focused helper cases pass locally; 12 synthetic 20 ms HEAD checks measured
   261.761 ms serial versus 66.409 ms bounded median (three runs, peak four).
+  [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+  passed on candidate `6117789`, including delayed-outage route assertions.
 
 - Safe query bounds (implementation and scoped validation done; target_finish:
   2026-11-17; completed_on: 2026-11-17; not merged/deployed): audited all 12 first-result helper callers,

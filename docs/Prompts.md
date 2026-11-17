@@ -776,6 +776,10 @@ Document tradeoffs in `plans.md`.
 
 ### 4.3 TTS provider interface
 
+- Dependency-light CI maps provider checks to their actual claims and exercises
+  selected-provider isolation, Melo audio/error/cleanup and invalid-voice
+  rejection. Controlled faults must make the new regressions fail. These checks
+  do not replace fresh real-model validation or prove production capacity.
 - Design only: [one-active-inference policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
   proposes finite waiting and explicit busy/retry/cancellation behavior.
   Initialization locks are implemented separately; they do not enable this

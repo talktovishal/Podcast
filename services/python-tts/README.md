@@ -68,6 +68,24 @@ the API requirements plus pytest, without downloading Kokoro/Melo models.
 Synthesis checks only the requested provider. Missing optional Melo does not
 disable Kokoro; unexpected discovery failures remain explicit.
 
+### What each gate proves
+
+| Gate | Evidence | Does not prove |
+|---|---|---|
+| `test_provider_discovery.py` | Missing optional modules are distinguished from unrelated import failures | Real model assets load |
+| `test_kokoro_streaming.py` | Per-key initialization/retry, Kokoro segmented WAV, selected-provider isolation in both directions, Melo mono WAV/error/temp-file cleanup, invalid-voice rejection, request/recycle accounting | Real voice quality, model memory capacity, live-service correctness |
+| `test_logging_split.py` | Activity/error separation and logging failure behavior | Production log retention/transport |
+| `check_provider_gate_mutations.py` | New regressions fail for six controlled faults in disposable copies, including unsafe errors and missing cleanup | Full mutation coverage of the service |
+| Real-provider E2E below | Fresh valid WAV from the installed providers in that test environment | Reproducible asset provenance or production capacity |
+
+CI's `python-tts-unit` job runs the first four gates with API dependencies and
+pytest, without heavyweight provider packages or model downloads. Existing
+constructor concurrency and Kokoro error tests were retained rather than
+duplicated. Added cases close the Melo-path and invalid-voice gaps. Controlled
+fault copies are removed afterward and never modify the working service source.
+Real-model, live-cloud and deployment validation remain separate evidence; no
+such run or deployment is claimed by this dependency-light audit.
+
 Run the real provider synthesis checks for both Kokoro and Melo:
 
 ```bash

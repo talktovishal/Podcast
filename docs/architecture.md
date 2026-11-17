@@ -2,7 +2,17 @@
 
 ## Overview
 
-### Bounded RSS preflight (implemented; validation pending; not deployed)
+### Provider verification audit (tests added; validation pending; not deployed)
+
+[Provider gate map](../services/python-tts/README.md#what-each-gate-proves)
+separates optional discovery, constructor concurrency, service behavior,
+controlled-fault sensitivity and real-model evidence. Four new parameterized
+cases cover the previously untested Melo success/error cleanup path and early
+voice rejection in both providers; existing coverage is reused. CI checks six
+controlled faults in disposable copies without installing model providers.
+No production behavior, provider versions, models or credentials change.
+
+### Bounded RSS preflight (implemented and validated; not deployed)
 
 The main-feed preflight uses four read workers, each checking an episode and any
 needed alternate format sequentially. Thus original plus alternate HEAD calls
@@ -23,6 +33,9 @@ runs each): serial median 261.761 ms, four-worker median 66.409 ms, identical 12
 calls/results, measured peak in flight 1 versus 4. All seven focused feed-helper
 tests passed. These measurements justify the small bound, not a production
 latency or capacity claim.
+Dependency-backed validation, including delayed-outage no-mutation route tests,
+passed [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+on candidate `6117789`.
 
 ### Safe first-match read audit (implemented and validated; not deployed)
 
