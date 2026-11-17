@@ -11,6 +11,11 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   Newest/oldest selection, feed ordering, global counts and bulk changes still
   examine all required candidates. No token, data-layout or quota policy change.
 
+- Main-feed media preflight uses at most four concurrent storage HEAD checks,
+  including item-format alternatives. It waits for the read workers to settle
+  and returns no repair information if any read failed. Existing strict
+  missing-object classification, episode order and URLs are unchanged.
+
 - Azure main-feed eligibility resolves the actual unexpired episode candidates'
   owning articles, not the newest 500 articles. Missing, non-READY and
   differently owned articles are excluded; metadata outages propagate rather

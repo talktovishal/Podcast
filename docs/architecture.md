@@ -2,7 +2,29 @@
 
 ## Overview
 
-### Safe first-match read audit (implemented; validation pending; not deployed)
+### Bounded RSS preflight (implemented; validation pending; not deployed)
+
+The main-feed preflight uses four read workers, each checking an episode and any
+needed alternate format sequentially. Thus original plus alternate HEAD calls
+share the same maximum of four in flight; this is not four requests per episode.
+All workers settle before return, and any failure rejects the entire preflight
+before the route's repair loop. Completed results are assembled in input order,
+independent of completion order. Missing-object classification is unchanged.
+No token/URL/GUID, retention, storage contract or migration change.
+
+The focused regression models eight equal-latency reads in two waves instead
+of eight serial waves, checks the same bound with missing originals/alternates,
+and proves that a failed read cannot return partial repair information while a
+peer remains in flight. Route tests delay an outage until confirmed-missing
+results are available and still require zero repair mutations. This bounds
+parallelism, not total feed read count; SDK request timeouts remain unchanged.
+Local synthetic measurement (12 present objects, 20 ms per mocked HEAD, three
+runs each): serial median 261.761 ms, four-worker median 66.409 ms, identical 12
+calls/results, measured peak in flight 1 versus 4. All seven focused feed-helper
+tests passed. These measurements justify the small bound, not a production
+latency or capacity claim.
+
+### Safe first-match read audit (implemented and validated; not deployed)
 
 `AzureTablePrimaryStore.firstEntity` now closes its async iterator after its
 first result, rather than materializing every matching result. Empty iteration
@@ -26,6 +48,8 @@ query can still scan its entire candidate set; Azure may prefetch a page or scan
 server-side even when this helper consumes one row. This is not a new index,
 strict single-row network-read guarantee or solution to every unbounded query.
 No data migration or durable contract change.
+Validated by [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+on candidate `c3ba8e5`, including the three iterator/ordering regressions.
 
 ### Approved design-only follow-ups
 

@@ -679,7 +679,10 @@ test("rss storage outages do not mutate missing episodes or caches", async (t) =
       { statusCode: 404, code: "ContainerNotFound" }
     ]) {
       const mocked = t.mock.method(storage, "headObject", async (key: string) => {
-        if (key === `${items[1].id}.mp3`) throw error;
+        if (key === `${items[1].id}.mp3`) {
+          await new Promise<void>((resolve) => setImmediate(resolve));
+          throw error;
+        }
         throw Object.assign(new Error("missing fixture object"), { code: "ENOENT" });
       });
       try {
@@ -692,6 +695,7 @@ test("rss storage outages do not mutate missing episodes or caches", async (t) =
         assert.equal(await prisma.job.count({ where: { item: { userId: user.id } } }), 0);
         assert.equal(await prisma.chunkCache.count({ where: { itemId: { in: items.map((item) => item.id) } } }), 2);
         assert.equal(await prisma.item.count({ where: { userId: user.id, status: "READY" } }), 2);
+        assert.equal(await prisma.episode.count({ where: { item: { userId: user.id } } }), 2);
       } finally {
         mocked.mock.restore();
       }

@@ -180,6 +180,10 @@ If you touch feed/media auth, do all of the following:
 ## Required regression checks for auth changes
 
 Item RSS media validation must distinguish confirmed absence from storage failure.
+Media preflight runs at most four HEAD checks concurrently, including alternate
+formats, and settles all read workers before returning. Any outage rejects the
+whole preflight before repair; input ordering and existing public URLs are
+preserved even if checks finish in a different order.
 Azure eligibility checks resolve the owning item for each unexpired episode
 candidate, rather than a newest-500 item window. Items must belong to the feed
 owner and be READY. Point-read failures propagate; they are not missing items.

@@ -9,12 +9,21 @@
 
 ## Spec Consistency Notes (Current)
 
-- Safe query bounds (implemented; validation pending; target_finish:
-  2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
+- RSS preflight concurrency (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
+  results, strict absence classification and no repair after any outage.
+  Synthetic-wave and delayed-outage regressions cover the bound and mutation gate.
+  Seven focused helper cases pass locally; 12 synthetic 20 ms HEAD checks measured
+  261.761 ms serial versus 66.409 ms bounded median (three runs, peak four).
+
+- Safe query bounds (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
   stopped their iterators after the first match, and retained full reads for
   ordering-sensitive/global operations. Three SDK-boundary regressions cover
   one-of-1000 consumption/close, empty/error outcomes and newest/oldest selection.
-  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-validation-pending-not-deployed).
+  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-and-validated-not-deployed)
+  and passed [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+  on candidate `c3ba8e5`.
 
 - Model admission design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
