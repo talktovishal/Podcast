@@ -81,13 +81,28 @@ test("relocated web and worker images contain required runtime files and start w
     });
     const healthUrl = service === "web" ? "http://127.0.0.1:3000/api/health" : "http://127.0.0.1:3001/health";
     execFileSync("docker", ["exec", container, "node", "-e", `
-      fetch(${JSON.stringify(healthUrl)}, { signal: AbortSignal.timeout(5000) }).then(async response => {
-        if (!response.ok) throw new Error("health status " + response.status);
-        const body = await response.json();
-        if (${service === "web" ? "body.ok !== true" : "body.status !== 'ok' || body.stuckJobs < 0"}) {
-          throw new Error("runtime dependencies unavailable");
-        }
-      }).catch(error => { console.error(error); process.exitCode = 1; });
-    `], { encoding: "utf8", timeout: 15_000 });
+      const { setTimeout: delay } = require("node:timers/promises");
+      async function waitForStartup() {
+        const deadline = Date.now() + 60_000;
+        let lastFailure;
+        do {
+          try {
+            const response = await fetch(${JSON.stringify(healthUrl)}, { signal: AbortSignal.timeout(5000) });
+            if (!response.ok) throw new Error("health status " + response.status);
+            const body = await response.json();
+            if (${service === "web" ? "body.ok !== true" : "body.status !== 'ok' || !Number.isInteger(body.stuckJobs) || body.stuckJobs < 0"}) {
+              throw new Error("runtime dependencies unavailable");
+            }
+            return;
+          } catch (error) {
+            if (error.cause?.code !== "ECONNREFUSED") throw error;
+            lastFailure = error;
+          }
+          await delay(500);
+        } while (Date.now() < deadline);
+        throw new Error("health port did not open within 60 seconds", { cause: lastFailure });
+      }
+      waitForStartup().catch(error => { console.error(error); process.exitCode = 1; });
+    `], { encoding: "utf8", timeout: 75_000 });
   }
 });

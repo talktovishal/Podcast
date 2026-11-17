@@ -13,7 +13,9 @@ Docker ignore implementation to a disposable context containing harmless
 canaries and required input files. Parity then inspects immutable web/worker
 images for required launch/generated files and absence of local env files,
 checks package resolution, and verifies running services without host checkout
-bind mounts. Runtime-created log/data directories are not confused with copied
+bind mounts. The startup check allows up to 60 seconds for an initially refused
+health connection; HTTP errors, malformed health responses and other failures
+still fail immediately. Runtime-created log/data directories are not confused with copied
 development state. These checks do not claim a complete production-only
 dependency closure, inspect real credentials or change protected deployment
 gates. No credential, persisted contract or data migration change.

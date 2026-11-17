@@ -14,6 +14,10 @@
   synthetic-canary validation, required image contents and checkout-independent
   web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-implemented-validation-pending-not-deployed).
   No dependency pruning, credential changes or protected deployment-gate changes.
+  Initial full CI passed context canaries, image builds and content checks but
+  exposed a test-startup race: the worker health port was not open yet. The
+  corrected check waits for connection refusal only, bounded at 60 seconds;
+  final parity validation remains required.
 
 - Provider manifest design (design deliverable done; target_finish: 2026-11-17;
   completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)

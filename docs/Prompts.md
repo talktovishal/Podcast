@@ -10,7 +10,9 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   paths, runtime/data/cache state, worktrees and generated test/Python artifacts.
   Example environment templates remain available. Synthetic canary checks and
   image-content/startup checks run in the existing parity CI job; deployment
-  controls, credentials and dependency pruning are unchanged.
+  controls, credentials and dependency pruning are unchanged. Startup validation
+  waits briefly for a refused health connection, with an explicit timeout; it
+  does not accept unhealthy or malformed responses.
 
 - Azure first-match metadata lookups stop after the first iterator result,
   preserving existing storage-order selection and propagating read failures.
