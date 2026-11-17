@@ -1,7 +1,10 @@
 import io
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pytest
@@ -18,6 +21,90 @@ from app import main
 
 def _make_request() -> Request:
     return Request({"type": "http", "headers": []})
+
+
+@pytest.mark.parametrize("provider", ["kokoro", "melo"])
+@pytest.mark.parametrize("fail_first", [False, True])
+def test_concurrent_model_initialization_and_failed_retry(monkeypatch, provider, fail_first):
+    entered = threading.Event()
+    release = threading.Event()
+    waiting = threading.Event()
+    model = object()
+    calls = []
+
+    class ObservedLock:
+        def __init__(self):
+            self.lock = threading.Lock()
+            self.attempts = 0
+
+        def __enter__(self):
+            self.attempts += 1
+            if self.attempts == 2:
+                waiting.set()
+            self.lock.acquire()
+
+        def __exit__(self, *_args):
+            self.lock.release()
+
+    def initialize(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            entered.set()
+            assert release.wait(5), "test must release initialization"
+            if fail_first:
+                raise RuntimeError("controlled initialization failure")
+        return model
+
+    module = ModuleType("kokoro" if provider == "kokoro" else "melo.api")
+    setattr(module, "KPipeline" if provider == "kokoro" else "TTS", initialize)
+    if provider == "melo":
+        monkeypatch.setitem(sys.modules, "melo", ModuleType("melo"))
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setattr(main, "_kokoro_pipelines", {})
+    monkeypatch.setattr(main, "_melo_models", {})
+    key = (provider, "a" if provider == "kokoro" else "EN")
+    monkeypatch.setattr(main, "_MODEL_INIT_LOCKS", {key: ObservedLock()})
+    load = (lambda: main._get_kokoro_pipeline("a")) if provider == "kokoro" else main._get_melo_model
+    cache = main._kokoro_pipelines if provider == "kokoro" else main._melo_models
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(load)
+        try:
+            assert entered.wait(5)
+            second = pool.submit(load)
+            assert waiting.wait(5), "second caller must reach the initialization guard"
+            assert len(calls) == 1
+            assert cache == {}, "an unfinished model must not be published"
+        finally:
+            release.set()
+        if fail_first:
+            with pytest.raises(RuntimeError, match="controlled initialization failure"):
+                first.result(timeout=5)
+        else:
+            assert first.result(timeout=5) is model
+        assert second.result(timeout=5) is model
+
+    assert load() is model
+    assert len(calls) == (2 if fail_first else 1)
+
+
+def test_different_model_languages_initialize_independently(monkeypatch):
+    rendezvous = threading.Barrier(2)
+    module = ModuleType("kokoro")
+
+    def initialize(*, lang_code):
+        rendezvous.wait(timeout=5)
+        return lang_code
+
+    module.KPipeline = initialize
+    monkeypatch.setitem(sys.modules, "kokoro", module)
+    monkeypatch.setattr(main, "_kokoro_pipelines", {})
+    monkeypatch.setattr(main, "_MODEL_INIT_LOCKS", {})
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(main._get_kokoro_pipeline, "a")
+        second = pool.submit(main._get_kokoro_pipeline, "b")
+        assert first.result(timeout=5) == "a"
+        assert second.result(timeout=5) == "b"
 
 
 def test_kokoro_synthesis_does_not_check_melo(monkeypatch: pytest.MonkeyPatch) -> None:

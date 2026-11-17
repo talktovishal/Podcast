@@ -805,6 +805,9 @@ No item may be marked Done without passing the verification commands listed in i
 
 ### Python TTS Sidecar (S07)
 
+- Lazy model initialization is guarded per provider/language. Concurrent first
+  requests reuse one successfully initialized instance; failed initialization
+  remains retryable. The guard does not serialize warm inference.
 - `POST /v1/synthesize` MUST require an `X-Sidecar-Secret` header matching the `TTS_SIDECAR_SECRET` env var.
 - The Dockerfile MUST include a `USER app` directive (no root process).
 - uvicorn MUST bind to `127.0.0.1` in production profiles.

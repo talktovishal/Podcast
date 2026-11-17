@@ -2,6 +2,14 @@
 
 ## Overview
 
+### Per-model initialization guards (implemented; validation pending; not deployed)
+
+Kokoro and Melo model caches use provider/language-specific initialization locks.
+The cache is populated only after construction succeeds; a failure propagates and
+releases the guard so a waiting request can retry. Different model keys initialize
+independently. The lock ends before inference and does not change capacity or
+readiness policy. No persisted data, schema, dependencies or migration are involved.
+
 ### Equal round-robin work selection (implemented and validated; not deployed)
 
 Candidate `353f790` passed

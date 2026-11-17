@@ -9,6 +9,12 @@
 
 ## Spec Consistency Notes (Current)
 
+- Model initialization (implemented; validation pending; target_finish:
+  2026-11-17; not merged/deployed): provider/language guards prevent duplicate
+  cold construction, publish only successfully constructed models and allow
+  retry after failure. Warm inference remains unchanged. No persisted-contract
+  change, migration or backfill is required.
+
 - Equal round-robin worker scheduling (implementation and validation done;
   target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):
   the owner selected equal,
