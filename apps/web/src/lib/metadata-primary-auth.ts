@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { hashIncomingToken } from "@articlepod/core";
+import { AppError, errorCodes, hashIncomingToken, type BillingEventVersion } from "@articlepod/core";
+import { Prisma } from "@prisma/client";
 import { webPrimaryStore, webUsesAzureTablePrimary } from "./metadata-primary-store";
 import { prisma } from "./prisma";
 import { filterUnexpiredAudioEpisodes, isAudioAvailable } from "./audio-retention";
@@ -231,16 +232,24 @@ export async function updatePrimaryUser(
     isPaid: boolean;
     submissionCount: number;
     extraSubmissionCredits: number;
-  }>
+  }>,
+  expectedBillingVersion?: BillingEventVersion
 ) {
   if (!webUsesAzureTablePrimary()) {
-    return prisma.user.update({
-      where: { id: userId },
-      data: input
-    });
+    try {
+      return await prisma.user.update({
+        where: { id: userId, ...expectedBillingVersion },
+        data: input
+      });
+    } catch (error) {
+      if (expectedBillingVersion !== undefined && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
+      throw error;
+    }
   }
 
-  return requirePrimaryStore().updateUser(userId, input);
+  return requirePrimaryStore().updateUser(userId, input, expectedBillingVersion);
 }
 
 export async function findPrimaryBillingWebhookEvent(provider: string, providerEventId: string) {
@@ -300,10 +309,11 @@ export async function upsertPrimarySandboxBillingAccount(
     billingLastInvoiceEventAt?: Date | null;
     billingUpdatedAt?: Date | null;
     createdAt?: Date;
-  }
+  },
+  expectedBillingVersion?: BillingEventVersion | null
 ) {
   if (!webUsesAzureTablePrimary()) {
-    return prisma.sandboxBillingAccount.upsert({
+    const operation = {
       where: { userId: input.userId },
       create: {
         userId: input.userId,
@@ -347,10 +357,27 @@ export async function upsertPrimarySandboxBillingAccount(
         ...(input.billingLastInvoiceEventAt !== undefined ? { billingLastInvoiceEventAt: input.billingLastInvoiceEventAt } : {}),
         ...(input.billingUpdatedAt !== undefined ? { billingUpdatedAt: input.billingUpdatedAt } : {})
       }
-    });
+    };
+    if (expectedBillingVersion !== undefined) {
+      try {
+        if (expectedBillingVersion === null) {
+          return await prisma.sandboxBillingAccount.create({ data: operation.create });
+        }
+        return await prisma.sandboxBillingAccount.update({
+          where: { userId: input.userId, ...expectedBillingVersion },
+          data: operation.update
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2025" || error.code === "P2002")) {
+          throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+        }
+        throw error;
+      }
+    }
+    return prisma.sandboxBillingAccount.upsert(operation);
   }
 
-  return requirePrimaryStore().upsertSandboxBillingAccount(input);
+  return requirePrimaryStore().upsertSandboxBillingAccount(input, expectedBillingVersion);
 }
 
 export async function createPrimaryBillingWebhookEvent(input: {

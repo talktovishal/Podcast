@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { AppError, errorCodes } from "@articlepod/core";
+import { AppError, billingEventVersion, errorCodes } from "@articlepod/core";
 import { env } from "./env";
 import { logger } from "./logger";
 import {
@@ -1266,7 +1266,7 @@ async function applyCheckoutSessionCompleted(event: Stripe.Event, session: Strip
     billingStatus: buildBillingSnapshot(billingUser).hasPaidAccess ? billingUser.billingStatus : "INCOMPLETE"
   });
 
-  await updatePrimaryUser(userId, patch);
+  await updatePrimaryUser(userId, patch, billingEventVersion(billingUser));
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_LIVE_PROVIDER,
     providerEventId: event.id,
@@ -1386,7 +1386,7 @@ async function applySubscriptionUpdate(event: Stripe.Event, subscription: Stripe
     "subscription"
   );
 
-  await updatePrimaryUser(user.id, patch);
+  await updatePrimaryUser(user.id, patch, billingEventVersion(user));
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_LIVE_PROVIDER,
     providerEventId: event.id,
@@ -1583,7 +1583,7 @@ async function applyInvoiceEvent(event: Stripe.Event, invoice: Stripe.Invoice): 
     );
   }
 
-  await updatePrimaryUser(user.id, patch);
+  await updatePrimaryUser(user.id, patch, billingEventVersion(user));
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_LIVE_PROVIDER,
     providerEventId: event.id,
@@ -1736,7 +1736,7 @@ async function applySandboxCheckoutSessionCompleted(
   await upsertPrimarySandboxBillingAccount({
     userId: user.id,
     ...patch
-  });
+  }, currentAccount ? billingEventVersion(currentAccount) : null);
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_SANDBOX_PROVIDER,
     providerEventId: event.id,
@@ -1772,10 +1772,11 @@ async function findSandboxUserForSubscription(subscription: Stripe.Subscription)
   const metadataUserId = typeof subscription.metadata?.articlepod_user_id === "string" ? subscription.metadata.articlepod_user_id : null;
   const sandboxAccount = customerId ? await findPrimarySandboxBillingAccountByBillingCustomerId(customerId) : null;
   const userId = sandboxAccount?.userId ?? metadataUserId ?? null;
+  const currentAccount = sandboxAccount ?? (userId ? await findPrimarySandboxBillingAccountByUserId(userId) : null);
   const user = userId ? ((await findPrimaryUserById(userId)) as BillingUserRecord | null) : null;
   return {
     user,
-    sandboxRecord: sandboxAccount ? sandboxAccountToBillingState(sandboxAccount, sandboxAccount.userId) : null,
+    sandboxRecord: currentAccount ? sandboxAccountToBillingState(currentAccount, currentAccount.userId) : null,
     userId,
     customerId
   };
@@ -1866,7 +1867,7 @@ async function applySandboxSubscriptionUpdate(
   await upsertPrimarySandboxBillingAccount({
     userId,
     ...patch
-  });
+  }, sandboxRecord ? billingEventVersion(sandboxRecord) : null);
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_SANDBOX_PROVIDER,
     providerEventId: event.id,
@@ -1895,6 +1896,7 @@ async function applySandboxSubscriptionUpdate(
 async function findSandboxUserForInvoice(invoice: Stripe.Invoice): Promise<{
   user: BillingUserRecord | null;
   sandboxRecord: SandboxBillingAccountRecord | null;
+  accountExists: boolean;
   customerId: string | null;
   subscriptionId: string | null;
 }> {
@@ -1906,18 +1908,20 @@ async function findSandboxUserForInvoice(invoice: Stripe.Invoice): Promise<{
       : null;
   const sandboxAccount = customerId ? await findPrimarySandboxBillingAccountByBillingCustomerId(customerId) : null;
   const userId = sandboxAccount?.userId ?? metadataUserId ?? null;
+  const currentAccount = sandboxAccount ?? (userId ? await findPrimarySandboxBillingAccountByUserId(userId) : null);
   const user = userId ? ((await findPrimaryUserById(userId)) as BillingUserRecord | null) : null;
 
   return {
     user,
-    sandboxRecord: userId ? sandboxAccountToBillingState(sandboxAccount, userId) : null,
+    sandboxRecord: userId ? sandboxAccountToBillingState(currentAccount, userId) : null,
+    accountExists: currentAccount !== null,
     customerId,
     subscriptionId
   };
 }
 
 async function applySandboxInvoiceEvent(event: Stripe.Event, invoice: Stripe.Invoice): Promise<StripeWebhookApplyResult> {
-  const { user, sandboxRecord, customerId, subscriptionId } = await findSandboxUserForInvoice(invoice);
+  const { user, sandboxRecord, accountExists, customerId, subscriptionId } = await findSandboxUserForInvoice(invoice);
   const invoiceId = invoice.id;
   const objectId = invoice.id;
   const userId = user?.id ?? sandboxRecord?.userId ?? null;
@@ -2033,7 +2037,7 @@ async function applySandboxInvoiceEvent(event: Stripe.Event, invoice: Stripe.Inv
   await upsertPrimarySandboxBillingAccount({
     userId,
     ...patch
-  });
+  }, accountExists ? billingEventVersion(currentRecord) : null);
   await createPrimaryBillingWebhookEvent({
     provider: STRIPE_SANDBOX_PROVIDER,
     providerEventId: event.id,
@@ -2116,5 +2120,18 @@ export async function applyStripeWebhookEvent(
   event: Stripe.Event,
   lane: BillingLane = "LIVE"
 ): Promise<StripeWebhookApplyResult> {
-  return lane === "SANDBOX" ? applySandboxStripeWebhookEvent(event) : applyLiveStripeWebhookEvent(event);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await (lane === "SANDBOX" ? applySandboxStripeWebhookEvent(event) : applyLiveStripeWebhookEvent(event));
+    } catch (error) {
+      if (!(error instanceof AppError) || error.code !== errorCodes.BILLING_UPDATE_CONFLICT || attempt >= 2) {
+        throw error;
+      }
+      await logger.warn("Billing event update conflicted; retrying from current state", {
+        billingLane: lane,
+        stripeEventId: event.id,
+        attempt: attempt + 1
+      });
+    }
+  }
 }

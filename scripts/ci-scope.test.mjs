@@ -44,6 +44,14 @@ test("python TTS changes run model-free service tests", () => {
   assert.equal(computeScope(["apps/web/src/app/about/page.tsx"]).run_python_tts, false);
 });
 
+test("container context rules and packaging checks trigger parity validation", () => {
+  for (const path of [".dockerignore", "scripts/container-packaging.test.mjs"]) {
+    const scope = computeScope([path]);
+    assert.equal(scope.run_simple, true);
+    assert.equal(scope.run_parity, true);
+  }
+});
+
 test("manual CI validates the complete tracked candidate rather than only its last commit", () => {
   const output = execFileSync(process.execPath, [
     fileURLToPath(new URL("./ci-scope.mjs", import.meta.url)), "--format", "json"

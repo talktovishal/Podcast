@@ -2,6 +2,7 @@ import { TableClient, type TableEntity, type TableEntityResult } from "@azure/da
 import { AppError, errorCodes } from "../errors/codes";
 import { parseStoredItemTags, serializeItemTags, type SnippetPageMetadata } from "../types/domain";
 import { parseSnippetPageMetadata, serializeSnippetPageMetadata } from "../snippets/richCapture";
+import { matchesBillingEventVersion, type BillingEventVersion } from "./billingEventVersion";
 
 type AzureTablePrimaryStoreOptions = {
   tablePrefix: string;
@@ -838,8 +839,13 @@ export class AzureTablePrimaryStore {
   }
 
   private async firstEntity<T extends Record<string, unknown>>(key: TableKey, filter?: string): Promise<TableEntityResult<T> | null> {
-    const entities = await this.listEntities<T>(key, filter);
-    return entities[0] ?? null;
+    await this.ready();
+    for await (const entity of this.client(key).listEntities<T>({
+      queryOptions: filter ? { filter } : undefined
+    })) {
+      return entity;
+    }
+    return null;
   }
 
   private async createEntity<T extends Record<string, unknown>>(
@@ -1601,9 +1607,18 @@ export class AzureTablePrimaryStore {
       lastSeenCountryCode: string | null;
       lastSeenRegionCode: string | null;
       lastSeenCity: string | null;
-    }>
+    }>,
+    expectedBillingVersion?: BillingEventVersion
   ): Promise<AzureTablePrimaryUser | null> {
     const current = await this.getEntity<Record<string, unknown>>("users", "user", userId);
+    if (expectedBillingVersion !== undefined) {
+      if (!current || !matchesBillingEventVersion(this.toUser(current), expectedBillingVersion)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
+      if (!current.etag || current.etag === "*") {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
     if (!current) {
       return null;
     }
@@ -1665,6 +1680,9 @@ export class AzureTablePrimaryStore {
 
     const success = await this.updateEntity("users", next, current.etag);
     if (!success) {
+      if (expectedBillingVersion !== undefined) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Billing state changed. Retry the event.", 409);
+      }
       return this.findUserById(userId);
     }
     return this.toUser(next as TableEntityResult<Record<string, unknown>>);
@@ -1690,9 +1708,21 @@ export class AzureTablePrimaryStore {
       billingLastInvoiceEventAt?: Date | null;
       billingUpdatedAt?: Date | null;
       createdAt?: Date;
-    }
+    },
+    expectedBillingVersion?: BillingEventVersion | null
   ): Promise<AzureTablePrimarySandboxBillingAccount> {
     const current = await this.getEntity<Record<string, unknown>>("sandboxBillingAccounts", "sandboxBilling", input.userId);
+    if (expectedBillingVersion !== undefined) {
+      const matches = expectedBillingVersion === null
+        ? current === null
+        : current !== null && matchesBillingEventVersion(this.toSandboxBillingAccount(current), expectedBillingVersion);
+      if (!matches) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+      if (current && (!current.etag || current.etag === "*")) {
+        throw new AppError(errorCodes.STORAGE_FAILED, "Billing updates require an exact record version.", 503);
+      }
+    }
     const createdAt = current ? parseRequiredDate(current.createdAt, "createdAt") : input.createdAt ?? new Date();
     const updatedAt = new Date();
     const entity: TableEntity<Record<string, unknown>> = {
@@ -1733,7 +1763,22 @@ export class AzureTablePrimaryStore {
       updatedAt: updatedAt.toISOString()
     };
 
-    await this.upsertEntity("sandboxBillingAccounts", entity);
+    if (expectedBillingVersion === undefined) {
+      await this.upsertEntity("sandboxBillingAccounts", entity);
+    } else if (current) {
+      if (!await this.updateEntity("sandboxBillingAccounts", entity, current.etag)) {
+        throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+      }
+    } else {
+      try {
+        await this.createEntity("sandboxBillingAccounts", entity);
+      } catch (error) {
+        if (isConflictError(error)) {
+          throw new AppError(errorCodes.BILLING_UPDATE_CONFLICT, "Sandbox billing state changed. Retry the event.", 409);
+        }
+        throw error;
+      }
+    }
     return this.toSandboxBillingAccount(entity as TableEntityResult<Record<string, unknown>>);
   }
 

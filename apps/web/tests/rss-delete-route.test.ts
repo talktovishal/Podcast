@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -13,8 +14,52 @@ import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 import { purgeExpiredAudioEpisodes } from "../src/lib/audio-retention-purge";
 import { deleteUnreferencedAudioObject, purgeExpiredItemArtifacts } from "../src/lib/audio-ownership";
+import { filterReadyItemEpisodes } from "../src/lib/rss-item-eligibility";
+import { isAudioAvailable } from "../src/lib/audio-retention";
 
 let dbReady = false;
+
+test("Azure-style episode candidate resolution agrees with the SQL join beyond 500 articles", async () => {
+  ensureDbBootstrap();
+  const prefix = randomUUID();
+  const user = await prisma.user.create({ data: { email: `${prefix}@feed-eligibility.test` } });
+  try {
+    await prisma.item.createMany({
+      data: Array.from({ length: 501 }, (_, i) => ({
+        id: `${prefix}-${i}`, userId: user.id, sourceType: "URL",
+        status: i === 500 ? "PROCESSING" : "READY", createdAt: new Date(1_600_000_000_000 + i * 1000)
+      }))
+    });
+    for (const index of [0, 250, 499, 500]) {
+      await prisma.episode.create({
+        data: {
+          itemId: `${prefix}-${index}`, guid: `guid-${prefix}-${index}`, title: `Episode ${index}`, description: "",
+          audioPath: `items/${prefix}-${index}/episode.mp3`, audioBytes: 123, mimeType: "audio/mpeg",
+          publishedAt: new Date(1_700_000_000_000 + index * 1000),
+          expiresAt: index === 250 ? new Date("2020-01-01T00:00:00Z") : null
+        }
+      });
+    }
+    const newest = await prisma.item.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 500 });
+    assert.ok(!newest.some((item) => item.id === `${prefix}-0`));
+    const now = new Date();
+    const candidates = await prisma.episode.findMany({
+      where: { item: { userId: user.id } }, orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+    });
+    const resolved = await filterReadyItemEpisodes(
+      candidates.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
+      user.id, (id) => prisma.item.findUnique({ where: { id } })
+    );
+    const sql = await prisma.episode.findMany({
+      where: { item: { userId: user.id, status: "READY" }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
+    });
+    assert.deepEqual(resolved, sql);
+    assert.deepEqual(resolved.map((episode) => episode.itemId), [`${prefix}-499`, `${prefix}-0`]);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
 
 for (const mode of ["delete-owner", "delete-borrower", "expire-owner"] as const) {
   test(`legacy shared audio survives ${mode}, with stable RSS and ranged media`, async () => {
@@ -634,7 +679,10 @@ test("rss storage outages do not mutate missing episodes or caches", async (t) =
       { statusCode: 404, code: "ContainerNotFound" }
     ]) {
       const mocked = t.mock.method(storage, "headObject", async (key: string) => {
-        if (key === `${items[1].id}.mp3`) throw error;
+        if (key === `${items[1].id}.mp3`) {
+          await new Promise<void>((resolve) => setImmediate(resolve));
+          throw error;
+        }
         throw Object.assign(new Error("missing fixture object"), { code: "ENOENT" });
       });
       try {
@@ -647,6 +695,7 @@ test("rss storage outages do not mutate missing episodes or caches", async (t) =
         assert.equal(await prisma.job.count({ where: { item: { userId: user.id } } }), 0);
         assert.equal(await prisma.chunkCache.count({ where: { itemId: { in: items.map((item) => item.id) } } }), 2);
         assert.equal(await prisma.item.count({ where: { userId: user.id, status: "READY" } }), 2);
+        assert.equal(await prisma.episode.count({ where: { item: { userId: user.id } } }), 2);
       } finally {
         mocked.mock.restore();
       }

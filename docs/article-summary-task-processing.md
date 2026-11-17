@@ -1,5 +1,10 @@
 # Article Summary Task Processing
 
+**Design-only follow-up:** [durable acceptance and worker preparation](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+proposes a discoverable preparation intent before extraction. It is not
+implemented. The existing prepared-markdown task contract described below
+continues to apply; no unprepared tasks are introduced by this documentation.
+
 ## Purpose
 
 `ArticleSummaryTask` is the explicit pending-work queue for per-article summaries. It is separate from the podcast/audio `Job` queue so the worker can discover every article summary that needs to be generated across all users without scanning item jobs or triggering audio/RSS work.

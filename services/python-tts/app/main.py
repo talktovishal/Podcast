@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from _thread import LockType
 import hmac
 import io
 import json
@@ -368,6 +369,8 @@ MELO_ENGLISH_VOICES = [
 
 _kokoro_pipelines: Dict[str, Any] = {}
 _melo_models: Dict[str, Any] = {}
+_MODEL_INIT_LOCKS: Dict[tuple[str, str], LockType] = {}
+_MODEL_INIT_LOCKS_GUARD = threading.Lock()
 NLTK_RESOURCE_PATHS = {
     "averaged_perceptron_tagger_eng": "taggers/averaged_perceptron_tagger_eng",
     "cmudict": "corpora/cmudict",
@@ -425,12 +428,21 @@ def _provider_health(provider: str | None = None) -> Dict[str, ProviderHealth]:
     return {name: checks[name]() for name in selected}
 
 
-def _get_kokoro_pipeline(language_code: str) -> Any:
-    if language_code not in _kokoro_pipelines:
-        from kokoro import KPipeline
+def _model_init_lock(provider: str, language: str) -> LockType:
+    key = (provider, language)
+    with _MODEL_INIT_LOCKS_GUARD:
+        if key not in _MODEL_INIT_LOCKS:
+            _MODEL_INIT_LOCKS[key] = threading.Lock()
+        return _MODEL_INIT_LOCKS[key]
 
-        _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
-    return _kokoro_pipelines[language_code]
+
+def _get_kokoro_pipeline(language_code: str) -> Any:
+    with _model_init_lock("kokoro", language_code):
+        if language_code not in _kokoro_pipelines:
+            from kokoro import KPipeline
+
+            _kokoro_pipelines[language_code] = KPipeline(lang_code=language_code)
+        return _kokoro_pipelines[language_code]
 
 
 def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> bytes:
@@ -468,11 +480,12 @@ def _synthesize_kokoro_to_wav_bytes(text: str, voice: str, speed: float) -> byte
 
 def _get_melo_model() -> Any:
     key = "EN"
-    if key not in _melo_models:
-        from melo.api import TTS
+    with _model_init_lock("melo", key):
+        if key not in _melo_models:
+            from melo.api import TTS
 
-        _melo_models[key] = TTS(language="EN", device="auto")
-    return _melo_models[key]
+            _melo_models[key] = TTS(language="EN", device="auto")
+        return _melo_models[key]
 
 
 def _synthesize_melo(text: str, voice: str, speed: float) -> tuple[np.ndarray, int]:

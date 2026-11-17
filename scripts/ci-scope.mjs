@@ -64,6 +64,8 @@ const LICENSE_PATTERNS = [
   /^scripts\/license-check\.mjs$/
 ];
 const PARITY_PATTERNS = [
+  /^\.dockerignore$/,
+  /^scripts\/container-packaging\.test\.mjs$/,
   /^docker-compose\.parity\.yml$/,
   /^Dockerfile\.web$/,
   /^Dockerfile\.worker$/,

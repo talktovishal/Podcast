@@ -9,6 +9,132 @@
 
 ## Spec Consistency Notes (Current)
 
+- Contributor documentation hygiene (done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [verified contributor commands](../AGENTS.md#quick-commands-keep-these-accurate)
+  replace nonexistent scaffold directories and placeholders with the actual
+  workspace scripts and Python model-free CI commands. Referenced files,
+  manifest scripts and CI commands checked; approval/security/migration policy
+  unchanged. No workstation-specific Markdown links were found in the checked
+  root contributor files and docs, so no speculative link rewrite was made.
+
+- Packaging context hygiene (implementation and full validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): explicit local-state exclusions, real Docker
+  synthetic-canary validation, required image contents and checkout-independent
+  web/worker startup in parity. [Boundary and commands](architecture.md#build-context-hygiene-validated-not-deployed).
+  No dependency pruning, credential changes or protected deployment-gate changes.
+  Initial full CI passed context canaries, image builds and content checks but
+  exposed a test-startup race: the worker health port was not open yet. The
+  corrected check waits for connection refusal only, bounded at 60 seconds;
+  six controlled startup/error/deadline cases and
+  [full CI 44060767171](https://github.com/talktovishal/Podcast/actions/runs/44060767171)
+  passed on runtime candidate `aa05f54`, including parity smoke and podcast
+  contracts. Docker is unavailable locally; actual image checks ran in CI.
+
+- Provider manifest design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [source inventory and locked-manifest proposal](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  separates verified source declarations from unknown live assets, defines
+  platform-specific hashes/provenance and two-build/rollback validation.
+  No upgrades, guessed pins or live-runtime changes.
+
+- Shared synthesis extraction (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): article/digest/summary jobs depend directly on
+  [audio-synthesis](../apps/worker/src/lib/audio-synthesis.ts). Move behavior
+  unchanged, including retries, format, storage keys and cleanup; retain
+  coordination/publication/ownership policies with their existing jobs.
+  Exact moved-body comparison and
+  [CI 44056646537](https://github.com/talktovishal/Podcast/actions/runs/44056646537)
+  passed on candidate `a43cfa3`.
+
+- Provider gate audit (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [claim-to-gate map](../services/python-tts/README.md#what-each-gate-proves),
+  four missing behavioral cases and six controlled-fault checks. No heavyweight
+  model install, provider/runtime change, live-cloud or production claim.
+  [CI 44055671118](https://github.com/talktovishal/Podcast/actions/runs/44055671118)
+  passed on candidate `e4723bc`, including the controlled-fault gate.
+
+- RSS preflight concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): four total HEAD checks in flight, ordered
+  results, strict absence classification and no repair after any outage.
+  Synthetic-wave and delayed-outage regressions cover the bound and mutation gate.
+  Seven focused helper cases pass locally; 12 synthetic 20 ms HEAD checks measured
+  261.761 ms serial versus 66.409 ms bounded median (three runs, peak four).
+  [CI 44054446960](https://github.com/talktovishal/Podcast/actions/runs/44054446960)
+  passed on candidate `6117789`, including delayed-outage route assertions.
+
+- Safe query bounds (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): audited all 12 first-result helper callers,
+  stopped their iterators after the first match, and retained full reads for
+  ordering-sensitive/global operations. Three SDK-boundary regressions cover
+  one-of-1000 consumption/close, empty/error outcomes and newest/oldest selection.
+  See [architecture audit](architecture.md#safe-first-match-read-audit-implemented-and-validated-not-deployed)
+  and passed [CI 44053415633](https://github.com/talktovishal/Podcast/actions/runs/44053415633)
+  on candidate `c3ba8e5`.
+
+- Model admission design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [conservative serialized policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  specifies one active inference, finite waiting, FIFO turns, overload, real
+  cancellation semantics, caller retry integration and resource/UX trade-offs.
+  No production load test or runtime/resource changes.
+
+- Quota reservation design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [admission and compensation proposal](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  covers concurrent last slots, stable request identity, free/paid capacity,
+  failure recovery and upgrade/rollback. Documents the completed-summary usage
+  mismatch; runtime quota policy and balances are unchanged.
+
+- Publication recovery design (design deliverable done; target_finish:
+  2026-11-17; completed_on: 2026-11-17): [fenced commit proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  includes SQL/Azure mechanics, stale-owner interleavings, every publication
+  write boundary, reconciliation, stable identities and staged rollback.
+  Runtime/schema/ownership protocols remain unchanged.
+
+- Summary acceptance design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [proposal and crash matrix](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+  reconcile durable preparation, existing summary tasks, quota identity,
+  asynchronous failures, migration and rollback. No runtime/schema change.
+
+- Readiness design (design deliverable done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17): [contract and rollout proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
+  documents bounded checks, known consumers and long-job/real-stall distinction.
+  Runtime endpoints, liveness, release gates and restarts are unchanged.
+
+- Chunk size enforcement (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): retain ordinary boundaries/hashes, split
+  oversized sentences at whitespace or surrogate-pair-safe hard boundaries.
+  Enforce integer limits >=2 UTF-16 code units and retain split-sentence content.
+  No migration or regeneration of published audio.
+  Five focused cases and [CI 44050577616](https://github.com/talktovishal/Podcast/actions/runs/44050577616)
+  passed on candidate `11173bf`.
+
+- Feed eligibility (implementation and scoped validation done; target_finish: 2026-11-17;
+  completed_on: 2026-11-17;
+  not merged/deployed): resolve actual unexpired episode candidates' article
+  records without the newest-500 window, deduplicating IDs and keeping one point
+  read in flight. Preserve same-user/READY requirements, retention, ordering,
+  GUIDs, feed tokens and audio URLs. No stored-contract change or migration.
+  [CI 44049848829](https://github.com/talktovishal/Podcast/actions/runs/44049848829)
+  passed on candidate `5e60fdb`.
+
+- Billing event concurrency (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): condition live/sandbox SQL/Azure event saves
+  on the observed billing snapshot. Retry known write conflicts from a fresh read
+  at most three times; ignore newly stale domain events and propagate exhausted
+  conflicts without a processed audit entry. Equal timestamps keep sequential
+  successful-write order, not an invented ordering of Stripe event IDs.
+  No new persisted fields/keys or migration; audit/account atomicity and
+  cross-domain/non-webhook reconciliation ordering remain separate concerns.
+  All 22 added cases executed and passed
+  [CI 44048163737](https://github.com/talktovishal/Podcast/actions/runs/44048163737)
+  on candidate `aef1035`.
+
+- Model initialization (implementation and scoped validation done; target_finish:
+  2026-11-17; completed_on: 2026-11-17; not merged/deployed): provider/language guards prevent duplicate
+  cold construction, publish only successfully constructed models and allow
+  retry after failure. Warm inference remains unchanged. No persisted-contract
+  change, migration or backfill is required. Candidate `72ecd2d` passed
+  [CI 44046355489](https://github.com/talktovishal/Podcast/actions/runs/44046355489),
+  including five added concurrency/retry cases in model-free service tests.
+
 - Equal round-robin worker scheduling (implementation and validation done;
   target_finish: 2026-11-12; completed_on: 2026-11-12; not merged/deployed):
   the owner selected equal,

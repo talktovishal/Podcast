@@ -2,9 +2,49 @@
 
 You are **Codex** acting as a **senior staff engineer and tech lead**. Build a polished, locally runnable **ArticlePod** web app from scratch.
 
-## Spec Status (as of 2026-04-29)
+## Spec Status (as of 2026-11-17)
 
-### Implemented (as of 2026-04-29)
+### Implemented in source (as of 2026-11-17)
+
+Source implementation is not deployment status; see [plans](plans.md) for
+validated draft changes and [architecture proposals](architecture-followup-proposals.md)
+for designs that have not been implemented.
+
+- Contributor commands now name the actual web, TypeScript worker, shared core
+  and Python speech-service paths and gates. This documentation cleanup does
+  not change product, licensing, security, migration or release-approval policy.
+
+- Docker contexts explicitly exclude local environment files, secret-staging
+  paths, runtime/data/cache state, worktrees and generated test/Python artifacts.
+  Example environment templates remain available. Synthetic canary checks and
+  image-content/startup checks run in the existing parity CI job; deployment
+  controls, credentials and dependency pruning are unchanged. Startup validation
+  waits briefly for a refused health connection, with an explicit timeout; it
+  does not accept unhealthy or malformed responses.
+
+- Azure first-match metadata lookups stop after the first iterator result,
+  preserving existing storage-order selection and propagating read failures.
+  Newest/oldest selection, feed ordering, global counts and bulk changes still
+  examine all required candidates. No token, data-layout or quota policy change.
+
+- Main-feed media preflight uses at most four concurrent storage HEAD checks,
+  including item-format alternatives. It waits for the read workers to settle
+  and returns no repair information if any read failed. Existing strict
+  missing-object classification, episode order and URLs are unchanged.
+
+- Azure main-feed eligibility resolves the actual unexpired episode candidates'
+  owning articles, not the newest 500 articles. Missing, non-READY and
+  differently owned articles are excluded; metadata outages propagate rather
+  than being treated as absence. Existing retention, ordering, GUIDs and URLs
+  remain unchanged.
+
+- Billing webhook saves condition on the billing snapshot used to decide
+  freshness, in SQL and Azure and in live/sandbox lanes. A conflict retries the
+  complete handler from current state up to three attempts; exhausted conflicts
+  return an explicit retryable failure, never a processed audit record.
+  Subscription and invoice watermarks remain separate. Equal-timestamp distinct
+  events retain successful-application order, matching sequential behavior;
+  timestamps do not establish true provider ordering within a second.
 
 - Primary workers use equal round-robin across item jobs, Summary Studio,
   article-summary tasks and digest runs. Empty/failed categories do not retain
@@ -249,6 +289,10 @@ You are **Codex** acting as a **senior staff engineer and tech lead**. Build a p
   - users can persist a default item processing mode (`FULL_EPISODE` or `SUMMARY_ONLY`) from the top `/app` workspace header slider through `GET/POST /api/account/processing-mode`.
   - URL, PDF, and Chrome extension captures inherit the user's default unless the web submit flow explicitly sends `mode=full` or `mode=summary`.
   - summary-only submissions run the shared pre-audio path first, storing canonical article markdown and resolving the item title, then create `ArticleSummaryTask` rows instead of podcast/audio `Job` rows; the worker now processes those tasks by turning stored markdown into the per-item summary artifact under `users/<userId>/markdown/items/<itemId>/summary.md` with provider/model/deployment/token metadata on the `Item` row.
+  - Design only: [durable acceptance proposal](architecture-followup-proposals.md#2-durable-acceptance-before-summary-preparation)
+    moves preparation behind a discoverable intent/worker boundary. The current
+    ordering above remains in force until a separately approved implementation
+    updates acceptance, asynchronous-error UX and both storage modes together.
   - summary-only items do not synthesize TTS, create `Episode` rows, or publish to the main RSS feed until the user explicitly chooses `Request TTS`.
   - `Request TTS` queues a `REQUEST_TTS` item job that consumes normal podcast capacity and generates full-article audio using the stored canonical markdown when available.
   - Recent items shows summary status, opens finished summaries in a drawer/sheet, and keeps summary viewing separate from podcast audio playback.
@@ -486,6 +530,11 @@ A) Account + private feed
   - `/rss/<feed_token>.xml`
 - User can rotate the feed token (invalidates previous URL)
 - Free users have a submission trial quota (default 2). Additional submissions require paid status or admin-granted extra tries.
+- Design only: [recoverable quota admission](architecture-followup-proposals.md#4-idempotent-quota-reservation-and-acceptance)
+  preserves free/paid policy while proposing idempotent reservation and
+  compensation. Completed summary tasks currently disappear from task-based
+  usage counting; reconcile that behavior with the daily-allowance contract
+  explicitly before activating any new ledger. No balances or limits change now.
 - Pro upgrades use Stripe-hosted Checkout; ongoing billing changes/cancelation use Stripe Customer Portal.
 
 B) Ingest content
@@ -730,6 +779,9 @@ Document tradeoffs in `plans.md`.
 
 ### 4.2 Job engine (deterministic + idempotent)
 
+- Design only: [fenced publication proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
+  specifies a recoverable commit authority across item, episode, job and audio
+  state. No new schema, claim protocol or feed/media behavior is activated here.
 - Item statuses:
   - `queued`, `processing`, `ready`, `failed`
 - Worker must be idempotent:
@@ -740,6 +792,21 @@ Document tradeoffs in `plans.md`.
 
 ### 4.3 TTS provider interface
 
+- Design only: [provider/asset manifest](architecture-followup-proposals.md#6-locked-provider-and-asset-manifest)
+  inventories supported paths and unresolved exact inputs, with hash/provenance,
+  two-build and rollback validation proposals. No dependency or model upgrade.
+- Article, digest and Summary Studio audio use the internal worker
+  [audio-synthesis module](../apps/worker/src/lib/audio-synthesis.ts) directly.
+  Synthesis, segment retries, concatenation and upload are shared; each job
+  retains its existing claim, cache ownership, publication and quota policies.
+- Dependency-light CI maps provider checks to their actual claims and exercises
+  selected-provider isolation, Melo audio/error/cleanup and invalid-voice
+  rejection. Controlled faults must make the new regressions fail. These checks
+  do not replace fresh real-model validation or prove production capacity.
+- Design only: [one-active-inference policy](architecture-followup-proposals.md#5-conservative-one-active-inference-admission)
+  proposes finite waiting and explicit busy/retry/cancellation behavior.
+  Initialization locks are implemented separately; they do not enable this
+  proposed admission policy or prove a memory/throughput bound.
 In `packages/core` define:
 
 - `TtsProvider.synthesizeToFile({ text, voice, format, outPath })`
@@ -751,6 +818,13 @@ In `packages/core` define:
 Chunking:
 
 - chunk text by paragraphs/sentences to avoid max limits
+- Enforce `maxChars` as a positive integer of at least 2 UTF-16 code units
+  (`String.length`). Overlong individual sentences split at whitespace where
+  possible, otherwise at a code-point-safe boundary; never split a surrogate
+  pair. Preserve every character inside the split sentence, including whitespace.
+  Existing paragraph/sentence normalization and ordinary chunk hashes stay the
+  same. Invalid limits fail with `INVALID_INPUT`; already published audio is not
+  rewritten.
 - persist chunk hashes for caching
 
 ### 4.4 Media serving requirements (dev mode)
@@ -805,6 +879,9 @@ No item may be marked Done without passing the verification commands listed in i
 
 ### Python TTS Sidecar (S07)
 
+- Lazy model initialization is guarded per provider/language. Concurrent first
+  requests reuse one successfully initialized instance; failed initialization
+  remains retryable. The guard does not serialize warm inference.
 - `POST /v1/synthesize` MUST require an `X-Sidecar-Secret` header matching the `TTS_SIDECAR_SECRET` env var.
 - The Dockerfile MUST include a `USER app` directive (no root process).
 - uvicorn MUST bind to `127.0.0.1` in production profiles.
@@ -835,6 +912,9 @@ No item may be marked Done without passing the verification commands listed in i
 
 ### Worker Process Health (S12)
 
+- Design-only follow-up: [separate readiness contract](architecture-followup-proposals.md#1-readiness-without-restart-loops).
+  Existing health responses and operational consumers remain unchanged until
+  implementation and timeout/action policies receive separate approval.
 - The worker process MUST expose a `GET /health` HTTP endpoint on a configurable port (default 3001).
 - The endpoint MUST return last-poll timestamp and count of stuck jobs.
 

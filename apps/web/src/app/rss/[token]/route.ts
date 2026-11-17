@@ -12,6 +12,7 @@ import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
 import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 import { deriveAlternateAudioPath, inspectFeedMedia } from "@/lib/rss-media";
+import { filterReadyItemEpisodes } from "@/lib/rss-item-eligibility";
 
 const FEED_ROUTE = "/rss/[token]";
 const FEED_HEADERS = {
@@ -83,18 +84,21 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
   const { user, tokenHash, repaired } = resolvedAccess;
 
   const now = new Date();
+  const primaryStore = webPrimaryStore;
   const episodes: MainFeedEpisode[] =
-    webUsesAzureTablePrimary() && webPrimaryStore
+    webUsesAzureTablePrimary() && primaryStore
       ? await (async () => {
-          const [episodeRows, itemRows, summaryEpisodes] = await Promise.all([
-            webPrimaryStore.listEpisodesForUser(user.id),
-            webPrimaryStore.listItemsByUser(user.id, 500),
-            webPrimaryStore.listSummaryEpisodesForUser(user.id)
+          const [episodeRows, summaryEpisodes] = await Promise.all([
+            primaryStore.listEpisodesForUser(user.id),
+            primaryStore.listSummaryEpisodesForUser(user.id)
           ]);
-          const readyItemIds = new Set(itemRows.filter((item) => item.status === "READY").map((item) => item.id));
+          const eligibleEpisodes = await filterReadyItemEpisodes(
+            episodeRows.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
+            user.id,
+            (id) => primaryStore.findItemById(id)
+          );
           return [
-            ...episodeRows
-              .filter((episode) => readyItemIds.has(episode.itemId) && isAudioAvailable(episode.expiresAt, now))
+            ...eligibleEpisodes
               .map((episode) => ({
                 id: episode.id,
                 itemId: episode.itemId,
