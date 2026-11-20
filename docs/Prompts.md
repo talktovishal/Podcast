@@ -781,6 +781,9 @@ Document tradeoffs in `plans.md`.
 
 ### 4.1 DB and storage (local-first)
 
+- Design only: [supported runtime recipes and parser plan](runtime-support-contract.md)
+  inventory existing modes and consumers. No shared parser, changed default,
+  configuration restriction or backend retirement is implemented.
 - Local DB: SQLite via Prisma (file in `apps/web/.data/db.sqlite`)
 - Local media storage (dev): `apps/web/.data/media/`
 - In Azure mode:

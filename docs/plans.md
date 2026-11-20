@@ -9,6 +9,13 @@
 
 ## Spec Consistency Notes (Current)
 
+- Simplification S3 (design deliverable done; target_finish: 2026-11-20;
+  completed_on: 2026-11-20): [runtime support contract](runtime-support-contract.md)
+  inventories source-defined recipes, known consumers, checker/parser
+  differences and characterization tests for a future shared selector parser.
+  No runtime/default/gate changes or mode retirement. Evidence is linked to
+  existing source; unknown external consumers are explicitly not inferred away.
+
 - Simplification S2 (implementation and scoped validation done; target_finish:
   2026-11-20; completed_on: 2026-11-20; not deployed): extract worker source preparation, preserving source policy,
   diagnostics, retention metadata and processing order. The coordinator keeps

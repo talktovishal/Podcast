@@ -631,6 +631,13 @@ the following operator-run publication process.
 7. Signed-in `/app/wiki` loads the manifest and current page directly from artifact storage, hides source/log pages from the primary tree, strips internal markdown plumbing from the rendered article view, presents a denser one-card browse rail with clamped page summaries, expects concept pages to render as structured wiki articles with an executive summary, an `At a glance` table, a long-form `## Working synthesis` split into thematic subsections, and concise references, keeps synthesis content in the main article while placing a compact inline `Sources` list underneath it with five short previews by default, and routes source references back to the original URLs instead of exposing raw blob/page paths.
 
 ## Runtime profiles and parity
+
+The [supported-runtime contract proposal](runtime-support-contract.md) records
+the actual simple/parity/Azure recipes, consumers, parser differences and a
+behavior-preserving extraction plan. It is design only. In particular,
+PostgreSQL/Azurite parity is not real Azure Table parity; the Azure example
+does not select Table primary without an explicit metadata override.
+No configuration values, defaults, supported modes or CI gates changed.
 - `simple`: local SQLite + local object storage + local python-tts
 - `parity`: Docker Compose with PostgreSQL + Azurite + python-tts + web + worker
 - `azure`: single VM compute + Azure Blob, with metadata primary selected by `METADATA_PRIMARY_BACKEND`
