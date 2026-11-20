@@ -794,6 +794,10 @@ Document tradeoffs in `plans.md`.
 
 ### 4.2 Job engine (deterministic + idempotent)
 
+- Design only: [integrated submission recovery plan](submission-recovery-plan.md)
+  combines the existing acceptance/quota designs with the separate publication
+  authority. Completed-summary accounting and policy-epoch synchronization need
+  explicit decisions before activation; no new runtime mechanism is enabled.
 - Article source reading lives in the worker-local `prepareArticleSource`
   helper. It returns text, markdown, diagnostics and raw-artifact metadata;
   the job coordinator retains all writes, claims, retries and publication.

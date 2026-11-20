@@ -145,6 +145,13 @@ on candidate `c3ba8e5`, including the three iterator/ordering regressions.
 
 ### Approved design-only follow-ups
 
+The [integrated recovery sequence](submission-recovery-plan.md) now connects
+acceptance, quota and preparation through the already-proposed single
+submission operation, while retaining separate item-publication authority.
+It covers pending responses, accepted-state claimer gates, policy decisions,
+failure boundaries and mixed-version rollback. This remains design only;
+the S1/S2 refactors do not implement any journal, new quota policy or fence.
+
 [Readiness proposal](architecture-followup-proposals.md#1-readiness-without-restart-loops)
 defines bounded checks, model/progress signals and staged consumer migration.
 It does not implement new endpoints or change liveness, gates or restart policy.

@@ -5,6 +5,11 @@ approved design work, not approval to add fields, change product behavior, enabl
 release gates, alter credentials, or change resource settings. Implementation
 needs a separately reviewed change with tests and an upgrade-in-place plan.
 
+The [integrated submission recovery plan](submission-recovery-plan.md) sequences
+proposals 2-4 together: one acceptance/quota journal, separate publication
+authority, explicit policy gates and compatible rollback. It is also design
+only; it does not introduce a second journal or activate these proposals.
+
 ## 1. Readiness without restart loops
 
 ### Problem and current evidence

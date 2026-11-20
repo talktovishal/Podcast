@@ -9,6 +9,14 @@
 
 ## Spec Consistency Notes (Current)
 
+- Simplification S4 (design deliverable done; target_finish: 2026-11-20;
+  completed_on: 2026-11-20): [integrated submission recovery plan](submission-recovery-plan.md)
+  sequences the existing acceptance/quota designs and separate publication
+  authority. Includes policy gates, accepted-state claiming, crash/race proof,
+  non-destructive upgrade and compatible draining rollback. No new journal,
+  schema, quota or runtime change. S5 retains current storage and compatibility
+  paths; no migration or alternatives study was approved or performed.
+
 - Simplification S3 (design deliverable done; target_finish: 2026-11-20;
   completed_on: 2026-11-20): [runtime support contract](runtime-support-contract.md)
   inventories source-defined recipes, known consumers, checker/parser
