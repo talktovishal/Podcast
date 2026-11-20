@@ -791,6 +791,10 @@ Document tradeoffs in `plans.md`.
 
 ### 4.2 Job engine (deterministic + idempotent)
 
+- Article source reading lives in the worker-local `prepareArticleSource`
+  helper. It returns text, markdown, diagnostics and raw-artifact metadata;
+  the job coordinator retains all writes, claims, retries and publication.
+  Web summary preparation and existing stored payloads remain unchanged.
 - Design only: [fenced publication proposal](architecture-followup-proposals.md#3-fenced-recoverable-episode-publication)
   specifies a recoverable commit authority across item, episode, job and audio
   state. No new schema, claim protocol or feed/media behavior is activated here.

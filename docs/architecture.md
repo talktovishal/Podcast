@@ -2,6 +2,22 @@
 
 ## Overview
 
+### Article source preparation (local simplification; not deployed)
+
+[prepareArticleSource](../apps/worker/src/lib/prepare-article-source.ts) reads
+URL/PDF/snapshot sources using the existing extraction and SSRF adapters. Its
+explicit context supplies read-only object access, retention days, storage-kind
+diagnostics and a logging callback. Storage construction remains lazy, so URL
+validation and source-read failures occur in the same order as before.
+It returns text, markdown, extraction diagnostics and raw bytes/metadata; it
+does not persist artifacts, change job state, acknowledge messages or use quota.
+
+The existing article coordinator calls it at the same point, retaining stored
+markdown reuse for REQUEST_TTS, cleanup, leases, heartbeats, retries, long-source
+policy, audio ownership and publication. Summary-only preparation in the web
+request is unchanged. No persisted-contract change or migration; reverting the
+module wiring is sufficient to undo this extraction.
+
 ### Contributor command hygiene
 
 [Contributor instructions](../AGENTS.md#quick-commands-keep-these-accurate)

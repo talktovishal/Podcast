@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
 import { randomBytes, randomUUID } from "node:crypto";
-import { join } from "node:path";
 import type { Prisma } from "@prisma/client";
 import {
   AppError,
@@ -11,16 +9,11 @@ import {
   buildUserItemSummaryStorageKey,
   buildItemAudioStorageKey,
   buildEpisodeDescription,
-  canonicalizeFetchableUrl,
   cleanExtractedMarkdown,
   chunkText,
   digestTargetWords,
   errorCodes,
   episodeAudioExpiryDate,
-  extractHtmlFromUrlWithDiagnostics,
-  extractHtmlSnapshot,
-  extractTextFromPdf,
-  getHtmlFetchDiagnostics,
   hasNarratableText,
   lowSignalExtractionMessage,
   markdownToNarrationText,
@@ -49,7 +42,8 @@ import {
 import { prisma } from "../lib/prisma.js";
 import { synthesizeEpisodeAudio } from "../lib/audio-synthesis.js";
 import { makeSummaryProvider } from "../lib/summary.js";
-import { getArtifactStorage, isLikelyLegacyAbsolutePath, normalizeStorageKey } from "../lib/storage.js";
+import { getArtifactStorage } from "../lib/storage.js";
+import { prepareArticleSource } from "../lib/prepare-article-source.js";
 import { workerLogger, formatDiagnostic } from "../lib/logger.js";
 import { recordWorkerAnalyticsEventBestEffort } from "../lib/analytics.js";
 import { syncItemProjectionById, syncJobAndItemProjectionByJobId } from "../lib/metadata-projection.js";
@@ -61,22 +55,6 @@ type ExtractionLogEntry = {
   message: string;
   details?: Record<string, unknown>;
 };
-type SourceArtifact = {
-  kind: "RAW_HTML" | "RAW_PDF";
-  storageKey: string;
-  contentType: string;
-  bytes: Buffer;
-  expiresAt: Date | null;
-};
-type ExtractionResult = {
-  title: string;
-  text: string;
-  markdown: string;
-  sourceLabel: string;
-  sourceArtifact: SourceArtifact | null;
-  selectionDiagnostics?: HtmlExtractionSelectionDiagnostics | null;
-};
-
 type ClaimedDispatchJob = {
   id: string;
   itemId: string;
@@ -331,10 +309,6 @@ function buildPersistedHtmlExtractionSelection(diagnostics: HtmlExtractionSelect
   };
 }
 
-function retentionExpiryDate(days: number): Date {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-}
-
 async function maybeStoreDemoExtractionTrace(input: {
   isDemoUser: boolean;
   userId: string;
@@ -469,194 +443,6 @@ function shouldFailStaleProcessingJob(job: StaleProcessingJob): AppError | null 
     return buildRepeatedStallTimeoutError();
   }
   return null;
-}
-
-async function extractItemText(item: {
-  id: string;
-  sourceType: string;
-  sourceUrl: string | null;
-  sourceFilePath: string | null;
-  sourceHtml: string | null;
-  logs: ExtractionLogEntry[];
-}): Promise<ExtractionResult> {
-  if (item.sourceType === "URL") {
-    if (!item.sourceUrl) {
-      throw new AppError(errorCodes.INVALID_INPUT, "Missing source URL", 400);
-    }
-
-    appendExtractionLog(item.logs, "extract:url", "Validating URL source", {
-      sourceUrl: item.sourceUrl
-    });
-    const canonicalized = await canonicalizeFetchableUrl(item.sourceUrl);
-    const fetchUrl = canonicalized.canonicalUrl;
-    const pinnedCandidates =
-      canonicalized.resolvedIps && canonicalized.resolvedIps.length > 0
-        ? canonicalized.resolvedIps
-        : canonicalized.resolvedIp
-          ? [canonicalized.resolvedIp]
-          : [];
-    appendExtractionLog(item.logs, "extract:url", "URL validation passed", {
-      pinnedCandidateCount: pinnedCandidates.length,
-      canonicalUrl: fetchUrl,
-      canonicalized: canonicalized.redirected,
-      redirectCount: canonicalized.redirectCount
-    });
-    if (canonicalized.redirected) {
-      appendExtractionLog(item.logs, "extract:url", "Canonicalized submitted URL before extraction", {
-        sourceUrl: item.sourceUrl,
-        canonicalUrl: fetchUrl,
-        redirectCount: canonicalized.redirectCount
-      });
-    }
-
-    appendExtractionLog(item.logs, "extract:url", "Fetching and parsing HTML", {
-      pinnedCandidateCount: pinnedCandidates.length,
-      fetchUrl
-    });
-
-    let extracted: Awaited<ReturnType<typeof extractHtmlFromUrlWithDiagnostics>>;
-    try {
-      extracted = await extractHtmlFromUrlWithDiagnostics(fetchUrl, pinnedCandidates);
-    } catch (error) {
-      const fetchDiagnostics = getHtmlFetchDiagnostics(error);
-      if (fetchDiagnostics) {
-        appendExtractionLog(item.logs, "extract:url", "HTML extraction failed", {
-          pinnedCandidateCount: fetchDiagnostics.pinnedCandidateCount,
-          pinnedStatuses: fetchDiagnostics.pinnedStatuses,
-          fallbackAttempted: fetchDiagnostics.fallbackAttempted,
-          fallbackStatus: fetchDiagnostics.fallbackStatus,
-          finalFetchStrategy: fetchDiagnostics.finalFetchStrategy
-        });
-      }
-      throw error;
-    }
-
-    const extractedTitle = extracted.title ?? "";
-    appendExtractionLog(item.logs, "extract:url", "HTML extraction complete", {
-      extractedTitleLength: extractedTitle.length,
-      extractedTextLength: extracted.text.length,
-      pinnedCandidateCount: extracted.diagnostics.pinnedCandidateCount,
-      pinnedStatuses: extracted.diagnostics.pinnedStatuses,
-      fallbackAttempted: extracted.diagnostics.fallbackAttempted,
-      fallbackStatus: extracted.diagnostics.fallbackStatus,
-      finalFetchStrategy: extracted.diagnostics.finalFetchStrategy,
-      extractionSelection: summarizeHtmlExtractionSelection(extracted.selectionDiagnostics)
-    });
-
-    return {
-      title: extractedTitle,
-      text: extracted.text,
-      markdown: extracted.markdown,
-      sourceLabel: fetchUrl,
-      sourceArtifact: {
-        kind: "RAW_HTML",
-        storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.html")),
-        contentType: "text/html; charset=utf-8",
-        bytes: Buffer.from(extracted.rawHtml, "utf8"),
-        expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-      },
-      selectionDiagnostics: extracted.selectionDiagnostics
-    };
-  }
-
-  if (item.sourceType === "HTML_SNAPSHOT") {
-    let snapshotHtml = item.sourceHtml?.trim() ?? "";
-    if (!snapshotHtml && item.sourceFilePath) {
-      if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
-        snapshotHtml = (await readFile(item.sourceFilePath, "utf8")).trim();
-      } else {
-        const storageKey = normalizeStorageKey(item.sourceFilePath);
-        snapshotHtml = (await getArtifactStorage().getObject(storageKey)).toString("utf8").trim();
-      }
-    }
-
-    if (!snapshotHtml) {
-      throw new AppError(errorCodes.INVALID_INPUT, "Missing captured HTML snapshot", 400);
-    }
-
-    appendExtractionLog(item.logs, "extract:snapshot", "Parsing captured HTML snapshot", {
-      sourceUrl: item.sourceUrl || "about:blank",
-      htmlBytes: Buffer.byteLength(snapshotHtml, "utf8")
-    });
-    const extracted = extractHtmlSnapshot({
-      html: snapshotHtml,
-      url: item.sourceUrl || undefined
-    });
-    const extractedTitle = extracted.title ?? "";
-    appendExtractionLog(item.logs, "extract:snapshot", "Snapshot extraction complete", {
-      extractedTitleLength: extractedTitle.length,
-      extractedTextLength: extracted.text.length,
-      extractionSelection: summarizeHtmlExtractionSelection(extracted.selectionDiagnostics)
-    });
-
-    return {
-      title: extractedTitle,
-      text: extracted.text,
-      markdown: extracted.markdown,
-      sourceLabel: item.sourceUrl || "Captured browser page",
-      sourceArtifact: {
-        kind: "RAW_HTML",
-        storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.html")),
-        contentType: "text/html; charset=utf-8",
-        bytes: Buffer.from(extracted.rawHtml, "utf8"),
-        expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-      },
-      selectionDiagnostics: extracted.selectionDiagnostics
-    };
-  }
-
-  if (!item.sourceFilePath) {
-    if (item.sourceType !== "PDF") {
-      throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
-    }
-    throw new AppError(errorCodes.INVALID_INPUT, "Missing source PDF path", 400);
-  }
-
-  if (item.sourceType !== "PDF") {
-    throw new AppError(errorCodes.INVALID_INPUT, "Unsupported item source type", 400);
-  }
-
-  let pdfData: Buffer;
-  if (isLikelyLegacyAbsolutePath(item.sourceFilePath)) {
-    appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from legacy local path", {
-      sourceFilePath: item.sourceFilePath
-    });
-    pdfData = await readFile(item.sourceFilePath);
-  } else {
-    const storageKey = normalizeStorageKey(item.sourceFilePath);
-    appendExtractionLog(item.logs, "extract:pdf", "Reading uploaded PDF from artifact storage", {
-      storageKey,
-      backend: workerEnv.storageBackend
-    });
-    pdfData = await getArtifactStorage().getObject(storageKey);
-  }
-
-  appendExtractionLog(item.logs, "extract:pdf", "PDF bytes loaded", {
-    bytes: pdfData.byteLength
-  });
-
-  appendExtractionLog(item.logs, "extract:pdf", "Extracting text from PDF");
-  const extracted = await extractTextFromPdf(new Uint8Array(pdfData));
-  const extractedTitle = extracted.title ?? "";
-  appendExtractionLog(item.logs, "extract:pdf", "PDF extraction complete", {
-    extractedTitleLength: extractedTitle.length,
-    extractedTextLength: extracted.text.length
-  });
-
-  return {
-    title: extractedTitle,
-    text: extracted.text,
-    markdown: extracted.markdown,
-    sourceLabel: "Uploaded PDF",
-    sourceArtifact: {
-      kind: "RAW_PDF",
-      storageKey: normalizeStorageKey(join("items", item.id, "artifacts", "source.pdf")),
-      contentType: "application/pdf",
-      bytes: pdfData,
-      expiresAt: retentionExpiryDate(workerEnv.rawArtifactRetentionDays)
-    },
-    selectionDiagnostics: null
-  };
 }
 
 async function loadStoredMarkdownArtifact(itemId: string): Promise<{ markdown: string; storageKey: string; bytes: number } | null> {
@@ -1699,13 +1485,17 @@ export async function processJob(jobId: string, dispatchMessage: ReservedDispatc
           sourceArtifact: null,
           selectionDiagnostics: null
         }
-      : await extractItemText({
+      : await prepareArticleSource({
           id: item.id,
           sourceType: item.sourceType,
           sourceUrl: item.sourceUrl,
           sourceFilePath: item.sourceFilePath,
-          sourceHtml: item.sourceHtml,
-          logs: extractionLogs
+          sourceHtml: item.sourceHtml
+        }, {
+          readObject: (key) => getArtifactStorage().getObject(key),
+          storageBackend: workerEnv.storageBackend,
+          rawArtifactRetentionDays: workerEnv.rawArtifactRetentionDays,
+          log: (stage, message, details) => appendExtractionLog(extractionLogs, stage, message, details)
         });
     const cleanedMarkdown = cleanExtractedMarkdown(extraction.markdown);
     const persistedHtmlExtractionSelection = extraction.selectionDiagnostics

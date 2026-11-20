@@ -9,6 +9,16 @@
 
 ## Spec Consistency Notes (Current)
 
+- Simplification S2 (implementation and scoped validation done; target_finish:
+  2026-11-20; completed_on: 2026-11-20; not deployed): extract worker source preparation, preserving source policy,
+  diagnostics, retention metadata and processing order. The coordinator keeps
+  all state writes; no schema, quota or payload changes. Existing M09/M10
+  behavior is unchanged. All 106 worker tests and 45 extraction/URL-safety
+  tests pass; worker typecheck/lint and build pass. Exact function-body
+  comparison confirms the moved extraction/retention logic differs only in
+  its explicit read/configuration/logging dependencies. Web and worker tests
+  use separate disposable databases, matching their normal test scripts.
+
 - Simplification S1 (implementation and scoped validation done; target_finish:
   2026-11-20; completed_on: 2026-11-20; not deployed): extract only main-feed candidate reads into
   [rss-main-feed](../apps/web/src/lib/rss-main-feed.ts), preserving both stores,
