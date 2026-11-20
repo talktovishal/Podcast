@@ -849,6 +849,9 @@ If serving media from the web server:
 
 ### 4.5 RSS generation requirements
 
+- The main-feed route uses one typed episode-read helper with Azure/SQL
+  implementations. Candidate eligibility, retention, order and read failures
+  stay unchanged; authentication, media checks/repair and XML stay in the route.
 - Deterministic ordering (published_at desc, then stable tiebreaker)
 - Stable GUID per episode
 - Unique enclosure URL per episode

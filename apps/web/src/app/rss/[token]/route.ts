@@ -1,18 +1,15 @@
 import { buildRssXml, hashIncomingToken, signStableMediaUrl } from "@articlepod/core";
 import { BRAND_NAME } from "@articlepod/core/src/config/brand";
 import { NextRequest, NextResponse } from "next/server";
-import { isAudioAvailable } from "@/lib/audio-retention";
 import { BRAND_PODCAST_COVER_PATH, absoluteBrandAssetUrl } from "@/lib/brand-assets";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { enqueueEpisodeMediaRepair } from "@/lib/media-repair";
 import { findPrimaryUserByFeedTokenHash, repairPrimaryFeedTokenHashFromValue } from "@/lib/metadata-primary-auth";
-import { webPrimaryStore, webUsesAzureTablePrimary } from "@/lib/metadata-primary-store";
 import { podcastRequestLogMeta } from "@/lib/podcast-request-log";
-import { prisma } from "@/lib/prisma";
 import { getArtifactStorage } from "@/lib/storage";
 import { deriveAlternateAudioPath, inspectFeedMedia } from "@/lib/rss-media";
-import { filterReadyItemEpisodes } from "@/lib/rss-item-eligibility";
+import { listMainFeedEpisodes, type MainFeedEpisode } from "@/lib/rss-main-feed";
 
 const FEED_ROUTE = "/rss/[token]";
 const FEED_HEADERS = {
@@ -20,25 +17,8 @@ const FEED_HEADERS = {
   "cache-control": "private, no-store"
 };
 
-type MainFeedEpisode = {
-  id: string;
-  itemId: string | null;
-  guid: string;
-  title: string;
-  description: string;
-  audioPath: string;
-  audioBytes: number;
-  mimeType: string;
-  publishedAt: Date;
-  feedKind: "item" | "summary";
-};
-
 function normalizeFeedToken(value: string): string {
   return value.replace(/\.xml$/i, "");
-}
-
-function comparePublishedDesc<T extends { publishedAt: Date; id: string }>(left: T, right: T): number {
-  return right.publishedAt.getTime() - left.publishedAt.getTime() || left.id.localeCompare(right.id);
 }
 
 async function resolveItemFeedAccess(token: string) {
@@ -84,102 +64,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
   const { user, tokenHash, repaired } = resolvedAccess;
 
   const now = new Date();
-  const primaryStore = webPrimaryStore;
-  const episodes: MainFeedEpisode[] =
-    webUsesAzureTablePrimary() && primaryStore
-      ? await (async () => {
-          const [episodeRows, summaryEpisodes] = await Promise.all([
-            primaryStore.listEpisodesForUser(user.id),
-            primaryStore.listSummaryEpisodesForUser(user.id)
-          ]);
-          const eligibleEpisodes = await filterReadyItemEpisodes(
-            episodeRows.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
-            user.id,
-            (id) => primaryStore.findItemById(id)
-          );
-          return [
-            ...eligibleEpisodes
-              .map((episode) => ({
-                id: episode.id,
-                itemId: episode.itemId,
-                guid: episode.guid,
-                title: episode.title,
-                description: episode.description,
-                audioPath: episode.audioPath,
-                audioBytes: episode.audioBytes,
-                mimeType: episode.mimeType,
-                publishedAt: episode.publishedAt,
-                feedKind: "item" as const
-              })),
-            ...summaryEpisodes
-              .filter((episode) => isAudioAvailable(episode.expiresAt, now))
-              .map((episode) => ({
-                id: episode.id,
-                itemId: null,
-                guid: episode.guid,
-                title: episode.title,
-                description: episode.description,
-                audioPath: episode.audioPath,
-                audioBytes: episode.audioBytes,
-                mimeType: episode.mimeType,
-                publishedAt: episode.publishedAt,
-                feedKind: "summary" as const
-              }))
-          ].sort(comparePublishedDesc);
-        })()
-      : await (async () => {
-          const [itemEpisodes, summaryEpisodes] = await Promise.all([
-            prisma.episode.findMany({
-              where: {
-                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-                item: {
-                  userId: user.id,
-                  status: "READY"
-                }
-              },
-              select: {
-                id: true,
-                itemId: true,
-                guid: true,
-                title: true,
-                description: true,
-                audioPath: true,
-                audioBytes: true,
-                mimeType: true,
-                publishedAt: true
-              },
-              orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-            }),
-            prisma.summaryEpisode.findMany({
-              where: {
-                userId: user.id,
-                OR: [{ expiresAt: null }, { expiresAt: { gt: now } }]
-              },
-              select: {
-                id: true,
-                guid: true,
-                title: true,
-                description: true,
-                audioPath: true,
-                audioBytes: true,
-                mimeType: true,
-                publishedAt: true
-              },
-              orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-            })
-          ]);
-          return [
-            ...itemEpisodes.map((episode) => ({
-              ...episode,
-              feedKind: "item" as const
-            })),
-            ...summaryEpisodes.map((episode) => ({
-              ...episode,
-              itemId: null,
-              feedKind: "summary" as const
-            }))
-          ].sort(comparePublishedDesc);
-        })();
+  const episodes = await listMainFeedEpisodes(user.id, now);
   const storage = getArtifactStorage();
   const availableEpisodes: MainFeedEpisode[] = [];
   let missingEpisodeCount = 0;

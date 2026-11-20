@@ -9,6 +9,16 @@
 
 ## Spec Consistency Notes (Current)
 
+- Simplification S1 (implementation and scoped validation done; target_finish:
+  2026-11-20; completed_on: 2026-11-20; not deployed): extract only main-feed candidate reads into
+  [rss-main-feed](../apps/web/src/lib/rss-main-feed.ts), preserving both stores,
+  output shape, ordering, errors and all downstream feed/media behavior.
+  No persisted contract or migration. Web typecheck, lint and production build
+  passed; all 340 web tests completed (338 passed, two existing skips),
+  including Azure/SQL read parity and feed/media stability. On macOS, bundle
+  relocation tests need a physical temporary path (`TMPDIR=/private/tmp`) and
+  the locked optional native canvas package. Existing M15 scope is unchanged.
+
 - Legacy marketing correction (done; target_finish: 2026-11-17; completed_on:
   2026-11-17): PR #13 merged as `ab9c1c9`, preserving configurable trial and
   retention values and removing daily/weekly/automatic wiki claims from public

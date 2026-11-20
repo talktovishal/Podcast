@@ -14,8 +14,7 @@ import { prisma } from "../src/lib/prisma";
 import { getArtifactStorage } from "../src/lib/storage";
 import { purgeExpiredAudioEpisodes } from "../src/lib/audio-retention-purge";
 import { deleteUnreferencedAudioObject, purgeExpiredItemArtifacts } from "../src/lib/audio-ownership";
-import { filterReadyItemEpisodes } from "../src/lib/rss-item-eligibility";
-import { isAudioAvailable } from "../src/lib/audio-retention";
+import { createMainFeedReader } from "../src/lib/rss-main-feed";
 
 let dbReady = false;
 
@@ -46,18 +45,67 @@ test("Azure-style episode candidate resolution agrees with the SQL join beyond 5
     const candidates = await prisma.episode.findMany({
       where: { item: { userId: user.id } }, orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
     });
-    const resolved = await filterReadyItemEpisodes(
-      candidates.filter((episode) => isAudioAvailable(episode.expiresAt, now)),
-      user.id, (id) => prisma.item.findUnique({ where: { id } })
-    );
-    const sql = await prisma.episode.findMany({
-      where: { item: { userId: user.id, status: "READY" }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-      orderBy: [{ publishedAt: "desc" }, { id: "asc" }]
-    });
+    const readAzure = createMainFeedReader({
+      listEpisodesForUser: async () => candidates,
+      listSummaryEpisodesForUser: async () => [],
+      findItemById: (id) => prisma.item.findUnique({ where: { id } })
+    }, prisma);
+    const resolved = await readAzure(user.id, now);
+    const sql = await createMainFeedReader(null, prisma)(user.id, now);
     assert.deepEqual(resolved, sql);
     assert.deepEqual(resolved.map((episode) => episode.itemId), [`${prefix}-499`, `${prefix}-0`]);
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
+  }
+});
+
+test("main-feed read boundary preserves Azure eligibility, summary mapping and tie ordering", async () => {
+  const now = new Date("2026-11-20T00:00:00Z");
+  const row = { guid: "guid", title: "Title & text", description: "<description>", audioPath: "audio.mp3",
+    audioBytes: 123, mimeType: "audio/mpeg", publishedAt: now, expiresAt: null };
+  const read = createMainFeedReader({
+    listEpisodesForUser: async () => [
+      { ...row, id: "c-item", itemId: "ready" },
+      { ...row, id: "expired", itemId: "ready", expiresAt: now },
+      { ...row, id: "foreign", itemId: "foreign" },
+      { ...row, id: "missing", itemId: "missing" },
+      { ...row, id: "processing", itemId: "processing" }
+    ],
+    listSummaryEpisodesForUser: async () => [
+      { ...row, id: "a-summary" },
+      { ...row, id: "expired-summary", expiresAt: now }
+    ],
+    findItemById: async (id) => id === "missing" ? null : {
+      userId: id === "foreign" ? "other-user" : "owner",
+      status: id === "processing" ? "PROCESSING" : "READY"
+    }
+  }, prisma);
+  const episodes = await read("owner", now);
+  const { expiresAt, ...fields } = row;
+  assert.deepEqual(episodes, [
+    { ...fields, id: "a-summary", itemId: null, feedKind: "summary" },
+    { ...fields, id: "c-item", itemId: "ready", feedKind: "item" }
+  ]);
+});
+
+test("main-feed read boundary propagates metadata failures instead of returning a partial feed", async () => {
+  const failure = new Error("metadata unavailable");
+  const row = { id: "episode", itemId: "item", guid: "guid", title: "Title", description: "",
+    audioPath: "audio.mp3", audioBytes: 123, mimeType: "audio/mpeg", publishedAt: new Date(), expiresAt: null };
+  for (const stage of ["episodes", "summaries", "owner"] as const) {
+    const read = createMainFeedReader({
+      listEpisodesForUser: async () => { if (stage === "episodes") throw failure; return [row]; },
+      listSummaryEpisodesForUser: async () => { if (stage === "summaries") throw failure; return []; },
+      findItemById: async () => { throw failure; }
+    }, prisma);
+    await assert.rejects(read("owner", new Date()), (error) => error === failure);
+  }
+  const original = prisma.episode.findMany;
+  prisma.episode.findMany = () => { throw failure; };
+  try {
+    await assert.rejects(createMainFeedReader(null, prisma)("owner", new Date()), (error) => error === failure);
+  } finally {
+    prisma.episode.findMany = original;
   }
 });
 

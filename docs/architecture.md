@@ -169,6 +169,15 @@ on candidate `11173bf`.
 
 ### Main-feed candidate eligibility (implemented and validated; not deployed)
 
+The main route now calls [listMainFeedEpisodes](../apps/web/src/lib/rss-main-feed.ts).
+This web-local read boundary selects Azure or SQL once at construction and
+returns the existing normalized item/summary episode list. It owns only the
+candidate queries and mapping; auth, media preflight, repair, XML and signing
+remain in the route. Both database implementations and their existing error
+semantics remain supported. No schema or persisted payload changes. Reverting
+this extraction restores the previous query placement, not the old history
+cutoff. This extraction is a local, undeployed change.
+
 The Azure feed resolves each distinct item ID among its unexpired episode
 candidates with a point read, sequentially (one lookup in flight), then requires
 the item to belong to the same user and be READY. A missing item is omitted, as
