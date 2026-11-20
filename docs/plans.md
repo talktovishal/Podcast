@@ -9,6 +9,17 @@
 
 ## Spec Consistency Notes (Current)
 
+- Simplification final local verification (done; target_finish: 2026-11-20;
+  completed_on: 2026-11-20; not pushed/deployed): the built web server passed
+  `scripts/verify_podcast_contract.sh` against a disposable SQLite/local-storage
+  fixture, plus exact repeated-RSS equality, unchanged token, HEAD byte length
+  and `bytes=0-1` response/body checks. Synthetic media only; no fresh synthesis
+  or cloud/Docker parity claim. Scoped preflight passed environment/naming
+  checks but Corepack could not download pinned pnpm (`ENOTCONN`); the
+  applicable web/worker typecheck, lint, test and build gates passed using the
+  installed binaries directly, as recorded below. No gate was bypassed in
+  source and no dependency manifest or persisted contract changed.
+
 - Simplification S4 (design deliverable done; target_finish: 2026-11-20;
   completed_on: 2026-11-20): [integrated submission recovery plan](submission-recovery-plan.md)
   sequences the existing acceptance/quota designs and separate publication
